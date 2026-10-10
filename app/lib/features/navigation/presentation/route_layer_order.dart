@@ -49,6 +49,9 @@ abstract final class RouteLayerOrder {
 
   /// The source layer of the basemaps' names of places (Protomaps): towns,
   /// their quarters, regions, countries. The roads' names come before.
+  /// The lines go under all of them, a name over a line hiding only a
+  /// short stretch of it; the main map's pins go under the towns' names
+  /// only (`PlaceTiles.basemapTownNames`), a pin giving way to one.
   static const basemapPlaceNames = 'places';
 
   /// The basemap's first layer of names of towns in [style], a style

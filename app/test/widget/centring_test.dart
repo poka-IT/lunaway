@@ -8,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -430,6 +431,11 @@ void main() {
         await place(tester, size);
         expect(card(tester).center.dx, closeTo(size.width / 2, 1));
         expect(confirm(tester).center.dx, closeTo(size.width / 2, 1));
+        // The map's credit, which no engine shows, over the button.
+        final credit = tester.getRect(find.byType(MapCredit));
+        expect(credit.overlaps(confirm(tester)), isFalse);
+        expect(credit.bottom, lessThanOrEqualTo(confirm(tester).top));
+        expect(credit.left, greaterThanOrEqualTo(0));
       });
     }
 
@@ -441,6 +447,9 @@ void main() {
           expect(card(tester).center.dx, closeTo(size.width / 2, 1));
           expect(confirm(tester).center.dx, closeTo(size.width / 2, 1));
           expect(card(tester).left, greaterThanOrEqualTo(48), reason: 'clear of the cut-out');
+          final credit = tester.getRect(find.byType(MapCredit));
+          expect(credit.left, greaterThanOrEqualTo(48), reason: 'the credit clear of it too');
+          expect(credit.overlaps(confirm(tester)), isFalse);
         },
       );
     }

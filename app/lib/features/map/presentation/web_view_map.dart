@@ -236,9 +236,11 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           tiles,
           dark: dark,
           labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
-          // Under the towns' names; under the points of a category chosen,
-          // which come first, whatever the style.
-          names: townNamesLayer(style) ?? (pois == null ? null : PoiMapStyle.fuelLayerId),
+          // Under the towns' names, so under the points of a category
+          // chosen, which come first. A layer goes only before one of the
+          // basemap (a change of theme places it again by that one): a
+          // style without the towns' names draws the pins on top.
+          names: townNamesLayer(style),
         ),
       {
         'id': MapStyle.clustersLayer,

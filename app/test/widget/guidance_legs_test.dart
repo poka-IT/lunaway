@@ -728,7 +728,13 @@ void main() {
       expect(covered(strip), isTrue, reason: 'a place drawn large under the strip');
       await tester.tap(find.byTooltip('Recentrer'));
       await settleShort(tester);
-      expect(map().rich!.obstacles.any((o) => o.overlaps(strip)), isFalse);
+      // The map's credit, over the strip while it shows, comes down into
+      // its room: what else kept the places off is gone.
+      final credit = tester.getCenter(find.text('© OpenStreetMap · Protomaps'));
+      expect(
+        map().rich!.obstacles.where((o) => !o.contains(credit)).any((o) => o.overlaps(strip)),
+        isFalse,
+      );
     });
   }
 }

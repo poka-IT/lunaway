@@ -306,7 +306,7 @@ class _Translations$map$it extends Translations$map$en {
 	@override String get filters => 'Filtri';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d\'autore di OpenStreetMap.';
-	@override String get creditPhotos => 'Foto: Lunaway, Fonte comunitaria esterna';
+	@override String get creditPhotos => 'Foto: contributori di Lunaway, Fonte comunitaria esterna';
 	@override String get creditPhotosLabel => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: contributori di Lunaway, Fonte comunitaria esterna. Apre la pagina dei diritti d\'autore di OpenStreetMap.';
 	@override String get showList => 'Elenco';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
@@ -3102,7 +3102,7 @@ extension on TranslationsIt {
 			'map.filters' => 'Filtri',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d\'autore di OpenStreetMap.',
-			'map.creditPhotos' => 'Foto: Lunaway, Fonte comunitaria esterna',
+			'map.creditPhotos' => 'Foto: contributori di Lunaway, Fonte comunitaria esterna',
 			'map.creditPhotosLabel' => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: contributori di Lunaway, Fonte comunitaria esterna. Apre la pagina dei diritti d\'autore di OpenStreetMap.',
 			'map.showList' => 'Elenco',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Elenco (${n})', other: 'Elenco (${n})', ), 

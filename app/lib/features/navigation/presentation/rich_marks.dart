@@ -70,11 +70,11 @@ final class RichStyle {
   /// Whether the API answers: offline, a mark keeps its pictogram.
   final bool online;
 
-  /// Whether the map credits the photos' sources: the places' tiles name
-  /// Lunaway's contributors and the external community source, whose
-  /// mention its licence requires wherever its photos show; the preview
-  /// loads them for that alone (`RouteMapPlaces.creditOnly`). A map without
-  /// those tiles (the guidance and the preview offline) draws no photo.
+  /// Whether the screen names the photos' sources over the map, Lunaway's
+  /// contributors and the external community source, whose mention its
+  /// licence requires wherever its photos show: the map's credit
+  /// (`MapCredit`) adds its line of the photos while [photos] holds. A map
+  /// without that credit draws no photo.
   final bool credited;
 
   /// The authors whose photos this device hides.

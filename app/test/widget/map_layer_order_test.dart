@@ -51,7 +51,7 @@ const _pois = PoiLayerView(
   category: PoiCategory.sights,
 );
 
-LunaMapProps _props({PlaceTilesView? tiles = _tiles}) => LunaMapProps(
+LunaMapProps _props({PlaceTilesView? tiles = _tiles, PoiLayerView pois = _pois}) => LunaMapProps(
   style: _aube,
   dark: false,
   initialCenter: const LatLng(44.4826, 4.6893),
@@ -62,7 +62,7 @@ LunaMapProps _props({PlaceTilesView? tiles = _tiles}) => LunaMapProps(
   onLongPress: (_) {},
   onViewportChanged: (_) {},
   onMapReady: (_) {},
-  pois: _pois,
+  pois: pois,
   placeTiles: tiles,
 );
 
@@ -148,6 +148,28 @@ void main() {
     expect(engine.layers, isNot(contains(PlaceTiles.pinsLayer)));
     await tester.pumpWidget(MaterialApp(home: GlLunaMap(_props())));
     await until(tester, () => engine.layers.contains(PlaceTiles.pinsLayer));
+    expect(outOfOrder(engine.layers, _expected), isEmpty);
+  });
+
+  testWidgets('the points read on demand go back where the style first put them', (tester) async {
+    final engine = await _drawn(tester, _props());
+    final before = engine.added;
+    // A chip of a category read on demand reads the tiles of every
+    // category: the points' source and its seven layers go again.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GlLunaMap(
+          _props(
+            pois: const PoiLayerView(
+              tileJsonUrl: 'https://api.example/poi/all/tiles.json',
+              category: PoiCategory.food,
+            ),
+          ),
+        ),
+      ),
+    );
+    await until(tester, () => engine.added >= before + 7);
+    expect(engine.added, before + 7);
     expect(outOfOrder(engine.layers, _expected), isEmpty);
   });
 

@@ -10,7 +10,6 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
-import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -467,14 +466,7 @@ class _PortraitState extends ConsumerState<_Portrait> {
               onHeight: (height) {
                 if (mounted && height != _notices) setState(() => _notices = height);
               },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  GuidanceNotices(session: session),
-                  const _GuidanceCredit(),
-                ],
-              ),
+              child: GuidanceNotices(session: session),
             ),
             buttons: arrived
                 ? null
@@ -524,12 +516,12 @@ class _PortraitState extends ConsumerState<_Portrait> {
           right: 0,
           bottom: 0,
           child: arrived
-              ? _ArrivalCard(session: session)
+              ? _ArrivalCard(session: session, credit: true)
               : ReportsHeight(
                   onHeight: (height) {
                     if (mounted && height != _bar) setState(() => _bar = height);
                   },
-                  child: _BottomBar(session: session),
+                  child: _BottomBar(session: session, credit: true),
                 ),
         ),
       ],
@@ -537,23 +529,72 @@ class _PortraitState extends ConsumerState<_Portrait> {
   }
 }
 
-/// The map's credit, under the maneuver and the notices: the foot of the
-/// map holds the stops' strip, "Recentrer" and the buttons. It names the
-/// photos' sources while a place may show its photo, which is when the
-/// rich marks may draw one (`RichStyle.photos`: photos chosen, the places'
-/// tiles read online).
-class _GuidanceCredit extends ConsumerWidget {
-  const new();
+/// How the guidance's map draws the places drawn large, read by the map and
+/// by its credit alike: photos while the user chose them and the API
+/// answers, credited by the map's credit ([_BarCredit]).
+RichStyle _richStyle(BuildContext context, WidgetRef ref) {
+  final fromTiles = ref.watch(placesFromTilesProvider);
+  return RichStyle(
+    look:
+        (ref.watch(routeSettingsControllerProvider).value?.guidancePlaces ?? const GuidancePlaces())
+            .look,
+    words: RichWords.of(context.t),
+    online: fromTiles,
+    credited: true,
+    muted: ref.watch(mutedAuthorIdsProvider),
+    labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+  );
+}
+
+/// The map's credit: upright, at the foot of the bar (or of the arrival's
+/// card), since over the map under the maneuver it covered the road ahead;
+/// on a screen on its side, over the map beside the panel
+/// ([_MapSideCredit]), the panel having no height to spare. It names the
+/// photos' sources while a place may show its photo ([RichStyle.photos]).
+/// A caption only: a stray touch while driving never leaves the guidance
+/// for the browser.
+class _BarCredit extends ConsumerWidget {
+  const new({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final look = ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look;
-    final photos =
-        (look ?? const GuidancePlaces().look) == GuidanceLook.photos &&
-        ref.watch(placesFromTilesProvider);
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: MapCredit(photos: photos),
+    final t = context.t;
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(color: color);
+    // A legal line, not reading matter, as the main map's (MapCredit).
+    final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(t.map.credit, style: style, textScaler: scaler),
+        if (_richStyle(context, ref).photos)
+          Text(t.map.creditPhotos, style: style, textScaler: scaler),
+      ],
+    );
+  }
+}
+
+/// [_BarCredit] over the map, on the main map's light ground: readable on
+/// any basemap, and the map under it takes the touch.
+class _MapSideCredit extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surface.withValues(alpha: 0.78),
+          borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
+          child: _BarCredit(color: scheme.onSurface),
+        ),
+      ),
     );
   }
 }
@@ -624,6 +665,11 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final legsAbove = legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
         ? legsHeight
         : 0.0;
+    // The map's credit at the foot of the map, over the strip when it runs
+    // there: the panel of a phone on its side has no height to spare.
+    final creditBottom = !legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
+        ? legsBottom + legsHeight + Space.xs
+        : safe.bottom + Space.s;
     return LayoutBuilder(
       builder: (context, box) => Stack(
         children: [
@@ -649,6 +695,13 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                       recenter: (size) => Rect.fromLTWH(
                         left + Space.s,
                         safe.top + Space.s,
+                        size.width,
+                        size.height,
+                      ),
+                      // At its foot, on the left.
+                      credit: (size) => Rect.fromLTWH(
+                        left + Space.s,
+                        box.maxHeight - creditBottom - size.height,
                         size.width,
                         size.height,
                       ),
@@ -706,12 +759,26 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                           child: _ManeuverBanner(session: session),
                         ),
                       GuidanceNotices(session: session),
-                      // Scrolled to, with the rest, on a phone on its side
-                      // with large text.
-                      const _GuidanceCredit(),
                     ],
                   ),
                 ),
+              ),
+            ),
+          ),
+          // The map's credit at the foot of the map beside the panel, where
+          // the route behind the vehicle seldom runs; the places drawn large
+          // keep off it.
+          Positioned(
+            left: left + Space.s,
+            right: safe.right + _buttonsColumn + Space.s,
+            bottom: creditBottom,
+            child: Align(
+              alignment: AlignmentDirectional.bottomStart,
+              child: ReportsRect(
+                onRect: (rect) {
+                  if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
+                },
+                child: const _MapSideCredit(),
               ),
             ),
           ),
@@ -946,15 +1013,7 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         places: tiles,
         rich: RouteMapRich(
-          style: RichStyle(
-            look: choice.look,
-            words: RichWords.of(context.t),
-            online: fromTiles,
-            // The places' tiles carry the photos' credit.
-            credited: fromTiles,
-            muted: ref.watch(mutedAuthorIdsProvider),
-            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
-          ),
+          style: _richStyle(context, ref),
           art: ref.watch(richArtProvider),
           // Online the tiles' places in view, offline the device's.
           tiles: fromTiles,
@@ -1053,16 +1112,22 @@ final class _OverTheMap {
   /// The stops' strip of the overview, empty while it is hidden.
   Size? legs;
 
+  /// The map's credit, where it stands over the map (on a screen on its
+  /// side; upright, it is in the bar).
+  Size? credit;
+
   /// Their rooms on the map, placed by the layout's anchors.
   List<Rect> rects({
     required bool free,
     required Rect Function(Size size) buttons,
     required Rect Function(Size size) recenter,
     required Rect Function(Size size) legs,
+    Rect Function(Size size)? credit,
   }) => [
     if (this.buttons case final size?) buttons(size),
     if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
     if (this.legs case final size? when !size.isEmpty) legs(size),
+    if ((this.credit, credit) case (final size?, final place?)) place(size),
   ];
 }
 
@@ -1501,9 +1566,13 @@ class _MapButtons extends ConsumerWidget {
 /// The arrival time, the time and distance left, the speed and its limit,
 /// and the way out.
 class _BottomBar extends ConsumerWidget {
-  const new({required this.session});
+  const new({required this.session, this.credit = false});
 
   final GuidanceSession session;
+
+  /// The map's credit at its foot ([_BarCredit]): upright, where the bar
+  /// runs under the map's whole width.
+  final bool credit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1526,42 +1595,54 @@ class _BottomBar extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
-          child: Row(
+          padding: EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, credit ? Space.xs : Space.m),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SpeedAndLimit(speedMps: speed, aids: session.aids, units: units, color: colors.text),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Semantics(
-                  container: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.navigation.guidance.arrival(time: t.clockTime(eta)),
-                        style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
-                      ),
-                      Text(
-                        '${t.routeDuration(left)} · ${t.routeDistance(remaining, units)}',
-                        style: theme.textTheme.titleMedium?.copyWith(color: colors.text),
-                      ),
-                    ],
+              Row(
+                children: [
+                  SpeedAndLimit(
+                    speedMps: speed,
+                    aids: session.aids,
+                    units: units,
+                    color: colors.text,
                   ),
-                ),
+                  const SizedBox(width: Space.m),
+                  Expanded(
+                    child: Semantics(
+                      container: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            t.navigation.guidance.arrival(time: t.clockTime(eta)),
+                            style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
+                          ),
+                          Text(
+                            '${t.routeDuration(left)} · ${t.routeDistance(remaining, units)}',
+                            style: theme.textTheme.titleMedium?.copyWith(color: colors.text),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: t.navigation.guidance.end,
+                    iconSize: 28,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(56, 56),
+                      foregroundColor: colors.text,
+                    ).copyWith(side: focusRingIn(colors.text)),
+                    onPressed: () async {
+                      if (await _confirmEnd(context) && context.mounted) _end(ref);
+                    },
+                    icon: const Icon(AppIcons.close),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: t.navigation.guidance.end,
-                iconSize: 28,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(56, 56),
-                  foregroundColor: colors.text,
-                ).copyWith(side: focusRingIn(colors.text)),
-                onPressed: () async {
-                  if (await _confirmEnd(context) && context.mounted) _end(ref);
-                },
-                icon: const Icon(AppIcons.close),
-              ),
+              if (credit) _BarCredit(color: colors.text),
             ],
           ),
         ),
@@ -1573,9 +1654,12 @@ class _BottomBar extends ConsumerWidget {
 /// The arrival: the place reached, what the app may ask about it (when a
 /// contribution flow registered), and the way back to the map.
 class _ArrivalCard extends ConsumerWidget {
-  const new({required this.session});
+  const new({required this.session, this.credit = false});
 
   final GuidanceSession session;
+
+  /// The map's credit at its foot, as the bar's ([_BottomBar.credit]).
+  final bool credit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1636,6 +1720,8 @@ class _ArrivalCard extends ConsumerWidget {
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                 child: Text(t.navigation.guidance.done),
               ),
+              if (credit) const SizedBox(height: Space.s),
+              if (credit) _BarCredit(color: scheme.onSurfaceVariant),
             ],
           ),
         ),

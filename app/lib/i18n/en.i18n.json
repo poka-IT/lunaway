@@ -135,7 +135,7 @@
     "filters": "Filters",
     "credit": "© OpenStreetMap · Protomaps",
     "creditLabel": "Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.",
-    "creditPhotos": "Photos: Lunaway, External community source",
+    "creditPhotos": "Photos: Lunaway contributors, External community source",
     "creditPhotosLabel": "Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.",
     "showList": "List",
     "showListCount(param=n)": {

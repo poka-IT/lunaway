@@ -23,6 +23,9 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
   /// Bottom to top.
   final List<String> layers;
 
+  /// How many layers the map added so far.
+  int added = 0;
+
   bool _created = false;
 
   /// Takes the place of the platform's engine for the test, until its end.
@@ -59,6 +62,7 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
         final id = args['layerId']! as String;
         final below = args['belowLayerId'] as String?;
         if (layers.contains(id)) throw PlatformException(code: 'layerExists', message: id);
+        added++;
         if (below == null) {
           layers.add(id);
         } else {

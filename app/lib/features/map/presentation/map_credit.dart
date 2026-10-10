@@ -8,17 +8,20 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// Where the OpenStreetMap copyright page lives: the credit opens it.
 final Uri osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
 
-/// The basemap's credit, always visible in the bottom left corner of the
-/// map: the OpenStreetMap licence asks for it on the map itself, and
-/// Protomaps for its style. The engines' own attribution controls only show
-/// it behind a tap, or not at all in the desktop web view: the map hides
-/// theirs (GlMap's attribution margins), this one stands alone.
+/// The basemap's credit, always visible on the map: the OpenStreetMap
+/// licence asks for it on the map itself, and Protomaps for its style. The
+/// engines' own attribution controls only show it behind a tap, or not at
+/// all in a browser: every map hides theirs (the attribution margins of
+/// GlLunaMap and GlRouteMap, the page's CSS, the desktop page adds none),
+/// this one stands alone, in the bottom left corner a screen leaves free
+/// (the main map, the placement of a place, the route's preview). The
+/// guidance writes it at the foot of its bar instead.
 class MapCredit extends ConsumerWidget {
   const new({this.photos = false, super.key});
 
-  /// The map may draw the places' photos (the route maps' rich marks): a
-  /// second line names their sources, which their licences ask for
-  /// wherever the photos show.
+  /// The map may draw the places' photos (the route's preview): a second
+  /// line names their sources, which their licences ask for wherever the
+  /// photos show.
   final bool photos;
 
   /// Its height on the map: a finger-sized target around a small label.
@@ -51,6 +54,34 @@ class MapCredit extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    // A small label, a finger-sized target: 48 dp tall at least.
+    Widget label({required bool focused}) => ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: height),
+      child: Center(
+        widthFactor: 1,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: scheme.surface.withValues(alpha: 0.78),
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+              side: focused ? focusRing(scheme.onSurface) : BorderSide.none,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
+                if (photos)
+                  Text(t.map.creditPhotos, style: _style(theme), textScaler: _scaler(context)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     void open() => ref.read(externalActionsProvider).openUrl(osmCopyright);
     // A link the keyboard reaches too, Enter or Space opening it, with the
     // theme's ring round the label while it holds the focus.
@@ -60,34 +91,7 @@ class MapCredit extends ConsumerWidget {
       builder: ({required focused}) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: open,
-        // A small label, a finger-sized target: 48 dp tall at least.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: height),
-          child: Center(
-            widthFactor: 1,
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                color: scheme.surface.withValues(alpha: 0.78),
-                shape: RoundedRectangleBorder(
-                  borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
-                  side: focused ? focusRing(scheme.onSurface) : BorderSide.none,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
-                    if (photos)
-                      Text(t.map.creditPhotos, style: _style(theme), textScaler: _scaler(context)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        child: label(focused: focused),
       ),
     );
   }

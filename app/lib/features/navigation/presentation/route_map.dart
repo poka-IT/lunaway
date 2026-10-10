@@ -387,16 +387,6 @@ final class RouteMapPlaces {
     this.poiFilter,
   });
 
-  /// The places' tiles loaded for their credit alone: the map's attribution
-  /// then names their sources (Lunaway's contributors, the external
-  /// community source), whose photos a map that draws its own places shows
-  /// (the route preview's places near the route). Their layer stays shown,
-  /// so an engine that credits only the sources a shown layer reads credits
-  /// them too, and draws nothing.
-  const new creditOnly({required this.placeTileJsonUrl, required this.poiTileJsonUrl})
-    : placeFilter = drawsNothing,
-      poiFilter = null;
-
   /// A filter that keeps no place.
   static const List<Object> drawsNothing = [
     '==',

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
@@ -18,6 +20,8 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -626,63 +630,68 @@ void main() {
         await guide(tester, plan, size: size, textScale: text);
         await drive(tester, plan, toM: 100);
         await gesture(tester);
-        // On a small phone on its side with large text, the panel scrolls
-        // to it.
-        await tester.ensureVisible(find.byType(MapCredit));
-        await tester.pump();
-        final credit = tester.getRect(find.byType(MapCredit));
-        expect(
-          find.descendant(
-            of: find.byType(MapCredit),
-            matching: find.text('Photos : Lunaway, Source communautaire externe'),
-          ),
-          findsOneWidget,
-          reason: 'online, the places drawn large may show their photos',
+        final basemap = find.text('© OpenStreetMap · Protomaps');
+        final photos = find.text('Photos : contributeurs de Lunaway, Source communautaire externe');
+        expect(photos, findsOneWidget, reason: 'online, the places drawn large may show photos');
+        final lines = [tester.getRect(basemap), tester.getRect(photos)];
+        final credit = lines.first.expandToInclude(lines.last);
+        expect((Offset.zero & size).contains(credit.topLeft), isTrue, reason: '$credit');
+        expect((Offset.zero & size).inflate(0.5).contains(credit.bottomRight), isTrue);
+        final bar = tester.getRect(
+          find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
         );
-        // Reached: nothing over it takes the tap.
-        final first = tester
-            .hitTestOnBinding(credit.center)
-            .path
-            .map((e) => e.target)
-            .whereType<RenderObject>()
-            .first;
-        expect(
-          _within(first, tester.renderObject(find.byType(MapCredit))),
-          isTrue,
-          reason: '$first',
-        );
-        // The part of the maneuver seen: on its side with large text the
-        // panel's top scrolls.
-        final icon = find.byType(ManeuverIcon).first;
-        final scroll = find.ancestor(of: icon, matching: find.byType(SingleChildScrollView));
-        final banner = scroll.evaluate().isEmpty
-            ? tester.getRect(icon)
-            : tester.getRect(icon).intersect(tester.getRect(scroll.first));
-        expect(
-          banner.width > 0 && banner.height > 0 && credit.overlaps(banner),
-          isFalse,
-          reason: 'the maneuver',
-        );
-        final recenter = find.byWidgetPredicate(
-          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
-        );
-        expect(credit.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
-        for (final tip in [
-          'Lieux sur la carte',
-          'Voix complète',
-          'Sur le trajet',
-          'Tout le trajet',
-          'Terminer',
-        ]) {
-          if (find.byTooltip(tip).evaluate().isEmpty) continue;
-          expect(credit.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+        if (size.width < size.height) {
+          // Upright, at the foot of the bar, under the arrival and the
+          // close button: over the map under the maneuver it covered the
+          // road ahead (audit 94, m9, captures).
+          expect(bar.inflate(0.5).contains(credit.topLeft), isTrue, reason: '$credit in $bar');
+          expect(bar.inflate(0.5).contains(credit.bottomRight), isTrue);
+          expect(
+            credit.top,
+            greaterThanOrEqualTo(tester.getRect(find.byTooltip('Terminer')).bottom),
+          );
+        } else {
+          // On its side, over the map beside the panel: clear of the panel,
+          // the buttons and "Recentrer", no place drawn large under it.
+          final panel = tester.getRect(find.byType(ManeuverIcon).first);
+          expect(credit.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
+          expect(credit.overlaps(bar), isFalse, reason: 'the bar');
+          final recenter = find.byWidgetPredicate(
+            (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
+          );
+          expect(credit.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
+          for (final tip in [
+            'Lieux sur la carte',
+            'Voix complète',
+            'Sur le trajet',
+            'Tout le trajet',
+          ]) {
+            if (find.byTooltip(tip).evaluate().isEmpty) continue;
+            expect(credit.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+          }
+          expect(
+            map().rich!.obstacles.any((o) => o.inflate(1).contains(credit.center)),
+            isTrue,
+            reason: 'no place drawn large under it',
+          );
         }
-        final rich = map().rich!;
+        // A caption: a touch while driving never opens a page.
+        expect(find.byType(MapCredit), findsNothing);
         expect(
-          rich.clear.top >= credit.bottom || rich.clear.left >= credit.right,
-          isTrue,
-          reason: 'no place drawn large under it',
+          find.ancestor(
+            of: basemap,
+            matching: find.byWidgetPredicate((w) => w is GestureDetector && w.onTap != null),
+          ),
+          findsNothing,
         );
+        // Without photos, no line of the photos.
+        await ProviderScope.containerOf(tester.element(find.byType(SchematicRouteMap)))
+            .read(routeSettingsControllerProvider.notifier)
+            .setGuidancePlaces(const GuidancePlaces(look: GuidanceLook.dots));
+        await settleShort(tester);
+        expect(map().rich!.style.photos, isFalse);
+        expect(photos, findsNothing);
+        expect(basemap, findsOneWidget);
       });
     }
 
@@ -799,38 +808,53 @@ void main() {
   });
 
   group('the preview', () {
-    testWidgets("online, it credits the places' sources and may draw their photos", (tester) async {
-      final app = await pumpLunaway(
-        tester,
-        online: FakeOnlinePlaces(const []),
-        overrides: navigationOverrides(
-          routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
-          placesNearRoute: const [_aire],
-        ),
+    for (final (name, size, text) in [
+      ('a phone', phone, 1.0),
+      ('a phone on its side, large text', const Size(860, 400), 1.3),
+      ('a desktop', desktop, 1.0),
+    ]) {
+      testWidgets(
+        "on $name, online, the map's credit names the sources of the photos it may draw",
+        (tester) async {
+          final app = await pumpLunaway(
+            tester,
+            size: size,
+            textScale: text,
+            online: FakeOnlinePlaces(const []),
+            overrides: navigationOverrides(
+              routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
+              placesNearRoute: const [_aire],
+            ),
+          );
+          unawaited(
+            app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+          );
+          await settleShort(tester);
+          // The places near the route are its own: no tiles of the places,
+          // which only their credit called for before the map drew its own.
+          expect(map().places, isNull);
+          final rich = map().rich!;
+          expect(rich.places, [_aire]);
+          expect(rich.style.photos, isTrue, reason: 'the default look, photos');
+          final credit = find.byType(MapCredit);
+          expect(
+            find.descendant(
+              of: credit,
+              matching: find.text(
+                'Photos : contributeurs de Lunaway, Source communautaire externe',
+              ),
+            ),
+            findsOneWidget,
+          );
+          // Open by itself at a first preview, the legend leaves it clear.
+          expect(find.byTooltip('Replier la légende'), findsOneWidget);
+          final rect = tester.getRect(credit);
+          expect(rect.overlaps(tester.getRect(find.byType(MarkLegend))), isFalse);
+          expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');
+          expect((Offset.zero & size).inflate(0.5).contains(rect.bottomRight), isTrue);
+        },
       );
-      unawaited(
-        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
-      );
-      await settleShort(tester);
-      final places = map().places!;
-      expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'), reason: 'their credit');
-      expect(places.placeFilter, RouteMapPlaces.drawsNothing, reason: 'the preview draws its own');
-      expect(places.poiFilter, isNull);
-      final rich = map().rich!;
-      expect(rich.places, [_aire]);
-      expect(rich.style.credited, isTrue);
-      expect(rich.style.photos, isTrue, reason: 'the default look, photos');
-      // On the engines that credit only the sources a shown layer reads (GL
-      // JS, the web and the desktop page), the places' layer is shown.
-      final layers = RoutePlaceLayers.jsonLayers(places);
-      final pins = layers.singleWhere((l) => l['id'] == RoutePlaceLayers.placePins);
-      expect((pins['layout']! as Map)['visibility'], 'visible');
-      expect(pins['filter'], RouteMapPlaces.drawsNothing);
-      for (final (id, _) in RoutePlaceLayers.poiLayers) {
-        final poi = layers.singleWhere((l) => l['id'] == id);
-        expect((poi['layout']! as Map)['visibility'], 'none', reason: id);
-      }
-    });
+    }
 
     for (final (name, size, limit) in [
       ('a phone', phone, RichMarks.compactLimit),
@@ -858,7 +882,7 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
-        expect(rich.style.credited, isFalse, reason: "offline, no places' tiles to credit a photo");
+        expect(rich.style.photos, isFalse, reason: 'offline, no photo');
         expect(map().places, isNull);
         expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);
@@ -867,12 +891,4 @@ void main() {
       });
     }
   });
-}
-
-/// Whether [node] is [ancestor] or lies inside it.
-bool _within(RenderObject node, RenderObject ancestor) {
-  for (RenderObject? at = node; at != null; at = at.parent) {
-    if (identical(at, ancestor)) return true;
-  }
-  return false;
 }
