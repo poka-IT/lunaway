@@ -264,8 +264,11 @@ Windows, send the browser's.
 | Client address | every request | not stored: rate limits and quotas count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
 | Request line and headers | every request | access log: date, method, host, path without query string, status, duration, User-Agent and the other request headers but `Authorization`, `Cookie`, `X-Forwarded-For`, `Content-Length` and the cache and range headers; IP truncated to /16 (IPv4) or /32 (IPv6); photo paths, tile coordinates and pack names masked. A new file every day, a line kept about 14 days (`roll_interval 24h`, `roll_keep_for 288h`); system journal, a new file every week, removed once its last entry is a month old (six weeks at most) | `infra/caddy/Caddyfile`, `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` ("How long things are kept") |
 
-Not sent: place and town search on a device that holds places
-(`app/lib/features/places/data/drift_places_repository.dart`), contacts,
+Not sent: the place and town search of a device offline, or of a text
+under two characters, which runs on the places the device holds
+(`app/lib/features/places/data/drift_places_repository.dart`). Online,
+every device sends its search (`SearchAll`, above), and one that holds
+places adds its own matches to the answer. Nor contacts,
 e-mail, phone number, crash data, microphone or audio (the app has no
 microphone permission). The position also goes, on the device, to
 Organic Maps when the user opens a route in it (the only navigation app
@@ -340,9 +343,9 @@ What each line covers:
 - App interactions: the number of days of use, the last active day, the
   last-use dates of sessions and device keys (trust levels, abuse
   control).
-- In-app search history: the text of the search of addresses, of shops
-  and services, and of places on a device without places, processed for
-  the request only on our servers. Shared: the text of each address
+- In-app search history: the text of the search of places, towns,
+  addresses, shops and services, sent by every online device, processed
+  for the request only on our servers. Shared: the text of each address
   search, with the map centre on the 0.05 degree grid and without the
   client's address, goes from our server to IGN's Géoplateforme geocoder,
   a French public service that answers under its own terms; we have no
