@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -19,20 +20,19 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 
-/// The one row of chips under the search: the button to the full filters
-/// with the count of those active, then what matters most on the road
-/// first ([order]). One row rather than two leaves the map the room; it
-/// scrolls sideways and fades at its edges, so a chip cut by the screen
-/// edge reads as "more this way" rather than as a mistake.
+/// The one row of chips under the search, at every width, a pane's
+/// included: the button to the full filters with the count of those
+/// active, then what matters most on the road first ([order]). One row
+/// rather than several leaves the map and the list the room (in a pane,
+/// the filters over their own lines and the shops in a row took three
+/// lines, the PO's decision of 2026-10-10); it scrolls sideways and fades
+/// at its edges, so a chip cut by the screen edge reads as "more this way"
+/// rather than as a mistake, and its arrows bring each chip in whole.
 class QuickFilters extends ConsumerWidget {
   const new({this.padding = EdgeInsets.zero, this.floating = true, super.key});
 
   /// A chip's height to a finger; 8 less to a mouse.
   static const double chipTouchHeight = 48;
-
-  /// The window's height from which the filters of a pane go over several
-  /// lines rather than one row.
-  static const double wrapMinHeight = 600;
 
   /// The height the row takes, for the map's top padding.
   static double heightOf(BuildContext context) =>
@@ -121,45 +121,6 @@ class QuickFilters extends ConsumerWidget {
       floating: floating,
       onTap: () => showFiltersSheet(context),
     );
-    // In the pane of a wide window, where one row showed two chips of
-    // twelve ("Gratuit" two presses of the arrow away): the filters of the
-    // list all in sight, over as many lines as they need, then the shops
-    // and services of the map in their row. A short window (a phone on its
-    // side) keeps the one row: the lines would leave the list no room.
-    if (!floating && MediaQuery.sizeOf(context).height >= wrapMinHeight) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: padding.add(const EdgeInsets.only(top: Space.s)),
-            child: Wrap(
-              spacing: Space.s,
-              runSpacing: Space.s,
-              children: [
-                for (final chip in [
-                  filters,
-                  for (final c in order.whereType<PlaceChip>()) place(c),
-                ])
-                  // A chip wider than the pane (a long label at a large
-                  // text size) gets smaller rather than cut.
-                  FittedBox(fit: BoxFit.scaleDown, child: chip),
-              ],
-            ),
-          ),
-          SidewaysRow(
-            floating: floating,
-            padding: padding.add(const EdgeInsets.symmetric(vertical: Space.s)),
-            child: _PoiGroup(
-              label: t.poi.chipsLabel,
-              chips: [
-                for (final c in order.whereType<PoiChip>())
-                  ...poiCategoryChip(context, ref, c.category, floating: floating),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
     final chips = <Widget>[
       filters,
       // The shops and services next to one another form one group for a
@@ -189,7 +150,7 @@ class QuickFilters extends ConsumerWidget {
             else
               Padding(
                 padding: const EdgeInsets.only(right: Space.s),
-                child: c,
+                child: SidewaysStop(child: c),
               ),
         ],
       ),
@@ -203,9 +164,10 @@ class QuickFilters extends ConsumerWidget {
 /// edge of a desktop pane were out of reach of a mouse.
 ///
 /// A side with more to see fades out wide, so a chip cut there reads as
-/// "more this way"; with a mouse, a round arrow on that side scrolls it by
-/// most of its width, the wheel and the drag not being things a mouse user
-/// guesses.
+/// "more this way"; with a mouse, a round arrow on that side brings the
+/// next item cut at that edge ([SidewaysStop]) in whole past the other
+/// fade, or scrolls by most of the row's width when it has none, the wheel
+/// and the drag not being things a mouse user guesses.
 class SidewaysRow extends StatefulWidget {
   const new({required this.child, this.padding = EdgeInsets.zero, this.floating = true, super.key});
 
@@ -224,6 +186,9 @@ class SidewaysRow extends StatefulWidget {
 
 class _SidewaysRowState extends State<SidewaysRow> {
   final _scroll = ScrollController();
+
+  /// The row's visible part, for where its items stand.
+  final GlobalKey _viewport = GlobalKey();
 
   /// Whether some of the row lies past each edge.
   var _before = false;
@@ -272,12 +237,59 @@ class _SidewaysRowState extends State<SidewaysRow> {
     );
   }
 
-  /// Scrolls by most of the row's width, towards the end when [forward].
+  /// Where the row's items ([SidewaysStop]) stand in its visible part,
+  /// from its start, in their order.
+  List<(double, double)> _stops() {
+    final viewport = _viewport.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) return const [];
+    final out = <(double, double)>[];
+    void visit(RenderObject o) {
+      if (o is _RenderSidewaysStop) {
+        if (o.hasSize) {
+          final start = o.localToGlobal(Offset.zero, ancestor: viewport).dx;
+          out.add((start, start + o.size.width));
+        }
+        return;
+      }
+      o.visitChildren(visit);
+    }
+
+    viewport.visitChildren(visit);
+    return out..sort((a, b) => a.$1.compareTo(b.$1));
+  }
+
+  /// Towards the end when [forward]: the first item cut at that end, or
+  /// past it, comes in whole just past the fade at the other; towards the
+  /// start, the last one cut there comes in whole before the fade at the
+  /// end. Without items, or one wider than the room between the fades,
+  /// most of the row's width.
   Future<void> _page({required bool forward}) async {
     if (!_scroll.hasClients) return;
     final p = _scroll.position;
-    final step = p.viewportDimension * 0.8;
-    final to = (p.pixels + (forward ? step : -step)).clamp(p.minScrollExtent, p.maxScrollExtent);
+    final view = p.viewportDimension;
+    const fade = SidewaysRow.moreFade;
+    double? target;
+    final stops = _stops();
+    if (forward) {
+      for (final (start, end) in stops) {
+        if (end > view - fade + 0.5) {
+          target = p.pixels + start - fade;
+          break;
+        }
+      }
+    } else {
+      for (final (start, end) in stops.reversed) {
+        if (start < fade - 0.5) {
+          target = p.pixels + end - (view - fade);
+          break;
+        }
+      }
+    }
+    final step = view * 0.8;
+    if (target == null || (forward ? target <= p.pixels : target >= p.pixels)) {
+      target = p.pixels + (forward ? step : -step);
+    }
+    final to = target.clamp(p.minScrollExtent, p.maxScrollExtent);
     final duration = Motion.of(context, Motion.medium);
     // With less motion asked, a jump: an animation needs a duration.
     if (duration == Duration.zero) {
@@ -300,6 +312,7 @@ class _SidewaysRowState extends State<SidewaysRow> {
         return false;
       },
       child: Listener(
+        key: _viewport,
         onPointerSignal: _onSignal,
         child: ScrollConfiguration(
           behavior: ScrollConfiguration.of(context)
@@ -353,6 +366,18 @@ class _SidewaysRowState extends State<SidewaysRow> {
     );
   }
 }
+
+/// An item of a [SidewaysRow], a chip: its arrows bring one in whole
+/// rather than by a width that may cut it at the other edge.
+class SidewaysStop extends SingleChildRenderObjectWidget {
+  const new({super.child, super.key});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderSidewaysStop();
+}
+
+/// Marks an item's box for [_SidewaysRowState._stops].
+class _RenderSidewaysStop extends RenderProxyBox;
 
 /// A round arrow at an edge of [SidewaysRow], for a mouse.
 class _Arrow extends StatelessWidget {
@@ -453,7 +478,7 @@ class _PoiGroup extends StatelessWidget {
         for (final c in chips)
           Padding(
             padding: const EdgeInsets.only(right: Space.s),
-            child: c,
+            child: SidewaysStop(child: c),
           ),
       ],
     ),
