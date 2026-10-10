@@ -7,6 +7,7 @@ import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
@@ -403,6 +404,38 @@ void main() {
       expect(sent['stars'], 5);
       expect(sent['text'], 'Des tartes aux myrtilles parfaites.');
       expect(sent.containsKey('vehicle'), isFalse);
+    });
+
+    testWidgets("a rating taken back sends the review's id alone, no mark of the device", (
+      tester,
+    ) async {
+      final cafe = _establishment('021', 'CAFE', name: 'Café des Halles');
+      final api = FakeApi(level: 1);
+      final pois = FakePoiSource(pois: [cafe]);
+      final app = await _open(tester, cafe, pois: pois, api: api, signedIn: true);
+      await tester.tap(inPoi(find.byTooltip(t.contribute.rateStar(n: 3))));
+      await settleShort(tester, const Duration(seconds: 4));
+      final rated = api.last('RatePoi')!;
+      expect(rated.keys.toSet(), {'poiId', 'stars'}, reason: 'the name stays on the device');
+      final id = api.poiReviews.single['id']! as String;
+      pois.reviewsOf[cafe['id']! as String] = (
+        mine: Review(
+          id: id,
+          sourceId: 'community-cc-by',
+          rating: 3,
+          createdAt: DateTime.utc(2026, 10, 6),
+        ),
+        ours: ReviewPage.empty,
+        external: ReviewPage.empty,
+      );
+      // The server holds it now: the page reads it back.
+      app.container(tester).invalidate(pointReviewsProvider(cafe['id']! as String));
+      await settleShort(tester);
+      await tester.tap(inPoi(find.text(t.contribute.deleteRating)));
+      await settleShort(tester);
+      await tester.tap(find.text(t.common.delete));
+      await settleShort(tester, const Duration(seconds: 4));
+      expect(api.last('DeleteReview'), {'id': id});
     });
 
     testWidgets('below level 1 writing a review says which level opens it', (tester) async {
