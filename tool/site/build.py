@@ -5,7 +5,7 @@
 Assets come from files already in the repository: the fonts the app derives
 (app/assets/fonts, app/tool/fonts/build.sh), the brand (brand/), the app's web
 icons (app/web) and the final phone screenshots of the release
-(plan/screenshots/final/android-phone, or the folder LUNAWAY_SHOTS_DIR names,
+(plan/screenshots/publication/android-phone, or the folder LUNAWAY_SHOTS_DIR names,
 for a worktree that has no plan/ of its own).
 The site speaks the six languages of the app: French at the root, the others
 under /<code>/, each page offering the others in its language menu.
@@ -38,7 +38,7 @@ OUT = os.path.join(REPO, "infra", "web", "site")
 SRC = os.path.join(HERE, "src")
 FONTS = os.path.join(REPO, "app", "assets", "fonts")
 SHOTS = os.environ.get("LUNAWAY_SHOTS_DIR") or os.path.join(
-    REPO, "plan", "screenshots", "final", "android-phone")
+    REPO, "plan", "screenshots", "publication", "android-phone")
 SITE = "https://lunaway.net"
 DATE = "2026-10-10"
 
@@ -56,16 +56,15 @@ UNICODES = (
 # the first two in its hero and the next three in its strip.
 SCREENS = [
     (1, "map", "01-map"),
-    (2, "place", "02-place"),
-    (3, "route", "05-route"),
-    (4, "guidance", "14-guidance"),
-    (5, "filters", "04-filters"),
+    (2, "place", "03-place"),
+    (3, "route", "07-route"),
+    (4, "guidance", "09-guidance"),
+    (5, "filters", "06-filters"),
 ]
-SHOT_SOURCES = {"fr": "fr-1080x1920-light-{}.png", "en": "en-1080x1920-light-{}.png"}
-# The release screenshots exist in French and English only: the other
-# languages show the English set until their own are captured
+# The phone shots of the store tour, one set per language
 # (docs/screenshots.md). Pages name their images through {shots}.
-SHOT_LANG = {"fr": "fr", "en": "en", "de": "en", "es": "en", "it": "en", "nl": "en"}
+SHOT_SOURCES = {lang: f"{lang}-1080x1920-light-{{}}.png" for lang in LANGS}
+SHOT_LANG = {lang: lang for lang in LANGS}
 
 # Phosphor (MIT) glyphs used inline, by code point of the regular weight
 # (app/lib/shared/theme/phosphor_glyphs.dart).
