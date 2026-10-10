@@ -16,6 +16,8 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
@@ -33,11 +35,14 @@ import 'package:lunaway/i18n/strings.g.dart';
 /// a dental practice (no rating of its own), a hotel, a tyre shop, a
 /// garage, a cinema. Each is the first result of the expected kind, the
 /// one named in [_cards] when the API lists it, so a name gone from the
-/// data changes the shot, never the run. Two pages are scrolled down to
-/// their ratings and the link to Google Maps.
+/// data changes the shot, never the run. Each page is shot as it opens,
+/// then scrolled to what its kind adds (`-suite`); two of them down to
+/// their ratings and the link to Google Maps (`-avis`). A `WRITE` line
+/// names the establishment of each page in `<tag>-fiches.txt`.
 ///
 /// The user stands in Annecy (no location prompt: the position is set,
-/// never asked). The stores are the tour's own, beside the device's.
+/// never asked), and so does the map: the search ranks from its centre.
+/// The stores are the tour's own, beside the device's.
 ///
 ///     python3 tool/screens/tour_web.py --test integration_test/commerces_tour_test.dart \
 ///         --viewport 412x732 --locale fr --out ../plan/screenshots/commerces/web-phone
@@ -48,7 +53,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 ///     ORG_GRADLE_PROJECT_testIdSuffix=.commerces python3 tool/screens/capture.py \
 ///         --device android:emulator-5554 --size 1080x1920 \
 ///         --test integration_test/commerces_tour_test.dart --api https://api.lunaway.net \
-///         --out ../plan/screenshots/commerces/android --define LUNAWAY_TOUR_TAG=android
+///         --out ../plan/screenshots/commerces/android
 const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr');
 const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
 const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'commerces');
@@ -214,11 +219,33 @@ void main() {
     final container = ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
     final t = AppLocaleUtils.parse(_locale).buildSync();
 
-    await until(tester, () => container.read(mapControllerProvider) != null, what: 'the map');
+    await until(
+      tester,
+      () =>
+          container.read(mapControllerProvider) != null && container.read(viewportProvider) != null,
+      what: 'the map and its first camera',
+    );
     container.read(userLocationProvider.notifier).update(_annecy);
-    // Not awaited: the camera's move ends with frames the tour pumps.
-    unawaited(container.read(mapControllerProvider)!.moveTo(_annecy, zoom: 13));
-    await settle(tester, const Duration(seconds: 6));
+    // The search ranks from the map's centre, never from the user: the map
+    // must stand on Annecy before "coiffeur" is typed. A browser's map
+    // fits France when its style has loaded, which can come after a move
+    // made once the controller is ready: moved again until the camera
+    // stays on Annecy over two looks.
+    bool onAnnecy() => (container.read(viewportProvider)?.center.distanceTo(_annecy) ?? 1e9) < 2000;
+    var steady = 0;
+    for (var i = 0; i < 10 && steady < 2; i++) {
+      if (onAnnecy()) {
+        steady++;
+      } else {
+        steady = 0;
+        // Not awaited: the camera's move ends with frames the tour pumps.
+        unawaited(container.read(mapControllerProvider)!.moveTo(_annecy, zoom: 13));
+        await came(tester, onAnnecy, timeout: const Duration(seconds: 8));
+      }
+      await settle(tester, const Duration(seconds: 3));
+    }
+    if (!onAnnecy()) throw TestFailure('the map did not stay on Annecy');
+    debugPrint('CAMERA ${container.read(viewportProvider)?.center}');
 
     final field = find.descendant(of: find.byType(MapSearch), matching: find.byType(TextField));
     final tiles = find.descendant(
@@ -235,26 +262,49 @@ void main() {
       await tester.pump();
     }
 
+    // The search's answer as the section reads it: the user stands in
+    // Annecy, so the request's `near` is Annecy. Null while it runs.
+    OnlineMatches? answer(String text) => container
+        .read(onlineSearchProvider(text, near: _annecy, language: _locale, pois: true))
+        .value;
+    // The list of results, not the field's own Scrollable above it.
+    final list = find.descendant(
+      of: find.descendant(of: find.byType(MapSearch), matching: find.byType(ListView)),
+      matching: find.byType(Scrollable),
+    );
+
     // A search from an empty field: the section of the previous one is
-    // gone, so the tiles found are this search's. Whether the API found
-    // establishments for it: an empty answer is said, and the tour goes on.
+    // gone, so what is found is this search's. Typed again twice when the
+    // API lists no establishment, as a user would. Whether it listed some:
+    // an empty answer is said, and the tour goes on. The section may stand
+    // below the towns and the places, out of the built part of the list.
     final missing = <String>[];
     Future<bool> search(String text) async {
-      await type('');
-      await settle(tester, const Duration(milliseconds: 800));
-      await type(text);
-      if (!await came(
-        tester,
-        () => tiles.evaluate().isNotEmpty,
-        timeout: const Duration(seconds: 40),
-      )) {
-        debugPrint('NO MATCH $text: no establishment listed');
-        missing.add(text);
-        return false;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        await type('');
+        await settle(tester, Duration(milliseconds: 800 + 4000 * attempt));
+        final camera = container.read(viewportProvider);
+        debugPrint('SEARCH $text from ${camera?.center} at zoom ${camera?.zoom}');
+        await type(text);
+        await came(
+          tester,
+          () => tiles.evaluate().isNotEmpty || answer(text) != null,
+          timeout: const Duration(seconds: 20),
+        );
+        final found = answer(text);
+        if (tiles.evaluate().isNotEmpty || (found?.pois.pois.isNotEmpty ?? false)) {
+          // The other sections and the pictograms settle.
+          await settle(tester, const Duration(seconds: 3));
+          return true;
+        }
+        debugPrint(
+          'EMPTY $text (attempt ${attempt + 1}): '
+          '${found == null ? 'no answer' : 'match ${found.pois.match.name}, offline ${found.offline}'}',
+        );
       }
-      // The other sections and the pictograms settle.
-      await settle(tester, const Duration(seconds: 3));
-      return true;
+      debugPrint('NO MATCH $text: no establishment listed');
+      missing.add(text);
+      return false;
     }
 
     if (await search('coiffeur')) await shot(tester, '01-recherche-coiffeur');
@@ -264,19 +314,16 @@ void main() {
       // The list scrolled to the establishments, under the town and the
       // places.
       final section = find.text(t.poi.searchSection);
-      await tester.scrollUntilVisible(
-        section,
-        200,
-        scrollable: find
-            .descendant(of: find.byType(MapSearch), matching: find.byType(Scrollable))
-            .first,
-      );
+      await tester.scrollUntilVisible(section, 200, scrollable: list.first);
       await Scrollable.ensureVisible(tester.element(section), alignment: 0.05);
       await shot(tester, '03-recherche-annecy-commerces');
     }
 
     for (final card in _cards) {
       if (!await search(card.query)) continue;
+      if (tiles.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(tiles.first, 200, scrollable: list.first);
+      }
       final labels = [for (final k in card.kinds) t.poiKind(k)];
       bool ofKind(ListTile tile) {
         final line = (tile.subtitle as Text?)?.data ?? '';
