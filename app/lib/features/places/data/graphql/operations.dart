@@ -209,12 +209,24 @@ $placeFieldsFragment''',
   },
 );
 
-Map<String, Object?> changesVariables({required GeoBounds bbox, String? since, int first = 1000}) =>
-    {
-      'bbox': {'south': bbox.south, 'west': bbox.west, 'north': bbox.north, 'east': bbox.east},
-      'since': since,
-      'first': first,
-    };
+/// Places per page of the change feed, by box and by region. The API serves
+/// 500 at most whatever is asked (`CHANGES_PAGE_SERVED`); a page of
+/// [placeFieldsFragment] costs about half the request's complexity budget,
+/// which `backend/crates/lunaway-api/tests/budget.rs` measures on this
+/// constant and on these documents, read from this file. Pages of 1000
+/// went over the budget once the fragment grew, and the API refused every
+/// update of a downloaded region (audit of 2026-10-10, B1).
+const syncPageSize = 500;
+
+Map<String, Object?> changesVariables({
+  required GeoBounds bbox,
+  String? since,
+  int first = syncPageSize,
+}) => {
+  'bbox': {'south': bbox.south, 'west': bbox.west, 'north': bbox.north, 'east': bbox.east},
+  'since': since,
+  'first': first,
+};
 
 /// What a place shows online: its photos, the first page of reviews, and
 /// the reader's own review (null when anonymous); null when the place no

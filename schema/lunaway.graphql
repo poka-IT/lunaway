@@ -3781,14 +3781,15 @@ type Query {
 	Syncs a region: the places inside `bbox`, or of the sync region
 	`region` (`Query.regions`, one of the two), created or changed since
 	the cursor `since` (null for everything), oldest change first, at
-	most `first` (1000 at most), the places deleted since and, by
-	`region`, the places that left it (at most `first` more). A device
-	that imported a region's pack continues with `region` and the pack's
-	cursor. A cursor issued by another copy of the database (after a
-	restore) is refused with the code `RESYNC`: sync again with `since:
-	null`, or from the region's current pack.
+	most `first` and never more than 500 (a `first` up to 1000 is
+	accepted and gets 500, with `hasMore`), the places deleted since
+	and, by `region`, the places that left it (as many more at most). A
+	device that imported a region's pack continues with `region` and the
+	pack's cursor. A cursor issued by another copy of the database
+	(after a restore) is refused with the code `RESYNC`: sync again with
+	`since: null`, or from the region's current pack.
 	"""
-	changes(bbox: BBoxInput, region: String, since: String, first: Int = 1000): ChangeSet!
+	changes(bbox: BBoxInput, region: String, since: String, first: Int = 500): ChangeSet!
 	"""
 	The regions a device can keep offline, with the pack to download
 	first for each (`docs/region-packs.md`).

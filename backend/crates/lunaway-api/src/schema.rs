@@ -43,12 +43,11 @@ pub type LunawaySchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 /// Deepest selection accepted: the deepest legitimate one,
 /// `changes { places { sources { source { id } } } }`, is 5.
 const MAX_DEPTH: usize = 12;
-/// Cost budget of one request. The app's sync page (`changes` with 1000
-/// places and every field it stores, sources, provenance, descriptions,
-/// ratings and links included) costs 67 000 (`tests/budget.rs`), with room
-/// for the other feed fields (cover photos, counts, issues, verification,
-/// municipality: about 82 000 with all of them); two pages in one request
-/// do not fit.
+/// Cost budget of one request. A page of the feed as the app asks it
+/// (`changes`, [`CHANGES_PAGE_SERVED`] places with every field it stores)
+/// costs 47 500 (`tests/budget.rs`, which reads the app's own documents
+/// and keeps a page under three quarters of this budget); two pages in one
+/// request do not fit.
 pub const MAX_COMPLEXITY: usize = 90_000;
 /// Cost of a root field that queries the database, on top of what it
 /// returns: a page size bounds the rows, not the work (a two-letter search
@@ -81,8 +80,17 @@ pub(crate) struct GeocodeOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// text per request.
 #[derive(Debug, Default)]
 pub(crate) struct TranslateOnce(pub(crate) std::sync::atomic::AtomicBool);
-/// Largest page of `changes`.
+/// Largest `first` of `changes` accepted: the apps released before
+/// 2026-10-10 ask pages of 1000.
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
+/// Most places a page of `changes` holds, whatever `first` asks above it:
+/// a page of 1000 with every field the app keeps cost more than
+/// [`MAX_COMPLEXITY`] once the feed grew (audit of 2026-10-10, B1), and
+/// every update of a region the apps had downloaded was refused. The cost
+/// of the field is counted on this page, so a released app asking 1000
+/// gets 500 and `hasMore`; `tests/budget.rs` holds the app's own documents
+/// to it with room to spare.
+pub const CHANGES_PAGE_SERVED: i32 = 500;
 /// Largest page of `places`.
 pub const MAX_PLACES_PAGE: i32 = 500;
 /// Most results of `search`.
@@ -302,6 +310,13 @@ pub(crate) fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
         .unwrap_or(0)
         .saturating_mul(child)
         .saturating_add(DB_FIELD_COST)
+}
+
+/// The `first` of `changes` its cost is counted on: the page it is served,
+/// [`CHANGES_PAGE_SERVED`] at most. A `first` out of range costs as that
+/// page too; the resolver refuses it.
+pub(crate) fn served_page(first: Option<i32>) -> Option<i32> {
+    first.map(|f| f.clamp(1, CHANGES_PAGE_SERVED))
 }
 
 fn page(first: i32, max: i32) -> Result<i64> {
@@ -558,20 +573,21 @@ impl QueryRoot {
     /// Syncs a region: the places inside `bbox`, or of the sync region
     /// `region` (`Query.regions`, one of the two), created or changed since
     /// the cursor `since` (null for everything), oldest change first, at
-    /// most `first` (1000 at most), the places deleted since and, by
-    /// `region`, the places that left it (at most `first` more). A device
-    /// that imported a region's pack continues with `region` and the pack's
-    /// cursor. A cursor issued by another copy of the database (after a
-    /// restore) is refused with the code `RESYNC`: sync again with `since:
-    /// null`, or from the region's current pack.
-    #[graphql(complexity = "cost(first, MAX_CHANGES_PAGE, child_complexity)")]
+    /// most `first` and never more than 500 (a `first` up to 1000 is
+    /// accepted and gets 500, with `hasMore`), the places deleted since
+    /// and, by `region`, the places that left it (as many more at most). A
+    /// device that imported a region's pack continues with `region` and the
+    /// pack's cursor. A cursor issued by another copy of the database
+    /// (after a restore) is refused with the code `RESYNC`: sync again with
+    /// `since: null`, or from the region's current pack.
+    #[graphql(complexity = "cost(served_page(first), CHANGES_PAGE_SERVED, child_complexity)")]
     async fn changes(
         &self,
         ctx: &Context<'_>,
         bbox: Option<BBoxInput>,
         region: Option<String>,
         since: Option<String>,
-        #[graphql(default = 1000)] first: Option<i32>,
+        #[graphql(default = 500)] first: Option<i32>,
     ) -> Result<ChangeSet> {
         let area = match (bbox, region.as_deref()) {
             (Some(b), None) => FeedArea::BBox(self::bbox(b, MAX_CHANGES_AREA_DEG2)?),
@@ -582,7 +598,8 @@ impl QueryRoot {
             ),
             _ => return Err(invalid_input("give either bbox or region")),
         };
-        let first = page(first.unwrap_or(MAX_CHANGES_PAGE), MAX_CHANGES_PAGE)?;
+        let first = page(first.unwrap_or(CHANGES_PAGE_SERVED), MAX_CHANGES_PAGE)?
+            .min(i64::from(CHANGES_PAGE_SERVED));
         let since = parse_since(since.as_deref())?;
         let (pool, _permit) = db(ctx).await?;
         let head = places::feed_head(pool).await.map_err(|e| internal(&e))?;
