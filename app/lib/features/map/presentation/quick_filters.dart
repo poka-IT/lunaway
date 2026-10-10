@@ -30,6 +30,10 @@ class QuickFilters extends ConsumerWidget {
   /// A chip's height to a finger; 8 less to a mouse.
   static const double chipTouchHeight = 48;
 
+  /// The window's height from which the filters of a pane go over several
+  /// lines rather than one row.
+  static const double wrapMinHeight = 600;
+
   /// The height the row takes, for the map's top padding.
   static double heightOf(BuildContext context) =>
       controlHeight(context, chipTouchHeight) + Space.s * 2;
@@ -109,15 +113,55 @@ class QuickFilters extends ConsumerWidget {
       ),
     };
 
+    final filters = MapChip(
+      icon: AppIcons.filters,
+      label: t.map.filters,
+      count: filter.activeCount,
+      semanticsLabel: filter.activeCount == 0 ? null : t.filters.active(n: filter.activeCount),
+      floating: floating,
+      onTap: () => showFiltersSheet(context),
+    );
+    // In the pane of a wide window, where one row showed two chips of
+    // twelve ("Gratuit" two presses of the arrow away): the filters of the
+    // list all in sight, over as many lines as they need, then the shops
+    // and services of the map in their row. A short window (a phone on its
+    // side) keeps the one row: the lines would leave the list no room.
+    if (!floating && MediaQuery.sizeOf(context).height >= wrapMinHeight) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: padding.add(const EdgeInsets.only(top: Space.s)),
+            child: Wrap(
+              spacing: Space.s,
+              runSpacing: Space.s,
+              children: [
+                for (final chip in [
+                  filters,
+                  for (final c in order.whereType<PlaceChip>()) place(c),
+                ])
+                  // A chip wider than the pane (a long label at a large
+                  // text size) gets smaller rather than cut.
+                  FittedBox(fit: BoxFit.scaleDown, child: chip),
+              ],
+            ),
+          ),
+          SidewaysRow(
+            floating: floating,
+            padding: padding.add(const EdgeInsets.symmetric(vertical: Space.s)),
+            child: _PoiGroup(
+              label: t.poi.chipsLabel,
+              chips: [
+                for (final c in order.whereType<PoiChip>())
+                  ...poiCategoryChip(context, ref, c.category, floating: floating),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     final chips = <Widget>[
-      MapChip(
-        icon: AppIcons.filters,
-        label: t.map.filters,
-        count: filter.activeCount,
-        semanticsLabel: filter.activeCount == 0 ? null : t.filters.active(n: filter.activeCount),
-        floating: floating,
-        onTap: () => showFiltersSheet(context),
-      ),
+      filters,
       // The shops and services next to one another form one group for a
       // screen reader, which says what they are.
       for (final group in _runs(order))

@@ -139,6 +139,10 @@ final class FakeApi {
   /// The saved points `savePointToList` refuses (`INVALID_INPUT`), by id.
   final refusedPoints = <String>{};
 
+  /// Places merged into another, by id: `saveToList` saves the place that
+  /// absorbed them, and `place` answers with it.
+  final absorbedBy = <String, String>{};
+
   /// The variables of the last [operation] received.
   Map<String, Object?>? last(String operation) =>
       calls.lastWhere((c) => c.operation == operation, orElse: () => _none).variables;
@@ -300,6 +304,7 @@ final class FakeApi {
     'MyFavoriteLists',
     'ImportFavorites',
     'SaveToList',
+    'FavoritePlace',
     'RemoveFromList',
     'SavePointToList',
     'RemovePointFromList',
@@ -437,6 +442,22 @@ final class FakeApi {
         if (v['revokeOtherDevices'] == true) _keys.clear();
         _keys[key] = _next();
         return {'recoverAccount': _session(key, created: false)};
+    }
+    // A place, read without a session, following its merge as `place`
+    // does.
+    if (name == 'FavoritePlace') {
+      return {
+        'place': {
+          'id': absorbedBy[v['id']] ?? v['id'],
+          'name': 'Lieu',
+          'kind': 'PARKING',
+          'lat': 45.0,
+          'lon': 6.0,
+          'overnight': 'ALLOWED',
+          'address': null,
+          'municipality': null,
+        },
+      };
     }
     if (name == 'DeleteAccount' && _strangers.remove(token)) {
       strangersDeleted++;
@@ -636,8 +657,19 @@ final class FakeApi {
           ],
         };
       }(),
-      'SaveToList' || 'RemoveFromList' => {
-        name == 'SaveToList' ? 'saveToList' : 'removeFromList': {'id': v['listId']},
+      // The list once saved: the place under its own id, or under the id
+      // of the place that absorbed it ([absorbedBy]), as the server saves
+      // the live place.
+      'SaveToList' => {
+        'saveToList': {
+          'id': v['listId'],
+          'places': [
+            {'placeId': absorbedBy[v['placeId']] ?? v['placeId']},
+          ],
+        },
+      },
+      'RemoveFromList' => {
+        'removeFromList': {'id': v['listId']},
       },
       'SavePointToList' when refusedPoints.contains((v['point']! as Map)['id']) =>
         throw const _Refused('INVALID_INPUT'),

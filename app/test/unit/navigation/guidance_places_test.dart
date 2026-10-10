@@ -10,12 +10,14 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_places_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../../helpers/fakes.dart';
@@ -335,6 +337,14 @@ void main() {
         expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
       }
       expect(guidanceReadsEveryCategory(eating), isTrue);
+    });
+
+    test('"Pour manger" shows a meal, the restaurants\' icon, not the shops\' basket', () {
+      expect(guidancePresetIcon(GuidancePreset.groceries), PoiLook.category(PoiCategory.food));
+      expect(
+        guidancePresetIcon(GuidancePreset.groceries),
+        isNot(categoryIcon(OnTheWayCategory.groceries)),
+      );
     });
 
     test('"Pour manger" chosen before it took the restaurants reads as that preset', () {

@@ -273,6 +273,25 @@ void main() {
     expect(session().stops, [stop]);
   });
 
+  test(
+    'a route asked from 54 km back gives way at the first fix to one from the vehicle',
+    () async {
+      final a = routeFixture('limoges_drive');
+      final detour = routeFixture('missed_turn');
+      await start(a, answers: [detour], more: [detour]);
+      // The first fix, 54 km north of the route's start, standing still.
+      final start0 = LineTrack(a.routes.single).at(0);
+      final here = LatLng(start0.lat + 0.486, start0.lon);
+      await send([Fix(position: here, accuracyM: 8, at: t0, speedMps: 0)]);
+      expect(routes.requests, hasLength(1), reason: 'asked at once, parked as it is');
+      expect(routes.requests.single.origin, here);
+      expect(session().plan, same(detour));
+      // The new route starts where the vehicle is: no second request.
+      await send([Fix(position: here, accuracyM: 8, at: t0.add(const Duration(seconds: 1)))]);
+      expect(routes.requests, hasLength(1));
+    },
+  );
+
   test('parked off the route is not a wrong turn', () async {
     final a = routeFixture('limoges_drive');
     await start(a);

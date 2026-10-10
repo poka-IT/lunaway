@@ -144,7 +144,7 @@ void main() {
       );
       final before = tester.getCenter(last).dx;
       final mouse = TestPointer(1, PointerDeviceKind.mouse);
-      final over = tester.getCenter(find.widgetWithText(MapChip, 'Filtres'));
+      final over = tester.getCenter(find.widgetWithText(MapChip, 'Carburant et énergie'));
       tester.binding.handlePointerEvent(mouse.hover(over));
       tester.binding.handlePointerEvent(mouse.scroll(const Offset(0, 400)));
       await tester.pump();
@@ -172,6 +172,22 @@ void main() {
         await settleShort(tester);
         expect(tester.getCenter(last).dx, lessThan(before - 150));
         expect(find.byTooltip('Voir les filtres précédents'), findsOneWidget);
+      });
+    });
+
+    testWidgets('in the pane of a wide window, every filter of the list is in sight at once', (
+      tester,
+    ) async {
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: const Size(1440, 900));
+        final pane = tester.getRect(find.byType(QuickFilters));
+        for (final label in ['Filtres', 'Nuit possible', 'Mon véhicule passe', 'Gratuit']) {
+          final chip = tester.getRect(find.widgetWithText(MapChip, label));
+          expect(chip.left, greaterThanOrEqualTo(pane.left), reason: label);
+          expect(chip.right, lessThanOrEqualTo(pane.right), reason: '$label, without scrolling');
+        }
+        // The shops and services keep their row, which scrolls.
+        expect(find.byTooltip('Voir les filtres suivants'), findsOneWidget);
       });
     });
 

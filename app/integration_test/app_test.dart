@@ -8,7 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
-import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/main.dart' as app;
 import 'package:path_provider/path_provider.dart';
 
@@ -99,15 +99,9 @@ void main() {
     await pumpUntil(tester, find.text('Enregistré'));
 
     // Copy the coordinates: the clipboard holds the decimal format.
-    final details = find
-        .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
-        .first;
-    await tester.scrollUntilVisible(
-      find.byTooltip('Copier les coordonnées'),
-      200,
-      scrollable: details,
+    await tester.tap(
+      find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
     );
-    await tester.tap(find.byTooltip('Copier les coordonnées'));
     await pumpUntil(tester, find.textContaining('Copié :'));
     final copied = await Clipboard.getData(Clipboard.kTextPlain);
     expect(copied!.text, matches(RegExp(r'^-?\d+\.\d{6}, -?\d+\.\d{6}$')));

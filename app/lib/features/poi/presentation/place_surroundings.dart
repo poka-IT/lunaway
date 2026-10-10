@@ -15,6 +15,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
+import 'package:lunaway/shared/widgets/whole_words_text.dart';
 
 /// Closer than this, a point is "on site".
 const onSiteM = 50.0;
@@ -136,7 +137,7 @@ class _Row extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        WholeWordsText(
                           t.poiTitle(poi.name, poi.kind),
                           style: theme.textTheme.titleSmall,
                           maxLines: 2,

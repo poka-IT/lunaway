@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
@@ -20,6 +21,8 @@ import 'package:lunaway/features/navigation/application/rich_marks_providers.dar
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/data/web_voice.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/navigation/data/web_voice_web.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -219,6 +222,12 @@ final _log = Logger('route_preview');
 
 const _wholePanel = 100000.0;
 
+/// What a fitted route keeps clear of the top of a phone's map, pixels
+/// over the engines' own 48 px: the back button, 8 px below the status bar
+/// and 48 px tall, and the legend's chip beside it, with the half of a
+/// start's badge that would reach above the point.
+const _underTopButtons = 24.0;
+
 class _BackButton extends StatelessWidget {
   const new();
 
@@ -379,7 +388,14 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         style: style,
         dark: dark,
         lines: lines,
-        camera: FitCamera(_atLeast(bounds!)),
+        // On a phone, the back button and the legend's chip over the
+        // map's top: the route starts below them.
+        camera: FitCamera(
+          _atLeast(bounds!),
+          room: WindowSize.of(context) == WindowSize.compact
+              ? const EdgeInsets.only(top: _underTopButtons)
+              : EdgeInsets.zero,
+        ),
         padding: padding,
         zones: enforcement.spans,
         // Online, the places' tiles for their credit alone: the photos of
@@ -849,6 +865,26 @@ class _Routes extends ConsumerWidget {
           onTap: () => ref.read(routePreviewControllerProvider(target).notifier).select(r.index),
         ),
       ],
+      // A time far longer than the distance suggests: say where it goes.
+      if (plan.routes.where((r) => r.index == selected).firstOrNull?.slowStretch
+          case final slow?) ...[
+        const SizedBox(height: Space.s),
+        Row(
+          children: [
+            Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: Space.s),
+            Expanded(
+              child: Text(
+                context.t.navigation.preview.slowStretch(
+                  duration: context.t.routeDuration(slow.durationS),
+                  distance: context.t.routeDistance(slow.distanceM, units),
+                ),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ],
       // The times depend on the driver's own speed: say which.
       if (plan.applied.cruiseShownKph case final kmh?) ...[
         const SizedBox(height: Space.s),
@@ -990,7 +1026,11 @@ class _NoSafeRoute extends StatelessWidget {
             weight: t.tonnes(v.weightT),
           ),
         ),
-        _Bullet(t.navigation.states.pickOtherPoint),
+        _Bullet(
+          pointerPlatform
+              ? t.navigation.states.pickOtherPointClick
+              : t.navigation.states.pickOtherPoint,
+        ),
         if (plan.applied.avoid.unpaved) _Bullet(t.navigation.states.allowUnpaved),
       ],
     );
@@ -1289,6 +1329,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
   }
 
   Future<void> _start(RoutePlan plan, int selected, List<RouteStop> stops) async {
+    // In the tap itself, before any wait: a phone's Safari speaks and
+    // sounds only from a user's gesture.
+    primeBrowserSpeech();
     setState(() => _starting = true);
     try {
       await _startGuidance(plan, selected, stops);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -170,13 +171,19 @@ class NoRouteExplanation extends ConsumerWidget {
 
   List<String> _hints(Translations t) {
     final destination = _at((i) => i >= _last);
+    // A mouse holds nothing down: its right button does what a long press does.
+    final moveDestination = pointerPlatform
+        ? t.navigation.noRoute.moveDestinationClick
+        : t.navigation.noRoute.moveDestination;
+    final moveStop = pointerPlatform
+        ? t.navigation.noRoute.moveStopClick
+        : t.navigation.noRoute.moveStop;
     return [
-      if (destination.any((r) => r.kind != NoRouteReasonKind.outsideCoverage))
-        t.navigation.noRoute.moveDestination,
+      if (destination.any((r) => r.kind != NoRouteReasonKind.outsideCoverage)) moveDestination,
       if (destination.any((r) => r.kind == NoRouteReasonKind.outsideCoverage) &&
           coveredCountries.isNotEmpty)
         t.navigation.noRoute.pickInside,
-      if (_at((i) => i > 0 && i < _last).isNotEmpty) t.navigation.noRoute.moveStop,
+      if (_at((i) => i > 0 && i < _last).isNotEmpty) moveStop,
       if (_at((i) => i == 0).any((r) => r.kind != NoRouteReasonKind.outsideCoverage))
         t.navigation.noRoute.moveOrigin,
       if (reasons.any((r) => r.kind == NoRouteReasonKind.tripTooLong)) t.navigation.noRoute.shorter,

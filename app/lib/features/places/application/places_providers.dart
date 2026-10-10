@@ -10,6 +10,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
@@ -415,9 +416,20 @@ Stream<List<PlaceSummary>> mapPlaces(Ref ref) =>
     ref.watch(placesRepositoryProvider).watchAll(ref.watch(effectiveFilterProvider));
 
 /// One place for its page: the synced copy, the copy of an earlier
-/// opening, or the API's ([PlaceReader]).
-@riverpod
+/// opening, or the API's ([PlaceReader]). A network failure is not asked
+/// again behind the user's back ([placeRetry]): the page says at once that
+/// there is no connection, with what the map knew of the place, and the
+/// network's return reads it again.
+@Riverpod(retry: placeRetry)
 Stream<Place?> place(Ref ref, String id) => ref.watch(placeReaderProvider).watch(id);
+
+/// The retries of a place's page: none after a network failure, which the
+/// page shows at once (Riverpod's own retries kept it loading for a
+/// minute, a skeleton without a word); Riverpod's own for the rest.
+Duration? placeRetry(int count, Object error) =>
+    error is GraphQLNetworkException && error is! GraphQLRateLimitedException
+    ? null
+    : ProviderContainer.defaultRetry(count, error);
 
 // keepAlive: a stateless service over the run's client.
 @Riverpod(keepAlive: true)
@@ -477,9 +489,14 @@ Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) async {
   }
   await Future<void>.delayed(const Duration(milliseconds: 250));
   if (!ref.mounted) return 0;
+  // At the zoom of the names, the view's own places among the widened
+  // view's, as the list keeps them ([NearbyPlacesPage]); below, the count
+  // of the widened view the list's title gives too.
+  final street = view.zoom >= PlaceTiles.nameZoom;
   final page = await ref
       .read(onlinePlacesProvider)
-      .inBounds(view.bounds, resolved, near: view.center, first: 1);
+      .inBounds(view.bounds, resolved, near: view.center, first: street ? nearbyRankedLimit : 1);
+  if (street) return page.places.where((p) => view.bounds.contains(p.position)).length;
   return page.total;
 }
 

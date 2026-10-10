@@ -288,13 +288,15 @@ class GuidanceSettings {
   final double maxDeviationM;
 
   /// A fix less precise than this, metres, never decides that the vehicle
-  /// left the route or reached a maneuver: a fix in an urban canyon or a
+  /// left the route or passed a maneuver: a fix in an urban canyon or a
   /// tunnel can be 50 m off.
   final int minAccuracyM;
 
-  /// A step ends when the vehicle comes this close to its maneuver, then
-  /// moves on past it, metres.
-  final int maneuverReachedM;
+  /// A step ends once the vehicle is this far past its maneuver along the
+  /// route, metres: small, so the banner does not lag behind the turn,
+  /// and enough that a vehicle waiting at the junction keeps the
+  /// maneuver ahead.
+  final int maneuverLeftM;
 
   /// The trip ends this close to the destination, metres.
   final int arrivalM;
@@ -302,16 +304,13 @@ class GuidanceSettings {
   const GuidanceSettings({
     required this.maxDeviationM,
     required this.minAccuracyM,
-    required this.maneuverReachedM,
+    required this.maneuverLeftM,
     required this.arrivalM,
   });
 
   @override
   int get hashCode =>
-      maxDeviationM.hashCode ^
-      minAccuracyM.hashCode ^
-      maneuverReachedM.hashCode ^
-      arrivalM.hashCode;
+      maxDeviationM.hashCode ^ minAccuracyM.hashCode ^ maneuverLeftM.hashCode ^ arrivalM.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -320,7 +319,7 @@ class GuidanceSettings {
           runtimeType == other.runtimeType &&
           maxDeviationM == other.maxDeviationM &&
           minAccuracyM == other.minAccuracyM &&
-          maneuverReachedM == other.maneuverReachedM &&
+          maneuverLeftM == other.maneuverLeftM &&
           arrivalM == other.arrivalM;
 }
 

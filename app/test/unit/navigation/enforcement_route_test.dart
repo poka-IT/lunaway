@@ -210,14 +210,29 @@ void main() {
     test('carries its year when it is not this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2026, 10, 9)),
-        'Délégation à la sécurité routière, radars fixes, liste du 30 déc. 2025',
+        'Délégation à la sécurité routière, liste du 30 déc. 2025',
       );
+    });
+
+    test('names the list in the language of the app, by its authority', () async {
+      await initializeDateFormatting('de');
+      final de = await AppLocale.de.build();
+      final cited = de.enforcementSource(dsr, now: DateTime(2026, 10, 9));
+      expect(cited, startsWith('Délégation à la sécurité routière, Liste vom '));
+      expect(cited, isNot(contains('radars fixes')), reason: 'the API names it in French');
+      final unknown = EnforcementSource(
+        id: 'xx-new',
+        name: 'Nowa lista',
+        attribution: 'Nowa lista',
+        fetchedAt: DateTime.utc(2026, 10, 9),
+      );
+      expect(de.listName(unknown), 'Nowa lista', reason: 'a list the app does not know yet');
     });
 
     test('goes without it this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2025, 12, 31)),
-        'Délégation à la sécurité routière, radars fixes, liste du 30 déc.',
+        'Délégation à la sécurité routière, liste du 30 déc.',
       );
     });
   });

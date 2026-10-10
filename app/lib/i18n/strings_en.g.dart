@@ -696,8 +696,8 @@ class Translations$location$en {
 	/// en: 'The browser blocks your position'
 	String get browserDeniedTitle => 'The browser blocks your position';
 
-	/// en: 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.'
-	String get browserDenied => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.';
+	/// en: 'The browser refuses your position to Lunaway. To allow it, open the icon left of the site's address (a padlock or sliders), set Location to Allow, then ask for your position again with its button.'
+	String get browserDenied => 'The browser refuses your position to Lunaway. To allow it, open the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then ask for your position again with its button.';
 
 	/// en: 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.'
 	String get browserNoFix => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.';
@@ -900,6 +900,9 @@ class Translations$place$en {
 	/// en: 'In My favourites. Long press to choose lists.'
 	String get saveHint => 'In My favourites. Long press to choose lists.';
 
+	/// en: 'In My favourites. Right-click to choose lists.'
+	String get saveHintClick => 'In My favourites. Right-click to choose lists.';
+
 	/// en: 'Save to a list'
 	String get saveTo => 'Save to a list';
 
@@ -983,11 +986,11 @@ class Translations$place$en {
 	/// en: 'Source: $source'
 	String addressSource({required Object source}) => 'Source: ${source}';
 
-	/// en: 'Copy the coordinates'
-	String get copy => 'Copy the coordinates';
-
 	/// en: 'Copy'
 	String get copyShort => 'Copy';
+
+	/// en: 'Copy the coordinates'
+	String get copy => 'Copy the coordinates';
 
 	/// en: 'Copy as $format'
 	String copyAs({required Object format}) => 'Copy as ${format}';
@@ -1046,8 +1049,11 @@ class Translations$place$en {
 	/// en: 'Photos'
 	String get photos => 'Photos';
 
-	/// en: 'Photos and reviews need a connection.'
-	String get extrasOffline => 'Photos and reviews need a connection.';
+	/// en: 'No connection: photos and reviews will show when the network is back.'
+	String get extrasOffline => 'No connection: photos and reviews will show when the network is back.';
+
+	/// en: 'No connection: the rest of the page will show when the network is back.'
+	String get offlineRest => 'No connection: the rest of the page will show when the network is back.';
 
 	/// en: 'Reviews'
 	String get reviewsTitle => 'Reviews';
@@ -1067,8 +1073,8 @@ class Translations$place$en {
 	/// en: 'More reviews'
 	String get moreReviews => 'More reviews';
 
-	/// en: 'More reviews could not load. Tap to try again.'
-	String get moreReviewsFailed => 'More reviews could not load. Tap to try again.';
+	/// en: 'More reviews could not load. Try again'
+	String get moreReviewsFailed => 'More reviews could not load. Try again';
 
 	/// en: '$rating out of 5'
 	String stars({required Object rating}) => '${rating} out of 5';
@@ -1380,8 +1386,8 @@ class Translations$favorites$en {
 	/// en: 'Nothing saved here yet'
 	String get empty => 'Nothing saved here yet';
 
-	/// en: 'Tap Save on a place, an address or a point of the map to keep it, even offline.'
-	String get emptyHint => 'Tap Save on a place, an address or a point of the map to keep it, even offline.';
+	/// en: 'Save a place, an address or a point of the map to keep it, even offline.'
+	String get emptyHint => 'Save a place, an address or a point of the map to keep it, even offline.';
 
 	/// en: 'New list'
 	String get newList => 'New list';
@@ -1582,8 +1588,11 @@ class Translations$vehicleHeight$en {
 	/// en: 'Give the height, for example 2.90'
 	String get needed => 'Give the height, for example 2.90';
 
-	/// en: 'Gross vehicle weight (optional)'
-	String get weightOptional => 'Gross vehicle weight (optional)';
+	/// en: 'Optional'
+	String get optional => 'Optional';
+
+	/// en: 'Gross vehicle weight'
+	String get weight => 'Gross vehicle weight';
 
 	/// en: 'Filter with this height'
 	String get apply => 'Filter with this height';
@@ -2479,8 +2488,8 @@ class Translations$contribute$en {
 	/// en: 'Your rating'
 	String get yourRating => 'Your rating';
 
-	/// en: 'Tap a star to rate'
-	String get rateHint => 'Tap a star to rate';
+	/// en: 'Choose from 1 to 5 stars'
+	String get rateHint => 'Choose from 1 to 5 stars';
 
 	/// en: '(one) {Rate $n star} (other) {Rate $n stars}'
 	String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
@@ -3881,6 +3890,9 @@ class Translations$navigation$preview$en {
 	/// en: 'Timed at $speed max'
 	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
+	/// en: 'Including $duration for $distance of very slow road'
+	String slowStretch({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road';
+
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
 
@@ -4051,8 +4063,11 @@ class Translations$navigation$fuel$en {
 	/// en: 'Fuel station'
 	String get station => 'Fuel station';
 
-	/// en: 'No station selling this fuel near the route.'
-	String get empty => 'No station selling this fuel near the route.';
+	/// en: 'No station with a price for this fuel near the route.'
+	String get empty => 'No station with a price for this fuel near the route.';
+
+	/// en: 'The prices come from the French Ministry of the Economy: they are known in France only.'
+	String get emptyHint => 'The prices come from the French Ministry of the Economy: they are known in France only.';
 
 	/// en: 'The stations could not be loaded.'
 	String get failed => 'The stations could not be loaded.';
@@ -4241,6 +4256,9 @@ class Translations$navigation$states$en {
 	/// en: 'Pick a destination before the obstacle: long-press the map.'
 	String get pickOtherPoint => 'Pick a destination before the obstacle: long-press the map.';
 
+	/// en: 'Pick a destination before the obstacle: right-click the map.'
+	String get pickOtherPointClick => 'Pick a destination before the obstacle: right-click the map.';
+
 	/// en: 'No road leads there'
 	String get noRouteTitle => 'No road leads there';
 
@@ -4363,8 +4381,14 @@ class Translations$navigation$noRoute$en {
 	/// en: 'Or pick another arrival: long press on the map, then "Go there directly".'
 	String get moveDestination => 'Or pick another arrival: long press on the map, then "Go there directly".';
 
+	/// en: 'Or pick another arrival: right-click the map, then "Go there directly".'
+	String get moveDestinationClick => 'Or pick another arrival: right-click the map, then "Go there directly".';
+
 	/// en: 'For another stop: tap the map close up, or long press, then "Add as a stop".'
 	String get moveStop => 'For another stop: tap the map close up, or long press, then "Add as a stop".';
+
+	/// en: 'For another stop: click the map close up, or right-click, then "Add as a stop".'
+	String get moveStopClick => 'For another stop: click the map close up, or right-click, then "Add as a stop".';
 
 	/// en: 'The start is your position: get to a road your vehicle may take, then try again.'
 	String get moveOrigin => 'The start is your position: get to a road your vehicle may take, then try again.';
@@ -4743,14 +4767,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Recenter'
 	String get recenter => 'Recenter';
 
-	/// en: 'End'
-	String get end => 'End';
-
-	/// en: 'End the guidance?'
-	String get endTitle => 'End the guidance?';
-
-	/// en: 'End'
-	String get endConfirm => 'End';
+	/// en: 'Stop the guidance'
+	String get end => 'Stop the guidance';
 
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
@@ -5065,6 +5083,30 @@ class Translations$navigation$enforcement$en {
 
 	/// en: 'average limit $limit'
 	String averageLimit({required Object limit}) => 'average limit ${limit}';
+
+	/// en: 'Sécurité routière'
+	String get listSecuriteRoutiere => 'Sécurité routière';
+
+	/// en: 'Délégation à la sécurité routière'
+	String get listDsr => 'Délégation à la sécurité routière';
+
+	/// en: 'GITD'
+	String get listGitd => 'GITD';
+
+	/// en: 'Ponts et chaussées'
+	String get listPontsEtChaussees => 'Ponts et chaussées';
+
+	/// en: 'Bruxelles Mobilité'
+	String get listBrusselsMobility => 'Bruxelles Mobilité';
+
+	/// en: 'Statens vegvesen'
+	String get listStatensVegvesen => 'Statens vegvesen';
+
+	/// en: 'An Garda Síochána'
+	String get listGarda => 'An Garda Síochána';
+
+	/// en: 'OpenStreetMap'
+	String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -7356,7 +7398,7 @@ extension on Translations {
 			'location.noFix' => 'Your position cannot be found yet. Try again in the open or in a moment.',
 			'location.unsupported' => 'This device does not give its position.',
 			'location.browserDeniedTitle' => 'The browser blocks your position',
-			'location.browserDenied' => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.',
+			'location.browserDenied' => 'The browser refuses your position to Lunaway. To allow it, open the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then ask for your position again with its button.',
 			'location.browserNoFix' => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.',
 			'search.towns' => 'Towns',
 			'search.places' => 'Places',
@@ -7417,6 +7459,7 @@ extension on Translations {
 			'place.save' => 'Save',
 			'place.saved' => 'Saved',
 			'place.saveHint' => 'In My favourites. Long press to choose lists.',
+			'place.saveHintClick' => 'In My favourites. Right-click to choose lists.',
 			'place.saveTo' => 'Save to a list',
 			'place.chooseLists' => 'Lists',
 			'place.savedToast' => 'Added to My favourites',
@@ -7446,8 +7489,8 @@ extension on Translations {
 			'place.address' => 'Address',
 			'place.copyAddress' => 'Copy the address',
 			'place.addressSource' => ({required Object source}) => 'Source: ${source}',
-			'place.copy' => 'Copy the coordinates',
 			'place.copyShort' => 'Copy',
+			'place.copy' => 'Copy the coordinates',
 			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
 			'place.copiesAs' => ({required Object format}) => '"Copy" copies: ${format}',
 			'place.copied' => ({required Object text}) => 'Copied: ${text}',
@@ -7467,13 +7510,14 @@ extension on Translations {
 			'place.loadError' => 'This place could not be loaded.',
 			'place.openFailed' => 'No app could open this link.',
 			'place.photos' => 'Photos',
-			'place.extrasOffline' => 'Photos and reviews need a connection.',
+			'place.extrasOffline' => 'No connection: photos and reviews will show when the network is back.',
+			'place.offlineRest' => 'No connection: the rest of the page will show when the network is back.',
 			'place.reviewsTitle' => 'Reviews',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} review', other: '${n} reviews', ), 
 			'place.noReviews' => 'No reviews yet.',
 			'place.noOtherReviews' => 'No other reviews yet.',
 			'place.moreReviews' => 'More reviews',
-			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
+			'place.moreReviewsFailed' => 'More reviews could not load. Try again',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
 			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Lunaway review', other: 'Lunaway reviews', ), 
@@ -7585,6 +7629,7 @@ extension on Translations {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -7635,7 +7680,8 @@ extension on Translations {
 			'navigation.fuel.unknownHours' => 'Hours unknown',
 			'navigation.fuel.add' => 'Add',
 			'navigation.fuel.station' => 'Fuel station',
-			'navigation.fuel.empty' => 'No station selling this fuel near the route.',
+			'navigation.fuel.empty' => 'No station with a price for this fuel near the route.',
+			'navigation.fuel.emptyHint' => 'The prices come from the French Ministry of the Economy: they are known in France only.',
 			'navigation.fuel.failed' => 'The stations could not be loaded.',
 			'navigation.fuel.estimated' => 'Detours estimated from the distance to the route.',
 			'navigation.fuel.attribution' => 'Prices: French Ministry of the Economy (data.economie.gouv.fr)',
@@ -7705,18 +7751,19 @@ extension on Translations {
 			'navigation.states.whatToDo' => 'What you can do',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Check the figures you gave: ${height} high, ${weight}.',
 			'navigation.states.pickOtherPoint' => 'Pick a destination before the obstacle: long-press the map.',
+			'navigation.states.pickOtherPointClick' => 'Pick a destination before the obstacle: right-click the map.',
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
 			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Your vehicle cannot leave from here: ${limit}',
 			'navigation.noRoute.destinationUnreachable' => 'Destination out of reach for your vehicle',
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destination out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Stop ${n} out of reach for your vehicle',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
@@ -7761,7 +7808,9 @@ extension on Translations {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Remove the stop "${name}"',
 			'navigation.noRoute.placesAround' => 'See the places around the destination',
 			'navigation.noRoute.moveDestination' => 'Or pick another arrival: long press on the map, then "Go there directly".',
+			'navigation.noRoute.moveDestinationClick' => 'Or pick another arrival: right-click the map, then "Go there directly".',
 			'navigation.noRoute.moveStop' => 'For another stop: tap the map close up, or long press, then "Add as a stop".',
+			'navigation.noRoute.moveStopClick' => 'For another stop: click the map close up, or right-click, then "Add as a stop".',
 			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
@@ -7884,9 +7933,7 @@ extension on Translations {
 			'navigation.guidance.voiceMode.saysMuted' => 'Voice off: everything shows on screen, with no sound.',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Recenter',
-			'navigation.guidance.end' => 'End',
-			'navigation.guidance.endTitle' => 'End the guidance?',
-			'navigation.guidance.endConfirm' => 'End',
+			'navigation.guidance.end' => 'Stop the guidance',
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.stopTitle' => 'Stop the guidance?',
 			'navigation.guidance.stopConfirm' => 'Stop',
@@ -8015,6 +8062,14 @@ extension on Translations {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'limit ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'average limit ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Places nearby',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -8034,7 +8089,7 @@ extension on Translations {
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
-			'favorites.emptyHint' => 'Tap Save on a place, an address or a point of the map to keep it, even offline.',
+			'favorites.emptyHint' => 'Save a place, an address or a point of the map to keep it, even offline.',
 			'favorites.newList' => 'New list',
 			'favorites.listName' => 'List name',
 			'favorites.renameList' => 'Rename the list',
@@ -8103,7 +8158,8 @@ extension on Translations {
 			'vehicleHeight.title' => 'Your vehicle\'s height',
 			'vehicleHeight.why' => 'Places limited lower will be hidden. Places with no known limit stay on the map.',
 			'vehicleHeight.needed' => 'Give the height, for example 2.90',
-			'vehicleHeight.weightOptional' => 'Gross vehicle weight (optional)',
+			'vehicleHeight.optional' => 'Optional',
+			'vehicleHeight.weight' => 'Gross vehicle weight',
 			'vehicleHeight.apply' => 'Filter with this height',
 			'vehicleHeight.later' => 'The rest of the vehicle is described in Profile, My vehicle.',
 			'profile.title' => 'Profile',
@@ -8215,6 +8271,8 @@ extension on Translations {
 			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
 			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
+			_ => null,
+		} ?? switch (path) {
 			'account.levelOpens.l2' => 'You can also add places.',
 			'account.levelOpens.l3' => 'Your edits of places apply without review.',
 			'account.levelOpens.l4' => 'You take part in moderation.',
@@ -8229,8 +8287,6 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
@@ -8414,7 +8470,7 @@ extension on Translations {
 			'placement.same' => 'Yes, open its page',
 			'placement.notSame' => 'No, it is another place',
 			'contribute.yourRating' => 'Your rating',
-			'contribute.rateHint' => 'Tap a star to rate',
+			'contribute.rateHint' => 'Choose from 1 to 5 stars',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Rate ${n} star', other: 'Rate ${n} stars', ), 
 			'contribute.writeReview' => 'Write a review',
 			'contribute.editReview' => 'Edit your review',
@@ -8729,6 +8785,8 @@ extension on Translations {
 			'poi.kind.horseRiding' => 'Riding stables',
 			'poi.kind.bowlingAlley' => 'Bowling alley',
 			'poi.kind.escapeGame' => 'Escape room',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.amusementArcade' => 'Arcade',
 			'poi.kind.iceRink' => 'Ice rink',
 			'poi.kind.spa' => 'Spa and sauna',
@@ -8743,8 +8801,6 @@ extension on Translations {
 			'poi.vendingSells.pizza' => 'Pizza',
 			'poi.vendingSells.bread' => 'Bread',
 			'poi.vendingSells.farmProducts' => 'Farm produce',
-			_ => null,
-		} ?? switch (path) {
 			'poi.vendingSells.eggsMilk' => 'Eggs and milk',
 			'poi.vendingSells.ice' => 'Ice',
 			'poi.vendingAll' => 'All food vending machines',

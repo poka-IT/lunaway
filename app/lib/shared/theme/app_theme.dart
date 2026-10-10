@@ -401,6 +401,11 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       hintStyle: text.bodyLarge!.copyWith(color: scheme.onSurfaceVariant),
       helperStyle: text.bodySmall!.copyWith(color: scheme.onSurfaceVariant),
       errorStyle: text.bodySmall!.copyWith(color: scheme.error),
+      // A helper or an error wraps rather than end in "...": one
+      // line cut "Noch mindestens 10 Zeichen" at a large text size. A
+      // hint wraps field by field: a theme-wide one broke the date picker.
+      helperMaxLines: 3,
+      errorMaxLines: 3,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(LunaTokens.radiusM),
         borderSide: BorderSide(color: scheme.outlineVariant),

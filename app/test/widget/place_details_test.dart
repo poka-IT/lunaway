@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/season.dart';
@@ -12,6 +18,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
@@ -24,7 +31,7 @@ Future<TestApp> openPlace(
   Place place, {
   AppLocale locale = AppLocale.fr,
   FakeExtrasSource? extras,
-  Size size = const Size(1280, 2400),
+  Size size = const Size(1280, 3200),
   List<Place>? places,
 }) async {
   final app = await pumpLunaway(tester, size: size, locale: locale, extras: extras, places: places);
@@ -203,6 +210,31 @@ void main() {
     expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
   });
 
+  testWidgets('a place open all year says it once, without a note of local time', (tester) async {
+    final allYear = Place(
+      id: 'test-all-year',
+      name: "Aire de l'Année (démo)",
+      kind: PlaceKind.motorhomeArea,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      openingHours: 'Jan 01-Dec 31',
+      openingHoursParsed: true,
+      openingSeason: const [DayRange.wholeYear],
+    );
+    await openPlace(tester, allYear, places: [allYear]);
+    expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
+    expect(inDetails(find.textContaining("oute l'année")), findsOneWidget);
+    expect(inDetails(find.text("Horaires à l'heure locale du lieu")), findsNothing);
+  });
+
+  testWidgets('hours with times of day keep the note that they are the local time', (tester) async {
+    await openPlace(tester, lakeArea);
+    expect(inDetails(find.text('Lun.-dim. 08:00-20:00')), findsOneWidget);
+    expect(inDetails(find.text("Horaires à l'heure locale du lieu")), findsOneWidget);
+  });
+
   Place priced(
     String id, {
     double? parking,
@@ -363,7 +395,9 @@ void main() {
     tester,
   ) async {
     await openPlace(tester, dayParking);
-    await tester.tap(find.byTooltip('Copier les coordonnées'));
+    await tester.tap(
+      find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
+    );
     await tester.pump();
     expect(clipboard, ['45.762900, 4.831697']);
     expect(find.text('Copié : 45.762900, 4.831697'), findsOneWidget);
@@ -375,7 +409,9 @@ void main() {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400), systemShowsCopies: true);
     app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
     await settleShort(tester);
-    await tester.tap(find.byTooltip('Copier les coordonnées'));
+    await tester.tap(
+      find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
+    );
     await settleShort(tester);
     expect(clipboard, ['45.762900, 4.831697']);
     expect(find.textContaining('Copié'), findsNothing);
@@ -403,14 +439,11 @@ void main() {
     expect(find.text('« Copier » copie : Degrés, minutes, secondes'), findsOneWidget);
 
     clipboard.clear();
-    await tester.tap(find.byTooltip('Copier en Degrés, minutes, secondes'));
-    await settleShort(tester);
-    // The action bar's "Copy" too.
     await tester.tap(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
     );
     await settleShort(tester);
-    expect(clipboard, ['45°45\'46.4"N 4°49\'54.1"E', '45°45\'46.4"N 4°49\'54.1"E']);
+    expect(clipboard, ['45°45\'46.4"N 4°49\'54.1"E']);
 
     // Picking decimal degrees again goes back to the default.
     await tester.tap(find.byTooltip('Choisir le format copié'));
@@ -418,7 +451,35 @@ void main() {
     await tester.tap(find.text('Degrés décimaux'));
     await settleShort(tester);
     expect(find.textContaining('« Copier » copie'), findsNothing);
-    expect(find.byTooltip('Copier les coordonnées'), findsOneWidget);
+  });
+
+  testWidgets('the coordinates are copied by the action bar alone, not twice on the page', (
+    tester,
+  ) async {
+    await openPlace(tester, dayParking);
+    expect(inDetails(find.byIcon(AppIcons.copy)), findsNothing);
+    expect(
+      find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets("a place's card over a route, without an action bar, copies in one tap", (
+    tester,
+  ) async {
+    await pumpLunaway(tester, size: const Size(412, 915));
+    unawaited(showPlaceCard(tester.element(find.byType(Scaffold).first), dayParking.id));
+    await settleShort(tester);
+    await tester.scrollUntilVisible(
+      find.byTooltip('Copier les coordonnées'),
+      200,
+      scrollable: find
+          .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.tap(find.byTooltip('Copier les coordonnées'));
+    await tester.pump();
+    expect(clipboard, ['45.762900, 4.831697']);
   });
 
   testWidgets('a long press on directions offers the installed navigation apps', (tester) async {
@@ -595,6 +656,26 @@ void main() {
     );
   });
 
+  testWidgets('with a mouse, a right click on save picks the lists, and the hint says so', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final semantics = tester.ensureSemantics();
+    try {
+      await openPlace(tester, campsite);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Enregistrer')).hint,
+        'Dans Mes favoris. Clic droit pour choisir des listes.',
+      );
+      await tester.tap(find.text('Enregistrer'), buttons: kSecondaryButton);
+      await settleShort(tester);
+      expect(find.text('Enregistrer dans une liste'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('with large text on a phone the actions stack and no label is cut', (tester) async {
     final app = await pumpLunaway(tester, textScale: 2);
     app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
@@ -751,11 +832,71 @@ void main() {
       lakeArea,
       extras: FakeExtrasSource(photos: samplePhotos)..online = false,
     );
-    expect(find.text('Les photos et les avis demandent une connexion.'), findsWidgets);
+    expect(
+      find.text("Pas de connexion : les photos et les avis s'afficheront au retour du réseau."),
+      findsWidgets,
+    );
     expect(
       find.text('Nuit autorisée'),
       findsWidgets,
       reason: 'the rest of the place still shows offline',
+    );
+  });
+
+  testWidgets('a place opened offline gets its photos and reviews once the network is back', (
+    tester,
+  ) async {
+    const offline = "Pas de connexion : les photos et les avis s'afficheront au retour du réseau.";
+    final extras = FakeExtrasSource(photos: samplePhotos)..online = false;
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(1280, 3200),
+      extras: extras,
+      reachable: false,
+    );
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    await settleShort(tester);
+    expect(find.text(offline), findsWidgets);
+
+    final fetches = extras.fetches;
+    extras.online = true;
+    app.container(tester).read(basemapReachabilityProvider.notifier).assume(reachable: true);
+    await settleShort(tester);
+    expect(find.text(offline), findsNothing, reason: 'read again without a tap');
+    expect(extras.fetches, greaterThan(fetches));
+  });
+
+  testWidgets('a source whose attribution is its name says it once', (tester) async {
+    final shared = Place(
+      id: 'test-extcom-attribution',
+      name: 'Aire des Chênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      sources: [
+        PlaceSource(
+          source: const Source(
+            id: 'extcom',
+            name: 'Source communautaire externe',
+            licence: 'EXTCOM-2026-10-07',
+            attribution: 'Source communautaire externe',
+            url: 'https://lunaway.net',
+          ),
+          externalId: 'e-2',
+          fetchedAt: DateTime.utc(2026, 10, 6),
+        ),
+      ],
+    );
+    await openPlace(tester, shared, places: [shared]);
+    final sources = find.ancestor(
+      of: find.textContaining('Relevé'),
+      matching: find.byType(Container),
+    );
+    expect(
+      find.descendant(of: sources.first, matching: find.text('Source communautaire externe')),
+      findsOneWidget,
     );
   });
 

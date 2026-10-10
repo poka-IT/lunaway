@@ -78,6 +78,15 @@ List<Fix> _drive(RouteOption route, {required double fromM, required double toM,
   return out;
 }
 
+/// Opens the preview's legend, folded on a phone, as a user does to read
+/// its rows.
+Future<void> openLegend(WidgetTester tester) async {
+  final chip = find.text('Légende');
+  if (chip.evaluate().isEmpty) return;
+  await tester.tap(chip.first);
+  await settleShort(tester);
+}
+
 void main() {
   late FakeLocationFeed feed;
   late RecordingVoice voice;
@@ -488,6 +497,7 @@ void main() {
         app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
       );
       await settleShort(tester);
+      await openLegend(tester);
     }
 
     testWidgets('in France the preview highlights the zone, explains it and cites its list', (
@@ -896,12 +906,13 @@ void main() {
     }
 
     /// The preview of the drive's route read from [device]'s country,
-    /// [exactIn] asked.
+    /// [exactIn] asked; the route in France, its last stretch in [end].
     Future<TestApp> preview(
       WidgetTester tester, {
       required List<EnforcementItem> Function(RouteOption) items,
       Set<String> exactIn = const {},
       String device = 'FR',
+      String end = 'FR',
     }) async {
       final plan = _plan();
       final route = plan.routes.first;
@@ -912,7 +923,18 @@ void main() {
         overrides: navigationOverrides(
           routes: FakeRouteService([plan]),
           feed: FakeLocationFeed(position: origin),
-          countries: FakeCountries((p) => p.distanceTo(origin) < 30 ? device : 'FR', rules: _rules),
+          countries: FakeCountries(
+            (p) => p.distanceTo(origin) < 30
+                ? device
+                : p.distanceTo(route.line.last) < 500
+                ? end
+                : 'FR',
+            // A route into another country ends within a kilometre of
+            // France: France's items are asked for at its end, whatever the
+            // country at the device. The route reads only at its two ends.
+            near: (p) => end != 'FR' && p.distanceTo(route.line.last) < 500 ? ['FR'] : const [],
+            rules: _rules,
+          ),
           enforcement: FixedEnforcement(rules: _rules, items: items(route), sources: [listed]),
           drivingAids: memoryDrivingAids(DrivingAidsSettings(exactIn: exactIn)),
         ),
@@ -921,6 +943,7 @@ void main() {
         app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
       );
       await settleShort(tester);
+      await openLegend(tester);
       return app;
     }
 
@@ -953,6 +976,49 @@ void main() {
       expect(find.textContaining('radar'), findsNothing);
       expect(SchematicRouteMap.last!.zones, hasLength(1));
     });
+
+    // The rule where the device is holds for every camera of the route,
+    // whatever its country (decision of the product owner, 2026-10-10). The
+    // route ends in Spain. France's items are those the server sends each
+    // client: its zone, or its points once they are asked for.
+    for (final (name, device, exactIn, marks, zones) in [
+      ('read in France by default: zones only, none of either country', 'FR', <String>{}, 0, 1),
+      (
+        "read in France with France's positions asked for: France's and Spain's",
+        'FR',
+        {'FR'},
+        2,
+        0,
+      ),
+      ("read in Spain: Spain's rule, its cameras, France's zone", 'ES', <String>{}, 1, 1),
+    ]) {
+      testWidgets('a route into Spain $name', (tester) async {
+        await preview(
+          tester,
+          items: (route) => [
+            if (exactIn.contains('FR')) camera(route, 1000) else _zoneOn(route, 800, 1200),
+            camera(route, 2000, country: 'ES'),
+          ],
+          exactIn: exactIn,
+          device: device,
+          end: 'ES',
+        );
+        expect(cameraMarks(), hasLength(marks));
+        expect(SchematicRouteMap.last!.zones, hasLength(zones));
+        if (marks == 0) {
+          expect(find.textContaining('radar'), findsNothing, reason: 'nor in the legend');
+        } else {
+          expect(
+            find.descendant(
+              of: find.byType(MarkLegend),
+              matching: find.text(marks == 1 ? '1 radar' : '$marks radars'),
+            ),
+            findsOneWidget,
+            reason: 'the legend counts what is drawn',
+          );
+        }
+      });
+    }
 
     testWidgets('the preview read from Germany shows no camera of the route, even of a country '
         'that allows them', (tester) async {
