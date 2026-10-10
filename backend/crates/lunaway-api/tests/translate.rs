@@ -334,7 +334,8 @@ async fn a_language_without_a_model_is_said_apart_and_costs_nothing(pool: PgPool
     );
 }
 
-/// The review of the audit of 2026-10-10, in Finnish.
+/// A review in Finnish, taken for German and given back as it went
+/// before (2026-10-10).
 const FINNISH: &str = "Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että \
                        vesihuoltopisteelle vaikea kääntä yli 6m autolla.";
 

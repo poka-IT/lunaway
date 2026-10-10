@@ -347,8 +347,10 @@ async fn store_dot_tiles(tx: &mut Tx, tiles: &[(i32, i32, i32)]) -> Result<(), D
 }
 
 /// Builds every stored dots tile again from `place_dots`, in the
-/// publication's transaction: 44 s for the 6 000 tiles of Europe in
-/// production on 2026-10-10. Returns how many hold a dot.
+/// publication's transaction, which holds `place_layer` meanwhile: the
+/// same statement took 63.5 s for the 6,000 tiles of Europe when the
+/// migration `20261010150120` ran it in production on 2026-10-10 (35 s
+/// alone on that server before). Returns how many hold a dot.
 async fn store_every_dot_tile(tx: &mut Tx) -> Result<usize, DbError> {
     sqlx::query!("DELETE FROM place_dot_tiles")
         .execute(&mut **tx)

@@ -130,9 +130,9 @@ pub fn source_language(stored: Option<&str>, text: &str) -> Option<String> {
 /// aside, or, for a text of five words or more (of three letters or more),
 /// four fifths of its words found unchanged in what came back. A model fed
 /// a language it does not know copies it: a review in Finnish taken for
-/// German came back from the German model as it went (audit of
-/// 2026-10-10, m13). A real translation keeps the names and the numbers,
-/// rarely four words in five.
+/// German came back from the German model as it went (2026-10-10). A
+/// real translation keeps the names and the numbers, rarely four words in
+/// five.
 #[must_use]
 pub fn is_echo(original: &str, translated: &str) -> bool {
     fn words(text: &str) -> Vec<String> {
@@ -233,7 +233,7 @@ mod tests {
                 "Lloc molt correcte, ideal per descansar i aparcar amb seguretat.",
                 "ca",
             ),
-            // The review of the audit, taken for German before.
+            // A review in Finnish, taken for German before.
             (
                 "Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että \
                  vesihuoltopisteelle vaikea kääntä yli 6m autolla.",
@@ -343,6 +343,8 @@ mod tests {
     #[test]
     #[ignore = "a measure on texts exported from the database, run by hand"]
     fn the_guess_agrees_with_the_labels_of_a_source() {
+        use std::fmt::Write as _;
+
         let dir = std::env::var("LUNAWAY_LANG_SAMPLES").expect("LUNAWAY_LANG_SAMPLES");
         let eight = LanguageDetectorBuilder::from_languages(&DETECTED[..8])
             .with_preloaded_language_models()
@@ -393,12 +395,14 @@ mod tests {
             count += 1;
             let (a, b) = (guess_eight(text), detect_language(text));
             if a != b {
-                listed.push_str(&format!(
-                    "{} -> {}\t{}\n",
+                writeln!(
+                    listed,
+                    "{} -> {}\t{}",
                     a.unwrap_or("none"),
                     b.unwrap_or("none"),
                     head(text)
-                ));
+                )
+                .unwrap();
                 *changed
                     .entry((
                         a.unwrap_or("none").to_owned(),
