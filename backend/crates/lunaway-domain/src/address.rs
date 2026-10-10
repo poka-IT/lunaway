@@ -388,13 +388,14 @@ struct Reading {
 /// names (Lyon, France), or the country it ends on ("... Maroc"). A match
 /// of an unknown country stays, and so does one in a town or a country the
 /// text names ("... Andorra": Andorra, a town of Spain, and the country
-/// Andorra). So does a match whose
-/// name holds the words a town is read from: for "rue de Rome", the BAN's
-/// Rue de Rome in Marseille beside the city of Rome. For "10 rue de la
-/// Republique Lyon", the Photon of Morocco answered the houses of three
-/// embassies of Rabat, found by the "République" of the embassies' names,
-/// which filled the list after Lyon's two addresses (audit of
-/// 2026-10-10).
+/// Andorra). Against the town, so does a match whose name holds the words
+/// the town is read from: for "rue de Rome", the BAN's Rue de Rome in
+/// Marseille beside the city of Rome. A street of the text's name in
+/// another country goes ("1 rue de Siam Brest": a Rue Siam of Rabat). For
+/// "10 rue de la Republique Lyon", the Photon of Morocco answered the
+/// houses of three embassies of Rabat, found by the "République" of the
+/// embassies' names, which filled the list after Lyon's two addresses
+/// (audit of 2026-10-10).
 fn elsewhere(matches: &[&AddressMatch], read: &[Reading]) -> Vec<usize> {
     let present = |code: &str| {
         matches

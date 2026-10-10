@@ -1038,9 +1038,9 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
             20
         )
         .await
-        .unwrap())[0],
-        af,
-        "from beside the other point, that one is kept"
+        .unwrap()),
+        [af, second, first],
+        "from beside the other point, that one is kept and the first told leaves"
     );
     assert_eq!(
         ids(search::search(&pool, "camping mouchet", Some(near), 2)
@@ -1059,7 +1059,8 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
         .unwrap());
     assert!(
         moulins.contains(&moulin) && moulins.contains(&other_moulin),
-        "places whose records are not known are never left out: {moulins:?}"
+        "two places of one name without records, neither placed roughly, stay two: \
+         {moulins:?}"
     );
 }
 
