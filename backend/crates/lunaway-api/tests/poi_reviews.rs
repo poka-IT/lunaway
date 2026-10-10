@@ -737,6 +737,15 @@ async fn a_care_practice_takes_no_rating_nor_review(pool: PgPool) {
     let (alice, _) = sign_in(&app, &Device::new(1)).await;
     let bakery = point_named(&pool, "Maison Bochard").await;
     let practice = point_named(&pool, "Carrefour Market").await;
+    // Rated as a shop, then retagged in OpenStreetMap as a doctor's practice.
+    let before = gql(
+        &app,
+        Some(&alice),
+        REVIEW,
+        json!({"id": practice, "stars": 4, "text": "Bien achalandé, caisses rapides le matin."}),
+    )
+    .await;
+    assert_eq!(ok(&before)["reviewPoi"]["status"], "PUBLISHED");
     sqlx::query!(
         r#"UPDATE pois SET kind = 'doctor', category = 'health', name = 'Dr Martin',
                   data = jsonb_set(data, '{kind}', '"doctor"') WHERE id = $1"#,
@@ -775,11 +784,16 @@ async fn a_care_practice_takes_no_rating_nor_review(pool: PgPool) {
         ok(&gql(&app, None, takes, json!({"id": bakery})).await)["poi"]["takesReviews"],
         true
     );
+    let shown = card(&app, None, practice).await;
+    assert!(
+        shown["ratings"] == json!([]) && shown["reviews"]["totalCount"] == 0,
+        "what it took as a shop no longer shows on the practice: {shown}"
+    );
     let stored: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM poi_reviews"#)
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(stored, 0);
+    assert_eq!(stored, 1, "the review written before stays stored, unshown");
 }
 
 /// A writer the test reads back, for the statements the API ran.

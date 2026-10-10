@@ -19,7 +19,13 @@
 //!   (builders, plumbers, electricians), whose address is often the
 //!   craftsman's own;
 //! - of the offices, only those with a shop window (estate agents, insurers,
-//!   travel agents, coworking spaces): no private office.
+//!   travel agents, coworking spaces): no private office;
+//! - of the places to stay, hotels, guest houses, hostels, huts and the
+//!   holiday rentals mapped as such (`tourism=apartment|chalet`, a gîte):
+//!   the address is the rental's, put on the map for travellers, unlike
+//!   the home of a craftsman who comes to his customers. Overture's import
+//!   leaves its holiday homes out for another reason: a page of Meta gives
+//!   its owner's own address.
 //!
 //! Left out like the points of interest: anything `access=no|private`, or
 //! `opening_hours=closed|off`; and here also what serves customers only

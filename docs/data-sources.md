@@ -785,7 +785,12 @@ medicine) are found by the search, with what OpenStreetMap publishes of
 them, but take no rating nor review, Lunaway's or Mangrove's
 (`content::poi_takes_reviews`, `Poi.takesReviews`): a review published
 under CC BY with its author's name and day of visit would say that author's
-health.
+health. A point retagged as such a practice shows none it took before.
+
+The holiday rentals OpenStreetMap maps (`tourism=apartment|chalet`, a
+gîte) are found: their address is the rental's, mapped for travellers.
+Overture's import leaves its holiday homes and home-visit practitioners
+out for another reason: a page of Meta gives its owner's own address.
 
 Ratings and reviews of other sites than Lunaway and Mangrove are not
 read: Google Maps, TripAdvisor, Yelp and TheFork forbid it in their terms,
