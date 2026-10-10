@@ -774,15 +774,20 @@ impl QueryRoot {
     /// the words in their order first, then the last one as a prefix, then
     /// all the words in any order, then the words that name a place only;
     /// a word that starts no word of any place is read as the closest words
-    /// that do (a typo). Words that only say what kind of place is wanted
-    /// ("aire", "camping", "parking", "de") rank the places and never make
-    /// one match alone, places of that kind first. A text of such words
-    /// only that ends on a kind ("aire de camping car", not "camping la")
-    /// lists the places of that kind nearest `near` first, named so or not. Among equal matches, the nearest to
-    /// `near` first, `near` rounded by the server to the nearest 0.05
-    /// degree (about 5 km) before any use. A search the database cannot
-    /// answer within its time limit (a fraction of a second) answers no
-    /// place rather than an error.
+    /// that do (a typo). Within each, the places of a town the text names
+    /// whole first ("viviers": Viviers, not Chapelle-Viviers), then the
+    /// places of the kind it names, then those whose name holds its words.
+    /// Words that only say what kind of place is wanted ("aire", "camping",
+    /// "parking", "de") rank the places and never make one match alone. A
+    /// text of such words only that ends on a kind ("aire de camping car",
+    /// not "camping la") lists the places of that kind nearest `near`
+    /// first, named so or not. Among equal matches, the nearest to `near`
+    /// first, `near` rounded by the server to the nearest 0.05 degree
+    /// (about 5 km) before any use. A place two sources put apart (one
+    /// name, kind and commune, a few kilometres apart, one source placing
+    /// it by its postal address) is listed once. A search the database
+    /// cannot answer within its time limit (a fraction of a second)
+    /// answers no place rather than an error.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,

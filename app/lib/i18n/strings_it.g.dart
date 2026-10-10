@@ -410,6 +410,7 @@ class _Translations$search$it extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Indirizzi: ${sources}';
 	@override String get offline => 'Nessuna connessione: la ricerca ha bisogno della rete.';
 	@override late final _Translations$search$addressKind$it addressKind = _Translations$search$addressKind$it._(_root);
+	@override String get deviceOnly => 'Il server non risponde: la ricerca si limita alle regioni scaricate.';
 }
 
 // Path: filters
@@ -863,6 +864,7 @@ class _Translations$profile$it extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}';
+	@override String get attributionOverture => 'Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0.';
 }
 
 // Path: units
@@ -1478,6 +1480,13 @@ class _Translations$poi$it extends Translations$poi$en {
 	@override late final _Translations$poi$trend$it trend = _Translations$poi$trend$it._(_root);
 	@override String get marketDays => 'Giorni di mercato';
 	@override late final _Translations$poi$vehicles$it vehicles = _Translations$poi$vehicles$it._(_root);
+	@override String searchKindNear({required Object what}) => '${what} qui vicino';
+	@override String searchKindIn({required Object what, required Object town}) => '${what} a ${town}';
+	@override late final _Translations$poi$cuisine$it cuisine = _Translations$poi$cuisine$it._(_root);
+	@override late final _Translations$poi$details$it details = _Translations$poi$details$it._(_root);
+	@override late final _Translations$poi$diet$it diet = _Translations$poi$diet$it._(_root);
+	@override late final _Translations$poi$reservation$it reservation = _Translations$poi$reservation$it._(_root);
+	@override late final _Translations$poi$vehicleService$it vehicleService = _Translations$poi$vehicleService$it._(_root);
 }
 
 // Path: offlineMaps
@@ -2576,6 +2585,9 @@ class _Translations$poi$category$it extends Translations$poi$category$en {
 	@override String get services => 'Servizi';
 	@override String get food => 'Ristoranti e bar';
 	@override String get sights => 'Da vedere';
+	@override String get shopping => 'Negozi';
+	@override String get lodging => 'Alloggi';
+	@override String get leisure => 'Tempo libero';
 }
 
 // Path: poi.kind
@@ -2625,6 +2637,132 @@ class _Translations$poi$kind$it extends Translations$poi$kind$en {
 	@override String get viewpoint => 'Punto panoramico';
 	@override String get attraction => 'Attrazione';
 	@override String get museum => 'Museo';
+	@override String get bar => 'Bar serale';
+	@override String get pub => 'Pub';
+	@override String get iceCream => 'Gelateria';
+	@override String get deli => 'Gastronomia';
+	@override String get cheese => 'Formaggeria';
+	@override String get seafood => 'Pescheria';
+	@override String get pastry => 'Pasticceria';
+	@override String get confectionery => 'Cioccolateria';
+	@override String get wineShop => 'Enoteca';
+	@override String get beverages => 'Bevande';
+	@override String get teaCoffee => 'Tè e caffè';
+	@override String get organicShop => 'Negozio bio';
+	@override String get frozenFood => 'Surgelati';
+	@override String get winery => 'Cantina';
+	@override String get brewery => 'Birrificio';
+	@override String get distillery => 'Distilleria';
+	@override String get beekeeper => 'Apicoltore';
+	@override String get dentist => 'Dentista';
+	@override String get clinic => 'Clinica';
+	@override String get physiotherapist => 'Fisioterapista';
+	@override String get laboratory => 'Laboratorio analisi';
+	@override String get nurse => 'Infermiere';
+	@override String get midwife => 'Ostetrica';
+	@override String get podiatrist => 'Podologo';
+	@override String get psychologist => 'Psicologo';
+	@override String get speechTherapist => 'Logopedista';
+	@override String get alternativeMedicine => 'Osteopata, medicina alternativa';
+	@override String get optician => 'Ottico';
+	@override String get hearingAids => 'Apparecchi acustici';
+	@override String get medicalSupply => 'Sanitaria';
+	@override String get hairdresser => 'Parrucchiere';
+	@override String get beauty => 'Centro estetico';
+	@override String get massage => 'Massaggi';
+	@override String get tattoo => 'Studio tatuaggi';
+	@override String get bank => 'Banca';
+	@override String get moneyExchange => 'Cambiavalute';
+	@override String get carRental => 'Noleggio auto';
+	@override String get bicycleRental => 'Noleggio bici';
+	@override String get boatRental => 'Noleggio barche';
+	@override String get vehicleInspection => 'Revisione auto';
+	@override String get drivingSchool => 'Autoscuola';
+	@override String get dryCleaning => 'Tintoria';
+	@override String get tailor => 'Sartoria';
+	@override String get shoeRepair => 'Calzolaio';
+	@override String get locksmith => 'Fabbro, chiavi';
+	@override String get copyshop => 'Copisteria';
+	@override String get photographer => 'Fotografo';
+	@override String get travelAgency => 'Agenzia di viaggi';
+	@override String get estateAgent => 'Agenzia immobiliare';
+	@override String get insurance => 'Assicurazioni';
+	@override String get funeralDirectors => 'Onoranze funebri';
+	@override String get petGrooming => 'Toelettatura';
+	@override String get tyres => 'Gommista';
+	@override String get carParts => 'Ricambi auto';
+	@override String get carDealer => 'Concessionaria auto';
+	@override String get motorcycleShop => 'Moto';
+	@override String get repairShop => 'Riparazioni';
+	@override String get internetCafe => 'Internet point';
+	@override String get coworking => 'Coworking';
+	@override String get townhall => 'Municipio';
+	@override String get police => 'Polizia, carabinieri';
+	@override String get library => 'Biblioteca';
+	@override String get rental => 'Noleggio';
+	@override String get storageRental => 'Self storage';
+	@override String get animalBoarding => 'Pensione per animali';
+	@override String get ferryTerminal => 'Terminal traghetti';
+	@override String get clothes => 'Abbigliamento';
+	@override String get shoes => 'Calzature';
+	@override String get accessories => 'Pelletteria, accessori';
+	@override String get jewellery => 'Gioielleria';
+	@override String get books => 'Libreria';
+	@override String get newsagent => 'Edicola';
+	@override String get tobacco => 'Tabaccheria';
+	@override String get stationery => 'Cartoleria';
+	@override String get gift => 'Regali e souvenir';
+	@override String get toys => 'Giocattoli';
+	@override String get sports => 'Articoli sportivi';
+	@override String get fishingHunting => 'Caccia e pesca';
+	@override String get bicycleShop => 'Negozio di bici';
+	@override String get boatShop => 'Nautica';
+	@override String get florist => 'Fioraio';
+	@override String get gardenCentre => 'Garden center';
+	@override String get hardware => 'Ferramenta, fai da te';
+	@override String get home => 'Casa e arredamento';
+	@override String get electronics => 'Elettronica e telefonia';
+	@override String get cosmetics => 'Profumeria';
+	@override String get departmentStore => 'Grande magazzino, centro commerciale';
+	@override String get varietyStore => 'Bazar, discount';
+	@override String get secondHand => 'Usato, antiquariato';
+	@override String get artShop => 'Arte e hobby';
+	@override String get musicShop => 'Negozio di musica';
+	@override String get petShop => 'Negozio per animali';
+	@override String get babyGoods => 'Prima infanzia';
+	@override String get fabric => 'Tessuti e merceria';
+	@override String get craft => 'Artigiano';
+	@override String get shop => 'Negozio';
+	@override String get hotel => 'Hotel';
+	@override String get guestHouse => 'Bed and breakfast';
+	@override String get hostel => 'Ostello';
+	@override String get holidayRental => 'Casa vacanze';
+	@override String get mountainHut => 'Rifugio';
+	@override String get cinema => 'Cinema';
+	@override String get theatre => 'Teatro';
+	@override String get eventsVenue => 'Sala eventi';
+	@override String get artsCentre => 'Centro culturale';
+	@override String get nightclub => 'Discoteca';
+	@override String get casino => 'Casinò';
+	@override String get sportsCentre => 'Centro sportivo';
+	@override String get fitnessCentre => 'Palestra';
+	@override String get swimmingPool => 'Piscina';
+	@override String get waterPark => 'Parco acquatico';
+	@override String get golfCourse => 'Campo da golf';
+	@override String get miniatureGolf => 'Minigolf';
+	@override String get marina => 'Porto turistico';
+	@override String get horseRiding => 'Maneggio';
+	@override String get bowlingAlley => 'Bowling';
+	@override String get escapeGame => 'Escape room';
+	@override String get amusementArcade => 'Sala giochi';
+	@override String get iceRink => 'Pista di pattinaggio';
+	@override String get spa => 'Terme, spa';
+	@override String get dance => 'Danza';
+	@override String get park => 'Parco';
+	@override String get natureReserve => 'Riserva naturale';
+	@override String get gallery => 'Galleria d\'arte';
+	@override String get zoo => 'Zoo, acquario';
+	@override String get themePark => 'Parco divertimenti';
 }
 
 // Path: poi.vendingSells
@@ -2777,6 +2915,170 @@ class _Translations$poi$vehicles$it extends Translations$poi$vehicles$en {
 	@override String get hgvYes => 'Accetta mezzi pesanti';
 	@override String get hgvNo => 'Mezzi pesanti non ammessi';
 	@override String maxHeight({required Object height}) => 'Altezza massima: ${height}';
+}
+
+// Path: poi.cuisine
+class _Translations$poi$cuisine$it extends Translations$poi$cuisine$en {
+	_Translations$poi$cuisine$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get pizza => 'Pizza';
+	@override String get italian => 'Italiana';
+	@override String get french => 'Francese';
+	@override String get regional => 'Regionale';
+	@override String get local => 'Locale';
+	@override String get burger => 'Hamburger';
+	@override String get kebab => 'Kebab';
+	@override String get chinese => 'Cinese';
+	@override String get japanese => 'Giapponese';
+	@override String get sushi => 'Sushi';
+	@override String get asian => 'Asiatica';
+	@override String get indian => 'Indiana';
+	@override String get thai => 'Thailandese';
+	@override String get vietnamese => 'Vietnamita';
+	@override String get korean => 'Coreana';
+	@override String get mexican => 'Messicana';
+	@override String get lebanese => 'Libanese';
+	@override String get greek => 'Greca';
+	@override String get turkish => 'Turca';
+	@override String get moroccan => 'Marocchina';
+	@override String get middleEastern => 'Mediorientale';
+	@override String get arab => 'Araba';
+	@override String get african => 'Africana';
+	@override String get american => 'Americana';
+	@override String get spanish => 'Spagnola';
+	@override String get tapas => 'Tapas';
+	@override String get portuguese => 'Portoghese';
+	@override String get german => 'Tedesca';
+	@override String get mediterranean => 'Mediterranea';
+	@override String get international => 'Internazionale';
+	@override String get seafood => 'Frutti di mare';
+	@override String get fish => 'Pesce';
+	@override String get fishAndChips => 'Fish and chips';
+	@override String get steakHouse => 'Steakhouse';
+	@override String get grill => 'Griglieria';
+	@override String get barbecue => 'Barbecue';
+	@override String get chicken => 'Pollo';
+	@override String get crepe => 'Crêpes';
+	@override String get pasta => 'Pasta';
+	@override String get noodle => 'Noodle';
+	@override String get ramen => 'Ramen';
+	@override String get couscous => 'Cuscus';
+	@override String get sandwich => 'Panini';
+	@override String get bagel => 'Bagel';
+	@override String get hotDog => 'Hot dog';
+	@override String get friture => 'Patatine fritte';
+	@override String get salad => 'Insalate';
+	@override String get vegetarian => 'Vegetariana';
+	@override String get vegan => 'Vegana';
+	@override String get breakfast => 'Colazione';
+	@override String get brunch => 'Brunch';
+	@override String get coffeeShop => 'Caffetteria';
+	@override String get tea => 'Tè';
+	@override String get bubbleTea => 'Bubble tea';
+	@override String get juice => 'Succhi';
+	@override String get iceCream => 'Gelato';
+	@override String get cake => 'Dolci';
+	@override String get donut => 'Ciambelle';
+	@override String get savoy => 'Savoiarda';
+	@override String get swiss => 'Svizzera';
+	@override String get belgian => 'Belga';
+	@override String get austrian => 'Austriaca';
+	@override String get british => 'Britannica';
+	@override String get dutch => 'Olandese';
+}
+
+// Path: poi.details
+class _Translations$poi$details$it extends Translations$poi$details$en {
+	_Translations$poi$details$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get cuisineTitle => 'Cucina';
+	@override String get dietsTitle => 'Diete';
+	@override String get facilitiesTitle => 'Sul posto';
+	@override String get vehicleServicesTitle => 'Interventi';
+	@override String get takeaway => 'Da asporto';
+	@override String get noTakeaway => 'Niente asporto';
+	@override String get delivery => 'Consegna a domicilio';
+	@override String get noDelivery => 'Niente consegna a domicilio';
+	@override String get outdoorSeating => 'Tavoli all\'aperto';
+	@override String get noOutdoorSeating => 'Niente tavoli all\'aperto';
+	@override String get wifi => 'Wi-Fi per i clienti';
+	@override String get noWifi => 'Niente Wi-Fi';
+	@override String get emergency => 'Pronto soccorso';
+	@override String get noEmergency => 'Niente pronto soccorso';
+	@override String get wheelchairYes => 'Accessibile in sedia a rotelle';
+	@override String get wheelchairLimited => 'Accesso limitato in sedia a rotelle';
+	@override String get wheelchairNo => 'Non accessibile in sedia a rotelle';
+	@override String get googleMaps => 'Vedi le recensioni su Google Maps';
+	@override String get googleMapsHint => 'Si apre fuori da Lunaway, con il nome e la posizione di questo luogo.';
+	@override String get reviewsError => 'Non è stato possibile mostrare le recensioni.';
+	@override String photoOf({required Object name}) => 'Foto di ${name}';
+	@override String stars({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
+		one: '${n} stella',
+		other: '${n} stelle',
+	);
+	@override String get reviewsOffline => 'Le recensioni si leggono con una connessione.';
+}
+
+// Path: poi.diet
+class _Translations$poi$diet$it extends Translations$poi$diet$en {
+	_Translations$poi$diet$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get vegetarian => 'Vegetariano';
+	@override String get vegan => 'Vegano';
+	@override String get glutenFree => 'Senza glutine';
+	@override String get halal => 'Halal';
+	@override String get kosher => 'Kosher';
+	@override String get lactoseFree => 'Senza lattosio';
+}
+
+// Path: poi.reservation
+class _Translations$poi$reservation$it extends Translations$poi$reservation$en {
+	_Translations$poi$reservation$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get yes => 'Prenotazione possibile';
+	@override String get no => 'Senza prenotazione';
+	@override String get required => 'Prenotazione obbligatoria';
+	@override String get recommended => 'Prenotazione consigliata';
+	@override String get only => 'Solo su prenotazione';
+}
+
+// Path: poi.vehicleService
+class _Translations$poi$vehicleService$it extends Translations$poi$vehicleService$en {
+	_Translations$poi$vehicleService$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get tyres => 'Pneumatici';
+	@override String get brakes => 'Freni';
+	@override String get oilChange => 'Cambio olio';
+	@override String get glass => 'Cristalli';
+	@override String get airConditioning => 'Climatizzazione';
+	@override String get bodyRepair => 'Carrozzeria';
+	@override String get painting => 'Verniciatura';
+	@override String get electrical => 'Impianto elettrico';
+	@override String get diagnostics => 'Diagnosi';
+	@override String get batteries => 'Batterie';
+	@override String get engine => 'Motore';
+	@override String get exhaust => 'Scarico';
+	@override String get clutch => 'Frizione';
+	@override String get transmission => 'Trasmissione';
+	@override String get suspension => 'Sospensioni';
+	@override String get carParts => 'Ricambi';
+	@override String get newCarSales => 'Veicoli nuovi';
+	@override String get usedCarSales => 'Veicoli usati';
 }
 
 // Path: roadReport.kinds
@@ -3214,6 +3516,7 @@ extension on TranslationsIt {
 			'search.addressKind.town' => 'Comune',
 			'search.addressKind.postcode' => 'CAP',
 			'search.addressKind.region' => 'Regione',
+			'search.deviceOnly' => 'Il server non risponde: la ricerca si limita alle regioni scaricate.',
 			'filters.title' => 'Filtri',
 			'filters.families' => 'Tipo di luogo',
 			'filters.familiesHint' => 'Nessuna scelta: tutti i tipi',
@@ -3555,9 +3858,9 @@ extension on TranslationsIt {
 			'navigation.states.allowUnpaved' => 'Le strade sterrate vengono evitate: consentile se la destinazione si trova su uno sterrato.',
 			'navigation.states.offNetworkTitle' => 'Troppo lontano da una strada',
 			'navigation.states.offNetworkHint' => 'Scegli una destinazione su una strada.',
-			'navigation.noRoute.originUnreachable' => 'Il tuo veicolo non può partire da qui',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.originUnreachable' => 'Il tuo veicolo non può partire da qui',
 			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Il tuo veicolo non può partire da qui: ${limit}',
 			'navigation.noRoute.destinationUnreachable' => 'Destinazione irraggiungibile per il tuo veicolo',
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destinazione irraggiungibile per il tuo veicolo: ${limit}',
@@ -4021,6 +4324,7 @@ extension on TranslationsIt {
 			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}',
+			'profile.attributionOverture' => 'Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'francese',
@@ -4068,10 +4372,10 @@ extension on TranslationsIt {
 			'account.level' => ({required Object level}) => 'Livello di fiducia ${level}',
 			'account.levelOpens.l0' => 'Puoi valutare i luoghi, confermare che ci sono ancora, segnalare un problema e sincronizzare i tuoi preferiti.',
 			'account.levelOpens.l1' => 'Puoi anche scrivere recensioni, aggiungere foto e proporre modifiche ai luoghi.',
-			'account.levelOpens.l2' => 'Puoi anche aggiungere luoghi.',
-			'account.levelOpens.l3' => 'Le tue modifiche ai luoghi vengono applicate senza revisione.',
 			_ => null,
 		} ?? switch (path) {
+			'account.levelOpens.l2' => 'Puoi anche aggiungere luoghi.',
+			'account.levelOpens.l3' => 'Le tue modifiche ai luoghi vengono applicate senza revisione.',
 			'account.levelOpens.l4' => 'Partecipi alla moderazione.',
 			'account.nextLevel' => ({required Object level}) => 'Per il livello ${level}',
 			'account.levelTop' => 'Sei al livello più alto.',
@@ -4422,6 +4726,9 @@ extension on TranslationsIt {
 			'poi.category.services' => 'Servizi',
 			'poi.category.food' => 'Ristoranti e bar',
 			'poi.category.sights' => 'Da vedere',
+			'poi.category.shopping' => 'Negozi',
+			'poi.category.lodging' => 'Alloggi',
+			'poi.category.leisure' => 'Tempo libero',
 			'poi.kind.supermarket' => 'Supermercato',
 			'poi.kind.convenience' => 'Minimarket',
 			'poi.kind.bakery' => 'Panetteria',
@@ -4462,6 +4769,134 @@ extension on TranslationsIt {
 			'poi.kind.viewpoint' => 'Punto panoramico',
 			'poi.kind.attraction' => 'Attrazione',
 			'poi.kind.museum' => 'Museo',
+			'poi.kind.bar' => 'Bar serale',
+			'poi.kind.pub' => 'Pub',
+			'poi.kind.iceCream' => 'Gelateria',
+			'poi.kind.deli' => 'Gastronomia',
+			'poi.kind.cheese' => 'Formaggeria',
+			'poi.kind.seafood' => 'Pescheria',
+			'poi.kind.pastry' => 'Pasticceria',
+			'poi.kind.confectionery' => 'Cioccolateria',
+			'poi.kind.wineShop' => 'Enoteca',
+			'poi.kind.beverages' => 'Bevande',
+			'poi.kind.teaCoffee' => 'Tè e caffè',
+			'poi.kind.organicShop' => 'Negozio bio',
+			'poi.kind.frozenFood' => 'Surgelati',
+			'poi.kind.winery' => 'Cantina',
+			'poi.kind.brewery' => 'Birrificio',
+			'poi.kind.distillery' => 'Distilleria',
+			'poi.kind.beekeeper' => 'Apicoltore',
+			'poi.kind.dentist' => 'Dentista',
+			'poi.kind.clinic' => 'Clinica',
+			'poi.kind.physiotherapist' => 'Fisioterapista',
+			'poi.kind.laboratory' => 'Laboratorio analisi',
+			'poi.kind.nurse' => 'Infermiere',
+			'poi.kind.midwife' => 'Ostetrica',
+			'poi.kind.podiatrist' => 'Podologo',
+			'poi.kind.psychologist' => 'Psicologo',
+			'poi.kind.speechTherapist' => 'Logopedista',
+			'poi.kind.alternativeMedicine' => 'Osteopata, medicina alternativa',
+			'poi.kind.optician' => 'Ottico',
+			'poi.kind.hearingAids' => 'Apparecchi acustici',
+			'poi.kind.medicalSupply' => 'Sanitaria',
+			'poi.kind.hairdresser' => 'Parrucchiere',
+			'poi.kind.beauty' => 'Centro estetico',
+			'poi.kind.massage' => 'Massaggi',
+			'poi.kind.tattoo' => 'Studio tatuaggi',
+			'poi.kind.bank' => 'Banca',
+			'poi.kind.moneyExchange' => 'Cambiavalute',
+			'poi.kind.carRental' => 'Noleggio auto',
+			'poi.kind.bicycleRental' => 'Noleggio bici',
+			'poi.kind.boatRental' => 'Noleggio barche',
+			'poi.kind.vehicleInspection' => 'Revisione auto',
+			'poi.kind.drivingSchool' => 'Autoscuola',
+			'poi.kind.dryCleaning' => 'Tintoria',
+			'poi.kind.tailor' => 'Sartoria',
+			'poi.kind.shoeRepair' => 'Calzolaio',
+			'poi.kind.locksmith' => 'Fabbro, chiavi',
+			'poi.kind.copyshop' => 'Copisteria',
+			'poi.kind.photographer' => 'Fotografo',
+			'poi.kind.travelAgency' => 'Agenzia di viaggi',
+			'poi.kind.estateAgent' => 'Agenzia immobiliare',
+			'poi.kind.insurance' => 'Assicurazioni',
+			'poi.kind.funeralDirectors' => 'Onoranze funebri',
+			'poi.kind.petGrooming' => 'Toelettatura',
+			'poi.kind.tyres' => 'Gommista',
+			'poi.kind.carParts' => 'Ricambi auto',
+			'poi.kind.carDealer' => 'Concessionaria auto',
+			'poi.kind.motorcycleShop' => 'Moto',
+			'poi.kind.repairShop' => 'Riparazioni',
+			'poi.kind.internetCafe' => 'Internet point',
+			'poi.kind.coworking' => 'Coworking',
+			'poi.kind.townhall' => 'Municipio',
+			'poi.kind.police' => 'Polizia, carabinieri',
+			'poi.kind.library' => 'Biblioteca',
+			'poi.kind.rental' => 'Noleggio',
+			'poi.kind.storageRental' => 'Self storage',
+			'poi.kind.animalBoarding' => 'Pensione per animali',
+			'poi.kind.ferryTerminal' => 'Terminal traghetti',
+			'poi.kind.clothes' => 'Abbigliamento',
+			'poi.kind.shoes' => 'Calzature',
+			'poi.kind.accessories' => 'Pelletteria, accessori',
+			'poi.kind.jewellery' => 'Gioielleria',
+			'poi.kind.books' => 'Libreria',
+			'poi.kind.newsagent' => 'Edicola',
+			'poi.kind.tobacco' => 'Tabaccheria',
+			'poi.kind.stationery' => 'Cartoleria',
+			'poi.kind.gift' => 'Regali e souvenir',
+			'poi.kind.toys' => 'Giocattoli',
+			'poi.kind.sports' => 'Articoli sportivi',
+			'poi.kind.fishingHunting' => 'Caccia e pesca',
+			'poi.kind.bicycleShop' => 'Negozio di bici',
+			'poi.kind.boatShop' => 'Nautica',
+			'poi.kind.florist' => 'Fioraio',
+			'poi.kind.gardenCentre' => 'Garden center',
+			'poi.kind.hardware' => 'Ferramenta, fai da te',
+			'poi.kind.home' => 'Casa e arredamento',
+			'poi.kind.electronics' => 'Elettronica e telefonia',
+			'poi.kind.cosmetics' => 'Profumeria',
+			'poi.kind.departmentStore' => 'Grande magazzino, centro commerciale',
+			'poi.kind.varietyStore' => 'Bazar, discount',
+			'poi.kind.secondHand' => 'Usato, antiquariato',
+			'poi.kind.artShop' => 'Arte e hobby',
+			'poi.kind.musicShop' => 'Negozio di musica',
+			'poi.kind.petShop' => 'Negozio per animali',
+			'poi.kind.babyGoods' => 'Prima infanzia',
+			'poi.kind.fabric' => 'Tessuti e merceria',
+			'poi.kind.craft' => 'Artigiano',
+			'poi.kind.shop' => 'Negozio',
+			'poi.kind.hotel' => 'Hotel',
+			'poi.kind.guestHouse' => 'Bed and breakfast',
+			'poi.kind.hostel' => 'Ostello',
+			'poi.kind.holidayRental' => 'Casa vacanze',
+			'poi.kind.mountainHut' => 'Rifugio',
+			'poi.kind.cinema' => 'Cinema',
+			'poi.kind.theatre' => 'Teatro',
+			'poi.kind.eventsVenue' => 'Sala eventi',
+			'poi.kind.artsCentre' => 'Centro culturale',
+			'poi.kind.nightclub' => 'Discoteca',
+			'poi.kind.casino' => 'Casinò',
+			'poi.kind.sportsCentre' => 'Centro sportivo',
+			'poi.kind.fitnessCentre' => 'Palestra',
+			'poi.kind.swimmingPool' => 'Piscina',
+			'poi.kind.waterPark' => 'Parco acquatico',
+			'poi.kind.golfCourse' => 'Campo da golf',
+			'poi.kind.miniatureGolf' => 'Minigolf',
+			'poi.kind.marina' => 'Porto turistico',
+			'poi.kind.horseRiding' => 'Maneggio',
+			'poi.kind.bowlingAlley' => 'Bowling',
+			'poi.kind.escapeGame' => 'Escape room',
+			_ => null,
+		} ?? switch (path) {
+			'poi.kind.amusementArcade' => 'Sala giochi',
+			'poi.kind.iceRink' => 'Pista di pattinaggio',
+			'poi.kind.spa' => 'Terme, spa',
+			'poi.kind.dance' => 'Danza',
+			'poi.kind.park' => 'Parco',
+			'poi.kind.natureReserve' => 'Riserva naturale',
+			'poi.kind.gallery' => 'Galleria d\'arte',
+			'poi.kind.zoo' => 'Zoo, acquario',
+			'poi.kind.themePark' => 'Parco divertimenti',
 			'poi.chipsLabel' => 'Negozi e servizi nei dintorni',
 			'poi.openNow' => 'Aperto ora',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -4580,12 +5015,128 @@ extension on TranslationsIt {
 			'poi.vehicles.hgvYes' => 'Accetta mezzi pesanti',
 			'poi.vehicles.hgvNo' => 'Mezzi pesanti non ammessi',
 			'poi.vehicles.maxHeight' => ({required Object height}) => 'Altezza massima: ${height}',
+			'poi.searchKindNear' => ({required Object what}) => '${what} qui vicino',
+			'poi.searchKindIn' => ({required Object what, required Object town}) => '${what} a ${town}',
+			'poi.cuisine.pizza' => 'Pizza',
+			'poi.cuisine.italian' => 'Italiana',
+			'poi.cuisine.french' => 'Francese',
+			'poi.cuisine.regional' => 'Regionale',
+			'poi.cuisine.local' => 'Locale',
+			'poi.cuisine.burger' => 'Hamburger',
+			'poi.cuisine.kebab' => 'Kebab',
+			'poi.cuisine.chinese' => 'Cinese',
+			'poi.cuisine.japanese' => 'Giapponese',
+			'poi.cuisine.sushi' => 'Sushi',
+			'poi.cuisine.asian' => 'Asiatica',
+			'poi.cuisine.indian' => 'Indiana',
+			'poi.cuisine.thai' => 'Thailandese',
+			'poi.cuisine.vietnamese' => 'Vietnamita',
+			'poi.cuisine.korean' => 'Coreana',
+			'poi.cuisine.mexican' => 'Messicana',
+			'poi.cuisine.lebanese' => 'Libanese',
+			'poi.cuisine.greek' => 'Greca',
+			'poi.cuisine.turkish' => 'Turca',
+			'poi.cuisine.moroccan' => 'Marocchina',
+			'poi.cuisine.middleEastern' => 'Mediorientale',
+			'poi.cuisine.arab' => 'Araba',
+			'poi.cuisine.african' => 'Africana',
+			'poi.cuisine.american' => 'Americana',
+			'poi.cuisine.spanish' => 'Spagnola',
+			'poi.cuisine.tapas' => 'Tapas',
+			'poi.cuisine.portuguese' => 'Portoghese',
+			'poi.cuisine.german' => 'Tedesca',
+			'poi.cuisine.mediterranean' => 'Mediterranea',
+			'poi.cuisine.international' => 'Internazionale',
+			'poi.cuisine.seafood' => 'Frutti di mare',
+			'poi.cuisine.fish' => 'Pesce',
+			'poi.cuisine.fishAndChips' => 'Fish and chips',
+			'poi.cuisine.steakHouse' => 'Steakhouse',
+			'poi.cuisine.grill' => 'Griglieria',
+			'poi.cuisine.barbecue' => 'Barbecue',
+			'poi.cuisine.chicken' => 'Pollo',
+			'poi.cuisine.crepe' => 'Crêpes',
+			'poi.cuisine.pasta' => 'Pasta',
+			'poi.cuisine.noodle' => 'Noodle',
+			'poi.cuisine.ramen' => 'Ramen',
+			'poi.cuisine.couscous' => 'Cuscus',
+			'poi.cuisine.sandwich' => 'Panini',
+			'poi.cuisine.bagel' => 'Bagel',
+			'poi.cuisine.hotDog' => 'Hot dog',
+			'poi.cuisine.friture' => 'Patatine fritte',
+			'poi.cuisine.salad' => 'Insalate',
+			'poi.cuisine.vegetarian' => 'Vegetariana',
+			'poi.cuisine.vegan' => 'Vegana',
+			'poi.cuisine.breakfast' => 'Colazione',
+			'poi.cuisine.brunch' => 'Brunch',
+			'poi.cuisine.coffeeShop' => 'Caffetteria',
+			'poi.cuisine.tea' => 'Tè',
+			'poi.cuisine.bubbleTea' => 'Bubble tea',
+			'poi.cuisine.juice' => 'Succhi',
+			'poi.cuisine.iceCream' => 'Gelato',
+			'poi.cuisine.cake' => 'Dolci',
+			'poi.cuisine.donut' => 'Ciambelle',
+			'poi.cuisine.savoy' => 'Savoiarda',
+			'poi.cuisine.swiss' => 'Svizzera',
+			'poi.cuisine.belgian' => 'Belga',
+			'poi.cuisine.austrian' => 'Austriaca',
+			'poi.cuisine.british' => 'Britannica',
+			'poi.cuisine.dutch' => 'Olandese',
+			'poi.details.cuisineTitle' => 'Cucina',
+			'poi.details.dietsTitle' => 'Diete',
+			'poi.details.facilitiesTitle' => 'Sul posto',
+			'poi.details.vehicleServicesTitle' => 'Interventi',
+			'poi.details.takeaway' => 'Da asporto',
+			'poi.details.noTakeaway' => 'Niente asporto',
+			'poi.details.delivery' => 'Consegna a domicilio',
+			'poi.details.noDelivery' => 'Niente consegna a domicilio',
+			'poi.details.outdoorSeating' => 'Tavoli all\'aperto',
+			'poi.details.noOutdoorSeating' => 'Niente tavoli all\'aperto',
+			'poi.details.wifi' => 'Wi-Fi per i clienti',
+			'poi.details.noWifi' => 'Niente Wi-Fi',
+			'poi.details.emergency' => 'Pronto soccorso',
+			'poi.details.noEmergency' => 'Niente pronto soccorso',
+			'poi.details.wheelchairYes' => 'Accessibile in sedia a rotelle',
+			'poi.details.wheelchairLimited' => 'Accesso limitato in sedia a rotelle',
+			'poi.details.wheelchairNo' => 'Non accessibile in sedia a rotelle',
+			'poi.details.googleMaps' => 'Vedi le recensioni su Google Maps',
+			'poi.details.googleMapsHint' => 'Si apre fuori da Lunaway, con il nome e la posizione di questo luogo.',
+			'poi.details.reviewsError' => 'Non è stato possibile mostrare le recensioni.',
+			'poi.details.photoOf' => ({required Object name}) => 'Foto di ${name}',
+			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} stella', other: '${n} stelle', ), 
+			'poi.details.reviewsOffline' => 'Le recensioni si leggono con una connessione.',
+			'poi.diet.vegetarian' => 'Vegetariano',
+			'poi.diet.vegan' => 'Vegano',
+			'poi.diet.glutenFree' => 'Senza glutine',
+			'poi.diet.halal' => 'Halal',
+			'poi.diet.kosher' => 'Kosher',
+			'poi.diet.lactoseFree' => 'Senza lattosio',
+			'poi.reservation.yes' => 'Prenotazione possibile',
+			'poi.reservation.no' => 'Senza prenotazione',
+			'poi.reservation.required' => 'Prenotazione obbligatoria',
+			'poi.reservation.recommended' => 'Prenotazione consigliata',
+			'poi.reservation.only' => 'Solo su prenotazione',
+			'poi.vehicleService.tyres' => 'Pneumatici',
+			'poi.vehicleService.brakes' => 'Freni',
+			'poi.vehicleService.oilChange' => 'Cambio olio',
+			'poi.vehicleService.glass' => 'Cristalli',
+			'poi.vehicleService.airConditioning' => 'Climatizzazione',
+			'poi.vehicleService.bodyRepair' => 'Carrozzeria',
+			'poi.vehicleService.painting' => 'Verniciatura',
+			'poi.vehicleService.electrical' => 'Impianto elettrico',
+			'poi.vehicleService.diagnostics' => 'Diagnosi',
+			'poi.vehicleService.batteries' => 'Batterie',
+			'poi.vehicleService.engine' => 'Motore',
+			'poi.vehicleService.exhaust' => 'Scarico',
+			'poi.vehicleService.clutch' => 'Frizione',
+			'poi.vehicleService.transmission' => 'Trasmissione',
+			'poi.vehicleService.suspension' => 'Sospensioni',
+			'poi.vehicleService.carParts' => 'Ricambi',
+			'poi.vehicleService.newCarSales' => 'Veicoli nuovi',
+			'poi.vehicleService.usedCarSales' => 'Veicoli usati',
 			'offlineMaps.title' => 'Mappe offline',
 			'offlineMaps.intro' => 'Prima di partire, conserva una regione sul dispositivo: i suoi luoghi per cercare e scegliere, la sua mappa per vedere le strade senza rete.',
 			'offlineMaps.webTitle' => 'Le mappe offline sono nell\'app',
 			'offlineMaps.web' => 'Le app per Android e iOS conservano le regioni per il viaggio. In un browser, la mappa ha bisogno della rete.',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.desktopTitle' => 'Le mappe offline sono sul telefono',
 			'offlineMaps.desktop' => 'Le app per Android e iOS conservano le regioni per il viaggio. Su un computer, la mappa ha bisogno della rete.',
 			'offlineMaps.unreadable' => 'Non è stato possibile caricare le mappe offline di questo dispositivo.',

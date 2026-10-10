@@ -18,8 +18,13 @@
 //!
 //! Then, in order: the query's words in their order as whole words, then
 //! with the last one being typed, then all of them in any order, then the
-//! naming words only; the places of the kind the query names; the nearest
-//! to `near`; the shortest text.
+//! naming words only; the places of a town the text names whole ("viviers":
+//! Viviers, not Chapelle-Viviers); the places of the kind the query names;
+//! the places whose name holds the naming words, so that a place named
+//! after the text comes before the places that hold it by their town alone;
+//! the nearest to `near`; the shortest text. A place told twice, by two
+//! sources the conflation did not join, one of them placing it roughly (by
+//! its postal address), is listed once (`lunaway_domain::search::one_place`).
 //!
 //! Every statement has a short time limit: a search slower than it (a word
 //! more common than the statistics said) is tried again the other way, and
@@ -27,9 +32,13 @@
 
 use lunaway_domain::{
     Position,
-    search::{LookupPath, PlaceQuery, QueryWord, WordShares},
+    search::{
+        Listed, LookupPath, PlaceQuery, Placement, QueryWord, WordShares, alike, one_place,
+        repeated,
+    },
 };
 use sqlx::{Acquire, Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::{
     DbError, PgPool,
@@ -55,6 +64,9 @@ const INDEX_CAP_NEAR: i64 = 10_000;
 /// At most this many candidates without a point: none is nearer than
 /// another, a sample of the many matches of a common word is ranked.
 const INDEX_CAP: i64 = 1_000;
+/// Places read beyond `first`, for those told twice that leave the list
+/// (`lunaway_domain::search::repeated`): a page rarely holds more than one.
+const REPEAT_SLACK: i64 = 5;
 
 /// Live places matching `text` (accents and case ignored), at most
 /// `first`, best first: see the module documentation for the order. `near`
@@ -137,6 +149,7 @@ async fn search_on(
     let ask = Ask {
         query: &query,
         lookup: query.lookup(&shares, places),
+        towns: query.town_names(),
         near,
         nearest,
         first,
@@ -167,8 +180,72 @@ async fn search_on(
         }
         Err(e) => return Err(e),
     };
+    let mut rows = rows
+        .into_iter()
+        .map(PlaceRow::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+    let repeats = match repeats(&mut tx, &rows).await {
+        Ok(repeats) => repeats,
+        // The places were found: told twice rather than not at all.
+        Err(e) if timed_out(&e) => Vec::new(),
+        Err(e) => return Err(e),
+    };
     tx.commit().await?;
-    rows.into_iter().map(PlaceRow::try_from).collect()
+    for i in repeats.into_iter().rev() {
+        rows.remove(i);
+    }
+    rows.truncate(usize::try_from(first).unwrap_or(0));
+    Ok(rows)
+}
+
+/// The positions of the places of `rows` that tell an earlier one again
+/// (`lunaway_domain::search::repeated`). Where the records place them is
+/// read only when two places are alike.
+async fn repeats(
+    tx: &mut Transaction<'_, Postgres>,
+    rows: &[PlaceRow],
+) -> Result<Vec<usize>, DbError> {
+    let listed: Vec<Listed<'_>> = rows
+        .iter()
+        .map(|r| Listed {
+            kind: r.kind,
+            name: r.name.as_deref(),
+            municipality: r.municipality.as_deref(),
+            position: r.position,
+        })
+        .collect();
+    let pairs = alike(&listed);
+    if pairs.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids: Vec<Uuid> = pairs
+        .iter()
+        .flat_map(|&(a, b)| [rows[a].id, rows[b].id])
+        .collect();
+    let found = sqlx::query!(
+        r#"
+        SELECT s.place_id, r.source_id, r.accuracy_m
+        FROM place_sources s
+        JOIN source_records r ON r.id = s.record_id
+        WHERE s.place_id = ANY($1) AND r.deleted_at IS NULL
+        "#,
+        &ids
+    )
+    .fetch_all(&mut **tx)
+    .await?;
+    let placement = |i: usize| {
+        let mut p = Placement::default();
+        for f in found.iter().filter(|f| f.place_id == rows[i].id) {
+            if !p.sources.contains(&f.source_id) {
+                p.sources.push(f.source_id.clone());
+            }
+            p.accuracy_m = Some(p.accuracy_m.map_or(f.accuracy_m, |a| a.min(f.accuracy_m)));
+        }
+        p
+    };
+    Ok(repeated(&pairs, |a, b| {
+        one_place(&placement(a), &placement(b))
+    }))
 }
 
 /// Whether a statement was cancelled by its time limit (SQLSTATE 57014).
@@ -254,6 +331,7 @@ async fn query_words(
 struct Ask<'a> {
     query: &'a PlaceQuery,
     lookup: String,
+    towns: Vec<String>,
     near: Option<Position>,
     nearest: i64,
     first: i64,
@@ -266,10 +344,11 @@ impl Ask<'_> {
         path: LookupPath,
     ) -> Result<Vec<PlaceDb>, DbError> {
         // Places of a kind are ranked by distance alone: the nearest `first`
-        // are the answer, and walking out from the point costs more for each
-        // one taken (parking: one place in 80 is a car park).
+        // are the answer, with the few that may leave the list as told
+        // twice, and walking out from the point costs more for each one
+        // taken (parking: one place in 80 is a car park).
         let nearest = if path == LookupPath::Kind {
-            self.first
+            self.first + REPEAT_SLACK
         } else {
             self.nearest
         };
@@ -294,7 +373,8 @@ impl Ask<'_> {
         // and read through scalar subqueries: the planner then sees no
         // constant to second-guess the path with, and no row parses them
         // again. Each branch of `candidates` runs only on its path, so no
-        // place comes twice. Only the `first` best are read whole.
+        // place comes twice. Only the best are read whole, a few more than
+        // `first` for the places told twice that leave the list.
         let rows = sqlx::query_as!(
             PlaceDb,
             r#"
@@ -302,32 +382,49 @@ impl Ask<'_> {
                 SELECT to_tsquery('simple', $3) AS filter, to_tsquery('simple', $4) AS lookup,
                        to_tsquery('simple', $5) AS phrase, to_tsquery('simple', $6) AS typed,
                        to_tsquery('simple', $7) AS every,
-                       ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus
+                       -- Null for a text that names nothing as typed:
+                       -- generic words only, or a corrected word.
+                       to_tsquery('simple', $14) AS naming,
+                       ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus,
+                       -- How long a town's name may be as written for its
+                       -- folded name to be one of the texts: folding
+                       -- expands a ligature, and turns a run of signs
+                       -- between two words (" - ") into one space.
+                       (SELECT min(length(n)) - 2 FROM unnest($13::text[]) n) AS town_shortest,
+                       (SELECT max(length(n) + 2 * (length(n) - length(replace(n, ' ', ''))) + 2)
+                        FROM unnest($13::text[]) n) AS town_longest
             ),
             candidates AS (
-                (SELECT id, kind, geom, search_vector, search_text FROM places
+                (SELECT id, kind, geom, search_vector, search_text, name, city, municipality
+                 FROM places
                  WHERE $9::text = 'index' AND deleted_at IS NULL
                    AND search_vector @@ (SELECT lookup FROM q)
                    AND ts_match_vq(search_vector, (SELECT filter FROM q))
                  LIMIT $11)
                 UNION ALL
-                (SELECT id, kind, geom, search_vector, search_text FROM places
+                (SELECT id, kind, geom, search_vector, search_text, name, city, municipality
+                 FROM places
                  WHERE $9 = 'nearest' AND deleted_at IS NULL
                    AND ts_match_vq(search_vector, (SELECT filter FROM q))
                  ORDER BY geom <-> (SELECT focus FROM q)
                  LIMIT $10)
                 UNION ALL
-                (SELECT id, kind, geom, search_vector, search_text FROM places
+                (SELECT id, kind, geom, search_vector, search_text, name, city, municipality
+                 FROM places
                  WHERE $9 = 'scan' AND deleted_at IS NULL
                    AND ts_match_vq(search_vector, (SELECT filter FROM q))
                  LIMIT $11)
                 UNION ALL
-                (SELECT id, kind, geom, search_vector, search_text FROM places
+                (SELECT id, kind, geom, search_vector, search_text, name, city, municipality
+                 FROM places
                  WHERE $9 = 'kind' AND deleted_at IS NULL
                    AND kind = ANY($8::text[])
                  ORDER BY geom <-> (SELECT focus FROM q)
                  LIMIT $10)
             ),
+            -- `whole`: whether a candidate holds the words naming a place as
+            -- whole words, in its name or its town; the costlier tests of
+            -- the town and the name run only for those.
             best AS (
                 SELECT id,
                        CASE WHEN $9 = 'kind' THEN 0
@@ -336,11 +433,48 @@ impl Ask<'_> {
                             WHEN search_vector @@ (SELECT every FROM q) THEN 2
                             ELSE 1
                        END AS tier,
+                       -- The text of its town follows its name in
+                       -- `search_text`: a town is folded only when that
+                       -- text holds the words and its length fits, so the
+                       -- many candidates a word being typed finds ("cha")
+                       -- fold none.
+                       (CASE WHEN NOT whole THEN false
+                             WHEN NOT substr(search_text, coalesce(length(name), 0) + 1)
+                                      LIKE ALL($15::text[])
+                                 THEN false
+                             ELSE (length(municipality) BETWEEN (SELECT town_shortest FROM q)
+                                                            AND (SELECT town_longest FROM q)
+                                   AND lunaway_town_fold(municipality) = ANY($13::text[]))
+                                  OR (length(city) BETWEEN (SELECT town_shortest FROM q)
+                                                       AND (SELECT town_longest FROM q)
+                                      AND lunaway_town_fold(city) = ANY($13::text[]))
+                        END) IS TRUE AS in_town,
                        kind = ANY($8) AS kind_match,
+                       -- The folded name starts `search_text`, its town
+                       -- follows. A name that lacks a word stops at the
+                       -- patterns; when the town holds none, the whole
+                       -- words are the name's. Only a name that shares a
+                       -- word with its town ("Ferme du Lac", La Ferme) has
+                       -- its own words compared, the costly test. Folding
+                       -- keeps a name's length but for a ligature it
+                       -- expands ("Cœur" gives "coeur"), which the 2
+                       -- extra characters cover up to two of, and a
+                       -- decomposed accent it drops, rare in the sources'
+                       -- names: past those, only the order of a few places
+                       -- may move.
+                       CASE WHEN NOT whole OR name IS NULL THEN false
+                            WHEN NOT left(search_text, length(name) + 2) LIKE ALL($15::text[])
+                                THEN false
+                            WHEN NOT substr(search_text, length(name) + 1) LIKE ANY($15::text[])
+                                THEN true
+                            ELSE (lunaway_search_vector(name, NULL, NULL)
+                                  @@ (SELECT naming FROM q)) IS TRUE
+                       END AS named,
                        CASE WHEN $1 IS NULL THEN 0 ELSE geom <-> (SELECT focus FROM q) END AS distance,
                        length(search_text) AS length
-                FROM candidates
-                ORDER BY tier DESC, kind_match DESC, distance, length, id
+                FROM (SELECT c.*, (search_vector @@ (SELECT naming FROM q)) IS TRUE AS whole
+                      FROM candidates c) c
+                ORDER BY tier DESC, in_town DESC, kind_match DESC, named DESC, distance, length, id
                 LIMIT $12
             )
             SELECT p.id, p.kind, p.name, ST_Y(p.geom::geometry) AS "lat!", ST_X(p.geom::geometry) AS "lon!",
@@ -356,7 +490,8 @@ impl Ask<'_> {
                    p.photo_count, p.cover_photos, p.reported_issues, p.verification, p.region,
                    p.filter_rating, p.opening_season
             FROM best JOIN places p USING (id)
-            ORDER BY best.tier DESC, best.kind_match DESC, best.distance, best.length, best.id
+            ORDER BY best.tier DESC, best.in_town DESC, best.kind_match DESC, best.named DESC,
+                     best.distance, best.length, best.id
             "#,
             self.near.map(Position::lat),
             self.near.map(Position::lon),
@@ -369,7 +504,10 @@ impl Ask<'_> {
             path,
             nearest,
             cap,
-            self.first,
+            self.first + REPEAT_SLACK,
+            &self.towns,
+            self.query.naming(),
+            &self.query.naming_patterns(),
         )
         .fetch_all(&mut **tx)
         .await?;

@@ -230,7 +230,7 @@ void main() {
         userAgent: 'x',
       );
       final abort = Completer<void>();
-      final call = c.execute(searchAddressesOperation, {'text': 'segur'}, const {}, abort.future);
+      final call = c.execute(searchAllOperation, {'text': 'segur'}, const {}, abort.future);
       await Future<void>.delayed(Duration.zero);
       expect(requests.single, isA<http.Abortable>());
       final body = jsonDecode((requests.single as http.Request).body) as Map<String, dynamic>;
@@ -243,7 +243,7 @@ void main() {
 
     test('without a trigger, goes and answers as before', () async {
       final c = client((_) => json(addresses));
-      final answer = await c.execute(searchAddressesOperation, {'text': 'segur'});
+      final answer = await c.execute(searchAllOperation, {'text': 'segur'});
       expect(answer.addresses, isEmpty);
       expect(sent.single, isNot(isA<http.Abortable>()));
     });

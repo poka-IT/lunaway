@@ -33,7 +33,13 @@ enum ContributionKind {
   reportRoadEvent,
 
   /// "It is over" about a community road report.
-  clearRoadEvent;
+  clearRoadEvent,
+
+  /// A rating of a point of interest, 1 to 5 stars.
+  ratePoi,
+
+  /// A review of a point of interest: stars and a text, CC BY 4.0.
+  reviewPoi;
 
   static ContributionKind? fromName(String name) => values.where((k) => k.name == name).firstOrNull;
 
@@ -64,7 +70,9 @@ enum ContributionKind {
     addPlace ||
     editPlace ||
     reportRoadEvent ||
-    clearRoadEvent => true,
+    clearRoadEvent ||
+    ratePoi ||
+    reviewPoi => true,
     photo || addVendingMachine => false,
   };
 

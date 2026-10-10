@@ -23,6 +23,8 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 
 /// An in-memory [PlacesRepository] with the same filter semantics as the
 /// drift one (the drift one is tested against the same expectations).
@@ -219,16 +221,42 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// The searches cancelled by their caller while held.
   final List<String> aborted = [];
 
+  /// The points of interest the server knows, as the API sends them: a
+  /// search finds those whose name holds the text, as a name.
+  final List<Map<String, Object?>> pois = [];
+
+  /// What the server answers a text that names a kind ("coiffeur",
+  /// "pizzeria annecy"), by the text in lower case.
+  final Map<String, PoiResults> kindSearches = {};
+
+  /// How many points each [searchAll] asked for.
+  final List<int> poisAsked = [];
+
+  PoiResults _pois(String text, int first) {
+    if (first == 0) return PoiResults.none;
+    final q = text.toLowerCase();
+    if (kindSearches[q] case final answer?) return answer;
+    final named = [
+      for (final p in pois)
+        if ('${p['name']}'.toLowerCase().contains(q)) ?poiFromJson(p),
+    ];
+    return PoiResults(
+      pois: named.take(first).toList(),
+      match: named.isEmpty ? PoiMatch.none : PoiMatch.name,
+    );
+  }
+
   @override
   Future<SearchAnswer> searchAll(
     String text, {
     LatLng? near,
-    bool places = true,
     String? language,
+    int pois = 0,
     Future<void>? abort,
   }) async {
     languages.add(language);
-    _ask('${places ? 'searchAll' : 'addresses'}:$text');
+    poisAsked.add(pois);
+    _ask('searchAll:$text');
     if (near != null) nears.add(near);
     final hold = holdSearches;
     if (hold != null) {
@@ -244,16 +272,14 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     // the text, whatever the page of places holds, one town per name and
     // department.
     final towns = <(String, String?), List<Place>>{};
-    if (places) {
-      for (final p in _places.values) {
-        final city = p.address?.city;
-        if (city != null && city.toLowerCase().startsWith(q)) {
-          towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
-        }
+    for (final p in _places.values) {
+      final city = p.address?.city;
+      if (city != null && city.toLowerCase().startsWith(q)) {
+        towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
       }
     }
     return SearchAnswer(
-      places: places ? await _match(text, near: near) : const [],
+      places: await _match(text, near: near),
       towns: [
         for (final MapEntry(key: (name, department), value: inTown) in towns.entries)
           Municipality(
@@ -269,6 +295,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
         for (final a in addresses)
           if (a.name.toLowerCase().contains(q) || (a.city ?? '').toLowerCase().contains(q)) a,
       ],
+      pois: _pois(text, pois),
     );
   }
 

@@ -16,6 +16,7 @@ import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -112,10 +113,11 @@ void main() {
     layer.setOpenNowOnly(on: false);
 
     // A fuel station's page, with its prices.
-    final stations = await waitFor(
+    final answer = await waitFor(
       tester,
-      container.read(poiRepositoryProvider).search('total', near: _town),
+      container.read(onlinePlacesProvider).searchAll('total', near: _town, pois: searchPoiCount),
     );
+    final stations = answer.pois.pois;
     final station =
         stations.where((p) => p.kind == PoiKind.fuelStation).firstOrNull ?? stations.first;
     layer.toggle(PoiCategory.fuel);

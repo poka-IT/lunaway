@@ -40,7 +40,10 @@ enum ReportTarget {
   externalReview('EXTERNAL_REVIEW'),
 
   /// A photo of another source (`Place.externalPhotos`).
-  externalPhoto('EXTERNAL_PHOTO');
+  externalPhoto('EXTERNAL_PHOTO'),
+
+  /// A review of a point of interest by a Lunaway user (`Poi.reviews`).
+  poiReview('POI_REVIEW');
 
   new(this.wire);
 

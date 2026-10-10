@@ -20,16 +20,23 @@ abstract interface class PoiSource {
 
   Future<Map<String, dynamic>> page(String poiId);
 
-  Future<List<Poi>> search(String text, {LatLng? near});
+  /// The reviews of a point, the account's own among them; null when the
+  /// point is gone.
+  Future<PoiReviews?> reviews(String poiId, {int first = 20});
 
   /// A page of the fuel stations of [box] with their prices, from [after].
   Future<FuelStationsPage> fuelStations(GeoBounds box, {String? after});
 }
 
 final class GraphQLPoiSource implements PoiSource {
-  new(this.client);
+  new(this.client, {this.headers});
 
   final GraphQLClient client;
+
+  /// The session of the account, when the device has one: the server then
+  /// adds the reader's own review and leaves out the authors it muted. A
+  /// read never signs in.
+  final Future<Map<String, String>> Function()? headers;
 
   @override
   Future<Map<String, dynamic>> nearby(String placeId) =>
@@ -40,8 +47,11 @@ final class GraphQLPoiSource implements PoiSource {
       client.execute(_raw(poiOperation), {'id': poiId});
 
   @override
-  Future<List<Poi>> search(String text, {LatLng? near}) =>
-      client.execute(searchPoisOperation, searchPoisVariables(text, near: near));
+  Future<PoiReviews?> reviews(String poiId, {int first = 20}) async => await client.execute(
+    poiReviewsOperation,
+    {'id': poiId, 'first': first},
+    await headers?.call() ?? const {},
+  );
 
   @override
   Future<FuelStationsPage> fuelStations(GeoBounds box, {String? after}) =>
@@ -94,7 +104,9 @@ final class PoiRepository {
   Stream<Read<PoiPage?>> watchPage(String poiId) =>
       _watch('poi:$poiId', () => source.page(poiId), poiPageFromJson);
 
-  Future<List<Poi>> search(String text, {LatLng? near}) => source.search(text, near: near);
+  /// The reviews of a point, online: they follow what the account just
+  /// sent, a copy would not.
+  Future<PoiReviews?> reviews(String poiId) => source.reviews(poiId);
 
   /// The fuel stations of [box] with their prices, online: prices change
   /// every quarter of an hour, a copy would mislead. Null when the area

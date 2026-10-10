@@ -84,6 +84,9 @@ final class FakeApi {
   /// What the account sent, as `myAccount` lists it.
   final confirmations = <Map<String, Object?>>[];
   final reviews = <Map<String, Object?>>[];
+
+  /// The ratings and reviews of points of interest the account sent.
+  final poiReviews = <Map<String, Object?>>[];
   final issues = <Map<String, Object?>>[];
   final submissions = <Map<String, Object?>>[];
   final photos = <Map<String, Object?>>[];
@@ -278,6 +281,8 @@ final class FakeApi {
     'RevokeDevice',
     'Rate',
     'WriteReview',
+    'RatePoi',
+    'ReviewPoi',
     'DeleteReview',
     'Confirm',
     'DeleteConfirmation',
@@ -358,6 +363,26 @@ final class FakeApi {
       'status': 'PUBLISHED',
     };
     reviews.add(review);
+    return review;
+  }
+
+  /// The account's rating or review of a point, replacing its last one.
+  Map<String, Object?> _poiReview(Map<String, Object?> v, {String? text}) {
+    poiReviews.removeWhere((r) => r['poiId'] == v['poiId']);
+    final review = {
+      'id': _next(),
+      'sourceId': 'community-cc-by',
+      'poiId': v['poiId'],
+      'rating': v['stars'],
+      'text': text,
+      'lang': text == null ? null : v['lang'],
+      'authorName': pseudonym,
+      'authorId': _accountId,
+      'visitedAt': v['visitedOn'],
+      'createdAt': testNow.toIso8601String(),
+      'status': text == null ? 'PUBLISHED' : 'PENDING',
+    };
+    poiReviews.add(review);
     return review;
   }
 
@@ -512,6 +537,8 @@ final class FakeApi {
       }(),
       'Rate' => {'rate': _review(v)},
       'WriteReview' => {'review': _review(v, text: v['text'] as String?)},
+      'RatePoi' => {'ratePoi': _poiReview(v)},
+      'ReviewPoi' => {'reviewPoi': _poiReview(v, text: v['text'] as String?)},
       'DeleteReview' => {'deleteReview': _remove(reviews, id())},
       'Confirm' => () {
         final c = {

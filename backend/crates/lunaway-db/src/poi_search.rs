@@ -28,7 +28,10 @@ use lunaway_domain::{
     Position, SourceId,
     conflation::normalize::fold,
     poi::PoiKind,
-    poi_search::{PoiMatch, PoiQuery, looks_like_address, swaps_and_drops},
+    poi_search::{
+        CELL_LENGTHS, PoiMatch, PoiQuery, cells_around, cells_reach_m, looks_like_address,
+        swaps_and_drops,
+    },
     search::{LookupPath, QueryWord, WordShares},
 };
 use sqlx::{Acquire, Postgres, Transaction};
@@ -60,6 +63,10 @@ const EXACT_NEAR_M: f64 = 30_000.0;
 /// How close an establishment of another source must be to an
 /// OpenStreetMap point of a like name to be the same shop, metres.
 const SAME_SHOP_M: f64 = 150.0;
+/// Points a name's words are estimated to match above which they are read
+/// in the cells around the point asked before anywhere: a rarer name is
+/// read whole at once, a single statement over few rows.
+const CELLS_FROM_ROWS: f64 = 200.0;
 /// Places a town of the search holds for its name, ending a text, to be
 /// taken as the town without a preposition before it, when no point near
 /// the map bears the whole text as its name ("Grill Istanbul"):
@@ -430,6 +437,67 @@ async fn look(
         first: ask.first,
         only: only.as_deref(),
     };
+    // Around a point, the matches of a kind or of a name many points bear
+    // are read in the cells around it first, the finest first: the nearest
+    // found within the cells' reach are the nearest of all, and a chain's
+    // thousands of shops or a kind's tens of thousands across Europe are
+    // never all read. On production on 2026-10-10, with 3.6 million points,
+    // walking out from Paris to the 40 nearest launderettes read 10,963
+    // points (211 to 268 ms) and ranking every McDonald's 8,524 (62 ms with
+    // every page in memory, seconds from the disk).
+    //
+    // The cells answer as reading every match would only where every
+    // candidate ranks alike but for its distance: a query by kind, or a
+    // name alone whose candidates bear it whole (tier 4), which within 30 km
+    // is also what makes one exact. A name beside a kind, or a name still
+    // being typed, ranks a farther point of a better class first, and reads
+    // every match.
+    let by_name = query.kinds().is_empty()
+        && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
+    if forced.is_none()
+        && let Some(at) = anchor
+        && (query.by_kind() || by_name)
+    {
+        // A kind's matches in the widest cells may pass the index's cap,
+        // read in no order: from the cells of 4 characters on, the nearest
+        // are found by the walk out from the point.
+        let lengths = if query.by_kind() {
+            &CELL_LENGTHS[..3]
+        } else {
+            &CELL_LENGTHS[..]
+        };
+        for &length in lengths {
+            let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
+            let local = Run {
+                lookup: &bounded,
+                ..run
+            };
+            let mut attempt = (&mut **tx).begin().await?;
+            let found = match local.candidates(&mut attempt, LookupPath::Index).await {
+                Ok(found) => {
+                    attempt.commit().await?;
+                    found
+                }
+                Err(e) if timed_out(&e) => {
+                    attempt.rollback().await?;
+                    break;
+                }
+                Err(e) => return Err(e),
+            };
+            // Enough of the best matches within the reach: of the kinds
+            // asked, or bearing the name whole.
+            let reach = cells_reach_m(at, length);
+            let sure = found
+                .iter()
+                .filter(|c| {
+                    c.distance_m.is_some_and(|d| d <= reach) && (query.by_kind() || c.tier == 4)
+                })
+                .count();
+            if i64::try_from(sure).unwrap_or(i64::MAX) >= ask.first {
+                return Ok(Found::Some(found));
+            }
+        }
+    }
     let mut attempt = (&mut **tx).begin().await?;
     let found = match run.candidates(&mut attempt, path).await {
         Ok(found) => {
@@ -677,6 +745,7 @@ struct Candidate {
 }
 
 /// One search, ready to run one way or the other.
+#[derive(Clone, Copy)]
 struct Run<'a> {
     query: &'a PoiQuery,
     filter: &'a str,
