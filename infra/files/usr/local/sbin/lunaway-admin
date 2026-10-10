@@ -318,11 +318,12 @@ erase_author() {
   # before this one was committed.
   if ! systemctl cat lunaway-extcom-erasures.service >/dev/null 2>&1; then
     echo "no lunaway-extcom-erasures.service: the feed's producer is not told (infra/configure.sh backend pipeline)" >&2
-  elif systemctl restart lunaway-extcom-erasures.service \
-    && [ "$(systemctl show -p ConditionResult --value lunaway-extcom-erasures.service)" = yes ]; then
+  elif ! systemctl restart lunaway-extcom-erasures.service; then
+    echo "lunaway-extcom-erasures.service failed: its hourly timer tries again (journalctl -u lunaway-extcom-erasures)" >&2
+  elif [ "$(systemctl show -p ConditionResult --value lunaway-extcom-erasures.service)" = yes ]; then
     echo "list of erased authors written again: the feed's producer purges this author before its next feed"
   else
-    echo "lunaway-extcom-erasures.service failed: its hourly timer tries again (journalctl -u lunaway-extcom-erasures)" >&2
+    echo "lunaway-extcom-erasures.service did not run (no /srv/data/extcom-erasures, or no CLI): the feed's producer is not told (infra/configure.sh backend pipeline)" >&2
   fi
 }
 

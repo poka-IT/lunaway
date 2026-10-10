@@ -352,7 +352,6 @@ mod tests {
         let hashes: BTreeSet<String> = [hash("u-2"), hash("u-1")].into_iter().collect();
         write_erasures(&out, &hashes).unwrap();
         let sorted: Vec<&String> = hashes.iter().collect();
-        assert!(sorted[0] < sorted[1]);
         assert_eq!(
             std::fs::read_to_string(&out).unwrap(),
             format!("{}\n{}\n", sorted[0], sorted[1]),

@@ -29,8 +29,12 @@ def fail(message: str) -> None:
 
 try:
     fd = os.open(LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-except OSError:
+except FileNotFoundError:
     fail("no list of erased authors yet")
+except OSError as e:
+    # A link in its place (ELOOP), or no permission: said as such in the
+    # producer's journal.
+    fail(f"the list of erased authors cannot be opened: {e.strerror}")
 with os.fdopen(fd, "rb") as f:
     if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
         fail("the list of erased authors is not a regular file")

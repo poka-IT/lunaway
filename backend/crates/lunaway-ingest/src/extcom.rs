@@ -2273,6 +2273,26 @@ mod tests {
     }
 
     #[test]
+    fn an_author_id_keeps_its_spaces_and_refuses_controls_and_length() {
+        assert_eq!(
+            author_id_of(Some(" Marie Curie ")).as_deref(),
+            Some("Marie Curie")
+        );
+        assert_eq!(author_id_of(Some("a\u{7}b")), None, "a control character");
+        assert_eq!(author_id_of(Some("a\nb")), None, "a line break");
+        assert_eq!(
+            author_id_of(Some(&"é".repeat(64))).map(|s| s.len()),
+            Some(128)
+        );
+        assert_eq!(
+            author_id_of(Some(&"é".repeat(65))),
+            None,
+            "past 128 bytes, the most an erasure takes"
+        );
+        assert_eq!(author_id_of(Some("   ")), None);
+    }
+
+    #[test]
     fn an_erased_author_s_reviews_and_photos_are_skipped() {
         let erasures = Erasures::new(
             [lunaway_domain::extcom::author_hash("u-gone")]
