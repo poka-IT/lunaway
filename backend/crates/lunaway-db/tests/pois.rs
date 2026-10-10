@@ -1003,10 +1003,12 @@ async fn neither_its_author_nor_a_moderator_s_hide_opens_a_check(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_point_takes_the_commune_whose_outline_covers_it(pool: PgPool) {
+async fn a_point_takes_the_commune_whose_outline_covers_it_else_the_nearest(pool: PgPool) {
     sqlx::query(
         "INSERT INTO municipalities (code, name, geom, fetched_at) VALUES \
-         ('26116', 'Donzère', ST_Multi(ST_MakeEnvelope(4.70, 44.42, 4.74, 44.46, 4326)), now())",
+         ('26116', 'Donzère', ST_Multi(ST_MakeEnvelope(4.70, 44.42, 4.74, 44.46, 4326)), now()), \
+         ('26143', 'Les Granges-Gontardes', \
+          ST_Multi(ST_MakeEnvelope(4.74, 44.42, 4.78, 44.46, 4326)), now())",
     )
     .execute(&pool)
     .await
@@ -1014,28 +1016,45 @@ async fn a_point_takes_the_commune_whose_outline_covers_it(pool: PgPool) {
     store_as(
         &pool,
         &[
-            ("node/1", point(PoiKind::Bakery, 44.44, 4.72, "Au Bon Pain")),
+            (
+                "node/1",
+                point(PoiKind::Bakery, 44.44, 4.739, "Au Bon Pain"),
+            ),
             (
                 "node/2",
-                point(PoiKind::Bakery, 44.50, 4.72, "Hors commune"),
+                point(PoiKind::Bakery, 44.465, 4.72, "Sur le quai"),
             ),
+            ("node/3", point(PoiKind::Bakery, 44.50, 4.72, "Au large")),
         ],
         false,
     )
     .await;
-    let ids: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM pois ORDER BY name")
+    let names: Vec<(Uuid, String)> = sqlx::query_as("SELECT id, name FROM pois")
         .fetch_all(&pool)
         .await
         .unwrap();
+    let ids: Vec<Uuid> = names.iter().map(|(id, _)| *id).collect();
     let found = pois::communes_of(&pool, &ids).await.unwrap();
-    assert_eq!(found.len(), 1, "the point outside every outline takes none");
+    let name_of = |poi: &str| {
+        let id = names.iter().find(|(_, n)| n == poi).unwrap().0;
+        found
+            .iter()
+            .find(|c| c.poi_id == id)
+            .map(|c| (c.code.clone(), c.name.clone()))
+    };
     assert_eq!(
-        (found[0].code.as_str(), found[0].name.as_str()),
-        ("26116", "Donzère")
+        name_of("Au Bon Pain"),
+        Some(("26116".into(), "Donzère".into())),
+        "the outline that covers it, before a neighbour a few metres away"
     );
-    let inside: Uuid = sqlx::query_scalar("SELECT id FROM pois WHERE name = 'Au Bon Pain'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(found[0].poi_id, inside);
+    assert_eq!(
+        name_of("Sur le quai"),
+        Some(("26116".into(), "Donzère".into())),
+        "outside every simplified outline by 550 m: the nearest commune"
+    );
+    assert_eq!(
+        name_of("Au large"),
+        None,
+        "4 km from every outline: no commune"
+    );
 }

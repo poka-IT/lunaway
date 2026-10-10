@@ -57,8 +57,9 @@ pub struct AddressMatchResult {
     /// The wider area ("77, Seine-et-Marne, Île-de-France").
     pub context: Option<String>,
     /// The region, state or province it lies in, as the geocoder names it
-    /// (`Bayern`, `Lombardia`), for the short line under it; null in
-    /// France (its postcode gives the department) and when unknown.
+    /// (`Bayern`, `Lombardia`), for the short line under it; null when the
+    /// geocoder names none, as the Base Adresse Nationale never does (in
+    /// France the postcode gives the department).
     pub region: Option<String>,
     /// ISO 3166-1 alpha-2 country code, when known.
     pub country_code: Option<String>,

@@ -1248,13 +1248,20 @@ pub struct PoiCommune {
     pub name: String,
 }
 
-/// The French commune covering each point among `ids` that lies in one,
-/// by the outlines of `municipalities` (its GiST index): the town of a
-/// point whose address names none, and its department. Asked at the read
-/// rather than stored on the millions of points: ten points of a page of
-/// search results cost 0.4 ms with the pages in memory, 4.6 ms from the
-/// disk, on production on 2026-10-10
-/// (`plan/research/113-recherche-historique-villes.md`).
+/// The French commune of each point among `ids`, by the outlines of
+/// `municipalities` (its GiST index): the one that covers it, else the
+/// nearest within 0.015 degree, as for a place
+/// ([`crate::conflation`]): the outlines are simplified to 100 m, and a
+/// point on the shore can fall outside every one. A point farther from
+/// any has none. The town of a point whose address names none, and its
+/// department; the caller asks only for the points of France or of no
+/// known country.
+///
+/// Asked at the read rather than stored on the millions of points: a page
+/// of ten points of France costs 0.6 ms with the pages in memory, 2.1 ms
+/// from the disk (this statement under PostgreSQL's generic plan, 28
+/// pages each way, production, 2026-10-10,
+/// `plan/research/113-recherche-historique-villes.md`).
 ///
 /// # Errors
 ///
@@ -1267,8 +1274,9 @@ pub async fn communes_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiCommune>,
         FROM pois p
         CROSS JOIN LATERAL (
             SELECT code, name FROM municipalities m
-            WHERE ST_Covers(m.geom, p.geom::geometry)
-            ORDER BY code
+            WHERE ST_DWithin(m.geom, p.geom::geometry, 0.015)
+            ORDER BY NOT ST_Covers(m.geom, p.geom::geometry),
+                     ST_Distance(m.geom, p.geom::geometry), code
             LIMIT 1
         ) m
         WHERE p.id = ANY($1)

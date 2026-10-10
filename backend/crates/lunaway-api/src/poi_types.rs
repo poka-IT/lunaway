@@ -617,6 +617,16 @@ pub struct Locality {
     pub country_code: Option<String>,
 }
 
+impl From<lunaway_domain::locality::Locality> for Locality {
+    fn from(l: lunaway_domain::locality::Locality) -> Self {
+        Self {
+            town: l.town,
+            department: l.department,
+            country_code: l.country_code,
+        }
+    }
+}
+
 /// A practical point around the places: a shop, a vending machine, water, a
 /// fuel station, a pharmacy, a service.
 pub struct Poi {
@@ -688,6 +698,30 @@ impl Poi {
             row: with_hours(row, now),
             now,
         }
+    }
+
+    /// The French commune covering the point, through the request's loader:
+    /// a list of points costs one query. A read that fails is logged and
+    /// leaves the point without a commune: its line then says what its
+    /// address says, and the search around it still answers.
+    async fn commune(&self, ctx: &Context<'_>) -> Option<pois::PoiCommune> {
+        let read = match ctx.data_opt::<DataLoader<PoiCommuneLoader>>() {
+            Some(loader) => loader.load_one(self.row.id).await,
+            None => match db(ctx).await {
+                Ok((pool, _permit)) => pois::communes_of(pool, &[self.row.id])
+                    .await
+                    .map(|mut found| found.pop())
+                    .map_err(std::sync::Arc::new),
+                Err(error) => {
+                    tracing::error!(?error, "no connection for the commune of a point");
+                    return None;
+                }
+            },
+        };
+        read.unwrap_or_else(|error| {
+            tracing::error!(%error, "the commune of a point did not read");
+            None
+        })
     }
 
     fn fuel_station(&self) -> Option<&(FuelStation, DateTime<Utc>)> {
@@ -780,32 +814,16 @@ impl Poi {
     /// part null when the data does not say: a point abroad without a town
     /// in its address has none. A list of points asking for it costs one
     /// query.
-    async fn locality(&self, ctx: &Context<'_>) -> Result<Locality> {
+    async fn locality(&self, ctx: &Context<'_>) -> Locality {
         let a = &self.row.record.address;
         // Only a point of France, or of a country unknown, may lie in a
         // French commune: the others ask nothing.
-        let french = a
-            .country_code
-            .as_deref()
-            .is_none_or(|c| c.eq_ignore_ascii_case("FR"));
-        let commune = if french {
-            match ctx.data_opt::<DataLoader<PoiCommuneLoader>>() {
-                Some(loader) => loader
-                    .load_one(self.row.id)
-                    .await
-                    .map_err(|e| internal(e.as_ref()))?,
-                None => {
-                    let (pool, _permit) = db(ctx).await?;
-                    pois::communes_of(pool, &[self.row.id])
-                        .await
-                        .map_err(|e| internal(&e))?
-                        .pop()
-                }
-            }
+        let commune = if lunaway_domain::locality::may_lie_in_a_commune(a.country_code.as_deref()) {
+            self.commune(ctx).await
         } else {
             None
         };
-        let l = lunaway_domain::locality::locality(
+        lunaway_domain::locality::locality(
             a.city.as_deref(),
             a.postcode.as_deref(),
             a.country_code.as_deref(),
@@ -813,12 +831,8 @@ impl Poi {
                 code: &c.code,
                 name: &c.name,
             }),
-        );
-        Ok(Locality {
-            town: l.town,
-            department: l.department,
-            country_code: l.country_code,
-        })
+        )
+        .into()
     }
 
     /// Phone number as the source writes it.

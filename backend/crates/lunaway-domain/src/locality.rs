@@ -38,6 +38,9 @@ pub struct Commune<'a> {
 /// - The department, in France only: the commune's, which its outline
 ///   decides, else the one of the postcode, its first two digits (three
 ///   overseas, 2A or 2B in Corsica).
+///
+/// A commune given for a point of another country is left out: the
+/// outlines are simplified to 100 m, and one may reach across a border.
 #[must_use]
 pub fn locality(
     city: Option<&str>,
@@ -45,12 +48,10 @@ pub fn locality(
     country_code: Option<&str>,
     commune: Option<Commune<'_>>,
 ) -> Locality {
-    let country = country_code
-        .map(str::trim)
-        .filter(|c| c.len() == 2)
-        .map(str::to_ascii_uppercase)
-        .or_else(|| commune.map(|_| "FR".to_owned()));
-    let french = country.as_deref() == Some("FR");
+    let given = country(country_code);
+    let commune = commune.filter(|_| given.as_deref().is_none_or(is_french));
+    let country = given.or_else(|| commune.map(|_| "FR".to_owned()));
+    let french = country.as_deref().is_some_and(is_french);
     let town = city
         .map(str::trim)
         .filter(|c| !c.is_empty())
@@ -69,6 +70,31 @@ pub fn locality(
         department,
         country_code: country,
     }
+}
+
+/// France and its overseas departments and collectivities that hold
+/// communes, each with its own ISO 3166-1 code.
+const FRENCH: [&str; 9] = ["FR", "GP", "MQ", "GF", "RE", "YT", "PM", "BL", "MF"];
+
+/// The ISO 3166-1 alpha-2 code `code` stands for, upper case; `None` for
+/// none or anything else.
+fn country(code: Option<&str>) -> Option<String> {
+    code.map(str::trim)
+        .filter(|c| c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphabetic()))
+        .map(str::to_ascii_uppercase)
+}
+
+/// Whether `code` (upper case) is France or a French overseas territory.
+fn is_french(code: &str) -> bool {
+    FRENCH.contains(&code)
+}
+
+/// Whether a point of `country_code` may lie in a French commune: France,
+/// its overseas territories, or a country not known. Any other point asks
+/// for none.
+#[must_use]
+pub fn may_lie_in_a_commune(country_code: Option<&str>) -> bool {
+    country(country_code).as_deref().is_none_or(is_french)
 }
 
 /// The department of a French commune by its INSEE code: its first two
@@ -181,6 +207,45 @@ mod tests {
             "nothing is guessed: no town rather than a wrong one"
         );
         assert_eq!(locality(Some("  "), None, None, None), Locality::default());
+    }
+
+    #[test]
+    fn a_commune_across_the_border_names_no_point_of_another_country() {
+        const SAINT_JULIEN: Commune<'static> = Commune {
+            code: "74243",
+            name: "Saint-Julien-en-Genevois",
+        };
+        assert_eq!(
+            locality(None, None, Some("ch"), Some(SAINT_JULIEN)),
+            Locality {
+                town: None,
+                department: None,
+                country_code: Some("CH".into()),
+            },
+            "an outline simplified to 100 m may cover a Swiss shop: it is no French town"
+        );
+        assert!(!may_lie_in_a_commune(Some("CH")));
+        assert!(
+            may_lie_in_a_commune(None),
+            "a country not known may be France"
+        );
+        assert!(may_lie_in_a_commune(Some(" re ")));
+    }
+
+    #[test]
+    fn an_overseas_point_takes_its_commune_and_department() {
+        const SAINT_DENIS: Commune<'static> = Commune {
+            code: "97411",
+            name: "Saint-Denis",
+        };
+        assert_eq!(
+            locality(None, None, Some("RE"), Some(SAINT_DENIS)),
+            Locality {
+                town: Some("Saint-Denis".into()),
+                department: Some("974".into()),
+                country_code: Some("RE".into()),
+            }
+        );
     }
 
     #[test]
