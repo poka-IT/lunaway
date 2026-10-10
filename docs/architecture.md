@@ -545,7 +545,8 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   entry opens again without a search: a place or a point read by its id
   (gone, it leaves the history with a message), a town or an address at
   its position. It stays on the device: never sent, never synced, out of
-  the device backups with the rest of the cache.
+  the phones' backups with the rest of the cache (a Windows roaming
+  profile carries the application support folder, the cache with it).
 - **Offline kept on phones and computers**: the regions' packs and their
   change feed fill a local SQLite database (R*Tree for the viewport, FTS5
   for search) in the background, a few seconds after the map's first view
