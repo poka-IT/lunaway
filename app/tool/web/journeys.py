@@ -25,24 +25,25 @@ photo viewer; on a computer, the button of a message over the map, and
 Escape on a card the search opened.
 
 A phone's browser sends the mouse events of a tap (mousemove, mousedown,
-mouseup, click) after its touch, up to a few hundred milliseconds later (80 to 400
-ms measured on Chrome for Android), to whatever element lies under the
-finger by then. Each tap on a phone is followed by those events
+mouseup, click) after its touch, up to a few hundred milliseconds later
+(40 to 400 ms measured on Chrome for Android), to whatever element lies
+under the finger by then. Each tap on a phone is followed by those events
 (--late-click, 250 ms by default), sent to the element under the point
 that the app does not draw itself: the condition under which a search
 result once cut the map's flight short, closed the card it had just
 opened, or opened a point instead. The app's controls are found through
 Flutter's semantics (the tree a screen reader reads), which the tool turns
-on. With them on, the app draws a button at the top left of the map that a
+on; a tap goes down while the semantics let the pointer through, so it
+lands where a user's does, on the map's element or the app's, and the app
+hit-tests it (--semantic-taps plays a screen reader's taps instead). With
+the semantics on, the app draws a button at the top left of the map that a
 user without a screen reader does not see ("Ajouter un lieu au centre de la
 carte"), so a result is touched near its right end, where the map lies once
 the list has gone.
 
-What it does not play: a tap on a control lands on its semantics node,
-the path of a screen reader, where a user without one taps Flutter's
-canvas (test/widget/map_journeys_test.dart plays that path); a phone's
-drag or long press on a map (Playwright's touch has taps only); a real
-phone's timing, which Chrome for Android on an emulator measures.
+What it does not play: a phone's drag or long press on a map
+(Playwright's touch has taps only); a real phone's timing, which Chrome for
+Android on an emulator measures.
 """
 
 import argparse
@@ -117,6 +118,14 @@ PAGE_SCRIPT = r"""
     el.dispatchEvent(new MouseEvent('click', at));
     rec('late click', {on: el.tagName.toLowerCase()});
   }, delay);
+  // While a tap goes down and up, the semantics let the pointer through:
+  // it lands where a user's would, on what lies under them (the map's
+  // element, the app's own), and the app hit-tests it itself.
+  const bare = document.createElement('style');
+  bare.textContent = 'html.lw-bare flt-semantics-host, html.lw-bare flt-semantics-host * '
+    + '{ pointer-events: none !important; }';
+  document.addEventListener('DOMContentLoaded', () => document.head.appendChild(bare));
+  window.__bare = (on) => document.documentElement.classList.toggle('lw-bare', on);
 })();
 """
 
@@ -258,12 +267,19 @@ class Run:
         )
 
     def tap_at(self, x, y):
-        if self.touch:
-            self.page.touchscreen.tap(x, y)
-            for delay in self.late:
-                self.page.evaluate(f"window.__lateClick({x}, {y}, {delay})")
-        else:
-            self.page.mouse.click(x, y)
+        bare = not self.args.semantic_taps
+        if bare:
+            self.page.evaluate("window.__bare(true)")
+        try:
+            if self.touch:
+                self.page.touchscreen.tap(x, y)
+                for delay in self.late:
+                    self.page.evaluate(f"window.__lateClick({x}, {y}, {delay})")
+            else:
+                self.page.mouse.click(x, y)
+        finally:
+            if bare:
+                self.page.evaluate("window.__bare(false)")
 
     def tap(self, label, role="button", exact=False, within=False, top=False, right=False, name=None):
         self.wait(lambda: self.find(label, role, exact, within, top, right) is not None, f'"{label}"')
@@ -329,12 +345,19 @@ class Run:
         guidance shows its map."""
         size = self.page.viewport_size
         x, y = size["width"] * 0.5, size["height"] * 0.5
-        self.page.mouse.move(x, y)
-        self.page.mouse.down()
-        for i in range(1, 13):
-            self.page.mouse.move(x + 12 * i, y + 6 * i)
-            time.sleep(0.02)
-        self.page.mouse.up()
+        bare = not self.args.semantic_taps
+        if bare:
+            self.page.evaluate("window.__bare(true)")
+        try:
+            self.page.mouse.move(x, y)
+            self.page.mouse.down()
+            for i in range(1, 13):
+                self.page.mouse.move(x + 12 * i, y + 6 * i)
+                time.sleep(0.02)
+            self.page.mouse.up()
+        finally:
+            if bare:
+                self.page.evaluate("window.__bare(false)")
         time.sleep(0.5)
         self.step("drag")
 
@@ -396,6 +419,13 @@ def journey_place(run):
         # A press on the guidance's map is the map's (the app's hit test
         # gives it to it): dragged, it leaves the vehicle and offers to
         # come back to it.
+        # Once the map follows the route (its motion bound, web/lunaway_maplibre.js):
+        # a drag before it has nothing to leave.
+        run.wait(lambda: run.page.evaluate(
+            """() => [...(window.__maps || [])].some((m) => m.lunawayMotion
+                 && m.getContainer().isConnected && m.getContainer().clientWidth > 0)"""),
+            "the guidance's map following the route")
+        time.sleep(1)
         run.drag_map()
         run.expect_soon(lambda: run.find("Recentrer") is not None, '"Recentrer" after the map dragged')
     run.end_guidance()
@@ -500,6 +530,8 @@ def main():
     p.add_argument("--late-click", default="250",
                    help="ms after a phone's tap for its mouse events, comma separated; -1 for none")
     p.add_argument("--wait", type=float, default=20, help="seconds a step may wait for the screen")
+    p.add_argument("--semantic-taps", action="store_true",
+                   help="taps on the semantics nodes, a screen reader's path, rather than a user's")
     p.add_argument("--headed", action="store_true")
     args = p.parse_args()
     os.makedirs(args.out, exist_ok=True)
