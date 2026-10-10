@@ -20,6 +20,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
+    Position,
     poi::{PoiCategory, PoiKind},
     poi_words::{CATEGORY_PHRASES, CUISINE_PHRASES, KIND_PHRASES, STOP_WORDS},
     search::{LookupPath, QueryWord, WordShares, lexeme, lookup_path, within_reach},
@@ -624,6 +625,86 @@ const PLACE_PREPOSITIONS: &[&str] = &[
 /// the others found, not looked up.
 const LOOKUP_ROWS: f64 = 20_000.0;
 
+/// The geohash lengths of the cells a point's words name (`h_<geohash>`,
+/// `lunaway_poi_cells` in the database), finest first: cells of about 1.2
+/// by 0.6 km, 4.9 by 4.9 km, 39 by 20 km and 156 by 156 km. A search
+/// around a point reads the matches in the cells around it, from the
+/// finest, before any farther: millions of points, and the matches of a
+/// chain's name or a common kind across Europe, are never all read.
+pub const CELL_LENGTHS: [usize; 4] = [6, 5, 4, 3];
+
+const GEOHASH_ALPHABET: &[u8; 32] = b"0123456789bcdefghjkmnpqrstuvwxyz";
+
+/// The geohash of `at` of `length` characters, as PostGIS's `ST_GeoHash`
+/// writes it.
+#[must_use]
+pub fn geohash(at: Position, length: usize) -> String {
+    let (mut lat, mut lon) = ((-90.0_f64, 90.0_f64), (-180.0_f64, 180.0_f64));
+    let mut out = String::with_capacity(length);
+    let (mut bits, mut value, mut on_lon) = (0, 0_usize, true);
+    while out.len() < length {
+        let (range, x) = if on_lon {
+            (&mut lon, at.lon())
+        } else {
+            (&mut lat, at.lat())
+        };
+        let mid = f64::midpoint(range.0, range.1);
+        value <<= 1;
+        if x >= mid {
+            value |= 1;
+            range.0 = mid;
+        } else {
+            range.1 = mid;
+        }
+        on_lon = !on_lon;
+        bits += 1;
+        if bits == 5 {
+            out.push(char::from(GEOHASH_ALPHABET[value]));
+            bits = 0;
+            value = 0;
+        }
+    }
+    out
+}
+
+/// The size in degrees of a cell of `length` characters: latitude, then
+/// longitude.
+fn cell_degrees(length: usize) -> (f64, f64) {
+    let bits = 5 * length;
+    let lat_bits = i32::try_from(bits / 2).unwrap_or(i32::MAX);
+    let lon_bits = i32::try_from(bits - bits / 2).unwrap_or(i32::MAX);
+    (180.0 / 2_f64.powi(lat_bits), 360.0 / 2_f64.powi(lon_bits))
+}
+
+/// The text search query of the nine cells of `length` characters around
+/// `at` (its own and its eight neighbours): `( 'h_u09tv' | ... )`.
+#[must_use]
+pub fn cells_around(at: Position, length: usize) -> String {
+    let (dlat, dlon) = cell_degrees(length);
+    let mut cells = BTreeSet::new();
+    for dy in [-1.0, 0.0, 1.0] {
+        for dx in [-1.0, 0.0, 1.0] {
+            let lat = (at.lat() + dy * dlat).clamp(-89.999_999, 89.999_999);
+            let lon = (at.lon() + dx * dlon + 540.0).rem_euclid(360.0) - 180.0;
+            if let Ok(p) = Position::new(lat, lon) {
+                cells.insert(format!("h_{}", geohash(p, length)));
+            }
+        }
+    }
+    let terms: Vec<String> = cells.iter().map(|c| lexeme(c)).collect();
+    format!("( {} )", terms.join(" | "))
+}
+
+/// How far from `at` every point lies inside [`cells_around`]: a point
+/// nearer than this is in one of the nine cells, so the nearest matches
+/// found there within this distance are the nearest of all.
+#[must_use]
+pub fn cells_reach_m(at: Position, length: usize) -> f64 {
+    let (dlat, dlon) = cell_degrees(length);
+    let metres_a_degree = 111_320.0;
+    (dlat * metres_a_degree).min(dlon * metres_a_degree * at.lat().to_radians().cos())
+}
+
 /// How a search's points answer its text, for the app to order its
 /// sections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -693,6 +774,37 @@ mod tests {
     fn query(words: &[&str]) -> PoiQuery {
         let words: Vec<QueryWord> = words.iter().map(|w| known(w)).collect();
         PoiQuery::new(&words).expect("words")
+    }
+
+    #[test]
+    fn the_cells_around_a_point_are_its_own_and_its_neighbours() {
+        let jutland = Position::new(57.64911, 10.40744).expect("position");
+        assert_eq!(
+            geohash(jutland, 11),
+            "u4pruydqqvj",
+            "the reference example of the geohash"
+        );
+        let paris = Position::new(48.85, 2.35).expect("position");
+        let around = cells_around(paris, 5);
+        assert_eq!(around.matches("'h_").count(), 9);
+        assert!(around.contains(&format!("'h_{}'", geohash(paris, 5))));
+        // Across the antimeridian, the neighbours wrap.
+        let fiji = Position::new(-17.7, 179.99).expect("position");
+        let wrapped = cells_around(fiji, 3);
+        assert_eq!(wrapped.matches("'h_").count(), 9);
+        assert!(
+            wrapped.contains("'h_r") && wrapped.contains("'h_2"),
+            "{wrapped}"
+        );
+        // Within the reach, every point is in one of the nine cells.
+        let reach = cells_reach_m(paris, 5);
+        assert!((3_000.0..5_000.0).contains(&reach), "{reach}");
+        for (dlat, dlon) in [(0.03, 0.0), (-0.03, 0.0), (0.0, 0.04), (0.02, -0.03)] {
+            let p = Position::new(48.85 + dlat, 2.35 + dlon).expect("position");
+            if p.distance_m(paris) <= reach {
+                assert!(around.contains(&format!("'h_{}'", geohash(p, 5))), "{p:?}");
+            }
+        }
     }
 
     #[test]

@@ -46,7 +46,9 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   `pg_stats` (`lunaway_db::search`); points of interest and establishments
   the same way over `poi_search`, a narrow copy of the live points (kind,
   position, words and the tokens `k_<kind>`, `g_<category>`,
-  `c_<cuisine>`) the triggers of `pois` keep (`lunaway_db::poi_search`).
+  `c_<cuisine>`, `h_<geohash>` of the cells holding it) the triggers of
+  `pois` keep (`lunaway_db::poi_search`); around a point, the matches of a
+  kind or of a common name are read in the cells around it first.
   A search's statements run without parallel workers: the generic plan
   of a query of several ways starts them for a branch that does not run.
   A query of `pois` that serves the map tiles, "around this place" or the

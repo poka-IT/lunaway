@@ -545,6 +545,103 @@ async fn a_typo_some_point_bears_or_a_swap_is_corrected_on_a_second_look(pool: P
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_chain_or_a_kind_is_read_in_the_cells_around_first_and_answers_as_everywhere(
+    pool: PgPool,
+) {
+    use lunaway_domain::poi_search::geohash;
+    for (lat, lon) in [(45.76, 4.83), (48.85, 2.35), (-17.7, 179.99), (64.1, -21.9)] {
+        let ours = geohash(Position::new(lat, lon).unwrap(), 6);
+        let theirs: String =
+            sqlx::query_scalar("SELECT ST_GeoHash(ST_SetSRID(ST_MakePoint($2, $1), 4326), 6)")
+                .bind(lat)
+                .bind(lon)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(
+            ours, theirs,
+            "the cells a query names are those the rows bear"
+        );
+    }
+    // A chain: three shops near the map, three hundred from 50 to 350 km
+    // east; and launderettes, two near, sixty far.
+    let mut points = Vec::new();
+    for (i, km) in [0.3, 0.8, 1.5].into_iter().enumerate() {
+        points.push((
+            format!("node/near{i}"),
+            point(PoiKind::Supermarket, east(km), Some("Lidl")),
+        ));
+        points.push((
+            format!("node/wash{i}"),
+            point(
+                PoiKind::Laundry,
+                east(km + 0.1),
+                Some(&format!("Lavomatic {i}")),
+            ),
+        ));
+    }
+    for i in 0..300 {
+        let km = 50.0 + f64::from(i);
+        points.push((
+            format!("node/far{i}"),
+            point(PoiKind::Supermarket, east(km), Some("Lidl")),
+        ));
+        if i < 60 {
+            points.push((
+                format!("node/farwash{i}"),
+                point(PoiKind::Laundry, east(km + 0.5), Some("Laverie")),
+            ));
+        }
+    }
+    let rows: Vec<(&str, PoiRecord, bool)> = points
+        .iter()
+        .map(|(id, r)| (id.as_str(), r.clone(), false))
+        .collect();
+    store(&pool, &SourceId::OSM, &rows).await;
+    let near_cell = format!("h_{}", geohash(east(0.3), 6));
+    let bears: bool = sqlx::query_scalar(
+        "SELECT words @@ $2::tsquery FROM poi_search s JOIN pois p USING (id)
+         WHERE p.external_id = $1",
+    )
+    .bind("node/near0")
+    .bind(&near_cell)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(bears, "a point written bears the cells holding it");
+    sqlx::query("ANALYZE poi_search")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let stats = poi_search::statistics(&pool).await.unwrap();
+    for text in ["lidl", "laverie"] {
+        let ask = PoiAsk {
+            text,
+            near: Some(lyon()),
+            first: 5,
+            kinds: None,
+        };
+        let around = poi_search::search(&pool, ask, &stats).await.unwrap();
+        let everywhere = poi_search::search_by_path(&pool, ask, &stats, LookupPath::Index)
+            .await
+            .unwrap();
+        let at = |found: &PoiSearch| -> Vec<i64> {
+            found
+                .rows
+                .iter()
+                .map(|r| (r.record.position.distance_m(lyon()) / 100.0).round() as i64)
+                .collect()
+        };
+        assert_eq!(
+            at(&around),
+            at(&everywhere),
+            "{text}: the nearest, found in the cells around as when reading every match"
+        );
+        assert_eq!(around.rows.len(), 5, "{text}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_dead_word_and_a_deleted_point_leave_the_search(pool: PgPool) {
     store(
         &pool,
