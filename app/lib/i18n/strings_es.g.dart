@@ -544,6 +544,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get deletedAccount => 'Cuenta eliminada';
 	@override late final _Translations$place$reviewVehicle$es reviewVehicle = _Translations$place$reviewVehicle$es._(_root);
 	@override String originalLanguage({required Object language}) => 'Texto original en ${language}';
+	@override String descriptionIn({required Object language}) => 'Descripción en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Foto ${index} de ${count}';
 	@override String get previousPhoto => 'Foto anterior';
 	@override String get nextPhoto => 'Foto siguiente';
@@ -3270,6 +3271,7 @@ extension on TranslationsEs {
 			'place.reviewVehicle.caravan' => 'Caravana',
 			'place.reviewVehicle.other' => 'Otro vehículo',
 			'place.originalLanguage' => ({required Object language}) => 'Texto original en ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Descripción en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Foto ${index} de ${count}',
 			'place.previousPhoto' => 'Foto anterior',
 			'place.nextPhoto' => 'Foto siguiente',
@@ -3505,9 +3507,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Tu vehículo no tiene paso entre las paradas: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Se puede llegar a cada parada, pero todas las carreteras que las unen pasan por una limitación que tu vehículo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
-			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Ninguna carretera lleva a la parada ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Ninguna carretera une tus paradas',
 			'navigation.noRoute.notConnectedHint' => 'Sea cual sea el vehículo: una isla sin ferri para vehículos o una vía cerrada al tráfico.',
@@ -4019,9 +4021,9 @@ extension on TranslationsEs {
 			'account.lostAction' => 'Recuperar',
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
 			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
-			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
 			'recovery.title' => 'Tarjeta de recuperación',
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
@@ -4533,9 +4535,9 @@ extension on TranslationsEs {
 			'offlineMaps.deleteBody' => 'Ya no se verá sin conexión. Puedes volver a descargarla.',
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
-			'offlineMaps.entryHint' => 'Para viajar sin conexión',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryHint' => 'Para viajar sin conexión',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',

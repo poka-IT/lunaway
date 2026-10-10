@@ -14,6 +14,7 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
+import 'package:lunaway/features/places/presentation/description_languages.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
@@ -220,7 +221,8 @@ class PlaceDetailsBody extends ConsumerWidget {
         if (ownText)
           _Section(
             title: t.place.description,
-            child: _Description(place: place),
+            // A new place starts from the reader's language.
+            child: _Description(key: ValueKey(place.id), place: place),
           ),
         if (place.website != null || place.phone != null)
           _Section(
@@ -245,6 +247,7 @@ class PlaceDetailsBody extends ConsumerWidget {
           _Section(
             title: ownText ? t.place.otherSources : t.place.description,
             child: _ExternalDescription(
+              key: ValueKey(place.id),
               placeId: place.id,
               texts: externalTexts,
               sources: place.sources,
@@ -741,18 +744,29 @@ class _IconChip extends StatelessWidget {
 }
 
 /// The description in the user's language when a source wrote one; another
-/// language otherwise, saying which, and from which source.
-class _Description extends ConsumerWidget {
-  const new({required this.place});
+/// language otherwise, saying which, and from which source. When sources
+/// wrote it in several languages, chips under it show each one.
+class _Description extends ConsumerStatefulWidget {
+  const new({required this.place, super.key});
 
   final Place place;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Description> createState() => _DescriptionState();
+}
+
+class _DescriptionState extends ConsumerState<_Description> {
+  /// The language the reader picked among the chips; null for the rule of
+  /// [descriptionFor].
+  String? _picked;
+
+  @override
+  Widget build(BuildContext context) {
+    final place = widget.place;
     final t = context.t;
     final theme = Theme.of(context);
     final language = t.$meta.locale.languageCode;
-    final chosen = descriptionFor(place.descriptions, language);
+    final chosen = descriptionPicked(place.descriptions, language, _picked);
     if (chosen == null) {
       // Without the texts by language, the field's provenance still says
       // where the one description came from.
@@ -773,14 +787,21 @@ class _Description extends ConsumerWidget {
       sourceId: chosen.text.sourceId,
       lang: chosen.text.lang,
     );
+    final languages = descriptionLanguages(place.descriptions, language);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TranslatableText(
+        DescriptionText(
           item: item,
-          text: chosen.text.text,
-          lang: chosen.text.lang,
+          text: chosen.text,
+          languages: languages,
+          appLanguage: language,
           style: theme.textTheme.bodyLarge,
+        ),
+        DescriptionLanguageChips(
+          languages: languages,
+          selected: chosen.text.lang,
+          onSelected: (lang) => setState(() => _picked = lang),
         ),
         const SizedBox(height: Space.s),
         Wrap(
@@ -792,7 +813,10 @@ class _Description extends ConsumerWidget {
               label: sourceName(t, chosen.text.sourceId, sources: place.sources),
               maxLines: 2,
             ),
-            if (!chosen.inUserLanguage && !showsTranslation(ref, item, language, chosen.text.text))
+            // The chips say the language when there are several.
+            if (languages.length < 2 &&
+                !chosen.inUserLanguage &&
+                !showsTranslation(ref, item, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -811,8 +835,8 @@ class _Description extends ConsumerWidget {
 /// licence asks for, and a link to the whole text. One text at most, in
 /// the best language: two sources of a place mostly say the same thing.
 /// Read online when the card opens; never stored with the place.
-class _ExternalDescription extends ConsumerWidget {
-  const new({required this.placeId, required this.texts, required this.sources});
+class _ExternalDescription extends ConsumerStatefulWidget {
+  const new({required this.placeId, required this.texts, required this.sources, super.key});
 
   /// The place the card shows, which names its descriptions for a
   /// translation.
@@ -822,11 +846,24 @@ class _ExternalDescription extends ConsumerWidget {
   final List<PlaceSource> sources;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ExternalDescription> createState() => _ExternalDescriptionState();
+}
+
+class _ExternalDescriptionState extends ConsumerState<_ExternalDescription> {
+  /// The language the reader picked among the chips; null for the rule of
+  /// [descriptionFor].
+  String? _picked;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeId = widget.placeId;
+    final texts = widget.texts;
+    final sources = widget.sources;
     final t = context.t;
     final theme = Theme.of(context);
     final language = t.$meta.locale.languageCode;
-    final chosen = descriptionFor([for (final d in texts) d.text], language);
+    final all = [for (final d in texts) d.text];
+    final chosen = descriptionPicked(all, language, _picked);
     if (chosen == null) return const SizedBox.shrink();
     final item = texts.firstWhere((d) => identical(d.text, chosen.text));
     final page = item.terms.pageUrl;
@@ -836,14 +873,21 @@ class _ExternalDescription extends ConsumerWidget {
       sourceId: chosen.text.sourceId,
       lang: chosen.text.lang,
     );
+    final languages = descriptionLanguages(all, language);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TranslatableText(
+        DescriptionText(
           item: translatable,
-          text: chosen.text.text,
-          lang: chosen.text.lang,
+          text: chosen.text,
+          languages: languages,
+          appLanguage: language,
           style: theme.textTheme.bodyLarge,
+        ),
+        DescriptionLanguageChips(
+          languages: languages,
+          selected: chosen.text.lang,
+          onSelected: (lang) => setState(() => _picked = lang),
         ),
         const SizedBox(height: Space.s),
         Wrap(
@@ -859,7 +903,8 @@ class _ExternalDescription extends ConsumerWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            if (!chosen.inUserLanguage &&
+            if (languages.length < 2 &&
+                !chosen.inUserLanguage &&
                 !showsTranslation(ref, translatable, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),

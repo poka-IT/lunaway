@@ -1075,6 +1075,9 @@ class Translations$place$en {
 	/// en: 'Original text in $language'
 	String originalLanguage({required Object language}) => 'Original text in ${language}';
 
+	/// en: 'Description in $language'
+	String descriptionIn({required Object language}) => 'Description in ${language}';
+
 	/// en: 'Photo $index of $count'
 	String photoPosition({required Object index, required Object count}) => 'Photo ${index} of ${count}';
 
@@ -6601,6 +6604,7 @@ extension on Translations {
 			'place.reviewVehicle.caravan' => 'Caravan',
 			'place.reviewVehicle.other' => 'Other vehicle',
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Description in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
 			'place.previousPhoto' => 'Previous photo',
 			'place.nextPhoto' => 'Next photo',
@@ -6836,9 +6840,9 @@ extension on Translations {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -7350,9 +7354,9 @@ extension on Translations {
 			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
-			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
@@ -7864,9 +7868,9 @@ extension on Translations {
 			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
 			'offlineMaps.listCopy' => 'List kept from the last connection.',
-			'offlineMaps.entryHint' => 'To travel without network',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',

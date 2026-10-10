@@ -544,6 +544,7 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get deletedAccount => 'Account eliminato';
 	@override late final _Translations$place$reviewVehicle$it reviewVehicle = _Translations$place$reviewVehicle$it._(_root);
 	@override String originalLanguage({required Object language}) => 'Testo originale in ${language}';
+	@override String descriptionIn({required Object language}) => 'Descrizione in ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Foto ${index} di ${count}';
 	@override String get previousPhoto => 'Foto precedente';
 	@override String get nextPhoto => 'Foto successiva';
@@ -3270,6 +3271,7 @@ extension on TranslationsIt {
 			'place.reviewVehicle.caravan' => 'Caravan',
 			'place.reviewVehicle.other' => 'Altro veicolo',
 			'place.originalLanguage' => ({required Object language}) => 'Testo originale in ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Descrizione in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Foto ${index} di ${count}',
 			'place.previousPhoto' => 'Foto precedente',
 			'place.nextPhoto' => 'Foto successiva',
@@ -3505,9 +3507,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Nessun passaggio per il tuo veicolo tra le tappe: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
-			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Nessuna strada collega le tue tappe',
 			'navigation.noRoute.notConnectedHint' => 'Qualunque sia il veicolo: un\'isola senza traghetto per veicoli, o una strada chiusa al traffico.',
@@ -4019,9 +4021,9 @@ extension on TranslationsIt {
 			'account.lostAction' => 'Recupera',
 			'account.welcomeTitle' => 'Grazie per il tuo primo contributo',
 			'account.welcomeBody' => ({required Object name}) => 'Il tuo account è stato creato con lo pseudonimo «${name}». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.',
-			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
 			'account.welcomeFavorites' => 'Le tue liste di preferiti ora sono conservate con il tuo account.',
 			'recovery.title' => 'Scheda di recupero',
 			'recovery.intro' => 'Un codice che riporta il tuo account su un nuovo dispositivo. Lunaway ne conserva solo un\'impronta, che serve a verificarlo: il codice stesso non potrà mai più essere mostrato, e ogni nuova scheda ha un codice diverso.',
@@ -4533,9 +4535,9 @@ extension on TranslationsIt {
 			'offlineMaps.deleteBody' => 'Non sarà più visibile senza rete. Potrai scaricarla di nuovo.',
 			'offlineMaps.listOffline' => 'L\'elenco delle regioni ha bisogno della rete.',
 			'offlineMaps.listCopy' => 'Elenco conservato dall\'ultima connessione.',
-			'offlineMaps.entryHint' => 'Per viaggiare senza rete',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryHint' => 'Per viaggiare senza rete',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Mappe: ${n} regione, ${size}', other: 'Mappe: ${n} regioni, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: mappa scaricata, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: quest\'area non è scaricata',

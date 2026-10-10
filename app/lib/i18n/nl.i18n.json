@@ -355,6 +355,7 @@
       "other": "Ander voertuig"
     },
     "originalLanguage": "Oorspronkelijke tekst in het $language",
+    "descriptionIn": "Beschrijving in het $language",
     "photoPosition": "Foto $index van $count",
     "previousPhoto": "Vorige foto",
     "nextPhoto": "Volgende foto",

@@ -37,6 +37,23 @@ Future<TestApp> openPlace(
 Finder inDetails(Finder finder) =>
     find.descendant(of: find.byType(PlaceDetailsBody), matching: finder);
 
+/// The chip of a description's language, by its label.
+ChoiceChip chip(WidgetTester tester, String label) => tester.widget<ChoiceChip>(
+  find.ancestor(of: find.text(label), matching: find.byType(ChoiceChip)),
+);
+
+/// A place of its own whose description the sources wrote as [texts].
+Place describedIn(List<LocalizedText> texts) => Place(
+  id: 'test-described',
+  name: 'Aire des Langues (démo)',
+  kind: lakeArea.kind,
+  lat: lakeArea.lat,
+  lon: lakeArea.lon,
+  overnight: lakeArea.overnight,
+  updatedAt: lakeArea.updatedAt,
+  descriptions: texts,
+);
+
 void main() {
   late List<String> clipboard;
   setUp(() {
@@ -552,9 +569,60 @@ void main() {
     expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
   });
 
-  testWidgets('the description falls back to another language and says which', (tester) async {
+  testWidgets('the description falls back to another language, its chip says which', (
+    tester,
+  ) async {
+    // Written in German and English, read in French.
     await openPlace(tester, lakeArea);
     expect(find.text('Invented area by the lake.'), findsOneWidget);
+    expect(chip(tester, 'EN').selected, isTrue);
+    expect(chip(tester, 'DE').selected, isFalse);
+    expect(
+      inDetails(find.text('Traduire')),
+      findsOneWidget,
+      reason: 'no source wrote it in French: the translation stays',
+    );
+  });
+
+  testWidgets('a description written in several languages shows each by its chip, ours first', (
+    tester,
+  ) async {
+    final written = describedIn([
+      const LocalizedText(lang: 'de', text: 'Ruhiger Platz am See.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'en', text: 'Quiet spot by the lake.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'fr', text: 'Endroit calme au bord du lac.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Endroit calme au bord du lac.'), findsOneWidget);
+    final x = [
+      for (final c in ['FR', 'EN', 'DE']) tester.getCenter(find.text(c)).dx,
+    ];
+    expect(x, orderedEquals([...x]..sort()), reason: "the reader's language first, then the app's");
+    expect(chip(tester, 'FR').selected, isTrue);
+
+    await tester.tap(find.text('DE'));
+    await tester.pump();
+    expect(find.text('Ruhiger Platz am See.'), findsOneWidget);
+    expect(find.text('Endroit calme au bord du lac.'), findsNothing);
+    expect(chip(tester, 'DE').selected, isTrue);
+    expect(
+      inDetails(find.text('Traduire')),
+      findsNothing,
+      reason: 'the French text is one chip away: no translation of the German',
+    );
+
+    await tester.tap(find.text('FR'));
+    await tester.pump();
+    expect(find.text('Endroit calme au bord du lac.'), findsOneWidget);
+  });
+
+  testWidgets('a description in one language has no chip and says its language', (tester) async {
+    final written = describedIn([
+      const LocalizedText(lang: 'en', text: 'Quiet spot by the lake.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Quiet spot by the lake.'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text("Texte d'origine en anglais"), findsOneWidget);
   });
 

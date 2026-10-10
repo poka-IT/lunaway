@@ -544,6 +544,7 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get deletedAccount => 'Verwijderd account';
 	@override late final _Translations$place$reviewVehicle$nl reviewVehicle = _Translations$place$reviewVehicle$nl._(_root);
 	@override String originalLanguage({required Object language}) => 'Oorspronkelijke tekst in het ${language}';
+	@override String descriptionIn({required Object language}) => 'Beschrijving in het ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Foto ${index} van ${count}';
 	@override String get previousPhoto => 'Vorige foto';
 	@override String get nextPhoto => 'Volgende foto';
@@ -3270,6 +3271,7 @@ extension on TranslationsNl {
 			'place.reviewVehicle.caravan' => 'Caravan',
 			'place.reviewVehicle.other' => 'Ander voertuig',
 			'place.originalLanguage' => ({required Object language}) => 'Oorspronkelijke tekst in het ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Beschrijving in het ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Foto ${index} van ${count}',
 			'place.previousPhoto' => 'Vorige foto',
 			'place.nextPhoto' => 'Volgende foto',
@@ -3505,9 +3507,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
-			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -4019,9 +4021,9 @@ extension on TranslationsNl {
 			'account.lostAction' => 'Herstellen',
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
-			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
@@ -4533,9 +4535,9 @@ extension on TranslationsNl {
 			'offlineMaps.deleteBody' => 'Deze regio is dan niet meer zonder internet te zien. Je kunt hem opnieuw downloaden.',
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
-			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
