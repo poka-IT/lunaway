@@ -476,6 +476,32 @@ async fn a_change_dates_the_list_points_come_oldest_first_and_go_with_their_list
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_shop_of_a_kind_retired_since_reads_as_a_bare_point(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (token, _) = sign_in(&app, &Device::new(1)).await;
+    let list = new_list(&app, &token, "Courses").await;
+    let point = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO favorite_points (list_id, id, kind, name, lat, lon, poi_id, poi_kind) \
+         VALUES ($1::uuid, $2, 'poi', 'Laverie', 45.9, 6.1, $3, 'retired_kind')",
+    )
+    .bind(&list)
+    .bind(point)
+    .bind(Uuid::now_v7())
+    .execute(&pool)
+    .await
+    .unwrap();
+    let lists = mine(&app, &token).await;
+    let read = &lists[0]["points"][0];
+    assert_eq!(
+        (&read["kind"], &read["poiKind"], &read["name"]),
+        (&json!("POINT"), &Value::Null, &json!("Laverie")),
+        "one unknown kind does not fail every list of the account"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn an_import_refused_for_a_point_names_that_point(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();
     let app = app(&pool, config(media.path()));
