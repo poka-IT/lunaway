@@ -805,8 +805,9 @@ class _Translations$profile$es extends Translations$profile$en {
 	@override String get attributions => 'Fuentes y créditos';
 	@override String get attributionOsm => 'Lugares y datos cartográficos © colaboradores de OpenStreetMap.';
 	@override String get attributionOdbl => 'Datos de OpenStreetMap bajo licencia Open Database License (ODbL).';
-	@override String get attributionAtout => 'Campings clasificados de Atout France, bajo Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionAtout => 'Campings clasificados de Atout France, situados con la Base Adresse Nationale y la BD TOPO del IGN, bajo Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionCommunes => 'Municipios de los lugares: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), bajo licencia ODbL.';
+	@override String get attributionCommunityPlaces => 'Lugares añadidos y modificados por los viajeros de Lunaway, bajo ODbL, con la mención «Lunaway contributors».';
 	@override String get attributionTiles => 'Mapa base servido por Lunaway, estilos derivados de Protomaps (BSD-3-Clause), datos © colaboradores de OpenStreetMap.';
 	@override String get attributionFonts => 'Tipografías Fraunces y Atkinson Hyperlegible Next, bajo licencia SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Iconos Phosphor, bajo licencia MIT.';
@@ -815,7 +816,7 @@ class _Translations$profile$es extends Translations$profile$en {
 	@override String get attributionAddresses => 'Direcciones de la búsqueda en Francia: Base Adresse Nationale, a través de la Géoplateforme del IGN, bajo Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Direcciones de la búsqueda en otros países: OpenStreetMap, a través de Photon, bajo ODbL.';
 	@override String get attributionPoiOdbl => 'Comercios y servicios: OpenStreetMap y el calendario de apertura de La Poste, bajo ODbL.';
-	@override String get attributionPoiLo => 'Precios de los combustibles (Ministerio de Economía de Francia) y centros sanitarios FINESS, bajo Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPoiLo => 'Precios de los combustibles (Ministerio de Economía de Francia) y centros sanitarios FINESS (Agence du numérique en santé), bajo Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contornos de los mapas sin conexión: Contours administratifs, data.gouv.fr (ODbL), y Natural Earth (dominio público).';
 	@override String get attributionOfflineLabels => 'Nombres e iconos de los mapas sin conexión: glifos Noto Sans (SIL Open Font License 1.1) y sprites de Protomaps derivados de tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Lugares, reseñas, valoraciones y fotos, bajo acuerdo escrito con esta fuente.';
@@ -827,13 +828,14 @@ class _Translations$profile$es extends Translations$profile$en {
 	@override String get creditsApp => 'Aplicación';
 	@override String get attributionDatatourisme => 'Lugares, descripciones y fotos de las oficinas de turismo: DATAtourisme, bajo Licence Ouverte 2.0; cada texto y cada foto indica su oficina, su autor y la fecha de su última actualización.';
 	@override String get attributionCommunity => 'Reseñas, valoraciones y fotos de los viajeros de Lunaway, bajo licencia CC BY 4.0, con el seudónimo de su autor.';
-	@override String get attributionCommons => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, CC BY o CC BY-SA), con su autor y un enlace a su página.';
+	@override String get attributionCommons => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, dominio público, CC BY o CC BY-SA), con su autor y un enlace a su página.';
 	@override String get attributionPanoramax => 'Vistas de la calle de Panoramax: instancia de OpenStreetMap France bajo licencia CC BY-SA 4.0, instancia del IGN bajo Licence Ouverte 2.0.';
 	@override String get attributionWikipedia => 'Extractos de artículos de Wikipedia, bajo licencia CC BY-SA 4.0, con un enlace al artículo.';
 	@override String get attributionMangrove => 'Reseñas de Mangrove Reviews, bajo licencia CC BY 4.0 o la licencia que indique la reseña, con un enlace a la reseña.';
-	@override String get attributionRoadEvents => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Burdeos, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), bajo Licence Ouverte 2.0; Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.';
+	@override String get attributionTranslation => 'Traducciones automáticas: modelos OPUS-MT de la Universidad de Helsinki, bajo licencia CC BY 4.0, ejecutados en los servidores de Lunaway.';
+	@override String get attributionRoadEvents => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), bajo Licence Ouverte 2.0; Bordeaux Métropole y el departamento de Côtes-d\'Armor, bajo Licence Ouverte; Ville de Paris, Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Radares y zonas de peligro: listas oficiales de radares (en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Licence Ouverte 2.0; Polonia, Luxemburgo y Bruselas, CC0; Noruega, NLOD), las zonas de control de la Garda irlandesa (CC BY 4.0) y OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}';
 }
 
@@ -1034,7 +1036,7 @@ class _Translations$deletion$es extends Translations$deletion$en {
 	@override String get backups => 'Las copias de seguridad del servidor se borran en unos 30 días.';
 	@override String get device => 'En este dispositivo, tus favoritos se quedan; la clave de la cuenta se borra.';
 	@override String get web => 'También puedes eliminarla en lunaway.net con tu código de recuperación.';
-	@override String get webLink => 'lunaway.net/account/delete';
+	@override String get webLink => 'lunaway.net/es/account/delete';
 	@override String get confirmTitle => '¿Eliminar definitivamente?';
 	@override String confirmBody({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.';
 	@override String get confirmCheck => 'Entiendo que es definitivo';
@@ -3903,8 +3905,9 @@ extension on TranslationsEs {
 			'profile.attributions' => 'Fuentes y créditos',
 			'profile.attributionOsm' => 'Lugares y datos cartográficos © colaboradores de OpenStreetMap.',
 			'profile.attributionOdbl' => 'Datos de OpenStreetMap bajo licencia Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Campings clasificados de Atout France, bajo Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionAtout' => 'Campings clasificados de Atout France, situados con la Base Adresse Nationale y la BD TOPO del IGN, bajo Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionCommunes' => 'Municipios de los lugares: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), bajo licencia ODbL.',
+			'profile.attributionCommunityPlaces' => 'Lugares añadidos y modificados por los viajeros de Lunaway, bajo ODbL, con la mención «Lunaway contributors».',
 			'profile.attributionTiles' => 'Mapa base servido por Lunaway, estilos derivados de Protomaps (BSD-3-Clause), datos © colaboradores de OpenStreetMap.',
 			'profile.attributionFonts' => 'Tipografías Fraunces y Atkinson Hyperlegible Next, bajo licencia SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Iconos Phosphor, bajo licencia MIT.',
@@ -3913,7 +3916,7 @@ extension on TranslationsEs {
 			'profile.attributionAddresses' => 'Direcciones de la búsqueda en Francia: Base Adresse Nationale, a través de la Géoplateforme del IGN, bajo Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Direcciones de la búsqueda en otros países: OpenStreetMap, a través de Photon, bajo ODbL.',
 			'profile.attributionPoiOdbl' => 'Comercios y servicios: OpenStreetMap y el calendario de apertura de La Poste, bajo ODbL.',
-			'profile.attributionPoiLo' => 'Precios de los combustibles (Ministerio de Economía de Francia) y centros sanitarios FINESS, bajo Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Precios de los combustibles (Ministerio de Economía de Francia) y centros sanitarios FINESS (Agence du numérique en santé), bajo Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contornos de los mapas sin conexión: Contours administratifs, data.gouv.fr (ODbL), y Natural Earth (dominio público).',
 			'profile.attributionOfflineLabels' => 'Nombres e iconos de los mapas sin conexión: glifos Noto Sans (SIL Open Font License 1.1) y sprites de Protomaps derivados de tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Lugares, reseñas, valoraciones y fotos, bajo acuerdo escrito con esta fuente.',
@@ -3925,13 +3928,14 @@ extension on TranslationsEs {
 			'profile.creditsApp' => 'Aplicación',
 			'profile.attributionDatatourisme' => 'Lugares, descripciones y fotos de las oficinas de turismo: DATAtourisme, bajo Licence Ouverte 2.0; cada texto y cada foto indica su oficina, su autor y la fecha de su última actualización.',
 			'profile.attributionCommunity' => 'Reseñas, valoraciones y fotos de los viajeros de Lunaway, bajo licencia CC BY 4.0, con el seudónimo de su autor.',
-			'profile.attributionCommons' => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, CC BY o CC BY-SA), con su autor y un enlace a su página.',
+			'profile.attributionCommons' => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, dominio público, CC BY o CC BY-SA), con su autor y un enlace a su página.',
 			'profile.attributionPanoramax' => 'Vistas de la calle de Panoramax: instancia de OpenStreetMap France bajo licencia CC BY-SA 4.0, instancia del IGN bajo Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extractos de artículos de Wikipedia, bajo licencia CC BY-SA 4.0, con un enlace al artículo.',
 			'profile.attributionMangrove' => 'Reseñas de Mangrove Reviews, bajo licencia CC BY 4.0 o la licencia que indique la reseña, con un enlace a la reseña.',
-			'profile.attributionRoadEvents' => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Burdeos, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), bajo Licence Ouverte 2.0; Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.',
+			'profile.attributionTranslation' => 'Traducciones automáticas: modelos OPUS-MT de la Universidad de Helsinki, bajo licencia CC BY 4.0, ejecutados en los servidores de Lunaway.',
+			'profile.attributionRoadEvents' => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), bajo Licence Ouverte 2.0; Bordeaux Métropole y el departamento de Côtes-d\'Armor, bajo Licence Ouverte; Ville de Paris, Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Radares y zonas de peligro: listas oficiales de radares (en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Licence Ouverte 2.0; Polonia, Luxemburgo y Bruselas, CC0; Noruega, NLOD), las zonas de control de la Garda irlandesa (CC BY 4.0) y OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
@@ -4016,10 +4020,10 @@ extension on TranslationsEs {
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
 			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
-			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
-			'recovery.title' => 'Tarjeta de recuperación',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
+			'recovery.title' => 'Tarjeta de recuperación',
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
 			'recovery.replaces' => 'Una tarjeta nueva sustituye a la anterior: el código antiguo dejará de funcionar.',
 			'recovery.replaceTitle' => ({required Object date}) => '¿Sustituir la tarjeta del ${date}?',
@@ -4074,7 +4078,7 @@ extension on TranslationsEs {
 			'deletion.backups' => 'Las copias de seguridad del servidor se borran en unos 30 días.',
 			'deletion.device' => 'En este dispositivo, tus favoritos se quedan; la clave de la cuenta se borra.',
 			'deletion.web' => 'También puedes eliminarla en lunaway.net con tu código de recuperación.',
-			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.webLink' => 'lunaway.net/es/account/delete',
 			'deletion.confirmTitle' => '¿Eliminar definitivamente?',
 			'deletion.confirmBody' => ({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.',
 			'deletion.confirmCheck' => 'Entiendo que es definitivo',
@@ -4530,10 +4534,10 @@ extension on TranslationsEs {
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
-			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
-			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
+			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',
 			'offlineMaps.noticePlacesOnly' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar',
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',
