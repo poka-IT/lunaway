@@ -153,6 +153,23 @@ infra/deploy-web.sh app --build     # build_web.sh, fvm flutter build web --base
 Built from the main tree by the script: run it from the release worktree,
 or check that `app/` has no uncommitted change first.
 
+Before it, the journeys of the map screen on the same code, in the three
+browsers, as a phone and as a computer (from `app/`, about 25 minutes):
+
+```bash
+sh packages/lunaway_nav/tool/build_web.sh
+fvm flutter build web --release --wasm --base-href /app/ --no-web-resources-cdn \
+    --dart-define=LUNAWAY_API_URL=http://127.0.0.1:18793 --output build/web-journeys
+python3 tool/web/serve_csp.py --port 18793 --root build/web-journeys --api https://api.lunaway.net/graphql &
+python3 tool/web/journeys.py --url http://127.0.0.1:18793/app/
+```
+
+A failed journey stops the deploy: `build/journeys/report.json` and the
+screenshots beside it say at which step. The tool sends a phone's late
+mouse events after each tap (`--late-click`), the condition a phone's
+browser creates and a desktop never does. `--url https://lunaway.net/app/`
+plays them on production.
+
 ### Desktop
 
 - Windows: CI builds it unsigned (`ci.yml`, job `windows`) and keeps no
