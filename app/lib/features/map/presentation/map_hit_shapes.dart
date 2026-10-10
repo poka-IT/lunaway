@@ -70,33 +70,35 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       selection: true,
       dot: dot,
     ),
-    // The pins of a category chosen are drawn over the places' pins (audit
-    // 94, m2): of the two under the pointer, the point.
-    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 2, dot: dot),
-    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 2, dot: dot),
-    // The device's places: no dot under their pins.
+    // The rest in the order they are drawn, the upper first: of two under
+    // the pointer, the one on top. The device's places (offline) and their
+    // groups over the pins of a category chosen, which are over the
+    // places' pins of the tiles (audit 94, m2).
     MapStyle.placesLayer: _pin(
       const PinGeometry(selected: false),
+      // The device's places: no dot under their pins.
       dotUnder: false,
       dot: dot,
-      priority: 3,
-    ),
-    PlaceTiles.pinsLayer: _pin(
-      const PinGeometry(selected: false),
-      dotUnder: true,
-      dot: dot,
-      priority: 3,
+      priority: 2,
     ),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
-      priority: 4,
+      priority: 3,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 5),
-    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 5),
-    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 6, dot: dot),
-    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 6, dot: dot),
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PlaceTiles.pinsLayer: _pin(
+      const PinGeometry(selected: false),
+      dotUnder: true,
+      dot: dot,
+      priority: 5,
+    ),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 6),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 6),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 7, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 7, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -190,7 +192,7 @@ final HitShape _poiDot = HitShape(
   radius: StopsHit('count', [
     for (final (n, s) in _stops(PoiMapStyle.dotSize(1))) (n, poiDotSize.width / 2 * s),
   ]),
-  priority: 7,
+  priority: 8,
 );
 
 /// The (input, output) pairs of a style `interpolate` expression.

@@ -197,6 +197,17 @@ final List<_Case> _cases = [
     expected: (1, 0),
   ),
   (
+    name: "offline, a device's place over a point of the category chosen: the place, drawn on top",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+      _c(MapStyle.placesLayer, [_here + const Offset(0, 20)], {'kind': 'place', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
     name: 'a saved point over a point of the category chosen: the saved point, drawn on top',
     at: _here,
     zoom: 13,
