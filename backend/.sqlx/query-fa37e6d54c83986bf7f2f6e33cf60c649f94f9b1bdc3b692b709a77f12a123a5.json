@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT word::text AS \"word!\" FROM poi_search_words WHERE word = ANY($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "word!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_search_words",
+            "name": "word"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fa37e6d54c83986bf7f2f6e33cf60c649f94f9b1bdc3b692b709a77f12a123a5"
+}

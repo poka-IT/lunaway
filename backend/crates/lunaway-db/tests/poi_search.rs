@@ -417,3 +417,129 @@ async fn the_search_follows_every_write_of_the_points(pool: PgPool) {
         "the tokens of kinds are no words a typo may be corrected to"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_name_near_the_map_wins_over_a_town_of_its_last_word(pool: PgPool) {
+    sqlx::query(
+        "INSERT INTO place_towns (key, name, folded, postcode, country_code, places, lat, lon)
+         VALUES ('c:TR:34:istanbul', 'İstanbul', 'istanbul', '34000', 'TR', 27, 41.0, 28.97),
+                ('c:HU:7812:gare', 'Garé', 'gare', '7812', 'HU', 1, 45.92, 18.19),
+                ('m:74056', 'Chamonix-Mont-Blanc', 'chamonix mont blanc', '74400', 'FR', 98,
+                 45.92, 6.87),
+                ('m:49328', 'Saumur', 'saumur', '49400', 'FR', 64, 47.26, -0.08)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let saumur = |km: f64| Position::new(47.26, -0.08 + km / 75.2).unwrap();
+    store(
+        &pool,
+        &SourceId::OSM,
+        &[
+            (
+                "node/1",
+                point(PoiKind::FastFood, east(2.0), Some("Grill Istanbul")),
+                true,
+            ),
+            (
+                "node/2",
+                point(PoiKind::CarRepair, east(3.0), Some("Garage de la Gare")),
+                true,
+            ),
+            (
+                "node/3",
+                point(PoiKind::CarRepair, east(0.5), Some("Garage Martin")),
+                true,
+            ),
+            (
+                "node/4",
+                point(
+                    PoiKind::Bakery,
+                    Position::new(45.923, 6.871).unwrap(),
+                    Some("Le Fournil"),
+                ),
+                true,
+            ),
+            (
+                "node/5",
+                point(
+                    PoiKind::Hairdresser,
+                    saumur(16.0),
+                    Some("Le Maître Coiffeur"),
+                ),
+                false,
+            ),
+            (
+                "node/6",
+                point(PoiKind::Hairdresser, saumur(0.5), Some("Coiff&Co")),
+                false,
+            ),
+        ],
+    )
+    .await;
+    let grill = find(&pool, "grill istanbul", Some(lyon())).await;
+    assert!(
+        grill.town.is_none() && names(&grill) == ["Grill Istanbul"],
+        "the shop named so near the map, not the grills of a far town"
+    );
+    let gare = find(&pool, "garage de la gare", Some(lyon())).await;
+    assert!(
+        gare.town.is_none(),
+        "an article before a word does not make it a place"
+    );
+    assert_eq!(names(&gare)[0], "Garage de la Gare");
+    let chamonix = find(&pool, "boulangerie chamonix", Some(lyon())).await;
+    assert_eq!(
+        chamonix.town.as_ref().map(|t| t.name.as_str()),
+        Some("Chamonix-Mont-Blanc"),
+        "a town found by the first word of its name"
+    );
+    assert_eq!(names(&chamonix), ["Le Fournil"]);
+    let coiffeur = find(&pool, "coiffeur à saumur", Some(lyon())).await;
+    assert_eq!(
+        names(&coiffeur),
+        ["Coiff&Co", "Le Maître Coiffeur"],
+        "by kind, the nearest first: a hairdresser named after the kind is no exact match"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_typo_some_point_bears_or_a_swap_is_corrected_on_a_second_look(pool: PgPool) {
+    store(
+        &pool,
+        &SourceId::OSM,
+        &[
+            (
+                "node/1",
+                point(PoiKind::Bakery, east(80.0), Some("Boulangerei du Coin")),
+                true,
+            ),
+            (
+                "node/2",
+                point(PoiKind::Bakery, east(1.0), Some("Boulangerie Navarro")),
+                true,
+            ),
+            (
+                "node/3",
+                point(PoiKind::Beauty, east(2.0), Some("Lily Beauté")),
+                false,
+            ),
+            (
+                "node/4",
+                point(PoiKind::Beauty, east(2.5), Some("Beate Lily")),
+                false,
+            ),
+        ],
+    )
+    .await;
+    assert_eq!(
+        names(&find(&pool, "boulangerei navarro", Some(lyon())).await),
+        ["Boulangerie Navarro"],
+        "a word some point misspells is widened to the one meant"
+    );
+    assert_eq!(
+        names(&find(&pool, "lily beuate", Some(lyon())).await)[0],
+        "Lily Beauté",
+        "two letters swapped, which the trigrams rank too low"
+    );
+}

@@ -119,7 +119,12 @@ impl Slot {
             let star = if prefix && self.prefix { ":*" } else { "" };
             return format!("{}{star}", lexeme(word));
         }
-        let alternatives: Vec<String> = self.words.iter().map(|w| lexeme(w)).collect();
+        let star = if prefix && self.prefix { ":*" } else { "" };
+        let alternatives: Vec<String> = self
+            .words
+            .iter()
+            .map(|w| format!("{}{star}", lexeme(w)))
+            .collect();
         format!("( {} )", alternatives.join(" | "))
     }
 
@@ -227,6 +232,44 @@ impl PoiQuery {
         })
     }
 
+    /// The query of these words with every word of a name widened to
+    /// itself and its lookalikes within reach (an edit up to six letters,
+    /// two beyond, none under four): for a second look when the first found
+    /// nothing, as a word some point bears may be a typo of the one meant
+    /// ("boulangerei" for "boulangerie", which a shop also misspells), and
+    /// another word of the text right ("mallet" kept, "malet" beside it).
+    /// `None` without a word.
+    #[must_use]
+    pub fn widened(words: &[QueryWord]) -> Option<Self> {
+        let mut query = Self::new(words)?;
+        let last = query.slots.len() - 1;
+        for (i, (slot, w)) in query.slots.iter_mut().zip(words).enumerate() {
+            if slot.role != Role::Name {
+                continue;
+            }
+            let len = w.word.chars().count();
+            let reach = match len {
+                0..=3 => continue,
+                4..=6 => 1,
+                _ => 2,
+            };
+            let mut near: Vec<(usize, &String)> = w
+                .lookalikes
+                .iter()
+                .filter(|l| **l != w.word)
+                .map(|l| (crate::search::edits(&w.word, l), l))
+                .filter(|(d, _)| *d <= reach)
+                .collect();
+            near.sort();
+            slot.words = std::iter::once(w.word.clone())
+                .chain(near.into_iter().map(|(_, l)| l.clone()))
+                .take(MAX_WIDENED)
+                .collect();
+            slot.prefix = i == last;
+        }
+        Some(query)
+    }
+
     /// Whether the query asks for points of some kinds rather than by name.
     #[must_use]
     pub fn by_kind(&self) -> bool {
@@ -271,26 +314,33 @@ impl PoiQuery {
     /// each phrase. Empty for a query by name alone.
     #[must_use]
     pub fn types(&self) -> String {
-        let terms: Vec<String> = self
-            .phrases
-            .iter()
-            .map(|alternatives| {
-                let ways: Vec<String> = alternatives.iter().map(Alternative::term).collect();
-                if let [one] = ways.as_slice() {
-                    one.clone()
-                } else {
-                    format!("( {} )", ways.join(" | "))
-                }
-            })
-            .collect();
-        if terms.len() == 1 {
-            terms.into_iter().next().unwrap_or_default()
-        } else {
-            terms
-                .into_iter()
-                .map(|t| format!("( {t} )"))
-                .collect::<Vec<_>>()
-                .join(" & ")
+        // Kinds named twice are either ("boulangerie pâtisserie": a bakery
+        // or a pastry shop), and so are cuisines ("pizza kebab"); a kind
+        // and a cuisine are both ("restaurant pizza").
+        let group = |cuisine: bool| -> Option<String> {
+            let ways: Vec<String> = self
+                .phrases
+                .iter()
+                .filter(|a| a.iter().any(|w| matches!(w, Alternative::Cuisine(..))) == cuisine)
+                .flatten()
+                .map(Alternative::term)
+                .collect();
+            match ways.as_slice() {
+                [] => None,
+                [one] => Some(one.clone()),
+                _ => Some(format!(
+                    "( {} )",
+                    ways.iter()
+                        .map(|w| format!("( {w} )"))
+                        .collect::<Vec<_>>()
+                        .join(" | ")
+                )),
+            }
+        };
+        match (group(false), group(true)) {
+            (Some(kinds), Some(cuisines)) => format!("( {kinds} ) & ( {cuisines} )"),
+            (Some(one), None) | (None, Some(one)) => one,
+            (None, None) => String::new(),
         }
     }
 
@@ -449,16 +499,18 @@ impl PoiQuery {
         out
     }
 
-    /// Whether an article or a preposition stands right before the last
-    /// `take` words ("lidl à lyon", "Friseur in Wien"): the text then says
-    /// they are a place.
+    /// Whether a preposition of place stands right before the last `take`
+    /// words ("lidl à lyon", "Friseur in Wien", "pizzeria near Dublin"):
+    /// the text then says they are a place. An article or "de" says
+    /// nothing: "Garage de la Gare" and "Café de Paris" are names.
     #[must_use]
     pub fn preposition_before(&self, take: usize) -> bool {
         self.slots
             .len()
             .checked_sub(take + 1)
             .and_then(|i| self.slots.get(i))
-            .is_some_and(|s| s.role == Role::Stop)
+            .and_then(|s| s.words.first())
+            .is_some_and(|w| PLACE_PREPOSITIONS.contains(&w.as_str()))
     }
 
     /// The query without its last `take` words, and the articles and
@@ -525,6 +577,47 @@ impl PoiQuery {
         terms.join(" <-> ")
     }
 }
+
+/// The words one keystroke away from a typed one that trigrams miss: two
+/// neighbouring letters swapped ("beuate" for "beaute" shares three
+/// trigrams of eleven with it, under any useful threshold), or one letter
+/// typed twice or by mistake ("garrage"). None under four letters, where
+/// a word is more likely being typed.
+#[must_use]
+pub fn swaps_and_drops(word: &str) -> Vec<String> {
+    let chars: Vec<char> = word.chars().collect();
+    if chars.len() < 4 {
+        return Vec::new();
+    }
+    let mut out = BTreeSet::new();
+    for i in 0..chars.len() - 1 {
+        if chars[i] != chars[i + 1] {
+            let mut c = chars.clone();
+            c.swap(i, i + 1);
+            out.insert(c.into_iter().collect::<String>());
+        }
+    }
+    if chars.len() >= 5 {
+        for i in 0..chars.len() {
+            let mut c = chars.clone();
+            c.remove(i);
+            out.insert(c.into_iter().collect::<String>());
+        }
+    }
+    out.remove(word);
+    out.into_iter().collect()
+}
+
+/// Most words a widened word stands for: itself and its nearest
+/// lookalikes.
+const MAX_WIDENED: usize = 6;
+
+/// The prepositions that say the next words are a place, in the six
+/// languages, folded ("à" is "a", "près" is "pres").
+const PLACE_PREPOSITIONS: &[&str] = &[
+    "a", "at", "au", "bei", "bij", "cerca", "dans", "en", "in", "nabij", "nahe", "near", "pres",
+    "vicino",
+];
 
 /// Rows the GIN index reads cheaply for one word, as for the places
 /// (`crate::search`): a word held by more points is checked on the rows
@@ -681,7 +774,13 @@ mod tests {
         assert_eq!(
             both.types(),
             "( 'k_restaurant' ) & ( 'c_pizza' & ( 'k_restaurant' | 'k_fast_food' ) )",
-            "every phrase answered"
+            "a kind and a cuisine: both"
+        );
+        let either = query(&["boulangerie", "patisserie"]);
+        assert_eq!(
+            either.types(),
+            "( ( 'k_bakery' ) | ( 'k_pastry' ) )",
+            "two kinds: either, no shop is both"
         );
     }
 
@@ -767,6 +866,48 @@ mod tests {
             PoiQuery::new(&words).expect("words").filter(),
             "'carrefour'",
             "one edit away"
+        );
+    }
+
+    #[test]
+    fn a_second_look_widens_every_word_of_a_name_to_its_lookalikes() {
+        let words = [
+            QueryWord {
+                word: "pharmaice".into(),
+                known: false,
+                lookalikes: vec!["pharmacie".into(), "pharmacies".into(), "pharma".into()],
+            },
+            QueryWord {
+                word: "mallet".into(),
+                known: false,
+                lookalikes: vec![
+                    "malet".into(),
+                    "mallets".into(),
+                    "mullet".into(),
+                    "ballet".into(),
+                ],
+            },
+        ];
+        let q = PoiQuery::widened(&words).expect("words");
+        assert_eq!(
+            q.filter(),
+            "( 'pharmaice' | 'pharmacie' | 'pharmacies' ) & ( 'mallet':* | 'ballet':* | 'malet':* | 'mallets':* | 'mullet':* )",
+            "each word with what lies within an edit or two, itself first; the last as typed"
+        );
+    }
+
+    #[test]
+    fn a_swap_or_an_extra_letter_is_one_keystroke_away() {
+        let v = swaps_and_drops("beuate");
+        assert!(v.contains(&"beaute".to_owned()), "two letters swapped");
+        assert!(
+            swaps_and_drops("garrage").contains(&"garage".to_owned()),
+            "a letter twice"
+        );
+        assert!(!v.contains(&"beuate".to_owned()));
+        assert!(
+            swaps_and_drops("bar").is_empty(),
+            "a short word is being typed"
         );
     }
 
