@@ -30,6 +30,7 @@ final class AppSettings {
     this.mapTapHintShown = false,
     this.listSort = ListSort.distance,
     this.autoTranslateReviews = false,
+    this.vehicleFilterDefaulted = false,
   });
 
   /// Null: follow the device language.
@@ -64,6 +65,13 @@ final class AppSettings {
   /// translation is a request to Lunaway's server.
   final bool autoTranslateReviews;
 
+  /// The settings went through the one launch that turns "my vehicle
+  /// fits" on for a vehicle whose height was described before the filter
+  /// came on with it (the PO's decision of 2026-10-10). From then on the
+  /// filter is the user's: turned off, it stays off until the vehicle is
+  /// described again.
+  final bool vehicleFilterDefaulted;
+
   AppSettings copyWith({
     String? Function()? localeCode,
     PlaceFilter? filter,
@@ -74,6 +82,7 @@ final class AppSettings {
     bool? mapTapHintShown,
     ListSort? listSort,
     bool? autoTranslateReviews,
+    bool? vehicleFilterDefaulted,
   }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
@@ -84,6 +93,7 @@ final class AppSettings {
     mapTapHintShown: mapTapHintShown ?? this.mapTapHintShown,
     listSort: listSort ?? this.listSort,
     autoTranslateReviews: autoTranslateReviews ?? this.autoTranslateReviews,
+    vehicleFilterDefaulted: vehicleFilterDefaulted ?? this.vehicleFilterDefaulted,
   );
 
   @override
@@ -97,7 +107,8 @@ final class AppSettings {
       other.copyFormat == copyFormat &&
       other.mapTapHintShown == mapTapHintShown &&
       other.listSort == listSort &&
-      other.autoTranslateReviews == autoTranslateReviews;
+      other.autoTranslateReviews == autoTranslateReviews &&
+      other.vehicleFilterDefaulted == vehicleFilterDefaulted;
 
   @override
   int get hashCode => Object.hash(
@@ -110,6 +121,7 @@ final class AppSettings {
     mapTapHintShown,
     listSort,
     autoTranslateReviews,
+    vehicleFilterDefaulted,
   );
 }
 
@@ -139,14 +151,26 @@ final class SettingsRepository implements SettingsStore {
   static const _mapTapHint = 'map_tap_hint_shown';
   static const _listSort = 'list_sort';
   static const _autoTranslateReviews = 'auto_translate_reviews';
+  static const _vehicleFilterDefaulted = 'vehicle_filter_defaulted';
 
   @override
   Future<AppSettings> load() async {
     final rows = await _db.select(_db.settings).get();
     final values = {for (final r in rows) r.id: r.value};
+    var filter = decodeFilter(values[_filter], today: clock());
+    // A vehicle whose height was described before "my vehicle fits" came on
+    // with it: the filter comes on at the first launch that finds it, so
+    // the map stops showing places the vehicle cannot reach. The mark goes
+    // with the next save of the settings, the user's "off" among them;
+    // until then every launch finds the same answer.
+    if (values[_vehicleFilterDefaulted] != 'true' && !filter.fitsMyVehicle) {
+      // The vehicle's one row, as `DriftVehicleRepository` keeps it.
+      final vehicle = await (_db.select(_db.vehicles)..limit(1)).getSingleOrNull();
+      if (vehicle?.heightM != null) filter = filter.copyWith(fitsMyVehicle: true);
+    }
     return AppSettings(
       localeCode: values[_locale],
-      filter: decodeFilter(values[_filter], today: clock()),
+      filter: filter,
       theme: ThemePreference.fromName(values[_theme]),
       navigationApp: values[_navigation],
       railCollapsed: values[_rail] == 'true',
@@ -156,6 +180,7 @@ final class SettingsRepository implements SettingsStore {
       mapTapHintShown: values[_mapTapHint] == 'true',
       listSort: ListSort.fromName(values[_listSort]),
       autoTranslateReviews: values[_autoTranslateReviews] == 'true',
+      vehicleFilterDefaulted: true,
     );
   }
 
@@ -170,6 +195,7 @@ final class SettingsRepository implements SettingsStore {
     await _put(_mapTapHint, '${settings.mapTapHintShown}');
     await _put(_listSort, settings.listSort.name);
     await _put(_autoTranslateReviews, '${settings.autoTranslateReviews}');
+    await _put(_vehicleFilterDefaulted, '${settings.vehicleFilterDefaulted}');
   });
 
   Future<void> _putOrDelete(String id, String? value) async {

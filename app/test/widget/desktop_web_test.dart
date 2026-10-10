@@ -12,9 +12,12 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
@@ -435,4 +438,43 @@ void main() {
       expect(xs[i], greaterThan(xs[i - 1]), reason: '${order[i]} after ${order[i - 1]}');
     }
   });
+
+  testWidgets('while the vehicle is read at launch, the filter on keeps its chip first', (
+    tester,
+  ) async {
+    final reading = StreamController<Vehicle?>();
+    addTearDown(reading.close);
+    await pumpLunaway(
+      tester,
+      settings: const AppSettings(filter: PlaceFilter(fitsMyVehicle: true)),
+      overrides: [vehicleProvider.overrideWith((ref) => reading.stream)],
+    );
+    final row = find.byType(QuickFilters);
+    double x(String label) =>
+        tester.getCenter(find.descendant(of: row, matching: find.text(label))).dx;
+    expect(x('Mon véhicule passe'), lessThan(x('Carburant et énergie')));
+  });
+
+  for (final (name, size) in [('phone', phone), ('desktop', desktop)]) {
+    testWidgets('on a $name, a vehicle with its height brings its chip first after "Filtres", '
+        'in sight', (tester) async {
+      final app = await pumpLunaway(tester, size: size);
+      await app
+          .container(tester)
+          .read(vehicleRepositoryProvider)
+          .save(Vehicle.typical(VehicleType.integrated));
+      await settleShort(tester);
+      final row = find.byType(QuickFilters);
+      Rect chip(String label) =>
+          tester.getRect(find.descendant(of: row, matching: find.text(label)));
+      final vehicle = chip('Passe à 2,95 m');
+      expect(vehicle.left, greaterThan(chip('Filtres').right));
+      expect(vehicle.right, lessThan(chip('Carburant et énergie').left));
+      expect(
+        vehicle.right,
+        lessThan(tester.getRect(row).right - SidewaysRow.moreFade),
+        reason: 'clear of the fade at the end of the row, without scrolling',
+      );
+    });
+  }
 }

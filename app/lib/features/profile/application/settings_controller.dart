@@ -5,6 +5,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -65,6 +66,28 @@ class Settings extends _$Settings {
   /// them to a touch.
   Future<void> setAutoTranslateReviews({required bool on}) =>
       _update(state.copyWith(autoTranslateReviews: on));
+
+  /// A vehicle described with its height turns "my vehicle fits" on: the
+  /// user describes it to see the places it can reach (the PO's decision
+  /// of 2026-10-10). Turned off afterwards, the filter stays off until the
+  /// vehicle is described again.
+  Future<void> vehicleDescribed(Vehicle vehicle) async {
+    if (vehicle.heightM == null || state.filter.fitsMyVehicle) return;
+    await _update(
+      state.copyWith(
+        filter: state.filter.copyWith(fitsMyVehicle: true),
+        vehicleFilterDefaulted: true,
+      ),
+    );
+  }
+
+  /// The vehicle forgotten, "my vehicle fits" has no height to filter
+  /// with: off, rather than a chip and a count of filters that do nothing.
+  /// The next vehicle described turns it on again.
+  Future<void> vehicleForgotten() async {
+    if (!state.filter.fitsMyVehicle) return;
+    await _update(state.copyWith(filter: state.filter.copyWith(fitsMyVehicle: false)));
+  }
 
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;

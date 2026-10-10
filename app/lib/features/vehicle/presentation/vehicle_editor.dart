@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_silhouette.dart';
@@ -104,8 +105,12 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     });
   }
 
+  /// A save or a removal under way: a second tap meanwhile would close the
+  /// screen under the sheet too.
+  bool _busy = false;
+
   Future<void> _save() async {
-    if (!(_form.currentState?.validate() ?? false)) return;
+    if (_busy || !(_form.currentState?.validate() ?? false)) return;
     final vehicle = _draft.copyWith(
       heightM: () => VehicleEditor.parse(_fields['height']!.text),
       widthM: () => VehicleEditor.parse(_fields['width']!.text),
@@ -114,14 +119,31 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
       consumptionL100: () => VehicleEditor.parse(_fields['consumption']!.text),
     );
     final navigator = Navigator.of(context);
-    await ref.read(vehicleRepositoryProvider).save(vehicle);
+    final vehicles = ref.read(vehicleRepositoryProvider);
+    final settings = ref.read(settingsProvider.notifier);
+    _busy = true;
+    try {
+      await vehicles.save(vehicle);
+      await settings.vehicleDescribed(vehicle);
+    } finally {
+      _busy = false;
+    }
     Haptics.confirm();
     navigator.pop(vehicle);
   }
 
   Future<void> _clear() async {
+    if (_busy) return;
     final navigator = Navigator.of(context);
-    await ref.read(vehicleRepositoryProvider).clear();
+    final vehicles = ref.read(vehicleRepositoryProvider);
+    final settings = ref.read(settingsProvider.notifier);
+    _busy = true;
+    try {
+      await vehicles.clear();
+      await settings.vehicleForgotten();
+    } finally {
+      _busy = false;
+    }
     navigator.pop();
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
@@ -98,11 +99,14 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
     // must still turn on.
     final onSaved = widget.onSaved;
     final repository = ref.read(vehicleRepositoryProvider);
+    final settings = ref.read(settingsProvider.notifier);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final failed = context.t.common.saveFailed;
     setState(() => _saving = true);
     try {
       await repository.save(vehicle);
+      // Inside the guard of a second tap: the sheet closes only after.
+      await settings.vehicleDescribed(vehicle);
     } on Object catch (e) {
       _log.warning('the height of the vehicle was not stored', e);
       showMessage(messenger, failed);

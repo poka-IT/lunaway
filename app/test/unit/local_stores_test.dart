@@ -83,6 +83,34 @@ void main() {
       expect(loaded.autoTranslateReviews, isTrue);
     });
 
+    test('a vehicle described before "my vehicle fits" came on with it turns the filter on '
+        'once, and a later "off" is kept', () async {
+      await DriftVehicleRepository(user).save(Vehicle.typical(VehicleType.integrated));
+      // As an earlier version left them: a filter, no mark.
+      await user
+          .into(user.settings)
+          .insert(SettingsCompanion.insert(id: 'filter', value: '{"freeOnly": true}'));
+      final first = await SettingsRepository(user).load();
+      expect(first.filter, const PlaceFilter(freeOnly: true, fitsMyVehicle: true));
+      expect(first.vehicleFilterDefaulted, isTrue);
+      expect(
+        (await SettingsRepository(user).load()).filter.fitsMyVehicle,
+        isTrue,
+        reason: 'nothing saved yet: the next launch finds the same answer',
+      );
+
+      await SettingsRepository(user)
+          .save(first.copyWith(filter: first.filter.copyWith(fitsMyVehicle: false)));
+      final next = await SettingsRepository(user).load();
+      expect(next.filter, const PlaceFilter(freeOnly: true), reason: "the user's off holds");
+    });
+
+    test('without a height there is nothing to filter with: the filter stays off', () async {
+      expect((await SettingsRepository(user).load()).filter, PlaceFilter.none);
+      await DriftVehicleRepository(user).save(const Vehicle(type: VehicleType.van, widthM: 2));
+      expect((await SettingsRepository(user).load()).filter, PlaceFilter.none);
+    });
+
     test('going back to the device language and forgetting the app clears them', () async {
       await SettingsRepository(user)
           .save(const AppSettings(localeCode: 'en', navigationApp: 'waze'));

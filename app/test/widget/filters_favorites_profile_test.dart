@@ -3,8 +3,10 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -14,6 +16,7 @@ import 'package:lunaway/features/places/presentation/filters_sheet.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
+import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -47,6 +50,13 @@ Future<void> showInProfile(WidgetTester tester, Finder finder) async {
 /// its text fields, depending on how far its lazy list has built.
 Finder get editorList =>
     find.descendant(of: find.byType(VehicleEditor), matching: find.byType(Scrollable)).first;
+
+/// The chip of "my vehicle fits" in the map's row, by its label.
+Finder vehicleChip(String label) =>
+    find.descendant(of: find.byType(QuickFilters), matching: find.widgetWithText(MapChip, label));
+
+bool chipOn(WidgetTester tester, String label) =>
+    tester.widget<MapChip>(vehicleChip(label)).selected;
 
 void main() {
   group('filters', () {
@@ -487,6 +497,155 @@ void main() {
         expect(app.settings.value.filter.fitsMyVehicle, isTrue);
       },
     );
+
+    testWidgets('describing the vehicle in the profile turns "my vehicle fits" on', (tester) async {
+      final app = await pumpLunaway(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isFalse);
+      await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
+      await tester.tap(find.text('Décrire mon véhicule'));
+      await settleShort(tester);
+      // The editor offers a campervan's typical size, 2.65 m high.
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isTrue);
+      await openTab(tester, 'Carte');
+      expect(chipOn(tester, 'Passe à 2,65 m'), isTrue);
+    });
+
+    testWidgets('the vehicle forgotten, the filter goes off with it', (tester) async {
+      final app = await pumpLunaway(tester);
+      await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
+      await tester.tap(find.text('Décrire mon véhicule'));
+      await settleShort(tester);
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isTrue);
+      await showInProfile(tester, find.text('Fourgon aménagé'));
+      await tester.tap(find.text('Fourgon aménagé'));
+      await settleShort(tester);
+      await tester.tap(find.text('Effacer'));
+      await settleShort(tester);
+      expect(app.container(tester).read(vehicleProvider).value, isNull);
+      expect(
+        app.settings.value.filter.fitsMyVehicle,
+        isFalse,
+        reason: 'no chip on, nor a count of filters, that filters nothing',
+      );
+    });
+
+    testWidgets('the vehicle forgotten from the filters, their button keeps the filter off', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(
+        tester,
+        settings: const AppSettings(
+          filter: PlaceFilter(fitsMyVehicle: true),
+          vehicleFilterDefaulted: true,
+        ),
+      );
+      await app
+          .container(tester)
+          .read(vehicleRepositoryProvider)
+          .save(Vehicle.typical(VehicleType.integrated));
+      await settleShort(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      final edit = find.descendant(of: find.byType(FiltersPanel), matching: find.text('Modifier'));
+      await tester.scrollUntilVisible(edit, 200, scrollable: list);
+      await tester.pump();
+      await tester.tap(edit);
+      await settleShort(tester);
+      await tester.tap(find.text('Effacer'));
+      await settleShort(tester);
+      await tester.tap(find.textContaining('Afficher'));
+      await settleShort(tester);
+      expect(app.container(tester).read(vehicleProvider).value, isNull);
+      expect(app.settings.value.filter.fitsMyVehicle, isFalse);
+    });
+
+    testWidgets('turned off, the filter stays off until the vehicle is described again', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(
+        tester,
+        settings: const AppSettings(
+          filter: PlaceFilter(fitsMyVehicle: true),
+          vehicleFilterDefaulted: true,
+        ),
+      );
+      final vehicles = app.container(tester).read(vehicleRepositoryProvider);
+      await vehicles.save(Vehicle.typical(VehicleType.integrated));
+      await settleShort(tester);
+      await tester.tap(vehicleChip('Passe à 2,95 m'));
+      await settleShort(tester);
+      expect(chipOn(tester, 'Passe à 2,95 m'), isFalse);
+      // The vehicle stored again without being described, as the fuel kept
+      // from a route's sheet stores it: the user's choice holds.
+      await vehicles.save(
+        Vehicle.typical(VehicleType.integrated).copyWith(fuel: () => FuelType.diesel),
+      );
+      await settleShort(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isFalse);
+
+      // Described again from the filters: on, in the settings and in the
+      // switch the panel's button applies.
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      final edit = find.descendant(of: find.byType(FiltersPanel), matching: find.text('Modifier'));
+      await tester.scrollUntilVisible(edit, 200, scrollable: list);
+      await tester.pump();
+      expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isFalse);
+      await tester.tap(edit);
+      await settleShort(tester);
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
+      await tester.tap(find.textContaining('Afficher'));
+      await settleShort(tester);
+      expect(app.settings.value.filter.fitsMyVehicle, isTrue);
+      expect(chipOn(tester, 'Passe à 2,95 m'), isTrue);
+    });
+
+    testWidgets('the filter survives a restart: on once for a vehicle described before, then '
+        "the user's choice", (tester) async {
+      final store = UserDatabase(memoryDatabase());
+      // A user of an earlier version: a vehicle, and no setting about it.
+      await DriftVehicleRepository(store).save(Vehicle.typical(VehicleType.integrated));
+      Future<void> launch() async {
+        await tester.pumpWidget(const SizedBox());
+        await pumpLunaway(tester, userDatabase: store, storedSettings: true);
+      }
+
+      await launch();
+      expect(chipOn(tester, 'Passe à 2,95 m'), isTrue, reason: 'on for the vehicle described');
+      await tester.tap(vehicleChip('Passe à 2,95 m'));
+      await settleShort(tester);
+      expect(chipOn(tester, 'Passe à 2,95 m'), isFalse);
+
+      await launch();
+      expect(chipOn(tester, 'Passe à 2,95 m'), isFalse, reason: "the user's off, kept");
+
+      await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Intégral'));
+      await tester.tap(find.text('Intégral'));
+      await settleShort(tester);
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      await openTab(tester, 'Carte');
+      expect(chipOn(tester, 'Passe à 2,95 m'), isTrue, reason: 'on again with the vehicle');
+
+      await launch();
+      expect(chipOn(tester, 'Passe à 2,95 m'), isTrue, reason: 'kept on');
+    });
 
     testWidgets('a height out of range is refused with the range', (tester) async {
       final app = await pumpLunaway(tester);

@@ -44,7 +44,8 @@ class QuickFilters extends ConsumerWidget {
   /// days), then the night (every evening), the vehicle's height (a barrier
   /// ends a detour), the price, then food shopping and somewhere to eat,
   /// health and services, what there is to see, and the vending machines
-  /// last.
+  /// last. Once the vehicle's height is known, [orderFor] puts its chip
+  /// first.
   static const List<QuickChip> order = [
     PoiChip(PoiCategory.fuel),
     PoiChip(PoiCategory.water),
@@ -59,6 +60,12 @@ class QuickFilters extends ConsumerWidget {
     PoiChip(PoiCategory.vending),
   ];
 
+  /// [order], with the vehicle's chip first once its height is known: the
+  /// filter is then on by default, and whether it is on shows without
+  /// scrolling the row (the PO's decision of 2026-10-10).
+  static List<QuickChip> orderFor({required bool vehicleKnown}) =>
+      vehicleKnown ? [PlaceChip.vehicle, ...order.where((c) => c != PlaceChip.vehicle)] : order;
+
   final EdgeInsets padding;
 
   /// Over the map, chips float with a shadow; in a pane they sit flat.
@@ -72,7 +79,12 @@ class QuickFilters extends ConsumerWidget {
     final t = context.t;
     final filter = ref.watch(placeFilterProvider);
     final settings = ref.read(settingsProvider.notifier);
-    final vehicle = ref.watch(vehicleProvider).value;
+    final stored = ref.watch(vehicleProvider);
+    final vehicle = stored.value;
+    // While the vehicle is still being read at launch, the filter being on
+    // stands for its height: the chip is first from the first frame rather
+    // than jumping there a moment later.
+    final vehicleFirst = stored.hasValue ? vehicle?.heightM != null : filter.fitsMyVehicle;
 
     Future<void> apply(PlaceFilter next) async {
       Haptics.select();
@@ -104,9 +116,10 @@ class QuickFilters extends ConsumerWidget {
         onTap: () async {
           if (!filter.fitsMyVehicle && vehicle?.heightM == null) {
             // First use: the filter needs the vehicle's height, asked once
-            // in two fields rather than the whole vehicle.
-            final saved = await showVehicleHeightSheet(context);
-            if (saved?.heightM == null) return;
+            // in two fields rather than the whole vehicle. The height stored
+            // turns the filter on (`Settings.vehicleDescribed`).
+            await showVehicleHeightSheet(context);
+            return;
           }
           await apply(filter.copyWith(fitsMyVehicle: !filter.fitsMyVehicle));
         },
@@ -125,7 +138,7 @@ class QuickFilters extends ConsumerWidget {
       filters,
       // The shops and services next to one another form one group for a
       // screen reader, which says what they are.
-      for (final group in _runs(order))
+      for (final group in _runs(orderFor(vehicleKnown: vehicleFirst)))
         if (group.first is PoiChip)
           _PoiGroup(
             label: t.poi.chipsLabel,

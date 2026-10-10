@@ -316,7 +316,21 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(Space.s, 0, Space.s, Space.s),
                               child: TextButton.icon(
-                                onPressed: () => showVehicleEditor(context),
+                                onPressed: () async {
+                                  final wasOn = ref.read(placeFilterProvider).fitsMyVehicle;
+                                  final saved = await showVehicleEditor(context);
+                                  if (!mounted) return;
+                                  // The vehicle described turns the filter
+                                  // on, the vehicle forgotten turns it off:
+                                  // in the settings, and so in the draft the
+                                  // button applies.
+                                  if (saved?.heightM != null) {
+                                    _set(_draft.copyWith(fitsMyVehicle: true));
+                                  } else if (wasOn &&
+                                      !ref.read(placeFilterProvider).fitsMyVehicle) {
+                                    _set(_draft.copyWith(fitsMyVehicle: false));
+                                  }
+                                },
                                 icon: const Icon(AppIcons.rename, size: 18),
                                 label: Text(t.vehicle.edit),
                               ),

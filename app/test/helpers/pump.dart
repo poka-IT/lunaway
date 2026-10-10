@@ -203,6 +203,13 @@ Future<TestApp> pumpLunaway(
   // The favourites in the app's database, as on a device, for what only
   // the database does; in memory ([TestApp.favorites]) by default.
   bool storedFavorites = false,
+  // The user's database, for a test that starts the app again on what the
+  // last run kept; a new one in memory by default.
+  UserDatabase? userDatabase,
+  // The settings read from the user's database as the app reads them at
+  // launch, and saved there; [settings] and [brightness] then go unread.
+  // In memory ([TestApp.settings]) by default.
+  bool storedSettings = false,
   // With [online], the places come from the API only while the basemap's
   // host answers, as on a phone; always by default, as on the web.
   bool tilesFollowReachability = false,
@@ -236,7 +243,10 @@ Future<TestApp> pumpLunaway(
   addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(system, null));
   await registerPluralRules();
   await LocaleSettings.setLocale(locale);
+  final user = userDatabase ?? UserDatabase(memoryDatabase());
+  final stored = storedSettings ? SettingsRepository(user, clock: clock ?? () => testNow) : null;
   final initial =
+      await stored?.load() ??
       settings ??
       AppSettings(
         theme: brightness == Brightness.dark ? ThemePreference.dark : ThemePreference.light,
@@ -259,7 +269,7 @@ Future<TestApp> pumpLunaway(
     externalSource: external ?? FakeExternalSource(),
     digests: digests ?? FakeDigestSource(),
     cache: CacheDatabase(memoryDatabase()),
-    user: UserDatabase(memoryDatabase()),
+    user: user,
     location: FakeLocationPermissions()..current = locationAccess,
     secrets: MemorySecretStore(),
     files: MemoryPendingFiles(),
@@ -289,7 +299,7 @@ Future<TestApp> pumpLunaway(
         if (config != null) appConfigProvider.overrideWithValue(config),
         clockProvider.overrideWithValue(clock ?? () => testNow),
         minuteTickerProvider.overrideWithValue(minuteTicker ?? (_) => const Stream.empty()),
-        settingsRepositoryProvider.overrideWithValue(app.settings),
+        settingsRepositoryProvider.overrideWithValue(stored ?? app.settings),
         initialSettingsProvider.overrideWithValue(initial),
         cacheDatabaseProvider.overrideWithValue(app.cache),
         userDatabaseProvider.overrideWithValue(app.user),
