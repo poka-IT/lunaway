@@ -1,1 +1,1 @@
-Car parks, campsites, services
+Offline, size-aware guidance

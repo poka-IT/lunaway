@@ -1,0 +1,114 @@
+title: Je Lunaway-account verwijderen
+description: Verwijder je Lunaway-account en de gegevens ervan, in de app of met je herstelcode. Wat wordt verwijderd, wat zonder je naam blijft, en hoe snel.
+---
+<div class="page-title">
+<h1>Je Lunaway-account verwijderen</h1>
+<p>Met Lunaway, de kaart-app voor campers en busjes die wordt uitgegeven door AxiomTeam, kun je je account en de gegevens ervan op elk moment verwijderen, op twee manieren.</p>
+</div>
+--- main
+<div class="page page--single">
+<article class="prose">
+<h2 id="in-the-app">1. In de app</h2>
+<p>Open <strong>Profiel</strong>, en dan onder <strong>Je account</strong> de optie <strong>Mijn account verwijderen</strong>. De app laat zien wat wordt verwijderd en wat blijft; tik op <strong>Doorgaan</strong>, vink “Ik begrijp dat dit definitief is” aan en tik dan op <strong>Account verwijderen</strong>. De app heeft daarvoor een internetverbinding nodig. Het verwijderen gebeurt meteen, en de bijdragen die nog op verzending wachtten, worden van het apparaat gewist.</p>
+
+<h2 id="with-the-code">2. Op deze pagina, met je herstelcode</h2>
+<p>Heb je het apparaat niet meer, gebruik dan de herstelcode die de app je gaf toen je je herstelkaart maakte.</p>
+
+<div class="form-card">
+<form id="delete-form" data-endpoint="https://api.lunaway.net/graphql" novalidate>
+<fieldset disabled>
+<legend class="visually-hidden">Het account verwijderen met de herstelcode</legend>
+<label for="recovery-code">Herstelcode</label>
+<p class="hint" id="recovery-hint">27 letters en cijfers, in groepjes van vier, zoals op je kaart (streepjes en spaties zijn niet verplicht).</p>
+<input class="code-input" id="recovery-code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="100" aria-describedby="recovery-hint">
+<p class="field-error" id="error-empty" data-error="empty" hidden>Vul je herstelcode in.</p>
+<p class="field-error" id="error-length" data-error="length" hidden>Een herstelcode heeft 27 letters en cijfers, zonder de streepjes mee te tellen; deze code heeft er <span data-slot="count">0</span>.</p>
+<p class="field-error" id="error-char" data-error="char" hidden>Het teken “<span data-slot="char"></span>” komt nooit voor in een herstelcode.</p>
+<p class="field-error" id="error-typo" data-error="typo" hidden>Deze code bevat een tikfout: vergelijk hem teken voor teken met je kaart.</p>
+<div class="form-actions">
+<button class="button button-primary" type="submit">Doorgaan</button>
+</div>
+</fieldset>
+<p class="hint" id="delete-noscript">Dit formulier heeft JavaScript nodig. Zonder JavaScript verwijder je je account vanuit de app, of schrijf je naar ons.</p>
+</form>
+
+<div id="delete-confirm" hidden>
+<h3>De verwijdering bevestigen</h3>
+<p>Je staat op het punt het Lunaway-account te verwijderen dat bij deze code hoort:</p>
+<p class="code-echo" id="code-echo"></p>
+<p>Het verwijderen gebeurt meteen en is definitief: het account kan niet worden teruggehaald.</p>
+<div class="form-actions">
+<button class="button button-danger" type="button" id="delete-go">{icon:trash}Mijn account verwijderen</button>
+<button class="button button-outline" type="button" id="delete-back">Terug</button>
+</div>
+<p class="status-line" id="delete-status" role="status" data-sending="Bezig met verwijderen…"></p>
+</div>
+
+<div class="result result--ok" data-result="deleted" hidden>
+<h3>Je account is verwijderd</h3>
+<p>Het account dat bij deze code hoorde, bestaat niet meer, en de gegevens die hieronder staan, zijn verwijderd. De back-ups bewaren er ongeveer 30&nbsp;dagen een kopie van.</p>
+<p>Een apparaat dat dit account gebruikte, heeft er geen toegang meer toe: als je vanaf dat apparaat opnieuw een bijdrage levert, maakt de app een nieuw account aan.</p>
+</div>
+<div class="result result--error" data-result="not-found" hidden>
+<h3>Geen account bij deze code</h3>
+<p>Het account is misschien al verwijderd, of een nieuwere code heeft deze vervangen: wie in de app een nieuwe herstelcode maakt, maakt de vorige ongeldig. Controleer de code op je kaart, of verwijder het account vanuit de app.</p>
+</div>
+<div class="result result--error" data-result="limited" hidden>
+<h3>Te veel pogingen op dit moment</h3>
+<p>Om accounts te beschermen accepteert onze server 5 pogingen met een herstelcode per uur vanaf dezelfde verbinding. Probeer het over <span data-slot="minutes">60</span>&nbsp;minuten opnieuw.</p>
+</div>
+<div class="result result--error" data-result="invalid" hidden>
+<h3>Deze code wordt niet herkend</h3>
+<p>De server accepteert hem niet als herstelcode. Vergelijk hem teken voor teken met je kaart.</p>
+</div>
+<div class="result result--error" data-result="unknown" hidden>
+<h3>Het verzoek is niet gelukt</h3>
+<p>De server heeft niet geantwoord, of heeft met een fout geantwoord, en het is niet bekend of het account is verwijderd. Probeer het over een paar minuten opnieuw: als het account niet meer bestaat, laat deze pagina dat zien. Blijft het probleem bestaan, schrijf dan naar <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</div>
+</div>
+
+<h2 id="no-code">Zonder het apparaat en zonder de code</h2>
+<p>Het account is niet gekoppeld aan een e-mailadres of een telefoonnummer: zonder het apparaat of de herstelcode kan niets bewijzen dat een account van jou is. Schrijf toch naar <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, dan zoeken we samen met je naar een oplossing.</p>
+
+<h2 id="deleted">Wat wordt verwijderd</h2>
+<p>Meteen, in één handeling:</p>
+<ul>
+<li>het account zelf: pseudoniem, vertrouwensniveau, de datums waarop het actief was, en wie er voor jou instond of voor wie jij instond;</li>
+<li>de sleutels van je apparaten, al je sessies en je herstelcode;</li>
+<li>je favorietenlijsten die op de server zijn opgeslagen;</li>
+<li>de auteurs die je had verborgen, en het verbergen van jouw account door anderen;</li>
+<li>al je foto's, inclusief de bestanden;</li>
+<li>je beoordelingen zonder tekst, en die van je reviews die niet waren gepubliceerd;</li>
+<li>je antwoorden op “Is het er nog?” over winkels en diensten;</li>
+<li>je meldingen van problemen bij plekken, je meldingen over de weg, en je meldingen van reviews, foto's of plekken;</li>
+<li>de inhoud en de positie van je nieuwe plekken of wijzigingen die niet zijn doorgevoerd (in afwachting, afgewezen of ingetrokken);</li>
+<li>de technische sleutels van je bijdragen.</li>
+</ul>
+<p>Op het apparaat blijven je favorieten staan, losgekoppeld van het account, en wordt de sleutel van het account gewist.</p>
+
+<h2 id="kept">Wat blijft, zonder je naam</h2>
+<p>Sommige bijdragen zijn openbaar onder een open licentie en helpen andere reizigers. Ze blijven bestaan, losgekoppeld van je account:</p>
+<ul>
+<li>je gepubliceerde reviews met tekst (tekst, beoordeling, bezoekdatum, voertuig), getoond met de vermelding “Verwijderd account”, met hun vertalingen;</li>
+<li>je bevestigingen “Is het er nog?” van plekken, zonder de notitie die je erbij had gezet, tot ze twee jaar oud zijn;</li>
+<li>je nieuwe plekken of automaten en je wijzigingen die al zijn doorgevoerd, met hun inhoud en positie: ze maken deel uit van de open database met plekken (ODbL);</li>
+<li>de verkeersmeldingen die uit je meldingen zijn voortgekomen, en die nooit een naam droegen.</li>
+</ul>
+<p>Wil je dat een review ook verdwijnt, verwijder hem dan in de app voordat je je account verwijdert.</p>
+<p>Een account dat wegens misbruik is geblokkeerd en zichzelf verwijdert, verliest ook zijn bevestigingen; de hashes van de sleutels worden twee jaar bewaard, zodat het niet meteen kan terugkomen.</p>
+
+<h2 id="delay">Hoe snel</h2>
+<p>Het verwijderen gebeurt meteen in onze database. De back-ups van de database en van de foto's (onversleuteld 7&nbsp;nachten op de hoofdserver, elders versleuteld) bewaren ongeveer 30&nbsp;dagen een kopie en wissen die daarna (details in het <a href="/nl/privacy#backups">privacybeleid</a>); ze dienen alleen om de dienst na een storing weer op gang te brengen, en een back-up die weer in gebruik wordt genomen, brengt een verwijderd account niet terug: de verwijdering, genoteerd in een apart register (de identificatiecode van het account en het tijdstip, hooguit 45&nbsp;dagen, elke nacht met de back-ups gekopieerd), wordt opnieuw toegepast. Alleen het verlies van de dataschijf van de server zelf zou de verwijderingen terugbrengen die zijn gedaan na de laatste kopie die buiten die server is opgehaald (tot ongeveer 25&nbsp;uur).</p>
+
+<h2 id="one-contribution">Eén bijdrage verwijderen</h2>
+<p>Zonder je account te verwijderen kun je in de app, via <strong>Profiel</strong>, <strong>Mijn bijdragen</strong>, elk van je reviews en beoordelingen verwijderen, elk van je foto's, bevestigingen, antwoorden over winkels en diensten en meldingen van problemen bij plekken, en elk van je nieuwe plekken of wijzigingen.</p>
+<ul>
+<li>Een review of foto wordt definitief gewist, met twee uitzonderingen die voor de moderators een vermelding achterlaten, gekoppeld aan je account tot het account wordt verwijderd: een review die is gemeld of door moderators is verborgen, verliest de tekst en telt niet meer mee, maar de beoordeling blijft in die vermelding staan; een foto die is gemeld, verborgen of nog op een moderator wacht, verliest de bestanden en verdwijnt uit beeld.</li>
+<li>Een nieuwe plek of wijziging die nog niet is doorgevoerd, wordt ingetrokken en zal nooit worden doorgevoerd; de inhoud wordt 30&nbsp;dagen later gewist, en er blijft een lege regel in de revisiegeschiedenis staan, gekoppeld aan je account tot het account wordt verwijderd. Een nieuwe plek of wijziging die al is doorgevoerd, blijft in de database met plekken, zonder je naam.</li>
+<li>Een melding over de weg kan niet afzonderlijk worden verwijderd: ze wordt na 14&nbsp;dagen vanzelf gewist.</li>
+</ul>
+
+<h2 id="contact">Een vraag</h2>
+<p>Schrijf naar <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. Het <a href="/nl/privacy">privacybeleid</a> beschrijft alle gegevens van Lunaway.</p>
+</article>
+</div>

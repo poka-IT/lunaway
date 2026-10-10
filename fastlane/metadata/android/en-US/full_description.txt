@@ -1,50 +1,47 @@
-Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in nature. It covers France and twenty other European countries.
+Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in the wild, in France and twenty other European countries.
 
-The app is free, with no ads and no trackers. Its code is free software (AGPL licence) and the places database is open data (ODbL licence).
+Free, with no ads and no trackers: every feature is free, offline use included. The code is free software (AGPL) and the places database is open (ODbL).
 
-FIND A PLACE
-• Map and list of places, a detailed page for each place
-• The night on every page: allowed, tolerated, daytime only or not allowed
-• Filters: type of place, overnight possible, free, services (water, dump station, electricity, toilets, showers, bins, laundry, wi-fi)
-• "My vehicle fits": hides the places limited below your vehicle's height
-• Search by place name or by town
-• Opening hours, prices, services, contact and sources on the page
-• GPS coordinates copied in one tap, in five formats, share a place
+FIND WHERE TO SLEEP
+• The overnight status on every page: allowed, tolerated, daytime only or no overnight stay
+• Filters: kind of place, night possible, free, services, minimum rating, open all year or on your dates
+• "My vehicle fits": hides places with a height limit lower than your vehicle
+• Search for a place, a town or an address
+• Overnight and service prices, season, opening hours, photos, reviews and sources on every page
+
+DIRECTIONS AND GUIDANCE FOR YOUR VEHICLE'S SIZE
+• Routes computed for the height, width, length and weight of your vehicle and its trailer: bridges that are too low and roads closed to your vehicle's size are left out
+• Turn-by-turn guidance inside the app, rerouting when you leave the route, up to five stops
+• Voice in three modes: full voice, alerts only, or voice off
+• Speed cameras and danger zones as each country's law allows, speed limit for your vehicle
+• Roadworks and closures updated during the trip; the route goes around closures
+• Avoid tolls, motorways, ferries or unpaved roads
+
+ON THE WAY
+Fuel, places to sleep, water and waste disposal, groceries, bakeries, toilets and showers, health, charging, garages: what lies along your route, with the detour and whether it is open when you pass. One tap adds it as a stop.
 
 AROUND YOU
-• Groceries, vending machines, water and dump points, fuel and energy, health, services: the useful points on the map and around each place, with their hours and whether they are open
-• Fuel prices of French stations, with the time of the last update, shortages and the price trend; a list of the cheapest fuel around you
-• Search for a shop or a service by its name
+Shops, water and waste disposal, fuel, health, services, restaurants, sights, with their opening hours. Fuel prices at French stations and a list of the cheapest around you.
 
-DIRECTIONS FOR YOUR VEHICLE
-• In France, a route computed for the height, width, length and weight of your vehicle and its trailer: bridges too low and roads closed to your size are left out
-• Turn-by-turn and voice guidance (every instruction, alerts only, or none), recomputed when you leave the route, up to five stops
-• Roadworks and closures published by the road authorities, updated during the trip; the route goes around closures
-• The speed limit for your vehicle, speed cameras where the law allows them, danger zones in France; spoken reminder of the limit off by default
-• Stations along the route, ranked with the detour and your consumption
-• Options: avoid tolls, motorways, ferries and unpaved roads
-• Or directions in the navigation app of your choice
-Heights and limits come from open data and can be missing: the signs on the road come first.
+OFFLINE, FOR FREE
+Choose the regions to keep: their places stay on the device and update, over Wi-Fi by default. The list, search, filters, place pages and your favourites work without a network. The basemap downloads by region too.
 
-WITHOUT A NETWORK
-Choose the regions to keep: their places are copied to the device and update when the connection comes back. The list, the search, the place pages and your favourites work without a network. The basemap downloads by region too. Photos and reviews need a connection the first time.
+REVIEWS IN YOUR LANGUAGE
+A review written in another language translates with one tap, or automatically if you turn that on. The translation runs on Lunaway's servers: the text is sent to no third-party service.
 
 TAKE PART
-• Ratings, reviews and photos
-• "Still there?": say whether a place, a shop or a service still matches its page
-• Report a problem (overnight now banned, broken service, no access, danger), suggest a change, add a place
-• Features open step by step: rating and confirming first, then reviews and photos, then new places
-• Report content to the moderators, mute an author
+• Ratings, reviews and photos; "Still there?" to say whether a place still matches its page
+• Report a problem, suggest an edit, add a place
+• During guidance, report a closed road, roadworks, a narrow passage or a low clearance (France, Spain, the Netherlands)
 
 AN ACCOUNT WITHOUT E-MAIL
-Browsing the map and computing a route need no account. One is made at your first contribution, with no e-mail and no password: a key kept on your device, and a pseudonym you can change. A recovery card brings the account back on another device. Each contribution, and the whole account, can be deleted from the app.
+The map and directions need no account. One is created at your first contribution, without e-mail or password, with a pseudonym you can change. A recovery card brings it back on another device. Each contribution, and the whole account, can be deleted from the app.
 
 FAVOURITES AND VEHICLE
-• Favourites in lists, kept on the device, and with your account if you have one
-• Vehicle profile: type, trailer, height, width, length, weight, fuel, consumption
+Favourites in lists, on the device and with your account if you have one. Vehicle profile: kind, trailer, size, weight, fuel, consumption.
 
-DISPLAY
-Light theme by day and dark after sunset, or your choice. In English and French. Layouts for phones and tablets.
+SIX LANGUAGES
+French, English, German, Spanish, Italian and Dutch, voice guidance included. Light or dark theme that follows the sun. Layouts for phones and tablets.
 
 SOURCES
-Open data and contributions from the Lunaway community. Every page shows its sources and their licence.
+Open data, contributions from the Lunaway community and an external community source under a written agreement. Every place page shows its sources and their licences.
