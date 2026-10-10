@@ -15,7 +15,13 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 import '../helpers/fakes.dart';
 
-PlaceSummary _place(String id, {double km = 0, double? rating, int count = 0}) => PlaceSummary(
+PlaceSummary _place(
+  String id, {
+  double km = 0,
+  double? rating,
+  int count = 0,
+  double? ratingForFilters,
+}) => PlaceSummary(
   id: id,
   kind: PlaceKind.motorhomeArea,
   lat: 44.48 + km / 111,
@@ -23,6 +29,7 @@ PlaceSummary _place(String id, {double km = 0, double? rating, int count = 0}) =
   overnight: OvernightStatus.allowed,
   ratingAverage: rating,
   ratingCount: count,
+  ratingForFilters: ratingForFilters,
 );
 
 PlaceDigest _digest(String id, {List<SourceRating> ratings = const [], DateTime? added}) =>
@@ -31,43 +38,80 @@ PlaceDigest _digest(String id, {List<SourceRating> ratings = const [], DateTime?
 const _extcom = 'extcom';
 
 void main() {
-  group('the rating a row shows', () {
-    test("Lunaway users' rating when they rated the place, never added to another", () {
-      final r = rowRating(
-        _place('a'),
-        _digest(
-          'a',
-          ratings: const [
-            SourceRating(sourceId: communityCcBySourceId, average: 4.5, count: 2),
-            SourceRating(sourceId: _extcom, average: 3.3, count: 246),
-          ],
-        ),
-      );
-      expect(r, (average: 4.5, count: 2, sourceId: communityCcBySourceId));
+  group('the ratings a place shows', () {
+    const viviers = [
+      SourceRating(sourceId: communityCcBySourceId, average: 4, count: 1),
+      SourceRating(sourceId: _extcom, average: 3.3, count: 246),
+    ];
+
+    test("one Lunaway rating stands beside the external source's, each with its count", () {
+      // Camping-car Park Viviers on 2026-10-10: one 4 used to replace 246
+      // ratings of 3.3.
+      expect(shownRatings(viviers), [
+        (average: 4.0, count: 1, sourceId: communityCcBySourceId),
+        (average: 3.3, count: 246, sourceId: _extcom),
+      ]);
     });
 
-    test('the summary carries it while the digest has not come', () {
-      expect(rowRating(_place('a', rating: 4, count: 3), null), (
-        average: 4.0,
-        count: 3,
-        sourceId: communityCcBySourceId,
-      ));
+    test("from lunawayRatingsOnTheirOwn ratings, Lunaway users' stands alone", () {
+      const enough = [
+        SourceRating(
+          sourceId: communityCcBySourceId,
+          average: 4.4,
+          count: lunawayRatingsOnTheirOwn,
+        ),
+        SourceRating(sourceId: _extcom, average: 3.3, count: 246),
+      ];
+      expect(shownRatings(enough), [
+        (average: 4.4, count: lunawayRatingsOnTheirOwn, sourceId: communityCcBySourceId),
+      ]);
+      const almost = [
+        SourceRating(
+          sourceId: communityCcBySourceId,
+          average: 4.4,
+          count: lunawayRatingsOnTheirOwn - 1,
+        ),
+        SourceRating(sourceId: _extcom, average: 3.3, count: 246),
+      ];
+      expect(shownRatings(almost), hasLength(2));
     });
 
-    test('else the other source with the most ratings, and nothing without any', () {
-      final r = rowRating(
-        _place('a'),
-        _digest(
-          'a',
-          ratings: const [
-            SourceRating(sourceId: 'mangrove', average: 5, count: 1),
-            SourceRating(sourceId: _extcom, average: 3.3, count: 246),
-          ],
-        ),
+    test('without a Lunaway rating, the other source with the most ratings; none without any', () {
+      expect(
+        shownRatings(const [
+          SourceRating(sourceId: 'mangrove', average: 5, count: 1),
+          SourceRating(sourceId: _extcom, average: 3.3, count: 246),
+          SourceRating(sourceId: communityCcBySourceId, average: 5, count: 0),
+        ]),
+        [(average: 3.3, count: 246, sourceId: _extcom)],
       );
-      expect(r, (average: 3.3, count: 246, sourceId: _extcom));
-      expect(rowRating(_place('b'), _digest('b')), isNull);
+      expect(shownRatings(const []), isEmpty);
     });
+
+    test(
+      "a row reads the digest, else the summary's Lunaway rating while the digest has not come",
+      () {
+        expect(rowRatings(_place('a'), _digest('a', ratings: viviers)), hasLength(2));
+        expect(rowRatings(_place('a', rating: 4, count: 3), null), [
+          (average: 4.0, count: 3, sourceId: communityCcBySourceId),
+        ]);
+        expect(
+          rowRatings(
+            _place('a', rating: 4, count: 1),
+            _digest(
+              'a',
+              ratings: const [SourceRating(sourceId: _extcom, average: 3.3, count: 246)],
+            ),
+          ),
+          [
+            (average: 4.0, count: 1, sourceId: communityCcBySourceId),
+            (average: 3.3, count: 246, sourceId: _extcom),
+          ],
+          reason: "the summary's Lunaway rating joins a digest without one",
+        );
+        expect(rowRatings(_place('b'), _digest('b')), isEmpty);
+      },
+    );
   });
 
   group('the order of the list', () {
@@ -82,11 +126,19 @@ void main() {
       expect(sortRows(rows, const {}, ListSort.distance), same(rows));
     });
 
-    test('by rating: best first, more ratings before fewer, the unrated after, nearest first', () {
+    test('by rating: every rating of every source together, more ratings first, unrated last', () {
       final digests = {
+        // 246 ratings of 3.3 and one Lunaway 4: 3.3 together, not 4.0.
+        'near': _digest(
+          'near',
+          ratings: const [
+            SourceRating(sourceId: communityCcBySourceId, average: 4, count: 1),
+            SourceRating(sourceId: _extcom, average: 3.3, count: 246),
+          ],
+        ),
         'mid': _digest(
           'mid',
-          ratings: const [SourceRating(sourceId: _extcom, average: 3.3, count: 246)],
+          ratings: const [SourceRating(sourceId: _extcom, average: 3.5, count: 10)],
         ),
         'far': _digest(
           'far',
@@ -97,12 +149,27 @@ void main() {
           ratings: const [SourceRating(sourceId: _extcom, average: 4.5, count: 40)],
         ),
       };
-      expect(sortRows(rows, digests, ListSort.rating).map((p) => p.id), [
+      final unrated = _place('unrated', km: 4);
+      expect(sortRows([...rows, unrated], digests, ListSort.rating).map((p) => p.id), [
         'farthest',
         'far',
         'mid',
         'near',
+        'unrated',
       ]);
+    });
+
+    test("by rating: the server's rating of every source comes first when the row has it", () {
+      // The tiles carry the rating the filters use (`r`), open sources
+      // included: it decides before the digest's sources.
+      final tiles = [_place('a', ratingForFilters: 3.3), _place('b', km: 1, ratingForFilters: 3.9)];
+      final digests = {
+        'a': _digest(
+          'a',
+          ratings: const [SourceRating(sourceId: communityCcBySourceId, average: 5, count: 1)],
+        ),
+      };
+      expect(sortRows(tiles, digests, ListSort.rating).map((p) => p.id), ['b', 'a']);
     });
 
     test('by newest: the last day first, the nearest first within a day', () {

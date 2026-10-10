@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH built AS MATERIALIZED (\n                SELECT t.z, t.tx, t.ty, m.mvt\n                FROM unnest($1::int[], $2::int[], $3::int[]) AS t(z, tx, ty)\n                CROSS JOIN LATERAL (\n                SELECT coalesce(ST_AsMVT(f, 'place_dots', $4, 'geom'\n                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,\n                                                   f.r, f.o1, f.o2),\n                                 ''::bytea) AS mvt\n                FROM (\n                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,\n                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom\n                    FROM place_dots d\n                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty\n                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2\n                ) f\n                ) m\n            ),\n            emptied AS (\n                DELETE FROM place_dot_tiles p USING built b\n                WHERE p.z = b.z AND p.tx = b.tx AND p.ty = b.ty AND length(b.mvt) = 0\n            )\n            INSERT INTO place_dot_tiles (z, tx, ty, mvt)\n            SELECT z, tx, ty, mvt FROM built WHERE length(mvt) > 0\n            ON CONFLICT (z, tx, ty) DO UPDATE SET mvt = excluded.mvt\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f665cd84ca169782a32b9c04a962c564be7ab639b1831e7e12969de6902d2df"
+}

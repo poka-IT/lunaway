@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE place_dot_tiles SET mvt = '\\x01' WHERE z = $1 AND tx = $2 AND ty = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27c987c8b9be18ff6b17f093d953e26054aa574f0e0cddc76504f6976ee9b4f2"
+}

@@ -43,12 +43,11 @@ pub type LunawaySchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 /// Deepest selection accepted: the deepest legitimate one,
 /// `changes { places { sources { source { id } } } }`, is 5.
 const MAX_DEPTH: usize = 12;
-/// Cost budget of one request. The app's sync page (`changes` with 1000
-/// places and every field it stores, sources, provenance, descriptions,
-/// ratings and links included) costs 67 000 (`tests/budget.rs`), with room
-/// for the other feed fields (cover photos, counts, issues, verification,
-/// municipality: about 82 000 with all of them); two pages in one request
-/// do not fit.
+/// Cost budget of one request. A page of the feed as the app asks it
+/// (`changes`, [`CHANGES_PAGE_SERVED`] places with every field it stores)
+/// costs 47 500 (`tests/budget.rs`, which reads the app's own documents
+/// and keeps a page under three quarters of this budget); two pages in one
+/// request do not fit.
 pub const MAX_COMPLEXITY: usize = 90_000;
 /// Cost of a root field that queries the database, on top of what it
 /// returns: a page size bounds the rows, not the work (a two-letter search
@@ -81,14 +80,25 @@ pub(crate) struct GeocodeOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// text per request.
 #[derive(Debug, Default)]
 pub(crate) struct TranslateOnce(pub(crate) std::sync::atomic::AtomicBool);
-/// Largest page of `changes`.
+/// Largest `first` of `changes` accepted: the apps released before
+/// 2026-10-10 ask pages of 1000.
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
+/// Most places a page of `changes` holds, whatever `first` asks above it:
+/// a page of 1000 with every field the app keeps cost more than
+/// [`MAX_COMPLEXITY`] once the feed grew (2026-10-10), and
+/// every update of a region the apps had downloaded was refused. The cost
+/// of the field is counted on this page, so a released app asking 1000
+/// gets 500 and `hasMore`; `tests/budget.rs` holds the app's own documents
+/// to it with room to spare.
+pub const CHANGES_PAGE_SERVED: i32 = 500;
 /// Largest page of `places`.
 pub const MAX_PLACES_PAGE: i32 = 500;
 /// Most results of `search`.
 pub const MAX_SEARCH_RESULTS: i32 = 50;
 /// Most addresses of `searchAll`.
 pub const MAX_SEARCH_ADDRESSES: i32 = 10;
+/// Most points of interest `searchAll` returns.
+pub const MAX_SEARCH_POIS: i32 = 10;
 /// Addresses of `searchAll` when the client does not say.
 const DEFAULT_SEARCH_ADDRESSES: i32 = 5;
 /// Largest viewport of `places`, in square degrees: about 500 km by 500 km
@@ -138,6 +148,8 @@ pub struct ApiState {
     pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
     /// The translation server behind `translate`.
     pub(crate) translator: Arc<crate::translate::Translator>,
+    /// The planner's statistics the search of points reads.
+    pub(crate) poi_stats: Arc<crate::poi_query::PoiStatsCache>,
 }
 
 impl ApiState {
@@ -187,6 +199,7 @@ impl ApiState {
             external_photos,
             geocoder,
             translator,
+            poi_stats: Arc::default(),
         }
     }
 
@@ -269,11 +282,16 @@ pub fn build_schema(state: ApiState) -> LunawaySchema {
         tokio::spawn,
     );
     let points = DataLoader::new(crate::loaders::PoiLoader(state.pool.clone()), tokio::spawn);
+    let point_ratings = DataLoader::new(
+        crate::loaders::PoiRatingsLoader(state.pool.clone()),
+        tokio::spawn,
+    );
     schema_builder()
         .data(state)
         .data(loader)
         .data(trends)
         .data(points)
+        .data(point_ratings)
         .finish()
 }
 
@@ -302,6 +320,27 @@ pub(crate) fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
         .unwrap_or(0)
         .saturating_mul(child)
         .saturating_add(DB_FIELD_COST)
+}
+
+/// The `first` of `changes` its cost is counted on: the page it is served,
+/// [`CHANGES_PAGE_SERVED`] at most. A `first` out of range costs as that
+/// page too; the resolver refuses it.
+pub(crate) fn served_page(first: Option<i32>) -> Option<i32> {
+    first.map(|f| f.clamp(1, CHANGES_PAGE_SERVED))
+}
+
+/// The cost of `searchAll`: its longest list, `first` places or `pois`
+/// points, times the cost of one item, since a point's fields that read the
+/// database (its reviews) run once per point; a database share for the
+/// places, one for the addresses and one for the points when it asks for
+/// them.
+fn search_all_cost(first: Option<i32>, pois: Option<i32>, child: usize) -> usize {
+    let points = pois.unwrap_or(0);
+    let longest = first.unwrap_or(DEFAULT_SEARCH_RESULTS).max(points);
+    let points_share = if points > 0 { DB_FIELD_COST } else { 0 };
+    cost(Some(longest), DEFAULT_SEARCH_RESULTS, child)
+        .saturating_add(DB_FIELD_COST)
+        .saturating_add(points_share)
 }
 
 fn page(first: i32, max: i32) -> Result<i64> {
@@ -558,20 +597,21 @@ impl QueryRoot {
     /// Syncs a region: the places inside `bbox`, or of the sync region
     /// `region` (`Query.regions`, one of the two), created or changed since
     /// the cursor `since` (null for everything), oldest change first, at
-    /// most `first` (1000 at most), the places deleted since and, by
-    /// `region`, the places that left it (at most `first` more). A device
-    /// that imported a region's pack continues with `region` and the pack's
-    /// cursor. A cursor issued by another copy of the database (after a
-    /// restore) is refused with the code `RESYNC`: sync again with `since:
-    /// null`, or from the region's current pack.
-    #[graphql(complexity = "cost(first, MAX_CHANGES_PAGE, child_complexity)")]
+    /// most `first` and never more than 500 (a `first` up to 1000 is
+    /// accepted and gets 500, with `hasMore`), the places deleted since
+    /// and, by `region`, the places that left it (as many more at most). A
+    /// device that imported a region's pack continues with `region` and the
+    /// pack's cursor. A cursor issued by another copy of the database
+    /// (after a restore) is refused with the code `RESYNC`: sync again with
+    /// `since: null`, or from the region's current pack.
+    #[graphql(complexity = "cost(served_page(first), CHANGES_PAGE_SERVED, child_complexity)")]
     async fn changes(
         &self,
         ctx: &Context<'_>,
         bbox: Option<BBoxInput>,
         region: Option<String>,
         since: Option<String>,
-        #[graphql(default = 1000)] first: Option<i32>,
+        #[graphql(default = 500)] first: Option<i32>,
     ) -> Result<ChangeSet> {
         let area = match (bbox, region.as_deref()) {
             (Some(b), None) => FeedArea::BBox(self::bbox(b, MAX_CHANGES_AREA_DEG2)?),
@@ -582,7 +622,8 @@ impl QueryRoot {
             ),
             _ => return Err(invalid_input("give either bbox or region")),
         };
-        let first = page(first.unwrap_or(MAX_CHANGES_PAGE), MAX_CHANGES_PAGE)?;
+        let first = page(first.unwrap_or(CHANGES_PAGE_SERVED), MAX_CHANGES_PAGE)?
+            .min(i64::from(CHANGES_PAGE_SERVED));
         let since = parse_since(since.as_deref())?;
         let (pool, _permit) = db(ctx).await?;
         let head = places::feed_head(pool).await.map_err(|e| internal(&e))?;
@@ -733,15 +774,20 @@ impl QueryRoot {
     /// the words in their order first, then the last one as a prefix, then
     /// all the words in any order, then the words that name a place only;
     /// a word that starts no word of any place is read as the closest words
-    /// that do (a typo). Words that only say what kind of place is wanted
-    /// ("aire", "camping", "parking", "de") rank the places and never make
-    /// one match alone, places of that kind first. A text of such words
-    /// only that ends on a kind ("aire de camping car", not "camping la")
-    /// lists the places of that kind nearest `near` first, named so or not. Among equal matches, the nearest to
-    /// `near` first, `near` rounded by the server to the nearest 0.05
-    /// degree (about 5 km) before any use. A search the database cannot
-    /// answer within its time limit (a fraction of a second) answers no
-    /// place rather than an error.
+    /// that do (a typo). Within each, the places of a town the text names
+    /// whole first ("viviers": Viviers, not Chapelle-Viviers), then the
+    /// places of the kind it names, then those whose name holds its words.
+    /// Words that only say what kind of place is wanted ("aire", "camping",
+    /// "parking", "de") rank the places and never make one match alone. A
+    /// text of such words only that ends on a kind ("aire de camping car",
+    /// not "camping la") lists the places of that kind nearest `near`
+    /// first, named so or not. Among equal matches, the nearest to `near`
+    /// first, `near` rounded by the server to the nearest 0.05 degree
+    /// (about 5 km) before any use. A place two sources put apart (one
+    /// name, kind and commune, a few kilometres apart, one source placing
+    /// it by its postal address) is listed once. A search the database
+    /// cannot answer within its time limit (a fraction of a second)
+    /// answers no place rather than an error.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,
@@ -788,8 +834,17 @@ impl QueryRoot {
     /// no town and leaves none out: a device that searches its own places
     /// leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
     /// places outside France in it where OpenStreetMap does; otherwise, in
-    /// their local language.
-    #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
+    /// their local language. With `pois` (10 at most), the points of
+    /// interest and establishments the text names, by their name or brand,
+    /// their kind in one of the app's languages ("coiffeur", "Friseur",
+    /// "pizzeria") or both, around the town the text ends on or `near`,
+    /// best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
+    /// search is stored or logged.
+    #[graphql(complexity = "search_all_cost(first, pois, child_complexity)")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one argument per part of the answer, as the contract names them"
+    )]
     async fn search_all(
         &self,
         ctx: &Context<'_>,
@@ -798,6 +853,7 @@ impl QueryRoot {
         #[graphql(default = 20)] first: Option<i32>,
         #[graphql(default = 5)] addresses: Option<i32>,
         language: Option<String>,
+        #[graphql(default = 0)] pois: Option<i32>,
     ) -> Result<SearchAnswer> {
         let language = language
             .map(|l| l.trim().to_ascii_lowercase())
@@ -813,6 +869,12 @@ impl QueryRoot {
         if !(0..=MAX_SEARCH_ADDRESSES).contains(&addresses) {
             return Err(invalid_input(format!(
                 "addresses must be between 0 and {MAX_SEARCH_ADDRESSES}, got {addresses}"
+            )));
+        }
+        let pois = pois.unwrap_or(0);
+        if !(0..=MAX_SEARCH_POIS).contains(&pois) {
+            return Err(invalid_input(format!(
+                "pois must be between 0 and {MAX_SEARCH_POIS}, got {pois}"
             )));
         }
         let text = text.trim();
@@ -832,6 +894,7 @@ impl QueryRoot {
             first,
             usize::try_from(addresses).unwrap_or(0),
             language.as_deref(),
+            i64::from(pois),
         )
         .await
     }
@@ -1086,7 +1149,10 @@ impl QueryRoot {
     /// Searches the names and brands of the points of interest, without
     /// accents, typos tolerated; among equal matches the nearest to `near`
     /// first, `near` rounded by the server to the nearest 0.05 degree
-    /// (about 5 km) before any use. `categories` narrows them.
+    /// (about 5 km) before any use. `categories` narrows them. Only the
+    /// kinds of the map's layer (`inPoisMore` or not): the apps that ask
+    /// this know no other, and `searchAll` with `pois` finds the
+    /// establishments as well.
     #[graphql(complexity = "cost(first, 20, child_complexity)")]
     async fn search_pois(
         &self,

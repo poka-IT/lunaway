@@ -1,4 +1,8 @@
 //! Which open reviews a place keeps when it is offered more than it shows.
+//! A point of interest counts as a place here: the reviews of the places
+//! and of the points are chosen together (`ReviewOffer::target`), so the
+//! caps on new pairs hold for both at once, and the places' new pairs come
+//! first (`ReviewOffer::preferred`).
 //!
 //! On Mangrove anyone signs a review with a key made a second earlier, and
 //! the date a review carries is its author's: newest first, ten new keys
@@ -22,7 +26,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 
-/// How many reviews a place keeps, and how fast reviews reach new places.
+/// How many reviews a place keeps, and how fast reviews reach new places
+/// (a point of interest is a place for every cap).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReviewCaps {
     /// Reviews a place keeps at most.
@@ -53,11 +58,19 @@ pub const MANGROVE_CAPS: ReviewCaps = ReviewCaps {
     new_per_run_for_new_keys: 20,
 };
 
-/// A review offered to a place, as the choice weighs it.
+/// A review offered to a place or a point, as the choice weighs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReviewOffer<'a, P> {
-    /// The place it is about.
-    pub place: P,
+    /// The place or the point it is about.
+    pub target: P,
+    /// Its new pair comes before those of the targets not preferred among
+    /// the keys of its standing (kept before, or new), however long they
+    /// waited: a place's before a point of interest's. The points of France
+    /// had 450 Mangrove reviews waiting on 2026-10-10, which a new review of
+    /// a place would otherwise queue behind for weeks. The standing comes
+    /// first, so fresh keys reviewing places never hold back the points'
+    /// reviews of keys kept before.
+    pub preferred: bool,
     /// The hash of the key that signed it; `None` counts as a key of its
     /// own, new everywhere.
     pub key: Option<&'a str>,
@@ -90,8 +103,9 @@ pub struct Picked {
 /// The reviews each place keeps among `offers`, at most `caps.per_place`
 /// a place, one per key and place (its latest). First the reviews of keys
 /// shown on the place already, oldest key first; then the new pairs, keys
-/// kept before first (oldest first), then new keys, each group in the
-/// order Lunaway first read the reviews, within the caps on new pairs.
+/// kept before first, then new keys, each group the preferred targets'
+/// first, then the oldest key first and in the order Lunaway first read
+/// the reviews, within the caps on new pairs.
 #[must_use]
 pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCaps) -> Picked {
     // One per key and place: its latest, as the author dates it.
@@ -100,7 +114,7 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
     for (i, o) in offers.iter().enumerate() {
         match o.key {
             Some(k) => {
-                let e = latest.entry((o.place, k)).or_insert(i);
+                let e = latest.entry((o.target, k)).or_insert(i);
                 if offers[*e].written_at < o.written_at {
                     *e = i;
                 }
@@ -114,6 +128,7 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
         (
             !o.shown_here,
             o.key_since.is_none(),
+            !o.preferred,
             o.key_since,
             o.first_seen,
             i,
@@ -127,12 +142,12 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
     let mut picked = Picked::default();
     for i in order {
         let o = &offers[i];
-        let on_place = shown.entry(o.place).or_default();
+        let on_place = shown.entry(o.target).or_default();
         if *on_place >= caps.per_place {
             continue;
         }
         if !o.shown_here {
-            let place_new = new_on_place.entry(o.place).or_default();
+            let place_new = new_on_place.entry(o.target).or_default();
             let key_new = o
                 .key
                 .map_or(0, |k| new_places_of_key.get(k).copied().unwrap_or_default());
@@ -185,7 +200,8 @@ mod tests {
     /// kept since day `since` (`None`: a new key).
     fn offer(place: u16, key: &str, seen: i64, since: Option<i64>) -> ReviewOffer<'_, u16> {
         ReviewOffer {
-            place,
+            target: place,
+            preferred: true,
             key: Some(key),
             written_at: at(seen),
             key_since: since.map(at),
@@ -343,6 +359,52 @@ mod tests {
     }
 
     #[test]
+    fn the_points_backlog_never_holds_back_a_place() {
+        // Four hundred reviews of points read first, by new keys; then one
+        // of a place, by a new key too.
+        let keys: Vec<String> = (0..400).map(|n| format!("shop-{n}")).collect();
+        let mut offers: Vec<_> = keys
+            .iter()
+            .enumerate()
+            .map(|(n, k)| ReviewOffer {
+                preferred: false,
+                ..offer(u16::try_from(n).unwrap(), k, 1, None)
+            })
+            .collect();
+        offers.push(offer(1_000, "camper", 9, None));
+        let picked = pick_reviews(&offers, MANGROVE_CAPS);
+        assert!(
+            picked.kept.contains(&400),
+            "the place's review takes room this run, ahead of the points' backlog"
+        );
+        assert_eq!(
+            picked.new_pairs, MANGROVE_CAPS.new_per_run,
+            "the caps hold for places and points together"
+        );
+    }
+
+    #[test]
+    fn fresh_keys_on_places_never_hold_back_the_points_of_keys_kept_before() {
+        // Fifty fresh keys review fifty places; an aged key reviews a point,
+        // read after them.
+        let keys: Vec<String> = (0..50).map(|n| format!("fresh-{n}")).collect();
+        let mut offers: Vec<_> = keys
+            .iter()
+            .enumerate()
+            .map(|(n, k)| offer(u16::try_from(n).unwrap(), k, 1, None))
+            .collect();
+        offers.push(ReviewOffer {
+            preferred: false,
+            ..offer(900, "aged", 9, Some(0))
+        });
+        let picked = pick_reviews(&offers, MANGROVE_CAPS);
+        assert!(
+            picked.kept.contains(&50),
+            "a key kept before reaches the point ahead of the fresh keys"
+        );
+    }
+
+    #[test]
     fn one_review_per_key_and_place_the_latest() {
         let offers = vec![
             shown(offer(1, "a", 10, Some(0))),
@@ -356,7 +418,8 @@ mod tests {
     fn a_review_without_a_key_counts_as_a_new_key() {
         let offers: Vec<_> = (0..4)
             .map(|n| ReviewOffer {
-                place: 1u16,
+                target: 1u16,
+                preferred: true,
                 key: None,
                 written_at: at(n),
                 key_since: None,

@@ -67,7 +67,9 @@ void main() {
         driftPlacesRepositoryProvider.overrideWithValue(repo),
         clockProvider.overrideWithValue(() => now),
         syncRetryDelaysProvider.overrideWithValue(const []),
-        syncServiceProvider.overrideWithValue(SyncService(source: server, store: repo)),
+        syncServiceProvider.overrideWithValue(
+          SyncService(source: server, store: repo, pageSize: 1000),
+        ),
         // An API without regions: the sync by box runs.
         regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(null)),
         userDatabaseProvider.overrideWithValue(UserDatabase(NativeDatabase.memory())),

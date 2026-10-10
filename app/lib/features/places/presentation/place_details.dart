@@ -15,9 +15,13 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/season.dart';
+import 'package:lunaway/features/places/domain/street_name.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/address_card.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
+import 'package:lunaway/features/places/presentation/description_languages.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
@@ -329,11 +333,16 @@ class PlaceDetailsBody extends ConsumerWidget {
         ),
         PlaceSurroundings(place: place),
         gap,
+        if (AddressCard.shows(place)) ...[
+          AddressCard(place: place),
+          const SizedBox(height: Space.s),
+        ],
         CoordinatesCard(position: place.position, copy: copyCoordinates),
         if (ownText)
           _Section(
             title: t.place.description,
-            child: _Description(place: place),
+            // A new place starts from the reader's language.
+            child: _Description(key: ValueKey(place.id), place: place),
           ),
         if (place.website != null || place.phone != null)
           _Section(
@@ -358,6 +367,7 @@ class PlaceDetailsBody extends ConsumerWidget {
           _Section(
             title: ownText ? t.place.otherSources : t.place.description,
             child: _ExternalDescription(
+              key: ValueKey(place.id),
               placeId: place.id,
               texts: externalTexts,
               sources: place.sources,
@@ -451,7 +461,22 @@ class _Header extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final city = place.address?.city;
     final user = ref.watch(userLocationProvider);
-    final rating = combinedRating(place.ratings);
+    // Lunaway users' rating and, while they are few, the other sources'
+    // beside it once the card read them ([shownRatings]).
+    final read = ref.watch(
+      placeExternalProvider(place.id)
+          .select((s) => (ratings: s.value?.content.ratings, failed: s.hasError)),
+    );
+    final ratings = shownRatings([...place.ratings, ...?read.ratings]);
+    // While the card reads a place the external community source lists,
+    // the line its rating will take is kept, unseen: the head does not
+    // move down once it comes. A failed read keeps what the device has,
+    // and a place whose own ratings are enough never shows the external
+    // one, so nothing is kept for it.
+    final guessed = read.ratings == null && !read.failed && _listedByExtcom(place)
+        ? shownRatings([...place.ratings, _likelyExternal])
+        : null;
+    final reserved = guessed != null && guessed.length > ratings.length ? guessed : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -473,7 +498,12 @@ class _Header extends ConsumerWidget {
                 header: true,
                 child: Builder(
                   builder: (context) {
-                    final title = t.placeTitle(name: place.name, kind: place.kind, city: city);
+                    final title = t.placeTitle(
+                      name: place.name,
+                      kind: place.kind,
+                      city: city,
+                      street: place.address?.street,
+                    );
                     // A long name ("Aire de stationnement camping-cars de
                     // Colmyr") ends with the word that tells it apart: a
                     // smaller size keeps it whole rather than cut there.
@@ -487,19 +517,45 @@ class _Header extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [t.kind(place.kind), ?city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              if (rating != null || user != null) ...[
+              if (_headLine(
+                    name: place.name,
+                    kind: place.kind,
+                    kindName: t.kind(place.kind),
+                    city: city,
+                    street: place.address?.street,
+                  )
+                  case final line?) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  line,
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+              if (ratings.isNotEmpty || reserved != null || user != null) ...[
                 const SizedBox(height: Space.xs),
                 Wrap(
                   spacing: Space.l,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (rating != null) RatingText(average: rating.average, count: rating.count),
+                    if (reserved != null)
+                      // What the device has shows at once; the room of the
+                      // line to come lies under it, unseen and unsaid: a
+                      // screen reader never hears the guessed rating.
+                      Stack(
+                        children: [
+                          ExcludeSemantics(
+                            child: Visibility.maintain(
+                              visible: false,
+                              child: RatingsLine(ratings: reserved),
+                            ),
+                          ),
+                          if (ratings.isNotEmpty)
+                            RatingsLine(ratings: ratings, anotherToCome: reserved.length > 1),
+                        ],
+                      )
+                    else if (ratings.isNotEmpty)
+                      RatingsLine(ratings: ratings),
                     if (user != null)
                       Text(
                         t.place.away(distance: t.distance(place.position.distanceTo(user))),
@@ -518,6 +574,30 @@ class _Header extends ConsumerWidget {
     );
   }
 }
+
+/// The line under the title of a place, the card's or the header the
+/// card shows while it reads the place ([kindName] its kind's name): its
+/// kind and its town under a name; under a title of kind and street, its
+/// town; none under a title of kind and town, which would say it twice.
+String? _headLine({
+  required String? name,
+  required PlaceKind kind,
+  required String kindName,
+  required String? city,
+  required String? street,
+}) {
+  if (name case final name? when name.isNotEmpty) return [kindName, ?city].join(' · ');
+  final shown = kind == PlaceKind.homestay ? null : streetName(street);
+  return shown == null ? null : city;
+}
+
+/// Whether the external community source lists [place]: its card then
+/// reads that source's rating online.
+bool _listedByExtcom(Place place) => place.sources.any((s) => s.source.id == extcomSourceId);
+
+/// A rating of the external community source as wide as most are, which
+/// holds its line in the head of the card while the real one is read.
+const _likelyExternal = SourceRating(sourceId: extcomSourceId, average: 3.3, count: 246);
 
 /// The night, first: the moon phase, what it means, and how fresh the
 /// information is. Unknown reads as a blank to fill, never as a warning.
@@ -892,18 +972,29 @@ class _IconChip extends StatelessWidget {
 }
 
 /// The description in the user's language when a source wrote one; another
-/// language otherwise, saying which, and from which source.
-class _Description extends ConsumerWidget {
-  const new({required this.place});
+/// language otherwise, saying which, and from which source. When sources
+/// wrote it in several languages, chips under it show each one.
+class _Description extends ConsumerStatefulWidget {
+  const new({required this.place, super.key});
 
   final Place place;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Description> createState() => _DescriptionState();
+}
+
+class _DescriptionState extends ConsumerState<_Description> {
+  /// The language the reader picked among the chips; null for the rule of
+  /// [descriptionFor].
+  String? _picked;
+
+  @override
+  Widget build(BuildContext context) {
+    final place = widget.place;
     final t = context.t;
     final theme = Theme.of(context);
     final language = t.$meta.locale.languageCode;
-    final chosen = descriptionFor(place.descriptions, language);
+    final chosen = descriptionPicked(place.descriptions, language, _picked);
     if (chosen == null) {
       // Without the texts by language, the field's provenance still says
       // where the one description came from.
@@ -924,14 +1015,21 @@ class _Description extends ConsumerWidget {
       sourceId: chosen.text.sourceId,
       lang: chosen.text.lang,
     );
+    final languages = descriptionLanguages(place.descriptions, language);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TranslatableText(
+        DescriptionText(
           item: item,
-          text: chosen.text.text,
-          lang: chosen.text.lang,
+          text: chosen.text,
+          texts: place.descriptions,
+          appLanguage: language,
           style: theme.textTheme.bodyLarge,
+        ),
+        DescriptionLanguageChips(
+          languages: languages,
+          selected: chosen.text.lang,
+          onSelected: (lang) => setState(() => _picked = lang),
         ),
         const SizedBox(height: Space.s),
         Wrap(
@@ -943,7 +1041,10 @@ class _Description extends ConsumerWidget {
               label: sourceName(t, chosen.text.sourceId, sources: place.sources),
               maxLines: 2,
             ),
-            if (!chosen.inUserLanguage && !showsTranslation(ref, item, language, chosen.text.text))
+            // The chips say the language when there are several.
+            if (languages.length < 2 &&
+                !chosen.inUserLanguage &&
+                !showsTranslation(ref, item, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -962,8 +1063,8 @@ class _Description extends ConsumerWidget {
 /// licence asks for, and a link to the whole text. One text at most, in
 /// the best language: two sources of a place mostly say the same thing.
 /// Read online when the card opens; never stored with the place.
-class _ExternalDescription extends ConsumerWidget {
-  const new({required this.placeId, required this.texts, required this.sources});
+class _ExternalDescription extends ConsumerStatefulWidget {
+  const new({required this.placeId, required this.texts, required this.sources, super.key});
 
   /// The place the card shows, which names its descriptions for a
   /// translation.
@@ -973,11 +1074,24 @@ class _ExternalDescription extends ConsumerWidget {
   final List<PlaceSource> sources;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ExternalDescription> createState() => _ExternalDescriptionState();
+}
+
+class _ExternalDescriptionState extends ConsumerState<_ExternalDescription> {
+  /// The language the reader picked among the chips; null for the rule of
+  /// [descriptionFor].
+  String? _picked;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeId = widget.placeId;
+    final texts = widget.texts;
+    final sources = widget.sources;
     final t = context.t;
     final theme = Theme.of(context);
     final language = t.$meta.locale.languageCode;
-    final chosen = descriptionFor([for (final d in texts) d.text], language);
+    final all = [for (final d in texts) d.text];
+    final chosen = descriptionPicked(all, language, _picked);
     if (chosen == null) return const SizedBox.shrink();
     final item = texts.firstWhere((d) => identical(d.text, chosen.text));
     final page = item.terms.pageUrl;
@@ -987,14 +1101,21 @@ class _ExternalDescription extends ConsumerWidget {
       sourceId: chosen.text.sourceId,
       lang: chosen.text.lang,
     );
+    final languages = descriptionLanguages(all, language);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TranslatableText(
+        DescriptionText(
           item: translatable,
-          text: chosen.text.text,
-          lang: chosen.text.lang,
+          text: chosen.text,
+          texts: all,
+          appLanguage: language,
           style: theme.textTheme.bodyLarge,
+        ),
+        DescriptionLanguageChips(
+          languages: languages,
+          selected: chosen.text.lang,
+          onSelected: (lang) => setState(() => _picked = lang),
         ),
         const SizedBox(height: Space.s),
         Wrap(
@@ -1010,7 +1131,8 @@ class _ExternalDescription extends ConsumerWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            if (!chosen.inUserLanguage &&
+            if (languages.length < 2 &&
+                !chosen.inUserLanguage &&
                 !showsTranslation(ref, translatable, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
@@ -1285,19 +1407,28 @@ class _HintHeader extends StatelessWidget {
               Semantics(
                 header: true,
                 child: Text(
-                  t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
+                  t.summaryTitle(hint),
                   style: theme.textTheme.headlineSmall,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [t.kind(hint.kind), ?hint.city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (_headLine(
+                    name: hint.name,
+                    kind: hint.kind,
+                    kindName: t.kind(hint.kind),
+                    city: hint.city,
+                    street: hint.street,
+                  )
+                  case final line?) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  line,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

@@ -81,6 +81,10 @@ abstract final class PlaceTiles {
   static const name = 'name';
   static const city = 'city';
 
+  /// The street of a pin without a name, from [nameZoom]: what titles it
+  /// in the list ([PlaceSummary.street]). Never on a private host's.
+  static const street = 'st';
+
   /// The rating the filters use ([PlaceSummary.ratingForFilters]) in
   /// tenths: 33 for 3.3 on a pin; on a dot, rounded down to a step of the
   /// filter (30, 40 or 45), so the dots of a pixel stay few. Absent when
@@ -349,6 +353,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
   final price = properties[PlaceTiles.price];
   final name = properties[PlaceTiles.name];
   final city = properties[PlaceTiles.city];
+  final street = properties[PlaceTiles.street];
   final height = properties[PlaceTiles.height];
   final rating = properties[PlaceTiles.rating];
   final season = seasonFromCodes(properties[PlaceTiles.season1], properties[PlaceTiles.season2]);
@@ -356,6 +361,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
     id: id,
     name: name is String && name.isNotEmpty ? name : null,
     city: city is String && city.isNotEmpty ? city : null,
+    street: street is String && street.isNotEmpty ? street : null,
     kind: _kindsByCode['${properties[PlaceTiles.kind]}'] ?? PlaceKind.extraService,
     overnight: _nightsByCode['${properties[PlaceTiles.night]}'] ?? OvernightStatus.unknown,
     lat: lat.toDouble(),

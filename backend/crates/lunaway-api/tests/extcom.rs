@@ -10,7 +10,11 @@
     reason = "a test states its preconditions with unwrap"
 )]
 
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, LazyLock},
+};
 
 use axum::{
     body::Body,
@@ -38,14 +42,38 @@ const FEED: &str = concat!(
     "/../lunaway-ingest/tests/fixtures/extcom_feed.jsonl"
 );
 
-/// The smallest PNG: one transparent pixel.
-const PIXEL: &[u8] = &[
-    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-    0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
-    0x42, 0x60, 0x82,
-];
+/// A partner's photo as the source serves it: a 400 x 300 JPEG, its mark
+/// in white letter-like strokes 51 to 62 rows above the bottom edge and 52
+/// to 176 columns from the right edge, where the source stamps its own
+/// (`lunaway_domain::extcom::MARK_BAND_ROWS`). The rest is a sky and a
+/// ground, no channel of which passes 200.
+static PARTNER_PHOTO: LazyLock<Vec<u8>> = LazyLock::new(|| {
+    let (width, height) = (400_u32, 300_u32);
+    let img = image::RgbImage::from_fn(width, height, |x, y| {
+        let in_mark = (width - 176..=width - 52).contains(&x)
+            && (height - 62..=height - 51).contains(&y)
+            && (x - (width - 176)) % 10 < 7;
+        if in_mark {
+            image::Rgb([255, 255, 255])
+        } else if y < height / 2 {
+            image::Rgb([110, 160, 215])
+        } else {
+            image::Rgb([70, 95, 50])
+        }
+    });
+    let mut bytes = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 92)
+        .encode_image(&img)
+        .unwrap();
+    bytes
+});
+
+/// Pixels whose three channels pass 200: the mark's white.
+fn white_pixels(img: &image::RgbImage) -> usize {
+    img.pixels()
+        .filter(|p| p.0.iter().all(|c| *c > 200))
+        .count()
+}
 
 fn config(media: &Path) -> ApiConfig {
     let d = ApiConfig::default();
@@ -88,8 +116,14 @@ async fn the_downloads_of_a_day_are_bounded_for_all_clients(pool: PgPool) {
         &pool,
         c,
         &[
-            ("https://img.partner.example/p-1.jpg", PIXEL),
-            ("https://img.partner.example/p-2.jpg", PIXEL),
+            (
+                "https://img.partner.example/p-1.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
+            (
+                "https://img.partner.example/p-2.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
         ],
     );
     let ids: Vec<Uuid> = sqlx::query_scalar(
@@ -135,8 +169,14 @@ async fn one_client_cannot_spend_the_downloads_of_all(pool: PgPool) {
         &pool,
         c,
         &[
-            ("https://img.partner.example/p-1.jpg", PIXEL),
-            ("https://img.partner.example/p-2.jpg", PIXEL),
+            (
+                "https://img.partner.example/p-1.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
+            (
+                "https://img.partner.example/p-2.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
         ],
     )
     .layer(axum::extract::connect_info::MockConnectInfo(
@@ -200,8 +240,14 @@ async fn a_download_the_day_s_budget_refuses_costs_the_client_nothing(pool: PgPo
         &pool,
         c,
         &[
-            ("https://img.partner.example/p-1.jpg", PIXEL),
-            ("https://img.partner.example/p-2.jpg", PIXEL),
+            (
+                "https://img.partner.example/p-1.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
+            (
+                "https://img.partner.example/p-2.jpg",
+                PARTNER_PHOTO.as_slice(),
+            ),
         ],
     );
     let ids: Vec<Uuid> = sqlx::query_scalar(
@@ -371,7 +417,7 @@ async fn the_partner_s_and_the_open_reviews_page_as_one_list(pool: PgPool) {
     let app = app(&pool, &dir.path().join("media"), &[]);
     // Around the partner's Marie (14 August) and Hans (2 July).
     let open = |sig: &str, day: (u32, u32)| content::NewReview {
-        place_id: place,
+        target: content::ContentTarget::Place(place),
         external_id: sig.to_owned(),
         rating: Some(4),
         text: Some(format!("Avis ouvert {sig}.")),
@@ -442,7 +488,10 @@ async fn the_proxy_downloads_a_photo_once_and_serves_it_from_lunaway(pool: PgPoo
     let app = app(
         &pool,
         &media,
-        &[("https://img.partner.example/p-1.jpg", PIXEL)],
+        &[(
+            "https://img.partner.example/p-1.jpg",
+            PARTNER_PHOTO.as_slice(),
+        )],
     );
     let id: Uuid = sqlx::query_scalar("SELECT id FROM external_photos WHERE external_id = 'p-1'")
         .fetch_one(&pool)
@@ -489,7 +538,11 @@ async fn the_proxy_downloads_a_photo_once_and_serves_it_from_lunaway(pool: PgPoo
             .starts_with("https://media.test/photos/"),
         "once stored, the card names the file itself"
     );
-    assert_eq!(photo["width"], 1);
+    assert_eq!(photo["width"], 400);
+    assert_eq!(
+        photo["height"], 232,
+        "the band of the source's mark is cut off"
+    );
 
     for bad in [
         "/external-photos/not-a-uuid/thumb".to_owned(),
@@ -498,6 +551,88 @@ async fn the_proxy_downloads_a_photo_once_and_serves_it_from_lunaway(pool: PgPoo
     ] {
         assert_eq!(get(&app, &bad).await.0, StatusCode::NOT_FOUND, "{bad}");
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn no_file_the_proxy_makes_shows_the_source_s_mark(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, &dir.path().join("raw")).await;
+    let media = dir.path().join("media");
+    let app = app(
+        &pool,
+        &media,
+        &[(
+            "https://img.partner.example/p-1.jpg",
+            PARTNER_PHOTO.as_slice(),
+        )],
+    );
+    let id: Uuid = sqlx::query_scalar("SELECT id FROM external_photos WHERE external_id = 'p-1'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let source = image::load_from_memory(&PARTNER_PHOTO).unwrap().into_rgb8();
+    assert!(
+        white_pixels(&source) > 300,
+        "the partner's photo carries the mark"
+    );
+    for (size, dimensions) in [("large", (400, 232)), ("thumb", (400, 232))] {
+        let (status, headers) = get(&app, &format!("/external-photos/{id}/{size}")).await;
+        assert_eq!(status, StatusCode::FOUND, "{size}");
+        let relative = headers[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .strip_prefix("https://media.test/")
+            .unwrap()
+            .to_owned();
+        let stored = image::load_from_memory(&std::fs::read(media.join(&relative)).unwrap())
+            .unwrap()
+            .into_rgb8();
+        assert_eq!(stored.dimensions(), dimensions, "{size}");
+        assert_eq!(
+            white_pixels(&stored),
+            0,
+            "the {size} file keeps nothing of the mark"
+        );
+    }
+    let cut: Option<i16> = sqlx::query_scalar("SELECT cut_rows FROM external_photos WHERE id = $1")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        cut,
+        Some(i16::try_from(lunaway_domain::extcom::MARK_BAND_ROWS).unwrap()),
+        "the row says which band its files were made without"
+    );
+
+    // Files made before the proxy cut the band are forgotten by
+    // purge-media, then made again, cut, at the next view.
+    sqlx::query("UPDATE external_photos SET cut_rows = NULL WHERE id = $1")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let source_id = SourceId::EXTCOM;
+    let band = lunaway_domain::extcom::mark_band_rows(source_id.as_str());
+    assert_eq!(
+        extcom::uncut_photos(&pool, &source_id, band).await.unwrap(),
+        1
+    );
+    let forgotten = extcom::forget_uncut_photos(&pool, &source_id, band, 10)
+        .await
+        .unwrap();
+    assert_eq!(forgotten.photos, 1);
+    assert_eq!(
+        forgotten.unshared_files.len(),
+        2,
+        "the photo and its thumbnail, named by no other row"
+    );
+    let (status, _) = get(&app, &format!("/external-photos/{id}/large")).await;
+    assert_eq!(status, StatusCode::FOUND, "downloaded and made again");
+    assert_eq!(
+        extcom::uncut_photos(&pool, &source_id, band).await.unwrap(),
+        0
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -536,7 +671,10 @@ async fn the_switch_hides_everything_of_the_source_at_once(pool: PgPool) {
     let app = app(
         &pool,
         &media,
-        &[("https://img.partner.example/p-1.jpg", PIXEL)],
+        &[(
+            "https://img.partner.example/p-1.jpg",
+            PARTNER_PHOTO.as_slice(),
+        )],
     );
     let id: Uuid = sqlx::query_scalar("SELECT id FROM external_photos WHERE external_id = 'p-1'")
         .fetch_one(&pool)

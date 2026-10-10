@@ -169,7 +169,7 @@ pub(crate) async fn sign_in(app: &axum::Router, device: &Device) -> (String, Uui
     )
 }
 
-async fn seeded(pool: &PgPool) {
+pub(crate) async fn seeded(pool: &PgPool) {
     let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
     let o = osm::parse(OVERPASS, at).unwrap();
     store_complete(pool, &SourceId::OSM, Some("FR-PDL"), &o.records)
@@ -202,7 +202,7 @@ async fn work(pool: &PgPool) -> lunaway_conflate::RunStats {
 }
 
 /// Two live places of the fixture, by name.
-async fn place_named(pool: &PgPool, name: &str) -> Uuid {
+pub(crate) async fn place_named(pool: &PgPool, name: &str) -> Uuid {
     sqlx::query_scalar!(
         "SELECT id FROM places WHERE deleted_at IS NULL AND name = $1",
         name

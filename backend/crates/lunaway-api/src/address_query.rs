@@ -8,10 +8,11 @@ use lunaway_db::{search, towns};
 use lunaway_domain::{Position, address};
 
 use crate::{
-    address_types::{AddressMatchResult, SearchAnswer, SearchTown},
+    address_types::{AddressMatchResult, GqlPoiMatch, SearchAnswer, SearchTown},
     client::ClientKey,
     error::internal,
     geocode::Ask,
+    poi_types::{GqlPoiKind, Poi},
     quota::{Action, Subject},
     schema::{GeocodeOnce, db, state},
     types::Place,
@@ -35,6 +36,7 @@ pub(crate) async fn search_all(
     first: i64,
     addresses: usize,
     language: Option<&str>,
+    pois: i64,
 ) -> Result<SearchAnswer> {
     let st = state(ctx);
     let once = ctx
@@ -73,6 +75,14 @@ pub(crate) async fn search_all(
             .await
             .map_err(|e| internal(&e))
     };
+    let points = async {
+        if pois == 0 {
+            return Ok(None);
+        }
+        crate::poi_query::find(ctx, text, near, None, pois)
+            .await
+            .map(Some)
+    };
     let lookup = async {
         if geocode {
             Some(
@@ -89,8 +99,9 @@ pub(crate) async fn search_all(
             None
         }
     };
-    let (places, towns, lookup) = tokio::join!(places, towns, lookup);
-    let (places, towns) = (places?, towns?);
+    let (places, towns, points, lookup) = tokio::join!(places, towns, points, lookup);
+    let (places, towns, points) = (places?, towns?, points?);
+    let points = PointsFound::from(points);
     let Some(lookup) = lookup else {
         return Ok(SearchAnswer {
             places: places.into_iter().map(Place).collect(),
@@ -98,6 +109,10 @@ pub(crate) async fn search_all(
             addresses: Vec::new(),
             // Nothing was asked: complete only when nothing could have been.
             addresses_complete: addresses == 0 || !st.geocoder.would_ask(text),
+            pois: points.pois,
+            poi_match: points.matched,
+            poi_kinds: points.kinds,
+            poi_town: points.town,
         });
     };
     let shown: Vec<address::ShownTown> = towns
@@ -110,5 +125,36 @@ pub(crate) async fn search_all(
         towns: towns.into_iter().map(SearchTown::from).collect(),
         addresses: ranked.into_iter().map(AddressMatchResult::from).collect(),
         addresses_complete: lookup.complete,
+        pois: points.pois,
+        poi_match: points.matched,
+        poi_kinds: points.kinds,
+        poi_town: points.town,
     })
+}
+
+/// The points of a search, as the answer carries them.
+struct PointsFound {
+    pois: Vec<Poi>,
+    matched: GqlPoiMatch,
+    kinds: Vec<GqlPoiKind>,
+    town: Option<SearchTown>,
+}
+
+impl From<Option<lunaway_db::poi_search::PoiSearch>> for PointsFound {
+    fn from(found: Option<lunaway_db::poi_search::PoiSearch>) -> Self {
+        let Some(found) = found else {
+            return Self {
+                pois: Vec::new(),
+                matched: GqlPoiMatch::None,
+                kinds: Vec::new(),
+                town: None,
+            };
+        };
+        Self {
+            pois: found.rows.into_iter().map(Poi::new).collect(),
+            matched: found.matched.into(),
+            kinds: found.kinds.into_iter().map(Into::into).collect(),
+            town: found.town.map(SearchTown::from),
+        }
+    }
 }

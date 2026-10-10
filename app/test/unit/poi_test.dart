@@ -15,8 +15,12 @@ import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/features/poi/presentation/poi_search.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
@@ -220,6 +224,126 @@ void main() {
     );
   });
 
+  group('the search of points', () {
+    final hairdresser = poiFromJson(
+      poiJson('00000000-0000-7000-8000-00000000c101', 'HAIRDRESSER', name: 'Annecy Coiffure'),
+    )!;
+    PoiResults answer(PoiMatch match) => PoiResults(pois: [hairdresser], match: match);
+
+    test('a kind or a name comes before the towns, unless a town is named as typed', () {
+      expect(poisFirst(answer(PoiMatch.kind), 'coiffeur', const ['Coise']), isTrue);
+      expect(poisFirst(answer(PoiMatch.name), 'annecy coiffure', const ['Annecy']), isTrue);
+      expect(
+        poisFirst(answer(PoiMatch.name), 'Annecy', const ['Annecy', 'Annecy-le-Vieux']),
+        isFalse,
+      );
+      expect(
+        poisFirst(answer(PoiMatch.name), 'evian', const ['Évian-les-Bains', 'Évian']),
+        isFalse,
+      );
+      expect(poisFirst(answer(PoiMatch.partial), 'coiffeur', const []), isFalse);
+      expect(poisFirst(answer(PoiMatch.none), 'coiffeur', const []), isFalse);
+      expect(
+        poisFirst(const PoiResults(match: PoiMatch.kind), 'coiffeur', const []),
+        isFalse,
+        reason: 'no point, no section to move',
+      );
+    });
+
+    test('the title of a search by kind: the kind for one word, the words for more', () {
+      final t = AppLocale.fr.buildSync();
+      PoiResults kinds(List<PoiKind> k, {String? town}) =>
+          PoiResults(pois: [hairdresser], match: PoiMatch.kind, kinds: k, town: town);
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.hairdresser]), 'coifeur'),
+        t.poi.searchKindNear(what: t.poiKind(PoiKind.hairdresser)),
+        reason: 'spelled right',
+      );
+      expect(
+        poiSearchTitle(
+          t,
+          kinds(const [PoiKind.restaurant], town: 'Annecy'),
+          'restaurant italien annecy',
+        ),
+        t.poi.searchKindIn(what: 'Restaurant italien', town: 'Annecy'),
+      );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.restaurant, PoiKind.fastFood]), 'pizzeria'),
+        t.poi.searchKindNear(what: 'Pizzeria'),
+      );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.restaurant]), 'curry'),
+        t.poi.searchKindNear(what: 'Curry'),
+        reason: "a cuisine's word says more than the kind",
+      );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.clinic]), 'clinique'),
+        t.poi.searchKindNear(what: 'Clinique'),
+        reason: 'a name of two pieces does not stand for one word',
+      );
+      expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
+    });
+
+    test('what a search seeks is the text without the town it names', () {
+      expect(soughtWords('pizzeria annecy', town: 'Annecy'), 'Pizzeria');
+      expect(soughtWords('Pizzerias à Annecy', town: 'Annecy'), 'Pizzerias');
+      expect(soughtWords('hotel near Saint-Malo', town: 'Saint-Malo'), 'Hotel');
+      expect(soughtWords('coiffeur saint jean de luz', town: 'Saint-Jean-de-Luz'), 'Coiffeur');
+      expect(soughtWords('friseur'), 'Friseur');
+      expect(soughtWords('annecy', town: 'Annecy'), isNull, reason: 'nothing sought but a town');
+      expect(soughtWords('boulangerie lyon', town: 'Annecy'), 'Boulangerie lyon');
+    });
+
+    test('the answer says how the points match, the kinds and the town named', () {
+      final results = poiResultsFromJson({
+        'pois': [
+          poiJson(
+            '00000000-0000-7000-8000-00000000c102',
+            'RESTAURANT',
+            name: 'Da Gino',
+            extra: {
+              'cuisine': ['pizza'],
+            },
+          ),
+          poiJson('00000000-0000-7000-8000-00000000c103', 'SOMETHING_NEWER'),
+        ],
+        'poiMatch': 'KIND',
+        'poiKinds': ['RESTAURANT', 'FAST_FOOD', 'SOMETHING_NEWER'],
+        'poiTown': {'name': 'Annecy'},
+      });
+      expect(results.pois.single.cuisine, ['pizza'], reason: 'a kind of a later API is left out');
+      expect(results.match, PoiMatch.kind);
+      expect(results.kinds, [PoiKind.restaurant, PoiKind.fastFood]);
+      expect(results.town, 'Annecy');
+      expect(poiResultsFromJson({'poiMatch': 'BETTER'}).match, PoiMatch.none);
+      expect(poiResultsFromJson(const {}).pois, isEmpty);
+    });
+
+    test('an establishment reads what the page says of it, nothing for what is not said', () {
+      final poi = poiFromJson(
+        poiJson(
+          '00000000-0000-7000-8000-00000000c104',
+          'HOTEL',
+          extra: {
+            'takesReviews': false,
+            'stars': 3,
+            'reservation': 'RECOMMENDED',
+            'internetAccess': true,
+            'diets': ['vegan'],
+            'vehicleServices': <String>[],
+          },
+        ),
+      )!;
+      expect(poi.takesReviews, isFalse);
+      expect(poi.stars, 3);
+      expect(poi.reservation, PoiReservation.recommended);
+      expect(poi.internetAccess, isTrue);
+      expect(poi.diets, ['vegan']);
+      expect(poi.takeaway, isNull, reason: 'not said is not a no');
+      expect(poiFromJson(bakeryJson)!.takesReviews, isTrue, reason: 'an older API took all');
+    });
+  });
+
   group('the taxonomy', () {
     test('every kind is listed by its one category; the restaurants and sights are on demand', () {
       for (final k in PoiKind.values) {
@@ -228,9 +352,25 @@ void main() {
             for (final c in PoiCategory.values)
               if (c.kinds.contains(k)) c,
           ],
-          [k.category],
-          reason: '$k in one list only, the one the chips and "On the way" read',
+          k.tiled ? [k.category] : isEmpty,
+          reason: k.tiled
+              ? '$k in one list only, the one the chips and "On the way" read'
+              : '$k is found by the search alone: no chip, no tile, no "On the way"',
         );
+      }
+      expect(PoiKind.values.where((k) => k.tiled), hasLength(40));
+      expect(PoiKind.values.where((k) => !k.tiled), hasLength(126));
+      expect(PoiKind.bar.category, PoiCategory.food);
+      expect(PoiKind.bar.tiled, isFalse, reason: 'a bar is found, never drawn in the tiles');
+      expect(
+        [
+          for (final c in PoiCategory.values)
+            if (!c.tiled) c,
+        ],
+        [PoiCategory.shopping, PoiCategory.lodging, PoiCategory.leisure],
+      );
+      for (final c in [PoiCategory.shopping, PoiCategory.lodging, PoiCategory.leisure]) {
+        expect(c.kinds, isEmpty, reason: '$c has no chip and no tile');
       }
       expect(PoiCategory.food.kinds, [PoiKind.restaurant, PoiKind.cafe, PoiKind.fastFood]);
       expect(
@@ -242,7 +382,7 @@ void main() {
       expect(
         {
           for (final k in PoiKind.values)
-            if (k.index >= PoiKind.outdoorShop.index) k,
+            if (k.index >= PoiKind.outdoorShop.index && k.tiled) k,
         },
         PoiKind.drawnApart,
         reason: 'the kinds after the first release, as the server keeps them apart',
@@ -445,12 +585,37 @@ void main() {
 
     test('every kind has its image, drawn for every pixel ratio the app ships', () {
       final match = PoiMapStyle.iconImage();
-      expect(match.length, 2 + PoiKind.values.length * 2 + 1);
+      final tiled = PoiKind.values.where((k) => k.tiled).length;
+      expect(match.length, 2 + tiled * 2 + 1, reason: 'the tiles carry the tiled kinds alone');
       for (final ratio in PinSprites.ratios) {
         for (final id in PoiMapStyle.allImageIds()) {
           expect(File('assets/map/pins/${ratio}x/$id.png').existsSync(), isTrue, reason: id);
         }
       }
+      // The point open on the map has an image whatever its kind: an
+      // establishment, which the tiles never carry, takes its family's.
+      for (final k in PoiKind.values) {
+        final selection = PoiMapStyle.selectionCollection(
+          PoiFeature(id: 'x', kind: k, position: const LatLng(45, 6)),
+        );
+        final features = selection['features']! as List<Object?>;
+        final icon = ((features.single! as Map)['properties'] as Map)['icon'];
+        expect(PoiMapStyle.allImageIds(), contains(icon), reason: '$k');
+        expect('$icon', endsWith('-selected'), reason: 'read as the selection by the hit test');
+      }
+      expect(
+        PoiMapStyle.selectedImageId(PoiKind.hairdresser),
+        PoiMapStyle.familyImageId(PoiCategory.services),
+      );
+      expect(
+        PoiMapStyle.selectedImageId(PoiKind.bakery),
+        PoiMapStyle.imageId(PoiKind.bakery, selected: true),
+      );
+      expect(
+        PoiMapStyle.allImageIds().where((id) => id.contains('hairdresser')),
+        isEmpty,
+        reason: 'no image per establishment kind: the map loads every image at its start',
+      );
     });
 
     test('the kinds the default tiles keep apart are drawn and read like the others', () async {
@@ -565,10 +730,8 @@ void main() {
     });
   });
 
-  test('a search sends where to rank from on a 0.05 degree grid, never a precise point', () {
-    final v = searchPoisVariables('lidl', near: const LatLng(45.91234, 6.13456));
-    expect(v['near'], {'lat': 45.9, 'lon': 6.15});
-    expect(searchPoisVariables('lidl')['near'], isNull);
+  test('a search ranks from a point on a 0.05 degree grid, never a precise one', () {
+    expect(searchAnchor(const LatLng(45.91234, 6.13456)), const LatLng(45.9, 6.15));
   });
 
   group('the API answers', () {

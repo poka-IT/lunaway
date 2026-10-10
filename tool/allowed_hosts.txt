@@ -8,7 +8,8 @@ tiles.lunaway.net      # our basemap host: TileJSON, vector tiles, glyphs, sprit
 github.com             # the source code link of the about page (AGPL requires offering the source)
 www.openstreetmap.org  # OSM links for a place's coordinates, its source record, and the ODbL copyright page
 maps.apple.com         # directions handed to Apple Plans on iOS and macOS; the app opens the link, it does not fetch it
-www.google.com         # Google Maps link offered in the coordinate formats menu; opened by the user, never fetched
+cdla.dev               # CDLA Permissive 2.0, the licence of the Overture Maps data: a link of the credits, opened by the user, never fetched
+www.google.com         # Google Maps links, opened by the user, never fetched: the coordinate formats menu, "See the reviews on Google Maps" on a point's page
 waze.com               # directions handed to Waze on iOS and Android; the app opens the link, it does not fetch it
 opendatacommons.org    # the ODbL licence text, linked from the attributions
 www.etalab.gouv.fr     # the Licence Ouverte 2.0 text, linked from the attributions

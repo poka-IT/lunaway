@@ -132,6 +132,8 @@ extension CommunityLabels on Translations {
         },
       ),
       .clearRoadEvent => _t.outbox.kind.clearRoadEvent,
+      .ratePoi => _t.outbox.kind.rate(stars: '${p['stars']}'),
+      .reviewPoi => _t.outbox.kind.review,
     };
   }
 

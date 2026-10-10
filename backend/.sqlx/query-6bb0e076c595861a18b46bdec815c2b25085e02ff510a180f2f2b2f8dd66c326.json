@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE pois SET hidden = true WHERE external_id = 'node/1'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "6bb0e076c595861a18b46bdec815c2b25085e02ff510a180f2f2b2f8dd66c326"
+}

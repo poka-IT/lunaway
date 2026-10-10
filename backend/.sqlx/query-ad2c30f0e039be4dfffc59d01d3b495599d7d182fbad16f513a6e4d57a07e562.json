@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE place_geocodes SET street = NULL, house_number = NULL\n            WHERE place_id = $1 AND (street IS NOT NULL OR house_number IS NOT NULL)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad2c30f0e039be4dfffc59d01d3b495599d7d182fbad16f513a6e4d57a07e562"
+}

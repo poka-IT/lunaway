@@ -111,11 +111,11 @@ pub struct ParsedPois {
     pub skipped: Vec<(String, Skip)>,
 }
 
-fn tag<'a>(tags: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
+pub(crate) fn tag<'a>(tags: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
     tags.get(key).map(|v| v.trim()).filter(|v| !v.is_empty())
 }
 
-fn is(tags: &BTreeMap<String, String>, key: &str, value: &str) -> bool {
+pub(crate) fn is(tags: &BTreeMap<String, String>, key: &str, value: &str) -> bool {
     tag(tags, key) == Some(value)
 }
 
@@ -212,7 +212,7 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
 }
 
 /// Whether the point is closed to the public, or says it never opens.
-fn left_out(tags: &BTreeMap<String, String>) -> bool {
+pub(crate) fn left_out(tags: &BTreeMap<String, String>) -> bool {
     matches!(tag(tags, "access"), Some("no" | "private"))
         || matches!(tag(tags, "opening_hours"), Some("closed" | "off"))
 }
@@ -275,8 +275,29 @@ fn reference(
 /// [`Skip`] when the element is not a point the layer reads, or has no
 /// usable coordinates.
 pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
+    let kind = kind_of(&element.tags).ok_or(Skip::OutOfScope)?;
+    map_with_kind(element, kind)
+}
+
+/// The diets a menu says it caters for (OSM `diet:<diet>`).
+const DIETS: &[&str] = &[
+    "vegetarian",
+    "vegan",
+    "gluten_free",
+    "halal",
+    "kosher",
+    "lactose_free",
+];
+
+/// Maps one element as a point of `kind`, the fields every kind may carry
+/// and those of its kind; `Err` says why it is left out.
+///
+/// # Errors
+///
+/// [`Skip`] when the element is closed to the public, or has no usable
+/// coordinates.
+pub(crate) fn map_with_kind(element: &Element, kind: PoiKind) -> Result<PoiRecord, Skip> {
     let tags = &element.tags;
-    let kind = kind_of(tags).ok_or(Skip::OutOfScope)?;
     if left_out(tags) {
         return Err(Skip::OutOfScope);
     }
@@ -336,10 +357,57 @@ pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
         Some(_) => Some(true),
         None => None,
     };
-    if kind == PoiKind::Hospital {
+    if matches!(kind, PoiKind::Hospital | PoiKind::Clinic | PoiKind::Doctor) {
         r.emergency = yes_no(tags, "emergency");
     }
-    if matches!(kind, PoiKind::CarWash | PoiKind::CarRepair) {
+    if matches!(
+        kind.category(),
+        lunaway_domain::poi::PoiCategory::Food | lunaway_domain::poi::PoiCategory::Lodging
+    ) {
+        r.cuisine = tag(tags, "cuisine")
+            .map(values)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|c| c.len() <= 32)
+            .take(6)
+            .collect();
+        let from = (
+            std::ops::Bound::Included("diet:"),
+            std::ops::Bound::Unbounded,
+        );
+        r.diets = tags
+            .range::<str, _>(from)
+            .take_while(|(k, _)| k.starts_with("diet:"))
+            .filter(|(_, v)| matches!(v.trim(), "yes" | "only"))
+            .filter_map(|(k, _)| DIETS.iter().find(|d| **d == &k["diet:".len()..]))
+            .map(|d| (*d).to_owned())
+            .collect();
+        r.takeaway = yes_no(tags, "takeaway");
+        r.delivery = yes_no(tags, "delivery");
+        r.outdoor_seating = yes_no(tags, "outdoor_seating");
+        r.reservation = tag(tags, "reservation")
+            .filter(|v| matches!(*v, "yes" | "no" | "required" | "recommended" | "only"))
+            .map(str::to_owned);
+    }
+    if kind.category() == lunaway_domain::poi::PoiCategory::Lodging {
+        r.stars = tag(tags, "stars").and_then(stars);
+    }
+    r.internet_access = match tag(tags, "internet_access") {
+        Some("wlan" | "yes" | "terminal" | "wired") => Some(true),
+        Some("no") => Some(false),
+        _ => None,
+    };
+    if matches!(
+        kind,
+        PoiKind::CarRepair
+            | PoiKind::MotorhomeShop
+            | PoiKind::Tyres
+            | PoiKind::CarDealer
+            | PoiKind::MotorcycleShop
+    ) {
+        r.vehicle_services = yes_suffixes(tags, "service:vehicle:");
+    }
+    if matches!(kind, PoiKind::CarWash | PoiKind::CarRepair | PoiKind::Tyres) {
         r.motorhome = [
             "motorhome",
             "service:vehicle:motorhome",
@@ -367,7 +435,74 @@ pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
     r.refs.laposte = reference(tag(tags, "ref:FR:LaPoste"), 6..=6, false);
     r.refs.finess = reference(tag(tags, "ref:FR:FINESS"), 9..=9, false);
     r.refs.siret = reference(tag(tags, "ref:FR:SIRET"), 14..=14, true);
+    r.refs.wikidata = tag(tags, "wikidata")
+        .and_then(|v| v.split(';').next())
+        .map(str::trim)
+        .filter(|v| {
+            v.len() <= 16
+                && v.strip_prefix('Q')
+                    .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+        })
+        .map(str::to_owned);
+    r.refs.commons = tag(tags, "wikimedia_commons")
+        .and_then(commons_page)
+        .or_else(|| tag(tags, "image").and_then(commons_page));
+    r.refs.panoramax = tag(tags, "panoramax")
+        .and_then(|v| v.split(';').next())
+        .map(str::trim)
+        .filter(|v| v.len() == 36 && v.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-'))
+        .map(str::to_ascii_lowercase);
     Ok(r)
+}
+
+/// A hotel's stars from OSM `stars` (`3`, `3S` for superior), 1 to 5.
+fn stars(raw: &str) -> Option<u8> {
+    let digits: String = raw
+        .trim()
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect();
+    digits.parse::<u8>().ok().filter(|n| (1..=5).contains(n))
+}
+
+/// A Wikimedia Commons page an OSM tag names: `File:...` or `Category:...`
+/// as written, or the file of a Commons URL (`image`); `None` for anything
+/// else, whose licence nobody states (`docs/data-sources.md`).
+fn commons_page(raw: &str) -> Option<String> {
+    let first = raw.split(';').next()?.trim();
+    let page = if let Some(rest) = first
+        .strip_prefix("https://commons.wikimedia.org/wiki/")
+        .or_else(|| first.strip_prefix("http://commons.wikimedia.org/wiki/"))
+    {
+        // A page copied from the browser's bar names its accents encoded
+        // (`%C3%A9`); the page is its decoded name.
+        percent_decoded(rest)?.replace('_', " ")
+    } else {
+        first.to_owned()
+    };
+    let ok = (page.starts_with("File:") || page.starts_with("Category:"))
+        && page.chars().count() <= 240
+        && !page.contains(['<', '>', '[', ']', '{', '}', '|', '#']);
+    ok.then_some(page)
+}
+
+/// `text` with its `%XX` escapes decoded; `None` when an escape is broken
+/// or the bytes are not UTF-8.
+fn percent_decoded(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while let Some(&b) = bytes.get(i) {
+        if b == b'%' {
+            let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(b);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// Maps elements (with their raw JSON) onto points.
@@ -505,6 +640,25 @@ mod tests {
     }
 
     #[test]
+    fn a_commons_page_is_read_from_its_name_or_its_address() {
+        assert_eq!(
+            commons_page("File:Église.jpg").as_deref(),
+            Some("File:Église.jpg")
+        );
+        assert_eq!(
+            commons_page("https://commons.wikimedia.org/wiki/File:%C3%89glise_Saint_Jean.jpg")
+                .as_deref(),
+            Some("File:Église Saint Jean.jpg"),
+            "the page's name, as the photos' refresh asks Commons for it"
+        );
+        assert_eq!(
+            commons_page("https://commons.wikimedia.org/wiki/File:Broken%ZZ.jpg"),
+            None
+        );
+        assert_eq!(commons_page("Photo.jpg"), None);
+    }
+
+    #[test]
     fn every_kind_is_reachable_from_osm() {
         let reached: std::collections::BTreeSet<PoiKind> = [
             vec![("amenity", "fuel")],
@@ -553,8 +707,13 @@ mod tests {
         .collect();
         assert_eq!(
             reached.len(),
-            PoiKind::ALL.len(),
-            "every kind of the domain must come from a tag, or its chip stays empty"
+            PoiKind::ALL.iter().filter(|k| k.tiled()).count(),
+            "every kind of the tiles must come from a tag, or its chip stays empty; the \
+             establishments come from theirs (establishments_osm)"
+        );
+        assert!(
+            reached.iter().all(|k| k.tiled()),
+            "this layer writes only kinds of the tiles"
         );
     }
 

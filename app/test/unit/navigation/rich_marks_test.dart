@@ -590,6 +590,17 @@ void main() {
       openingSeason: [DayRange(92, 305)],
     );
     expect(placeFromTile(placeTileProperties(place), [place.lon, place.lat]), place);
+    // A place without a name keeps its street, which titles it.
+    const unnamed = PlaceSummary(
+      id: 'y',
+      city: 'Viviers',
+      street: '4 Rue de la Gare',
+      kind: PlaceKind.parking,
+      lat: 44.48,
+      lon: 4.69,
+      overnight: OvernightStatus.unknown,
+    );
+    expect(placeFromTile(placeTileProperties(unnamed), [unnamed.lon, unnamed.lat]), unnamed);
   });
 
   test('the drawings keyed by place, look, label, plan and size', () {

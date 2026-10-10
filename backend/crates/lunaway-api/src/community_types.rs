@@ -123,6 +123,8 @@ pub enum GqlReportTarget {
     ExternalReview,
     /// A photo of an external source (`Place.externalPhotos`).
     ExternalPhoto,
+    /// A review of a point of interest (`Poi.reviews`).
+    PoiReview,
 }
 
 /// Why a user reports something.
@@ -174,7 +176,7 @@ pub enum GqlContributionStatus {
     Removed,
 }
 
-fn status_of(code: &str) -> GqlContributionStatus {
+pub(crate) fn status_of(code: &str) -> GqlContributionStatus {
     code.parse::<lunaway_domain::community::ReviewStatus>()
         .map_or(GqlContributionStatus::Removed, Into::into)
 }
@@ -836,6 +838,26 @@ impl Account {
         let (pool, _permit) = db(ctx).await?;
         Ok(
             lunaway_db::community::reviews_of_account(pool, self.viewer.id(), first, after)
+                .await
+                .map_err(|e| internal(&e))?
+                .into(),
+        )
+    }
+
+    /// The account's ratings and reviews of points of interest, every
+    /// status, newest first.
+    #[graphql(complexity = "crate::schema::cost(first, 50, child_complexity)")]
+    async fn poi_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 50)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<crate::poi_review_types::PoiReviewConnection> {
+        let first = own_page(first)?;
+        let after = parse_item_cursor(after.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        Ok(
+            lunaway_db::poi_reviews::reviews_of_account(pool, self.viewer.id(), first, after)
                 .await
                 .map_err(|e| internal(&e))?
                 .into(),

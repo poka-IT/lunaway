@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE poi_reviews SET account_id = NULL\n        WHERE account_id = $1 AND status = 'published' AND body IS NOT NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "90658116e328e6a189ec64c02b92a8af4a3e5dd6266f25227bd5f53d05ef054f"
+}

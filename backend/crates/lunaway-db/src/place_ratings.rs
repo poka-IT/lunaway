@@ -1,20 +1,26 @@
 //! The rating a place is filtered with (`places.filter_rating`): what the
 //! map's "minimum rating" compares, in the tiles (`r`), in the API's
-//! `PlaceFilter.minRating` and on the devices that keep places.
+//! `PlaceFilter.minRating`, in the lists' order by rating and on the
+//! devices that keep places.
 //!
-//! Lunaway users' average when they rated the place; otherwise the average
-//! of the ratings the other sources give it, each source weighted by how
-//! many ratings it counts: the external community source's summaries
+//! Every rating of every source weighs the same: Lunaway users' and those
+//! the other sources give it, the external community source's summaries
 //! ([`crate::extcom::ratings_of_place`]) and the open sources' reviews
 //! ([`crate::content::ratings_of_place`]), with the same exclusions as the
 //! place's page (a hidden source, a hide of the source, of the place, of a
 //! review or of its author; the reviews of the places merged into it).
-//! Rounded to one decimal, as a rating reads; null when nobody rated it.
+//! Their mean weighted by how many ratings each counts, rounded to one
+//! decimal, as a rating reads; null when nobody rated it. A single user's
+//! 4 beside 246 ratings of 3.3 elsewhere reads 3.3, not 4.0 (Camping-car
+//! Park Viviers, 2026-10-10). The SQL function `lunaway_filter_rating` holds the
+//! rule (migration `20261010140500`); both writers apply it.
 //!
 //! The other sources' ratings change with their imports, which do not
-//! write places: the worker computes every place's rating again at most
-//! every few minutes and writes those that changed
-//! ([`refresh_filter_ratings`]).
+//! write places: the worker computes them again at most every few minutes,
+//! keeps what it read in `place_other_ratings` and writes the places whose
+//! rating changed ([`refresh_filter_ratings`]). A Lunaway user's rating
+//! changes its place's at once, with the community summary
+//! (`crate::summary`), combined with what that table holds.
 
 use crate::{DbError, conflation::WriterTx};
 
@@ -27,22 +33,24 @@ use crate::{DbError, conflation::WriterTx};
 /// statements of a thousand, the same places were written in about 49 s.
 const BATCH: usize = 1_000;
 
-/// Writes the filter rating of every live place whose rating changed, each
-/// with a new position in the change feed (the tiles and the devices carry
-/// the rating), in the writer transaction `tx`. Returns how many changed.
+/// Computes again what the other sources say of every live place, keeps it
+/// in `place_other_ratings`, then writes the filter rating of every live
+/// place whose rating changed, each with a new position in the change feed
+/// (the tiles and the devices carry the rating), in the writer transaction
+/// `tx`. Returns how many places changed.
 ///
-/// The ratings of every place are computed in one read: on production on
-/// 2026-10-08 (200 961 live places, 98 525 rating summaries of the external
-/// community source, no open-source rating), 1.2 to 1.5 s (`EXPLAIN
-/// ANALYZE`, read-only), and 98 525 places had one (83 525 of 3 or more,
-/// 51 627 of 4 or more, 24 544 of 4.5 or more). Those that changed are
-/// written [`BATCH`] at a time.
+/// The other sources' ratings of every place are computed in one read: on
+/// production on 2026-10-08 (200 961 live places, 98 525 rating summaries
+/// of the external community source, no open-source rating), 1.2 to 1.5 s
+/// (`EXPLAIN ANALYZE`, read-only). Only the rows that moved are written to
+/// `place_other_ratings`; the places that changed are written [`BATCH`] at
+/// a time.
 ///
 /// # Errors
 ///
 /// [`DbError`] when a statement fails.
 pub async fn refresh_filter_ratings(tx: &mut WriterTx) -> Result<u64, DbError> {
-    let changed = sqlx::query!(
+    sqlx::query!(
         r#"
         WITH partner AS (
             -- The external community source's summaries of the records of
@@ -92,21 +100,37 @@ pub async fn refresh_filter_ratings(tx: &mut WriterTx) -> Result<u64, DbError> {
             GROUP BY u.shown_on
         ),
         computed AS (
-            SELECT p.id,
-                   round((CASE
-                       WHEN p.rating_count > 0 AND p.rating_avg IS NOT NULL THEN p.rating_avg
-                       ELSE (coalesce(pa.total, 0) + coalesce(op.total, 0))
-                            / nullif(coalesce(pa.n, 0) + coalesce(op.n, 0), 0)
-                   END)::numeric, 1)::float8 AS rating
+            SELECT p.id AS place_id,
+                   (coalesce(pa.total, 0) + coalesce(op.total, 0))::float8 AS total,
+                   (coalesce(pa.n, 0) + coalesce(op.n, 0))::int8 AS n
             FROM places p
             LEFT JOIN partner pa ON pa.place_id = p.id
             LEFT JOIN open op ON op.place_id = p.id
-            WHERE p.deleted_at IS NULL
+            WHERE p.deleted_at IS NULL AND (pa.n > 0 OR op.n > 0)
+        ),
+        gone AS (
+            -- A place no other source rates any more, or no longer live.
+            DELETE FROM place_other_ratings o
+            WHERE NOT EXISTS (SELECT 1 FROM computed c WHERE c.place_id = o.place_id)
         )
-        SELECT p.id, c.rating
+        INSERT INTO place_other_ratings AS o (place_id, total, n)
+        SELECT place_id, total, n FROM computed
+        ON CONFLICT (place_id) DO UPDATE SET total = excluded.total, n = excluded.n
+        WHERE (o.total, o.n) IS DISTINCT FROM (excluded.total, excluded.n)
+        "#
+    )
+    .execute(tx.conn())
+    .await?;
+    // A statement of its own: the one above writes what this one reads.
+    let changed = sqlx::query!(
+        r#"
+        SELECT p.id,
+               lunaway_filter_rating(p.rating_avg, p.rating_count, o.total, o.n) AS rating
         FROM places p
-        JOIN computed c ON c.id = p.id
-        WHERE p.filter_rating IS DISTINCT FROM c.rating
+        LEFT JOIN place_other_ratings o ON o.place_id = p.id
+        WHERE p.deleted_at IS NULL
+          AND p.filter_rating IS DISTINCT FROM
+              lunaway_filter_rating(p.rating_avg, p.rating_count, o.total, o.n)
         -- In the order of the primary key: each batch touches a run of it.
         ORDER BY p.id
         "#

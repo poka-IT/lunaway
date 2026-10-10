@@ -127,12 +127,14 @@ void main() {
       source: server,
       store: store,
     ).sync(region, onProgress: (p) => progress.add(p.upserted));
-    expect(server.requests.map((r) => r.since), [null, '1000', '2000']);
-    expect(server.requests.every((r) => r.first == 1000), isTrue);
-    expect(result.pages, 3);
+    // Pages the API serves whole: of 1000, the budget refused them.
+    expect(server.requests.map((r) => r.since), [null, '500', '1000', '1500', '2000']);
+    expect(server.requests.every((r) => r.first == syncPageSize), isTrue);
+    expect(syncPageSize, 500);
+    expect(result.pages, 5);
     expect(result.upserted, 2500);
     expect(result.deleted, 1);
-    expect(progress, [1000, 2000, 2500]);
+    expect(progress, [500, 1000, 1500, 2000, 2500]);
     expect(store.state.cursor, '2500');
     expect(result.complete, isTrue);
   });
@@ -140,7 +142,7 @@ void main() {
   test('resumes from the stored cursor', () async {
     final server = _Server(2500);
     final store = _Store()..state = const SyncState(cursor: '2000');
-    await SyncService(source: server, store: store).sync(region);
+    await SyncService(source: server, store: store, pageSize: 1000).sync(region);
     expect(server.requests.map((r) => r.since), ['2000']);
     expect(store.events.first, 'delta');
   });
@@ -148,7 +150,7 @@ void main() {
   test('a sync from scratch forgets the cursor first', () async {
     final server = _Server(10);
     final store = _Store()..state = const SyncState(cursor: '2000');
-    await SyncService(source: server, store: store).sync(region, fromScratch: true);
+    await SyncService(source: server, store: store, pageSize: 1000).sync(region, fromScratch: true);
     expect(store.resets, 1);
     expect(server.requests.first.since, isNull);
   });
@@ -156,7 +158,7 @@ void main() {
   test('stops when the server says hasMore without moving the cursor', () async {
     final server = _Server(5000, stuckAt: '1000');
     final store = _Store();
-    final result = await SyncService(source: server, store: store).sync(region);
+    final result = await SyncService(source: server, store: store, pageSize: 1000).sync(region);
     expect(result.pages, 2);
     expect(result.complete, isFalse);
     expect(store.state.running, isTrue, reason: 'it resumes at the next occasion');
@@ -164,7 +166,11 @@ void main() {
 
   test('a first sync is a full one, swept at the end of what the server no longer has', () async {
     final store = _Store()..stale = 3;
-    final result = await SyncService(source: _Server(1500), store: store).sync(region);
+    final result = await SyncService(
+      source: _Server(1500),
+      store: store,
+      pageSize: 1000,
+    ).sync(region);
     expect(store.events, ['begin', 'page', 'page', 'sweep']);
     expect(result.deleted, 1 + 3);
     expect(store.state.fullSync, isFalse);
@@ -173,7 +179,7 @@ void main() {
 
   test('a delta sync sweeps nothing', () async {
     final store = _Store()..state = const SyncState(cursor: '1000');
-    await SyncService(source: _Server(1500), store: store).sync(region);
+    await SyncService(source: _Server(1500), store: store, pageSize: 1000).sync(region);
     expect(store.events, ['delta', 'page', 'done']);
   });
 
@@ -182,7 +188,7 @@ void main() {
     () async {
       final server = _Server(1500)..foreign = {'stale'};
       final store = _Store()..state = const SyncState(cursor: 'stale');
-      final result = await SyncService(source: server, store: store).sync(region);
+      final result = await SyncService(source: server, store: store, pageSize: 1000).sync(region);
       expect(server.requests.map((r) => r.since), ['stale', null, '1000']);
       expect(store.events, ['delta', 'begin', 'page', 'page', 'sweep']);
       expect(store.resets, 0, reason: 'the places and favourites stay until the sweep');
@@ -195,7 +201,7 @@ void main() {
     final server = _Server(10)..foreign = {null};
     final store = _Store();
     await expectLater(
-      SyncService(source: server, store: store).sync(region),
+      SyncService(source: server, store: store, pageSize: 1000).sync(region),
       throwsA(isA<GraphQLResponseException>()),
     );
     expect(server.requests, hasLength(1));
@@ -204,11 +210,14 @@ void main() {
   test('a full sync cut short sweeps when a later sync completes it', () async {
     final server = _Server(1500)..failAfter = StateError('offline');
     final store = _Store();
-    await expectLater(SyncService(source: server, store: store).sync(region), throwsStateError);
+    await expectLater(
+      SyncService(source: server, store: store, pageSize: 1000).sync(region),
+      throwsStateError,
+    );
     expect(store.events, ['begin', 'page']);
     expect(store.state.completedAt, isNull, reason: 'a cut run is not a sync');
     server.failAfter = null;
-    await SyncService(source: server, store: store).sync(region);
+    await SyncService(source: server, store: store, pageSize: 1000).sync(region);
     // Resumed as it was: still the same full sync, no second "begin".
     expect(store.events, ['begin', 'page', 'page', 'sweep']);
     expect(server.requests.last.since, '1000');
@@ -217,7 +226,10 @@ void main() {
   test('a failure mid-way keeps the pages already stored, for a later resume', () async {
     final server = _Server(2500)..failAfter = StateError('offline');
     final store = _Store();
-    await expectLater(SyncService(source: server, store: store).sync(region), throwsStateError);
+    await expectLater(
+      SyncService(source: server, store: store, pageSize: 1000).sync(region),
+      throwsStateError,
+    );
     expect(store.state.cursor, '1000');
   });
 }

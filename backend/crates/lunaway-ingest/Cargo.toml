@@ -34,6 +34,7 @@ lunaway-domain.workspace = true
 lunaway-media.workspace = true
 osmpbf.workspace = true
 p256.workspace = true
+parquet.workspace = true
 quick-xml.workspace = true
 reqwest.workspace = true
 rustls.workspace = true

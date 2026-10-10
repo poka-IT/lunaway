@@ -1,6 +1,7 @@
 import 'package:logging/logging.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 import 'package:lunaway/features/regions/data/region_pack_files.dart';
@@ -50,8 +51,8 @@ final class RegionSyncService {
     required this.packs,
     required this.downloader,
     required this.packUrl,
-    this.pageSize = 1000,
-    this.maxPages = 500,
+    this.pageSize = syncPageSize,
+    this.maxPages = 1000,
   });
 
   final RegionChangesSource changes;

@@ -29,7 +29,10 @@ pub(crate) enum Content {
     /// Asks each source about the places it has not been asked about for a
     /// week, least recently asked first: Commons and Panoramax photos,
     /// Wikipedia introductions, the tourist offices' descriptions and
-    /// photos from the DATAtourisme records, Mangrove reviews. Weekly.
+    /// photos from the DATAtourisme records, Mangrove reviews (of places
+    /// and of named points of interest). Then the Commons and Panoramax
+    /// photos the points' own tags name, a bounded number of points per
+    /// run. Weekly.
     Refresh {
         /// Only these sources (`datatourisme`, `wikipedia`, `commons`,
         /// `panoramax`, `mangrove`), comma separated; all when absent.
@@ -38,12 +41,16 @@ pub(crate) enum Content {
         /// Places asked per source at most in this run.
         #[arg(long)]
         max_places: Option<usize>,
-        /// Only the places in this box: south,west,north,east. Mangrove,
-        /// read whole, does not run with an area.
+        /// Points of interest asked per source at most in this run
+        /// (Commons, Panoramax); 2 000 when absent.
+        #[arg(long)]
+        max_pois: Option<usize>,
+        /// Only the places and points in this box: south,west,north,east.
+        /// Mangrove, read whole, does not run with an area.
         #[arg(long, value_delimiter = ',', allow_negative_numbers = true)]
         area: Vec<f64>,
-        /// A place asked about more recently than this many days is not
-        /// asked again.
+        /// A place or a point asked about more recently than this many days
+        /// is not asked again.
         #[arg(long, default_value_t = 7)]
         stale_days: i64,
     },
@@ -74,9 +81,10 @@ pub(crate) enum Content {
         #[arg(long)]
         show: bool,
     },
-    /// Hides everything a source shows on a place (or shows it again).
+    /// Hides everything a source shows on a place or a point of interest
+    /// (or shows it again).
     HidePlace {
-        /// The place.
+        /// The place, or the point (`Poi.id`).
         place: Uuid,
         /// The source (`wikipedia`, `datatourisme`, `mangrove`, ...).
         source: String,
@@ -144,6 +152,7 @@ pub(crate) async fn run(
         Content::Refresh {
             sources,
             max_places,
+            max_pois,
             area,
             stale_days,
         } => {
@@ -163,6 +172,7 @@ pub(crate) async fn run(
             let config = ContentConfig {
                 stale_after: chrono::Duration::days(stale_days),
                 max_places: max_places.unwrap_or(usize::MAX),
+                max_pois: max_pois.unwrap_or(content::MAX_POIS_PER_RUN),
                 area: area_of(&area)?,
                 ..ContentConfig::default()
             };
@@ -185,6 +195,12 @@ pub(crate) async fn run(
                     r.files_removed,
                     r.failures
                 );
+                if r.pois > 0 {
+                    println!(
+                        "  points of interest: {} asked, {} with content",
+                        r.pois, r.pois_with_content
+                    );
+                }
                 if r.new_keys > 0 || r.held_new_pairs > 0 || r.struck_keys > 0 {
                     println!(
                         "  new author keys: {} let in, {} reviews held for a later run; \

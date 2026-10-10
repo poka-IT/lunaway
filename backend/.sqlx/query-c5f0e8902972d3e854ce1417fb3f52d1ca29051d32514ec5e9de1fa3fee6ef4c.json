@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM place_geocodes WHERE place_id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5f0e8902972d3e854ce1417fb3f52d1ca29051d32514ec5e9de1fa3fee6ef4c"
+}

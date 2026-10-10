@@ -94,6 +94,8 @@ coded_enum! {
         ExternalReview => "external_review",
         /// A photo of an external source (`Place.externalPhotos`).
         ExternalPhoto => "external_photo",
+        /// A review of a point of interest (`Poi.reviews`).
+        PoiReview => "poi_review",
     }
 }
 

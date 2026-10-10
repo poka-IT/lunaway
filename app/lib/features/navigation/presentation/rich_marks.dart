@@ -913,6 +913,9 @@ Map<String, Object?> placeTileProperties(PlaceSummary place) => {
   PlaceTiles.night: tileNightCode(place.overnight),
   PlaceTiles.name: ?place.name,
   PlaceTiles.city: ?place.city,
+  // As the tiles carry it: for a place without a name only, never a private
+  // host's, so a mark opens the page with the title the list gives it.
+  if (place.name == null && place.kind != PlaceKind.homestay) PlaceTiles.street: ?place.street,
   if (place.services.isNotEmpty) PlaceTiles.services: Service.maskOf(place.services),
   if (place.priceParkingEur case final price?) PlaceTiles.price: price == 0 ? 0 : 1,
   if (place.maxHeightM case final h?) PlaceTiles.height: heightCentimetres(h),

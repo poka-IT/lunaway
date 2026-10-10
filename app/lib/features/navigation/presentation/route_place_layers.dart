@@ -67,11 +67,12 @@ abstract final class RoutePlaceLayers {
   static const List<Object> none = RouteMapPlaces.drawsNothing;
 
   /// The images the pins draw with: a place's by its kind and night, a
-  /// point's by its kind.
+  /// point's by its kind, of the kinds the tiles carry.
   static List<String> imageIds() => [
     for (final kind in PlaceKind.values)
       for (final night in OvernightStatus.values) pinImageId(kind, night),
-    for (final kind in PoiKind.values) PoiMapStyle.imageId(kind),
+    for (final kind in PoiKind.values)
+      if (kind.tiled) PoiMapStyle.imageId(kind),
   ];
 
   /// The sources, as the desktop page takes them.

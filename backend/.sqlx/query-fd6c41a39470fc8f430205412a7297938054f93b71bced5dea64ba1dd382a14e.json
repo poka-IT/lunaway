@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT word::text AS \"word!\" FROM poi_search_words ORDER BY word",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "word!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_search_words",
+            "name": "word"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fd6c41a39470fc8f430205412a7297938054f93b71bced5dea64ba1dd382a14e"
+}

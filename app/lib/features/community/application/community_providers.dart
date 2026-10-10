@@ -112,6 +112,14 @@ List<PendingContribution> pendingForPlace(Ref ref, String placeId) => [
     if (e.placeId == placeId) e,
 ];
 
+/// The account's ratings and reviews of the point [poiId] waiting in the
+/// outbox, and the deletions of its review there.
+@riverpod
+List<PendingContribution> pendingForPoi(Ref ref, String poiId) => [
+  for (final e in ref.watch(ownOutboxEntriesProvider))
+    if (e.payload['poiId'] == poiId || e.payload[OutboxStore.poiMark] == poiId) e,
+];
+
 /// The progress of each photo being sent, by outbox entry, 0 to 1.
 @riverpod
 Stream<Map<String, double>> uploadProgress(Ref ref) async* {
@@ -272,6 +280,11 @@ class OutboxRunner extends _$OutboxRunner {
     final extras = ref.read(placeExtrasRepositoryProvider);
     switch (e.kind) {
       case ContributionKind.rate || ContributionKind.review || ContributionKind.deleteReview:
+        // A review of a point deleted: its page reads its reviews again.
+        if (e.payload[OutboxStore.poiMark] case final String poiId) {
+          ref.read(sentPoiReviewsProvider.notifier).put(poiId, null);
+          ref.invalidate(pointReviewsProvider(poiId));
+        }
         // The server's answer is the account's review as it now stands: the
         // place shows it at once; the next read brings the rest.
         if (placeId != null) {
@@ -281,6 +294,15 @@ class OutboxRunner extends _$OutboxRunner {
               if (ref.mounted) ref.invalidate(placeExtrasProvider(placeId));
             }),
           );
+        }
+      case ContributionKind.ratePoi || ContributionKind.reviewPoi:
+        // The server's answer is the account's review as it now stands: the
+        // point shows it at once (the entry leaves the outbox now, the old
+        // review would show again meanwhile); the next read brings the rest.
+        if (e.payload['poiId'] case final String poiId) {
+          final review = sent.result is Review ? sent.result! as Review : null;
+          ref.read(sentPoiReviewsProvider.notifier).put(poiId, review);
+          ref.invalidate(pointReviewsProvider(poiId));
         }
       case ContributionKind.photo || ContributionKind.deletePhoto:
         if (placeId != null) {
