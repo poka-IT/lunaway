@@ -789,6 +789,7 @@ backend, 2026-10-06:
 | `ingest laposte --refresh` | 62 s | 627 MiB | 1 GiB soft, 1.5 GiB |
 | `ingest finess --refresh` | 16 s | 64 MiB | 768 MiB soft, 1 GiB |
 | `ingest overture --country FR --country MC` (the maintainer's Mac, 2026-10-10) | 4 min 52 s, one file of 621 MB downloaded; 2 min 58 s again, nothing new | 213 MiB | 768 MiB soft, 1 GiB |
+| `lunaway-ingest-overture.service`, every country (the backend, 2026-10-10, France already in) | 1 h 13 min 17 s: 3 files downloaded in 2 min 25 s (the cache 4.4 GB in all), 7 files read, 859,301 establishments written (953,601 from Overture in all, Morocco 2,384); `pois` from 8.2 to 9.8 GB, `poi_search` from 6.27 to 7.13 million rows; the time goes to PostgreSQL's twin search, one statement at a time | 770 MiB | 768 MiB soft, 1 GiB |
 
 The places import reads the extract with the same reader and peaked at
 2.5 GiB with its page cache the same day; its cap went from 2 to 3 GiB.
@@ -2734,8 +2735,10 @@ serving meanwhile.
   takes 20.4 GB unpacked and 8.3 GB to download; two graphs, a download and
   the graph being unpacked take about 70 GB at the peak of a refresh, of the
   root disk's 150 GB, which also holds the database since 2026-10-10 (21
-  GB): 60% of the disk used after the move, about 78% at the peak of a
-  refresh (computed) until the disk grows to 320 GB with cx53 ("Sizing").
+  GB, 22 GB after that day's Overture import): 62% of the disk used then,
+  about 81% at the peak of a refresh (computed as `df` counts it), so the
+  root disk check may turn red while a graph installs, until the disk
+  grows to 320 GB with cx53 ("Sizing").
   The refresh stops before downloading when the root
   disk has less free than 3.5 times the parts' 2 GiB plus 20 GB (55 GB for
   five parts; 15 of them for PostgreSQL since it shares the disk, its
