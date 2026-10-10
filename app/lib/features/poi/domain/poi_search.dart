@@ -79,14 +79,16 @@ const _linkWords = {
 /// near here: the nearest to [from] first. The server ranks them from the
 /// map's centre on its grid of 0.05 degree, which a list giving each
 /// point's distance from the user would show out of order ("1,5 km",
-/// "660 m", "1,8 km"). Otherwise the server's order: a name's better
-/// matches first, a kind around a town from the town.
+/// "660 m", "1,8 km"). [from] is the user when the map shows them, null
+/// otherwise. Else the server's order: a name's better matches first, a
+/// kind around a town from the town, a kind from the map's centre.
 List<Poi> shownOrder(PoiResults results, LatLng? from) {
   if (results.match != PoiMatch.kind || results.town != null || from == null) {
     return results.pois;
   }
-  final ranked = [for (final p in results.pois) (p, p.position.distanceTo(from))]
-    ..sort((a, b) => a.$2.compareTo(b.$2));
+  final ranked = [for (final p in results.pois) (p, p.position.distanceTo(from))];
+  // Stable: two at one address keep the server's order between them.
+  mergeSort(ranked, compare: (a, b) => a.$2.compareTo(b.$2));
   return [for (final (p, _) in ranked) p];
 }
 

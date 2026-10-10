@@ -24,6 +24,7 @@ class PoiSearchSection extends ConsumerStatefulWidget {
     required this.results,
     required this.onTap,
     this.from,
+    this.orderFrom,
     super.key,
   });
 
@@ -32,6 +33,10 @@ class PoiSearchSection extends ConsumerStatefulWidget {
 
   /// The user's position, for the distances, computed here.
   final LatLng? from;
+
+  /// Where a kind sought near here is listed from ([shownOrder]): the user
+  /// when the map shows them; null for the server's order.
+  final LatLng? orderFrom;
   final ValueChanged<Poi> onTap;
 
   @override
@@ -82,7 +87,7 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SearchHeader(poiSearchTitle(t, results, _shownQuery)),
-        for (final poi in shownOrder(results, from))
+        for (final poi in shownOrder(results, widget.orderFrom))
           ListTile(
             leading: PoiAvatar(
               kind: poi.kind,

@@ -293,11 +293,16 @@ class _ResultsState extends ConsumerState<_Results> {
       onTap: widget.onAddress,
     );
     // The same: it keeps its list as it moves above the towns or below.
+    // A kind sought near here is listed from the user when the map shows
+    // them, as the list beside the map; from elsewhere on the map, in the
+    // server's order, from the map's centre.
+    final bounds = ref.read(viewportProvider)?.bounds;
     final poiSection = PoiSearchSection(
       key: const ValueKey('pois'),
       query: query,
       results: online,
       from: user,
+      orderFrom: user != null && (bounds?.contains(user) ?? false) ? user : null,
       onTap: widget.onPoi,
     );
     // The screen's own insets: the shell's Scaffold removes the keyboard from
