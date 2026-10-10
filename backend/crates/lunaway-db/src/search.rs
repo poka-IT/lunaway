@@ -422,22 +422,33 @@ impl Ask<'_> {
                  ORDER BY geom <-> (SELECT focus FROM q)
                  LIMIT $10)
             ),
-            -- The ranking keys of each candidate but its town's, with its
-            -- town: what the next steps read, without the heavy columns.
-            -- `whole`: whether it holds the words naming a place as whole
-            -- words, in its name or its town; the costlier tests of the town
-            -- and the name run only for those. `town_words`: whether the
-            -- text of its town, after its name in `search_text`, holds them.
-            found AS (
-                SELECT id, municipality, city,
-                       whole AND substr(search_text, coalesce(length(name), 0) + 1)
-                                 LIKE ALL($15::text[]) AS town_words,
+            -- `whole`: whether a candidate holds the words naming a place as
+            -- whole words, in its name or its town; the costlier tests of
+            -- the town and the name run only for those.
+            best AS (
+                SELECT id,
                        CASE WHEN $9 = 'kind' THEN 0
                             WHEN search_vector @@ (SELECT phrase FROM q) THEN 4
                             WHEN search_vector @@ (SELECT typed FROM q) THEN 3
                             WHEN search_vector @@ (SELECT every FROM q) THEN 2
                             ELSE 1
                        END AS tier,
+                       -- The text of its town follows its name in
+                       -- `search_text`: a town is folded only when that
+                       -- text holds the words and its length fits, so the
+                       -- many candidates a word being typed finds ("cha")
+                       -- fold none.
+                       (CASE WHEN NOT whole THEN false
+                             WHEN NOT substr(search_text, coalesce(length(name), 0) + 1)
+                                      LIKE ALL($15::text[])
+                                 THEN false
+                             ELSE (length(municipality) BETWEEN (SELECT town_shortest FROM q)
+                                                            AND (SELECT town_longest FROM q)
+                                   AND lunaway_town_fold(municipality) = ANY($13::text[]))
+                                  OR (length(city) BETWEEN (SELECT town_shortest FROM q)
+                                                       AND (SELECT town_longest FROM q)
+                                      AND lunaway_town_fold(city) = ANY($13::text[]))
+                        END) IS TRUE AS in_town,
                        kind = ANY($8) AS kind_match,
                        -- The folded name starts `search_text`, its town
                        -- follows. A name that lacks a word stops at the
@@ -463,28 +474,6 @@ impl Ask<'_> {
                        length(search_text) AS length
                 FROM (SELECT c.*, (search_vector @@ (SELECT naming FROM q)) IS TRUE AS whole
                       FROM candidates c) c
-            ),
-            -- The towns the text names whole, each town of a fitting length
-            -- folded once (the places of a town share its name), kept apart
-            -- so that the planner does not fold every candidate's.
-            towns AS MATERIALIZED (
-                SELECT municipality AS t FROM found
-                WHERE town_words AND length(municipality) BETWEEN (SELECT town_shortest FROM q)
-                                                              AND (SELECT town_longest FROM q)
-                UNION
-                SELECT city FROM found
-                WHERE town_words AND length(city) BETWEEN (SELECT town_shortest FROM q)
-                                                      AND (SELECT town_longest FROM q)
-            ),
-            named_towns AS (
-                SELECT t FROM towns WHERE lunaway_town_fold(t) = ANY($13::text[])
-            ),
-            best AS (
-                SELECT id, tier,
-                       town_words AND (municipality IN (SELECT t FROM named_towns)
-                                       OR city IN (SELECT t FROM named_towns)) IS TRUE AS in_town,
-                       kind_match, named, distance, length
-                FROM found
                 ORDER BY tier DESC, in_town DESC, kind_match DESC, named DESC, distance, length, id
                 LIMIT $12
             )
