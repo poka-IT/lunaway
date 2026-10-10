@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/fakes.dart';
@@ -130,7 +131,11 @@ void main() {
           findsOneWidget,
         );
         expect(find.text("Itinéraire jusqu'ici"), findsOneWidget);
-        expect(find.text("Partir d'ici"), findsOneWidget);
+        expect(
+          find.descendant(of: details, matching: find.byTooltip("Plus d'actions")),
+          findsOneWidget,
+          reason: '"Partir d\'ici" behind it',
+        );
         expect(_inBar('Copier'), findsOneWidget);
       });
     });
@@ -257,8 +262,11 @@ void main() {
     expect(selection, isA<PoiSelection>());
     expect((selection! as PoiSelection).feature.id, bakery.id);
     expect(find.text('Dans vos favoris'), findsOneWidget);
-    // As any saved point, a place to set out from.
-    await tester.ensureVisible(find.text("Partir d'ici"));
+    // A place to set out from, behind "…" as on every card.
+    await tester.tap(
+      find.descendant(of: find.byType(PoiDetails), matching: find.byTooltip("Plus d'actions")),
+    );
+    await settleShort(tester);
     await tester.tap(find.text("Partir d'ici"));
     await settleShort(tester);
     final start = app.container(tester).read(chosenDepartureProvider);

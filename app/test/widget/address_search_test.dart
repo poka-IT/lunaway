@@ -169,6 +169,9 @@ void main() {
       );
 
       await tester.ensureVisible(find.text('Les lieux autour'));
+      // The scroll lands at the next frame: the button is tapped where it
+      // stands then, clear of the bar of actions.
+      await tester.pump();
       await tester.tap(find.text('Les lieux autour'));
       await settleShort(tester);
       expect(app.map.moves.last, (

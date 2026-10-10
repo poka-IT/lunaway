@@ -309,18 +309,15 @@ void main() {
           final (app, browser) = await _pump(tester, size, web: web);
           await _search(tester, 'Régiment');
           await _pick(tester, _address.name);
-          final start = find.text(t.map.startHere);
-          // Built once the card is scrolled to it, on a phone's sheet.
-          await tester.scrollUntilVisible(
-            start,
-            120,
-            scrollable: find
-                .descendant(of: find.byType(PointDetails), matching: find.byType(Scrollable))
-                .first,
+          // Behind "…" in the card's head, as on every card.
+          await tester.tap(
+            find.descendant(
+              of: find.byType(PointDetails),
+              matching: find.byTooltip(t.contribute.more),
+            ),
           );
-          await Scrollable.ensureVisible(tester.element(start), alignment: 0.3);
           await settleShort(tester);
-          await tester.tap(start);
+          await tester.tap(find.text(t.map.startHere));
           await settleShort(tester);
           await _search(tester, 'Aire du Lac');
           await _pick(tester, lakeArea.name!);
