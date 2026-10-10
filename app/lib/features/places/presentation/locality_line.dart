@@ -60,19 +60,16 @@ String? localityLine(Translations t, Locality? locality, {required String home})
 /// user's own ([home]): "Commune · 67433 · Allemagne".
 String townWhere(Translations t, Municipality town, {required String home}) {
   final country = town.countryCode;
-  final french = country == null || country == 'FR';
+  final french = country == null || frenchCountries.contains(country);
   final department = french
       ? frenchDepartments[town.department ?? departmentOfPostcode(town.postcode)]
       : null;
   return [
     t.search.addressKind.town,
     department ?? town.postcode,
-    if (country != null && country != home.toUpperCase()) t.countryName(country),
+    if (country != null &&
+        country != home.toUpperCase() &&
+        !(french && frenchCountries.contains(home.toUpperCase())))
+      t.countryName(country),
   ].nonNulls.join(' · ');
 }
-
-/// France and its overseas departments and collectivities that hold
-/// communes, each with its own ISO 3166-1 code, as the server reads them
-/// (`lunaway_domain::locality`): "Saint-Denis (974)", a department named
-/// by its number.
-const frenchCountries = {'FR', 'GP', 'MQ', 'GF', 'RE', 'YT', 'PM', 'BL', 'MF'};

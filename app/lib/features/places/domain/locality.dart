@@ -15,7 +15,7 @@ final class Locality {
     final country = countryCode?.toUpperCase();
     return Locality(
       town: town,
-      department: country == null || country == 'FR'
+      department: country == null || frenchCountries.contains(country)
           ? departmentOfPostcode(postcode?.trim())
           : null,
       region: region,
@@ -89,6 +89,12 @@ final class Locality {
   @override
   int get hashCode => Object.hash(town, department, region, countryCode);
 }
+
+/// France and its overseas departments and collectivities that hold
+/// communes, each with its own ISO 3166-1 code, as the server reads them
+/// (`lunaway_domain::locality`): "Saint-Denis (974)", a department named
+/// by its number.
+const frenchCountries = {'FR', 'GP', 'MQ', 'GF', 'RE', 'YT', 'PM', 'BL', 'MF'};
 
 /// The arrondissement of Paris (75001 to 75020, 75116), Lyon (69001 to
 /// 69009) or Marseille (13001 to 13016) its [postcode] names in [town];
