@@ -60,7 +60,7 @@ Read on 2026-10-07 against `main` at 93ba876 and the production API
 | Ratings, reviews, photos, "Still there?" for places and for shops and services, problem reports, edits, new places, content reports, mute | `app/lib/features/community/`, `app/lib/features/poi/presentation/poi_details.dart` (`ConfirmPoi`) |
 | Features open by trust level | `app/lib/features/account/domain/account.dart`, `backend/crates/lunaway-domain/src/community/trust.rs` |
 | Account without e-mail, made at the first contribution, recovery card, deletion in the app | `app/lib/features/account/` |
-| Favourite lists, kept with the account once there is one | `app/lib/features/favorites/application/favorites_providers.dart` |
+| Favourite lists of places and of any point of the map (an address, a town, a shop), kept with the account once there is one | `app/lib/features/favorites/application/favorites_providers.dart`, `presentation/point_saving.dart` |
 | Vehicle profile fields | `app/lib/core/database/user_schema.drift` (`vehicles`) |
 | Theme by sunset, light, dark; French and English; phone and tablet layouts | `app/lib/features/profile/presentation/profile_screen.dart`, `app/lib/shared/adaptive_shell.dart` |
 | No ads, no trackers | `tool/allowed_hosts.txt`, `app/pubspec.lock` (no such SDK) |
