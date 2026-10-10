@@ -40,7 +40,8 @@
 #       standard input (typed without echo), never from the command line,
 #       which sudo writes to the journal
 #   sudo lunaway-admin extcom purge-media [--yes]
-#       as the API: the files of the source's retired photos
+#       as the API: the files of the source's retired photos, and of
+#       those made without cutting the band of its mark
 #   sudo lunaway-admin conflate [--full] | --same|--distinct <source:id> <source:id> --note TEXT
 #   sudo lunaway-admin takedowns import < FILE
 #   sudo lunaway-admin takedowns replay [--dry-run] [--allow-empty]
@@ -386,7 +387,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,67p' "$0" >&2
+    sed -n '2,68p' "$0" >&2
     exit 2
     ;;
 esac

@@ -349,6 +349,26 @@ never reads `author_id` (its role has no grant on that column).
   its files named by its row for `purge-media`
   and is served to nobody. Only the agreement the server is configured
   with keeps photo hosts: an import clears those of older references.
+- The source stamps its mark on its photos, a line of white letters near
+  the bottom-right corner; the agreement lets Lunaway leave it out, the
+  source being shown under its contractual mention only. The proxy cuts a
+  band of 68 rows off the bottom of the upright picture, at the size the
+  source sent it, before it makes any file of it
+  (`lunaway_domain::extcom::MARK_BAND_ROWS`, `lunaway_media::Options::cut_bottom`):
+  the stored photo, its thumbnail (the lists, "On the way") and its
+  placeholder come from what is left. Measured on the 296 photos stored
+  in production on 2026-10-10, 665 x 1182 to 1374 x 572: the letters stand
+  51 to 62 rows above the bottom edge and 52 to 176 columns from the right
+  edge in every one, whatever its size or orientation; the band keeps six
+  rows more for the encoder's ringing. A picture less than twice as tall
+  as the band is refused as a failed download. Each row records the band
+  its files were made without (`external_photos.cut_rows`); `purge-media`
+  forgets the files of the live photos made with another one, or before
+  the cut existed, and the proxy makes them again at their next view. A
+  source that moves its mark is caught by the check of
+  `plan/research/101-audit2-donnees.md` (20 photos fetched through the
+  proxy, their mark's place measured), and the band changes with the
+  constant.
 
 ## Switches
 
@@ -359,7 +379,7 @@ For the day the agreement ends or is suspended:
 | `lunaway extcom hide [--note TEXT]` | import | the API stops serving the source's reviews, ratings, photos and its entry in a place's sources at once; the conflation worker, woken, takes its records off every place, and the change feed hands the places so changed to every device. Nothing is deleted. The importer refuses to run while the source is hidden |
 | `lunaway extcom show [--note TEXT]` | import | undoes `hide` |
 | `lunaway extcom purge --yes [--note TEXT]` | import | hides the source, empties and retires all its records, deletes its reviews and ratings, retires its photos (URL and author forgotten), removes the feeds kept in the importer's cache |
-| `lunaway extcom purge-media --yes` | API, as the API's user | removes the files of the retired photos no other photo uses, then their rows |
+| `lunaway extcom purge-media --yes` | API, as the API's user | removes the files of the retired photos no other photo uses, then their rows; then forgets the files of the live photos made without cutting the source's band (their rows emptied first, then the files no row names removed), which the proxy makes again at their next view |
 | `lunaway extcom status` | import | the switch and the counts |
 
 The switch is a row of `source_switches`, read by the API on every request

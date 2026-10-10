@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM external_photos\n        -- `path IS NOT NULL` (the files are made) reads the partial index\n        -- of the paths, the photos ever viewed, not the whole table.\n        WHERE source_id = $1 AND path IS NOT NULL AND retired_at IS NULL\n          AND cut_rows IS DISTINCT FROM $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fe9978eba95e130849e3737ac9274bad4f516e5c1dd84b7444d26f21aaff30f9"
+}

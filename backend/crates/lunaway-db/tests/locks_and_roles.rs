@@ -1120,6 +1120,41 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
         "the API cannot read the partner's author ids",
     );
 
+    // Files made before the proxy cut the source's band: the API's role
+    // forgets them (purge-media), and the photo is downloaded again.
+    let old_path = format!("photos/12/34/1234{}.webp", "0".repeat(60));
+    let old_thumb = format!("photos/56/78/5678{}.webp", "0".repeat(60));
+    let made = extcom::photo_processed(
+        &app,
+        photo,
+        extcom::ProcessedPhoto {
+            path: &old_path,
+            thumb_path: &old_thumb,
+            size: (10, 10),
+            thumb_size: (10, 10),
+            thumbhash: &[1, 2, 3],
+            cut_rows: 0,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(made, extcom::Recorded::Live);
+    assert_eq!(extcom::uncut_photos(&app, &source, 68).await.unwrap(), 1);
+    let forgotten = extcom::forget_uncut_photos(&app, &source, 68, 10)
+        .await
+        .unwrap();
+    assert_eq!(forgotten.photos, 1);
+    assert_eq!(forgotten.unshared_files, [old_path, old_thumb]);
+    let again = extcom::photo_for_proxy(&app, photo, today)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (again.path, again.thumb_path),
+        (None, None),
+        "the proxy downloads the photo again"
+    );
+
     // The author is erased while the proxy downloads their photo: the
     // files it then records stay named by the retired row, for
     // purge-media, and are served to nobody.
@@ -1138,6 +1173,7 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
             size: (10, 10),
             thumb_size: (10, 10),
             thumbhash: &[1, 2, 3],
+            cut_rows: 68,
         },
     )
     .await

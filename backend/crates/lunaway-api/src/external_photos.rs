@@ -9,6 +9,12 @@
 //! address; the answer is then a redirect to the stored file, and the
 //! photo's URLs in the API name that file from then on.
 //!
+//! The source stamps its mark in a band at the bottom of its photos: that
+//! band is cut off the picture before any file is made of it
+//! (`lunaway_domain::extcom::mark_band_rows`), so neither the stored photo
+//! nor its thumbnail nor its placeholder shows it, and the row records the
+//! cut (`docs/feeds.md`, "Photos").
+//!
 //! The URL comes from a feed, which is untrusted: it must be an `https`
 //! URL on a host the source's agreement in force lists, and so must every
 //! redirect; the host must resolve to public addresses only (no loopback,
@@ -37,8 +43,8 @@ use axum::{
 };
 use chrono::Utc;
 use lunaway_db::{PgPool, extcom};
-use lunaway_domain::extcom::photo_url_allowed;
-use lunaway_media::{Limits as MediaLimits, MediaStore};
+use lunaway_domain::extcom::{mark_band_rows, photo_url_allowed};
+use lunaway_media::{Limits as MediaLimits, MediaStore, Options as MediaOptions};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
 
@@ -535,9 +541,14 @@ pub(crate) async fn photo(
         max_alloc: 256 * 1024 * 1024,
         ..MediaLimits::default()
     };
+    let cut_rows = mark_band_rows(&photo.source_id);
+    let options = MediaOptions {
+        cut_bottom: cut_rows,
+        ..MediaOptions::default()
+    };
     let processed = tokio::task::spawn_blocking(move || {
         let _worker = worker;
-        lunaway_media::process(&bytes, &limits)
+        lunaway_media::process_with(&bytes, &limits, &options)
     })
     .await;
     let processed = match processed {
@@ -566,6 +577,7 @@ pub(crate) async fn photo(
             size: (size(processed.full.width), size(processed.full.height)),
             thumb_size: (size(processed.thumb.width), size(processed.thumb.height)),
             thumbhash: &processed.thumbhash,
+            cut_rows,
         },
     )
     .await;

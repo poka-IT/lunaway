@@ -1128,6 +1128,9 @@ pub async fn photos_of_place(
 pub struct ProxyPhoto {
     /// Its id.
     pub id: Uuid,
+    /// Its source: what the proxy cuts off its pictures depends on it
+    /// (`lunaway_domain::extcom::mark_band_rows`).
+    pub source_id: String,
     /// Where to download it.
     pub url: String,
     /// The stored photo, when made.
@@ -1157,7 +1160,8 @@ pub async fn photo_for_proxy(
     Ok(sqlx::query_as!(
         ProxyPhoto,
         r#"
-        SELECT e.id, e.url AS "url!", e.path, e.thumb_path, e.attempts, e.retry_after,
+        SELECT e.id, e.source_id, e.url AS "url!", e.path, e.thumb_path, e.attempts,
+               e.retry_after,
                coalesce((
                    SELECT array_agg(DISTINCT h ORDER BY h)
                    FROM source_agreements g, unnest(g.photo_hosts) AS h
@@ -1194,6 +1198,9 @@ pub struct ProcessedPhoto<'a> {
     pub thumb_size: (i32, i32),
     /// Its ThumbHash.
     pub thumbhash: &'a [u8],
+    /// The rows cut off the bottom of the picture before the files were
+    /// made: the band its source stamps its mark in, 0 for none.
+    pub cut_rows: u16,
 }
 
 /// What recording a photo's files found.
@@ -1225,8 +1232,8 @@ pub async fn photo_processed(
     let row = sqlx::query_scalar!(
         r#"
         UPDATE external_photos SET path = $2, thumb_path = $3, width = $4, height = $5,
-               thumb_width = $6, thumb_height = $7, thumbhash = $8, processed_at = now(),
-               retry_after = NULL
+               thumb_width = $6, thumb_height = $7, thumbhash = $8, cut_rows = $9,
+               processed_at = now(), retry_after = NULL
         WHERE id = $1 AND processed_at IS NULL
         RETURNING retired_at IS NOT NULL AS "retired!"
         "#,
@@ -1238,6 +1245,10 @@ pub async fn photo_processed(
         p.thumb_size.0,
         p.thumb_size.1,
         p.thumbhash,
+        // A band is a few dozen rows (`MARK_BAND_ROWS`); one past the
+        // column's range would be recorded as its largest value, which
+        // matches no source's band: the files would be made again.
+        i16::try_from(p.cut_rows).unwrap_or(i16::MAX),
     )
     .fetch_optional(pool)
     .await?;
@@ -1270,6 +1281,111 @@ pub async fn photo_failed(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// How many live photos of `source` have files made with another cut than
+/// `band` (`lunaway_domain::extcom::mark_band_rows`), those made before the
+/// proxy cut anything included: what [`forget_uncut_photos`] would forget.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn uncut_photos(pool: &PgPool, source: &SourceId, band: u16) -> Result<i64, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"
+        SELECT count(*) AS "n!" FROM external_photos
+        -- `path IS NOT NULL` (the files are made) reads the partial index
+        -- of the paths, the photos ever viewed, not the whole table.
+        WHERE source_id = $1 AND path IS NOT NULL AND retired_at IS NULL
+          AND cut_rows IS DISTINCT FROM $2
+        "#,
+        source.as_str(),
+        i16::try_from(band).unwrap_or(i16::MAX),
+    )
+    .fetch_one(pool)
+    .await?)
+}
+
+/// What [`forget_uncut_photos`] did.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UncutPhotos {
+    /// Live photos whose files were forgotten: the proxy makes them again
+    /// at their next view.
+    pub photos: u64,
+    /// Their files no photo row names any more, the caller's to remove
+    /// once this returned (the rows no longer point at them). A file still
+    /// named elsewhere (content-addressed, the same picture under another
+    /// id, a retired row waiting for its own purge) stays.
+    pub unshared_files: Vec<String>,
+}
+
+/// Forgets the files of up to `limit` live photos of `source` made with
+/// another cut than `band`: the photos made before the proxy cut the band
+/// a source stamps its mark in (`lunaway_domain::extcom::mark_band_rows`),
+/// or with a band since changed. Each row loses its files, sizes, hash and
+/// failures, and goes back to "not downloaded": the next device that asks
+/// for it has the proxy download it and make it again, cut. The ids do not
+/// change, so a report or a hide of the photo still holds. With the API's
+/// role, which made the files.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails; nothing is changed then.
+pub async fn forget_uncut_photos(
+    pool: &PgPool,
+    source: &SourceId,
+    band: u16,
+    limit: i64,
+) -> Result<UncutPhotos, DbError> {
+    let mut tx = pool.begin().await?;
+    let forgotten = sqlx::query!(
+        r#"
+        WITH uncut AS (
+            SELECT id, path, thumb_path FROM external_photos
+            WHERE source_id = $1 AND path IS NOT NULL AND retired_at IS NULL
+              AND cut_rows IS DISTINCT FROM $2
+            ORDER BY id
+            LIMIT $3
+            FOR UPDATE
+        )
+        UPDATE external_photos e
+        SET path = NULL, thumb_path = NULL, width = NULL, height = NULL, thumb_width = NULL,
+            thumb_height = NULL, thumbhash = NULL, processed_at = NULL, cut_rows = NULL,
+            attempts = 0, retry_after = NULL
+        FROM uncut u
+        WHERE e.id = u.id
+        RETURNING u.path AS "path!", u.thumb_path
+        "#,
+        source.as_str(),
+        i16::try_from(band).unwrap_or(i16::MAX),
+        limit,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    let mut files: Vec<String> = forgotten
+        .iter()
+        .flat_map(|r| std::iter::once(r.path.clone()).chain(r.thumb_path.clone()))
+        .collect();
+    files.sort_unstable();
+    files.dedup();
+    // Read in the same transaction, after the rows above let go of them.
+    let unshared_files = sqlx::query_scalar!(
+        r#"
+        SELECT f AS "f!" FROM unnest($1::text[]) AS f
+        WHERE NOT EXISTS (
+                  SELECT 1 FROM external_photos o WHERE o.path = f OR o.thumb_path = f)
+          AND NOT EXISTS (SELECT 1 FROM photos p WHERE p.path = f OR p.thumb_path = f)
+        ORDER BY f
+        "#,
+        &files,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(UncutPhotos {
+        photos: u64::try_from(forgotten.len()).unwrap_or(u64::MAX),
+        unshared_files,
+    })
 }
 
 /// A retired photo and its files.
