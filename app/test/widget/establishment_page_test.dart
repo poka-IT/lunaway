@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -222,6 +224,32 @@ void main() {
         Uri.parse('https://commons.wikimedia.org/wiki/File:Galerie.jpg'),
       );
     });
+  });
+
+  testWidgets('an establishment found by the search is saved from its page, with its kind', (
+    tester,
+  ) async {
+    final hotel = _establishment('030', 'HOTEL', name: 'Hôtel du Lac');
+    final online = FakeOnlinePlaces(samplePlaces)..pois.add(hotel);
+    final app = await pumpLunaway(
+      tester,
+      size: tablet,
+      online: online,
+      pois: FakePoiSource(pois: [hotel]),
+    );
+    await tester.enterText(find.byType(TextField).first, 'Hôtel du Lac');
+    await settleShort(tester);
+    await tester.tap(find.widgetWithText(ListTile, 'Hôtel du Lac'));
+    await settleShort(tester);
+    await tester.tap(
+      find.descendant(of: find.byType(PointActionBar), matching: find.text(t.place.save)),
+    );
+    await settleShort(tester);
+    final saved = app.favorites.points.single.point;
+    expect(
+      (saved.kind, saved.name, saved.poiId, saved.poiKind),
+      (SavedPointKind.poi, 'Hôtel du Lac', hotel['id'], PoiKind.hotel),
+    );
   });
 
   group('the reviews of an establishment', () {
