@@ -3511,9 +3511,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
-			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
@@ -4025,9 +4025,9 @@ extension on TranslationsNl {
 			'account.lost' => 'Dit account gaat niet meer open op dit apparaat. Herstel het met je herstelkaart: Profiel, Mijn account herstellen.',
 			'account.lostAction' => 'Herstellen',
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
-			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
@@ -4539,9 +4539,9 @@ extension on TranslationsNl {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} van dit apparaat verwijderen?',
 			'offlineMaps.deleteBody' => 'Deze regio is dan niet meer zonder internet te zien. Je kunt hem opnieuw downloaden.',
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
-			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
