@@ -376,7 +376,7 @@ class _Translations$location$it extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Mostrare la tua posizione?';
-	@override String get rationale => 'Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.';
+	@override String get rationale => 'Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni e l\'ordine dell\'elenco accanto alla mappa viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.';
 	@override String get allow => 'Continua';
 	@override String get notNow => 'Non ora';
 	@override String get deniedTitle => 'Posizione disattivata per Lunaway';
@@ -3492,7 +3492,7 @@ extension on TranslationsIt {
 			'sync.resuming' => ({required Object count}) => 'Download in corso: ${count} luoghi',
 			'sync.resume' => 'Riprendi',
 			'location.rationaleTitle' => 'Mostrare la tua posizione?',
-			'location.rationale' => 'Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.',
+			'location.rationale' => 'Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni e l\'ordine dell\'elenco accanto alla mappa viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.',
 			'location.allow' => 'Continua',
 			'location.notNow' => 'Non ora',
 			'location.deniedTitle' => 'Posizione disattivata per Lunaway',

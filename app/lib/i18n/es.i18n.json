@@ -191,7 +191,7 @@
   },
   "location": {
     "rationaleTitle": "¿Mostrar tu ubicación?",
-    "rationale": "Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.",
+    "rationale": "Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti y ordenar la lista junto al mapa, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.",
     "allow": "Continuar",
     "notNow": "Ahora no",
     "deniedTitle": "Ubicación desactivada para Lunaway",

@@ -376,7 +376,7 @@ class _Translations$location$es extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => '¿Mostrar tu ubicación?';
-	@override String get rationale => 'Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.';
+	@override String get rationale => 'Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti y ordenar la lista junto al mapa, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.';
 	@override String get allow => 'Continuar';
 	@override String get notNow => 'Ahora no';
 	@override String get deniedTitle => 'Ubicación desactivada para Lunaway';
@@ -3492,7 +3492,7 @@ extension on TranslationsEs {
 			'sync.resuming' => ({required Object count}) => 'Descargando: ${count} lugares',
 			'sync.resume' => 'Reanudar',
 			'location.rationaleTitle' => '¿Mostrar tu ubicación?',
-			'location.rationale' => 'Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.',
+			'location.rationale' => 'Lunaway la usa para centrar el mapa en ti, ordenar los lugares por distancia y guiarte. Para calcular una ruta, tu ubicación se envía al servidor de Lunaway, que no la guarda. Para buscar el combustible más barato cerca de ti y ordenar la lista junto al mapa, solo se envía una ubicación redondeada a unos 5 km. Si avisas de un problema en la carretera, el aviso incluye el punto donde estás.',
 			'location.allow' => 'Continuar',
 			'location.notNow' => 'Ahora no',
 			'location.deniedTitle' => 'Ubicación desactivada para Lunaway',

@@ -191,7 +191,7 @@
   },
   "location": {
     "rationaleTitle": "Mostrare la tua posizione?",
-    "rationale": "Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.",
+    "rationale": "Lunaway la usa per centrare la mappa su di te, ordinare i luoghi per distanza e guidarti. Per un percorso, la tua posizione viene inviata al server di Lunaway, che non la conserva. Per il carburante più economico nei dintorni e l'ordine dell'elenco accanto alla mappa viene inviata solo una posizione arrotondata a circa 5 km. Una segnalazione stradale viene inviata insieme al punto in cui la fai.",
     "allow": "Continua",
     "notNow": "Non ora",
     "deniedTitle": "Posizione disattivata per Lunaway",

@@ -191,7 +191,7 @@
   },
   "location": {
     "rationaleTitle": "Je positie tonen?",
-    "rationale": "Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.",
+    "rationale": "Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt en de volgorde van de lijst naast de kaart wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.",
     "allow": "Doorgaan",
     "notNow": "Niet nu",
     "deniedTitle": "Positie uitgeschakeld voor Lunaway",

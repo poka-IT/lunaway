@@ -376,7 +376,7 @@ class _Translations$location$nl extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Je positie tonen?';
-	@override String get rationale => 'Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.';
+	@override String get rationale => 'Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt en de volgorde van de lijst naast de kaart wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.';
 	@override String get allow => 'Doorgaan';
 	@override String get notNow => 'Niet nu';
 	@override String get deniedTitle => 'Positie uitgeschakeld voor Lunaway';
@@ -3492,7 +3492,7 @@ extension on TranslationsNl {
 			'sync.resuming' => ({required Object count}) => 'Bezig met downloaden: ${count} plekken',
 			'sync.resume' => 'Hervatten',
 			'location.rationaleTitle' => 'Je positie tonen?',
-			'location.rationale' => 'Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.',
+			'location.rationale' => 'Lunaway gebruikt je positie om de kaart op jou te centreren, plekken op afstand te sorteren en je de weg te wijzen. Voor een route gaat je positie naar de server van Lunaway, die hem niet bewaart. Voor de goedkoopste brandstof bij jou in de buurt en de volgorde van de lijst naast de kaart wordt alleen een positie verstuurd die is afgerond op ongeveer 5 km. Als je een probleem op de weg meldt, wordt de plek van de melding meegestuurd.',
 			'location.allow' => 'Doorgaan',
 			'location.notNow' => 'Niet nu',
 			'location.deniedTitle' => 'Positie uitgeschakeld voor Lunaway',

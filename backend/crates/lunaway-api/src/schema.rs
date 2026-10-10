@@ -685,11 +685,13 @@ impl QueryRoot {
 
     /// The places of a viewport (500 per page at most), for the web or a
     /// device that has not synced yet. Without `near`, by id, the viewport
-    /// 25 square degrees at most. With `near` (the map's centre, never the
-    /// device's position), nearest first, any viewport; `near` is rounded by
-    /// the server to 0.01 degree (about 1 km) before any use, and the cursor
-    /// of a page continues the same order. `filter` keeps the same places
-    /// as the map's filter on the places' tiles (`GET /places/tiles.json`).
+    /// 25 square degrees at most. With `near` (the point the list ranks
+    /// from: the device's position when the map shows it, else the map's
+    /// centre, which the app snaps to a 0.05 degree grid), nearest first,
+    /// any viewport; `near` is rounded by the server to 0.01 degree (about
+    /// 1 km) before any use, and the cursor of a page continues the same
+    /// order. `filter` keeps the same places as the map's filter on the
+    /// places' tiles (`GET /places/tiles.json`).
     #[graphql(complexity = "cost(first, DEFAULT_PLACES_PAGE, child_complexity)")]
     async fn places(
         &self,

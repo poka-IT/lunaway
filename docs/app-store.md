@@ -132,16 +132,17 @@ Location purpose strings (`app/ios/Runner/Info.plist` and the six
   you and guides you along a route you start, also with the screen off
   while it guides. Your position goes to Lunaway's server to compute a
   route, which keeps nothing of it; rounded to about 5 km, to look for the
-  cheapest fuel around you or, when the map follows you, to rank a search;
-  and when you add a place where you stand or report a problem on the
-  road."
+  cheapest fuel around you, to rank the list of places beside the map or,
+  when the map follows you, to rank a search; and when you add a place
+  where you stand or report a problem on the road."
 - fr : « Lunaway affiche votre position sur la carte, trie les lieux
   autour de vous et vous guide sur l'itinéraire que vous lancez, écran
   éteint compris pendant le guidage. Votre position part vers le serveur
   de Lunaway pour calculer un itinéraire, qui n'en garde rien ; arrondie à
-  environ 5 km, pour chercher le carburant le moins cher autour de vous
-  ou, quand la carte vous suit, classer une recherche ; et quand vous
-  ajoutez un lieu là où vous êtes ou signalez un problème sur la route. »
+  environ 5 km, pour chercher le carburant le moins cher autour de vous,
+  classer la liste des lieux à côté de la carte ou, quand la carte vous
+  suit, classer une recherche ; et quand vous ajoutez un lieu là où vous
+  êtes ou signalez un problème sur la route. »
 - de, es, it, nl: the same sentence in each language, in its
   `InfoPlist.strings`.
 

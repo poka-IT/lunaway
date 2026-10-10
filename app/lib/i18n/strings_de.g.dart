@@ -376,7 +376,7 @@ class _Translations$location$de extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Ihren Standort anzeigen?';
-	@override String get rationale => 'Lunaway nutzt ihn, um die Karte auf Sie zu zentrieren, Plätze nach Entfernung zu sortieren und Sie zu navigieren. Für eine Route wird Ihr Standort an den Server von Lunaway gesendet, der ihn nicht speichert. Für den günstigsten Kraftstoff in Ihrer Umgebung wird nur ein auf etwa 5 km gerundeter Standort gesendet. Eine Straßenmeldung wird mit dem Ort gesendet, an dem Sie sie abgeben.';
+	@override String get rationale => 'Lunaway nutzt ihn, um die Karte auf Sie zu zentrieren, Plätze nach Entfernung zu sortieren und Sie zu navigieren. Für eine Route wird Ihr Standort an den Server von Lunaway gesendet, der ihn nicht speichert. Für den günstigsten Kraftstoff in Ihrer Umgebung und die Reihenfolge der Liste neben der Karte wird nur ein auf etwa 5 km gerundeter Standort gesendet. Eine Straßenmeldung wird mit dem Ort gesendet, an dem Sie sie abgeben.';
 	@override String get allow => 'Weiter';
 	@override String get notNow => 'Nicht jetzt';
 	@override String get deniedTitle => 'Standort für Lunaway ausgeschaltet';
@@ -3492,7 +3492,7 @@ extension on TranslationsDe {
 			'sync.resuming' => ({required Object count}) => 'Download läuft: ${count} Plätze',
 			'sync.resume' => 'Fortsetzen',
 			'location.rationaleTitle' => 'Ihren Standort anzeigen?',
-			'location.rationale' => 'Lunaway nutzt ihn, um die Karte auf Sie zu zentrieren, Plätze nach Entfernung zu sortieren und Sie zu navigieren. Für eine Route wird Ihr Standort an den Server von Lunaway gesendet, der ihn nicht speichert. Für den günstigsten Kraftstoff in Ihrer Umgebung wird nur ein auf etwa 5 km gerundeter Standort gesendet. Eine Straßenmeldung wird mit dem Ort gesendet, an dem Sie sie abgeben.',
+			'location.rationale' => 'Lunaway nutzt ihn, um die Karte auf Sie zu zentrieren, Plätze nach Entfernung zu sortieren und Sie zu navigieren. Für eine Route wird Ihr Standort an den Server von Lunaway gesendet, der ihn nicht speichert. Für den günstigsten Kraftstoff in Ihrer Umgebung und die Reihenfolge der Liste neben der Karte wird nur ein auf etwa 5 km gerundeter Standort gesendet. Eine Straßenmeldung wird mit dem Ort gesendet, an dem Sie sie abgeben.',
 			'location.allow' => 'Weiter',
 			'location.notNow' => 'Nicht jetzt',
 			'location.deniedTitle' => 'Standort für Lunaway ausgeschaltet',

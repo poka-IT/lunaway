@@ -99,8 +99,9 @@ impl Position {
     }
 
     /// The nearest node of the [`LIST_GRID_DEG`] grid: what the API keeps of
-    /// the point a list of places is sorted around (the map's centre), so no
-    /// finer position is ever used, whatever the client sent.
+    /// the point a list of places is sorted around (the device's position or
+    /// the map's centre), so no finer position is ever used, whatever the
+    /// client sent.
     #[must_use]
     pub fn on_list_grid(self) -> Self {
         self.snapped(LIST_STEPS_PER_DEG)

@@ -191,7 +191,7 @@
   },
   "location": {
     "rationaleTitle": "Show your position?",
-    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For the cheapest fuel around you, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.",
+    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For the cheapest fuel around you and the order of the list beside the map, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.",
     "allow": "Continue",
     "notNow": "Not now",
     "deniedTitle": "Position turned off for Lunaway",
