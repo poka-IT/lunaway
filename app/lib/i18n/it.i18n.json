@@ -885,6 +885,16 @@
       "notificationText": "La navigazione continua anche a schermo spento.",
       "notificationChannel": "Navigazione",
       "unavailable": "Non è stato possibile avviare la navigazione su questo dispositivo.",
+      "startup": {
+        "preparing": "Preparazione della navigazione",
+        "route": "Percorso caricato",
+        "voiceWaiting": "Voce in preparazione",
+        "voiceReady": "Voce pronta",
+        "noVoice": "Senza voce",
+        "positionWaiting": "Ricerca della tua posizione",
+        "positionReady": "Posizione trovata",
+        "failed": "La navigazione non è riuscita a preparare tutto su questo dispositivo."
+      },
       "notificationWhy": {
         "title": "Notifica di navigazione",
         "body": "Durante la navigazione, una notifica mantiene attive la posizione e la voce a schermo spento; toccandola torni alla navigazione. Android ti chiederà se Lunaway può mostrarla.",

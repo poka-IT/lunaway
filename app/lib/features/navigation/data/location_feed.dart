@@ -33,6 +33,11 @@ abstract interface class LocationFeed {
   /// The position now; null when none came in time.
   Future<Fix?> current();
 
+  /// The last position the device knew, with when it was taken, without
+  /// asking the receiver: null when it knows none, or cannot tell (a
+  /// browser).
+  Future<Fix?> lastKnown();
+
   /// Fixes while guiding, until the subscription is cancelled.
   Stream<Fix> guidance(BackgroundNotice notice);
 }
@@ -73,6 +78,19 @@ final class GeolocatorFeed implements LocationFeed {
       return _fix(p);
     } on Object catch (e) {
       _log.info('no position: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<Fix?> lastKnown() async {
+    if (kIsWeb) return null;
+    try {
+      // On Android the platform's LocationManager, as every request here.
+      final p = await GeolocatorPlatform.instance.getLastKnownPosition(forceLocationManager: true);
+      return p == null ? null : _fix(p);
+    } on Object catch (e) {
+      _log.info('no last position: $e');
       return null;
     }
   }

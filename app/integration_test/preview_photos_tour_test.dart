@@ -54,6 +54,9 @@ const _vehicle = Vehicle(
 /// The device at the start; the preview asks for nothing more.
 final class _Feed implements LocationFeed {
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async =>
       Fix(position: _start, accuracyM: 5, at: DateTime.now().toUtc(), speedMps: 0);
 

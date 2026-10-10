@@ -74,6 +74,11 @@ final class VoiceQueue {
   /// Whether a voice of the guidance's language is ready; without one, an
   /// alert is the chime alone.
   bool ready = false;
+
+  /// The voice is being picked: the sentences wait in turn, each as long
+  /// as its kind allows, rather than being said without a voice
+  /// ([settle]).
+  bool preparing = false;
   bool _closed = false;
   final Set<String> _keys = {};
   final List<_Speech> _waiting = [];
@@ -124,6 +129,14 @@ final class VoiceQueue {
     _next();
   }
 
+  /// The voice is picked, [ready] or not: the sentences that waited for it
+  /// go on.
+  void settle({required bool ready}) {
+    this.ready = ready;
+    preparing = false;
+    _next();
+  }
+
   /// The end of the guidance: the sentence being said stops, the others
   /// are forgotten, nothing more is said.
   void close() {
@@ -140,7 +153,7 @@ final class VoiceQueue {
   };
 
   void _next() {
-    if (_closed || _playing != null) return;
+    if (_closed || _playing != null || preparing) return;
     final now = _now();
     _waiting.removeWhere((s) => now.difference(s.at) > s.kind.maxWait);
     while (_waiting.isNotEmpty) {

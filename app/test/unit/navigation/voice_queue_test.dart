@@ -380,4 +380,47 @@ void main() {
       });
     });
   });
+
+  group('while the voice is picked', () {
+    test('the first instruction waits for the voice, then is said', () {
+      fakeAsync((async) {
+        final (queue, voice) = queueOn(async, ready: false);
+        queue
+          ..preparing = true
+          ..say(_turn, kind: SpeechKind.maneuver, key: 'm1');
+        async.elapse(const Duration(seconds: 2));
+        expect(voice.calls, isEmpty, reason: 'neither said without a voice nor dropped');
+        queue.settle(ready: true);
+        async.flushMicrotasks();
+        expect(voice.said, [_turn]);
+      });
+    });
+
+    test('a sentence that waited longer than its kind allows is dropped', () {
+      fakeAsync((async) {
+        final (queue, voice) = queueOn(async, ready: false);
+        queue
+          ..preparing = true
+          ..say(_turn, kind: SpeechKind.maneuver, key: 'm1')
+          ..say(_closure, kind: SpeechKind.alert, key: 'a1');
+        async.elapse(SpeechKind.maneuver.maxWait + const Duration(seconds: 1));
+        queue.settle(ready: true);
+        async.flushMicrotasks();
+        expect(voice.said, [_closure], reason: 'the instruction came too late');
+      });
+    });
+
+    test('without a voice in the end, an alert that waited is its chime', () {
+      fakeAsync((async) {
+        final (queue, voice) = queueOn(async, ready: false);
+        queue
+          ..preparing = true
+          ..say(_closure, kind: SpeechKind.alert, key: 'a1');
+        async.flushMicrotasks();
+        queue.settle(ready: false);
+        async.flushMicrotasks();
+        expect(voice.calls, [(text: '', chime: true)]);
+      });
+    });
+  });
 }

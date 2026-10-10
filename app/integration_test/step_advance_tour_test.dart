@@ -148,6 +148,9 @@ final class _Drive implements LocationFeed {
   }
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async => Fix(position: line.first, accuracyM: 5, at: DateTime.now());
 
   @override

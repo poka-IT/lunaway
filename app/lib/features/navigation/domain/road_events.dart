@@ -1,6 +1,7 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_corridor.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:meta/meta.dart';
 
@@ -396,18 +397,24 @@ final class RoadEventsTracker {
   /// those that stop [vehicle] and that the guidance has not acted on yet
   /// (`blocking`), and those in force worth a word (`alerts`), the closures
   /// acted on among them.
+  ///
+  /// Only the events near [line], the route [track] follows, are handed to
+  /// the engine ([RouteCorridor]).
   ({List<RoadEventFinding> blocking, List<RoadEventFinding> alerts}) check({
     required GuidanceTrack track,
+    required List<LatLng> line,
     required double alongM,
     required VehicleProfile vehicle,
     required DateTime now,
     double secondsPerMetre = 0,
   }) {
-    final candidates = [
+    final corridor = _corridorOf(line);
+    final shapes = [
       for (final e in _events.values)
-        if (_sources[e.source]?.freshAt(now) ?? true) e,
+        if (_sources[e.source]?.freshAt(now) ?? true)
+          for (final s in e.shapes)
+            if (corridor.reaches(s.points)) s,
     ];
-    final shapes = [for (final e in candidates) ...e.shapes];
     if (shapes.isEmpty) return (blocking: const [], alerts: const []);
     final hits = track.eventsAhead(alongM, shapes);
     final blocking = <RoadEventFinding>[];
@@ -439,6 +446,18 @@ final class RoadEventsTracker {
       }
     }
     return (blocking: blocking, alerts: alerts);
+  }
+
+  /// The corridor of the last route checked, kept while the route stays.
+  RouteCorridor? _corridor;
+  List<LatLng>? _corridorLine;
+
+  RouteCorridor _corridorOf(List<LatLng> line) {
+    if (!identical(line, _corridorLine) || _corridor == null) {
+      _corridorLine = line;
+      _corridor = RouteCorridor.of(line);
+    }
+    return _corridor!;
   }
 
   /// Marks [ids] as acted on: a recalculation was asked for them.

@@ -590,8 +590,18 @@ final class FakeLocationPermissions implements LocationPermissions {
   int requests = 0;
   int settingsOpened = 0;
 
+  /// While set, [status] answers once it completes: a system slow to say.
+  Completer<void>? statusGate;
+
+  /// How many times the status was asked.
+  int statusAsked = 0;
+
   @override
-  Future<LocationAccess> status() async => current;
+  Future<LocationAccess> status() async {
+    statusAsked++;
+    await statusGate?.future;
+    return current;
+  }
 
   @override
   Future<LocationAccess> request() async {

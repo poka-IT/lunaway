@@ -2261,6 +2261,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get notificationText => 'De navigatie gaat door als het scherm uitstaat.';
 	@override String get notificationChannel => 'Navigatie';
 	@override String get unavailable => 'De navigatie kon op dit apparaat niet starten.';
+	@override late final _Translations$navigation$guidance$startup$nl startup = _Translations$navigation$guidance$startup$nl._(_root);
 	@override late final _Translations$navigation$guidance$notificationWhy$nl notificationWhy = _Translations$navigation$guidance$notificationWhy$nl._(_root);
 	@override String get positionLost => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.';
@@ -3288,6 +3289,23 @@ class _Translations$navigation$guidance$voiceMode$nl extends Translations$naviga
 	@override String get saysMuted => 'Stem uit: alles staat op het scherm, zonder geluid.';
 }
 
+// Path: navigation.guidance.startup
+class _Translations$navigation$guidance$startup$nl extends Translations$navigation$guidance$startup$en {
+	_Translations$navigation$guidance$startup$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get preparing => 'Navigatie wordt voorbereid';
+	@override String get route => 'Route geladen';
+	@override String get voiceWaiting => 'Stem wordt voorbereid';
+	@override String get voiceReady => 'Stem klaar';
+	@override String get noVoice => 'Geen stem';
+	@override String get positionWaiting => 'Je positie wordt gezocht';
+	@override String get positionReady => 'Positie gevonden';
+	@override String get failed => 'De navigatie kon op dit apparaat niet alles voorbereiden.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$nl extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -4127,6 +4145,14 @@ extension on TranslationsNl {
 			'navigation.guidance.notificationText' => 'De navigatie gaat door als het scherm uitstaat.',
 			'navigation.guidance.notificationChannel' => 'Navigatie',
 			'navigation.guidance.unavailable' => 'De navigatie kon op dit apparaat niet starten.',
+			'navigation.guidance.startup.preparing' => 'Navigatie wordt voorbereid',
+			'navigation.guidance.startup.route' => 'Route geladen',
+			'navigation.guidance.startup.voiceWaiting' => 'Stem wordt voorbereid',
+			'navigation.guidance.startup.voiceReady' => 'Stem klaar',
+			'navigation.guidance.startup.noVoice' => 'Geen stem',
+			'navigation.guidance.startup.positionWaiting' => 'Je positie wordt gezocht',
+			'navigation.guidance.startup.positionReady' => 'Positie gevonden',
+			'navigation.guidance.startup.failed' => 'De navigatie kon op dit apparaat niet alles voorbereiden.',
 			'navigation.guidance.notificationWhy.title' => 'Melding voor de navigatie',
 			'navigation.guidance.notificationWhy.body' => 'Tijdens het navigeren houdt een melding de positie en de stem actief als het scherm uitstaat, en met een tik op de melding kom je terug in de navigatie. Android vraagt of Lunaway deze melding mag tonen.',
 			'navigation.guidance.notificationWhy.ask' => 'Doorgaan',
@@ -4423,6 +4449,8 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
@@ -4431,8 +4459,6 @@ extension on TranslationsNl {
 			'translation.gone' => 'Deze tekst is niet meer beschikbaar.',
 			'translation.unsupported' => 'Voor deze taal is geen vertaling beschikbaar.',
 			'translation.autoReviews' => 'Reviews automatisch vertalen',
-			_ => null,
-		} ?? switch (path) {
 			'translation.autoReviewsHint' => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
@@ -4937,6 +4963,8 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',
@@ -4945,8 +4973,6 @@ extension on TranslationsNl {
 			'poi.kind.musicShop' => 'Muziekwinkel',
 			'poi.kind.petShop' => 'Dierenwinkel',
 			'poi.kind.babyGoods' => 'Babywinkel',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.fabric' => 'Stoffen en fournituren',
 			'poi.kind.craft' => 'Ambachtsman',
 			'poi.kind.shop' => 'Winkel',

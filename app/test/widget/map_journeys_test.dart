@@ -13,6 +13,7 @@ import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
@@ -97,6 +98,7 @@ Future<(TestApp, FakeBrowser?)> _pump(
   bool web = true,
   Vehicle? vehicle = motorhome,
   VoiceOutput? voice,
+  GuidanceEngine? engine,
 }) async {
   final browser = web ? FakeBrowser(tester) : null;
   final plan = routeFixture('utrillo_motorhome');
@@ -111,7 +113,7 @@ Future<(TestApp, FakeBrowser?)> _pump(
     overrides: [
       ...navigationOverrides(
         routes: FakeRouteService([for (var i = 0; i < 8; i++) plan]),
-        engine: LineEngine([plan]),
+        engine: engine ?? LineEngine([plan]),
         settings: MemoryRouteSettings(),
         vehicle: vehicle,
         voice: voice,
@@ -628,7 +630,8 @@ void main() {
       testWidgets('on $layout, a start that fails says so; no guidance is left behind', (
         tester,
       ) async {
-        final (app, _) = await _pump(tester, size, voice: _BrokenVoice());
+        // A guidance library that cannot read this route.
+        final (app, _) = await _pump(tester, size, engine: LineEngine(const []));
         await _search(tester, 'Régiment');
         await _pick(tester, _address.name);
         await _route(tester, t.map.directionsHere);
@@ -637,6 +640,20 @@ void main() {
         expect(find.text(t.navigation.guidance.unavailable), findsOneWidget);
         expect(app.container(tester).read(guidanceControllerProvider), isNull);
         expect(find.byType(RoutePreviewScreen), findsOneWidget);
+      });
+
+      testWidgets('on $layout, a voice that fails leaves the guidance on, saying it has none', (
+        tester,
+      ) async {
+        final (app, _) = await _pump(tester, size, voice: _BrokenVoice());
+        await _search(tester, 'Régiment');
+        await _pick(tester, _address.name);
+        await _route(tester, t.map.directionsHere);
+        await tester.tap(find.text(t.navigation.preview.start));
+        await settleShort(tester);
+        expect(find.byType(GuidanceScreen), findsOneWidget);
+        expect(find.text(t.navigation.guidance.startup.noVoice), findsOneWidget);
+        expect(app.container(tester).read(guidanceControllerProvider)?.voice, VoiceReadiness.none);
       });
     }
 

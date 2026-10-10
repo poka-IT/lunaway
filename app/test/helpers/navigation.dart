@@ -192,6 +192,12 @@ final class FakeLocationFeed implements LocationFeed {
   /// How many times the position was asked for once.
   int currentAsked = 0;
 
+  /// What [lastKnown] answers: the position the device had before.
+  Fix? last;
+
+  @override
+  Future<Fix?> lastKnown() async => last;
+
   /// Set: the position asked for once comes when it completes, as a
   /// browser's does seconds after the question.
   Completer<void>? held;
@@ -248,7 +254,17 @@ final class RecordingVoice implements VoiceOutput {
   }
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async => readiness;
+  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+    prepares++;
+    return await (picking?.future ?? Future.value(readiness));
+  }
+
+  /// While set, [prepare] answers when it completes: a speech engine slow
+  /// to bind.
+  Completer<VoiceReadiness>? picking;
+
+  /// How many times the voice was prepared.
+  int prepares = 0;
 
   @override
   Future<bool> say(String text, {bool chime = false}) async {
@@ -281,8 +297,14 @@ final class RecordingVoice implements VoiceOutput {
 final class FakeScreenWake implements ScreenWake {
   bool on = false;
 
+  /// What keeping the screen on throws, while set.
+  Error? failure;
+
   @override
-  Future<void> keepOn({required bool on}) async => this.on = on;
+  Future<void> keepOn({required bool on}) async {
+    if (failure case final failure? when on) throw failure;
+    this.on = on;
+  }
 }
 
 /// Road event deltas given in turn; the last one repeats with no change.

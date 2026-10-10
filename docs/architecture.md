@@ -611,6 +611,20 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   opened. `test/widget/map_journeys_test.dart` plays every journey in the
   three layouts; `app/tool/web/journeys.py` plays them in three browsers
   before a deploy (`docs/release.md`, "Web").
+- **The guidance's start**: "C'est parti !" answers on the next frame,
+  and once the location and notification checks pass the guidance screen
+  opens on the preview's own route (`GuidanceController.begin`, no new
+  request), its first maneuver in the banner. What it still waits for
+  shows over its map (`GuidanceStartup`: the voice, the first position)
+  with "Réessayer" when a part of the device fails. The position is asked
+  first, the voice beside it (bound already while the preview was read,
+  `warmVoice`), the sentences said meanwhile waiting for it; a position the
+  device knew at the route's start stands for the first fix. The Rust
+  core reads the chosen route alone, and the road events far from the
+  route never reach it (`RouteCorridor`). On a native map the rich marks
+  ask the engine for the places in view only when the camera moved
+  enough (`tilePlacesStillHold`): each such query waits for the renderer
+  on the thread that draws the app (`plan/research/112-perf-android.md`).
 - **A tap on the map** (`features/map/domain/map_taps.dart`): what the
   user chose (a place, a shop, an address, a town, a saved point) stays
   chosen, and a phone lowers its sheet to its header; a free point "Ici"

@@ -59,6 +59,9 @@ const _viviers = LatLng(44.4826, 4.6893);
 /// The device in Viviers.
 final class _Feed implements LocationFeed {
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async =>
       Fix(position: _viviers, accuracyM: 5, at: DateTime.now().toUtc(), speedMps: 0);
 

@@ -4934,6 +4934,7 @@ class Translations$navigation$guidance$en {
 	/// en: 'Guidance could not start on this device.'
 	String get unavailable => 'Guidance could not start on this device.';
 
+	late final Translations$navigation$guidance$startup$en startup = Translations$navigation$guidance$startup$en.internal(_root);
 	late final Translations$navigation$guidance$notificationWhy$en notificationWhy = Translations$navigation$guidance$notificationWhy$en.internal(_root);
 
 	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
@@ -7163,6 +7164,39 @@ class Translations$navigation$guidance$voiceMode$en {
 	String get saysMuted => 'Voice off: everything shows on screen, with no sound.';
 }
 
+// Path: navigation.guidance.startup
+class Translations$navigation$guidance$startup$en {
+	Translations$navigation$guidance$startup$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Getting the guidance ready'
+	String get preparing => 'Getting the guidance ready';
+
+	/// en: 'Route loaded'
+	String get route => 'Route loaded';
+
+	/// en: 'Voice getting ready'
+	String get voiceWaiting => 'Voice getting ready';
+
+	/// en: 'Voice ready'
+	String get voiceReady => 'Voice ready';
+
+	/// en: 'No voice'
+	String get noVoice => 'No voice';
+
+	/// en: 'Finding your position'
+	String get positionWaiting => 'Finding your position';
+
+	/// en: 'Position found'
+	String get positionReady => 'Position found';
+
+	/// en: 'The guidance could not get everything ready on this device.'
+	String get failed => 'The guidance could not get everything ready on this device.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class Translations$navigation$guidance$notificationWhy$en {
 	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
@@ -8092,6 +8126,14 @@ extension on Translations {
 			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.startup.preparing' => 'Getting the guidance ready',
+			'navigation.guidance.startup.route' => 'Route loaded',
+			'navigation.guidance.startup.voiceWaiting' => 'Voice getting ready',
+			'navigation.guidance.startup.voiceReady' => 'Voice ready',
+			'navigation.guidance.startup.noVoice' => 'No voice',
+			'navigation.guidance.startup.positionWaiting' => 'Finding your position',
+			'navigation.guidance.startup.positionReady' => 'Position found',
+			'navigation.guidance.startup.failed' => 'The guidance could not get everything ready on this device.',
 			'navigation.guidance.notificationWhy.title' => 'Guidance notification',
 			'navigation.guidance.notificationWhy.body' => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.',
 			'navigation.guidance.notificationWhy.ask' => 'Continue',
@@ -8388,6 +8430,8 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
@@ -8396,8 +8440,6 @@ extension on Translations {
 			'translation.gone' => 'This text is no longer available.',
 			'translation.unsupported' => 'No translation is available for this language.',
 			'translation.autoReviews' => 'Translate reviews automatically',
-			_ => null,
-		} ?? switch (path) {
 			'translation.autoReviewsHint' => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
@@ -8902,6 +8944,8 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
@@ -8910,8 +8954,6 @@ extension on Translations {
 			'poi.kind.musicShop' => 'Music shop',
 			'poi.kind.petShop' => 'Pet shop',
 			'poi.kind.babyGoods' => 'Baby shop',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.fabric' => 'Fabrics and haberdashery',
 			'poi.kind.craft' => 'Craftsman',
 			'poi.kind.shop' => 'Shop',

@@ -383,8 +383,9 @@ Not declared, with the reason:
   asked.
 - Location through Play Services: the store flavor carries
   `play-services-location` through geolocator_android and maplibre_gl and
-  runs none of it. The guidance and the route's start force Android's
-  LocationManager (`app/lib/features/navigation/data/location_feed.dart`,
+  runs none of it. The guidance, the last known position its first fix
+  may take, and the route's start force Android's LocationManager
+  (`app/lib/features/navigation/data/location_feed.dart`,
   `forceLocationManager: true`); the map's own location layer creates
   Play services' FusedLocationProviderClient only for a high accuracy
   request, and the app leaves `locationEnginePlatforms` at its default,

@@ -89,6 +89,9 @@ final class _PacedFeed implements LocationFeed {
   Duration pace = _fast;
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async => fixes.first;
 
   @override

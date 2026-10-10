@@ -383,6 +383,9 @@ final class _NoFix implements LocationFeed {
   const new();
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async => throw StateError('location service off');
 
   @override

@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
@@ -58,6 +59,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -78,14 +80,100 @@ class RoutePreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
+  /// The guidance is starting from this page ([_start]). Held here rather
+  /// than by the bar: crossing a width class meanwhile (a phone turned in
+  /// its holder) builds the bar again elsewhere.
+  bool _starting = false;
+
+  /// The language whose voice was got ready ([GuidanceController.warmVoice]).
+  String? _warmed;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // The router writes its instructions in the app's language.
     final code = context.t.$meta.locale.languageCode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(routeLanguageCodeProvider.notifier).set(code);
+      if (!mounted) return;
+      ref.read(routeLanguageCodeProvider.notifier).set(code);
+      // The voice the guidance will speak with, got ready while the route
+      // is chosen rather than after "C'est parti !", once per language.
+      if (_warmed != code) {
+        _warmed = code;
+        ref.read(guidanceControllerProvider.notifier).warmVoice(RouteLanguage.of(code));
+      }
     });
+  }
+
+  Future<void> _start(RoutePlan plan, int selected, List<RouteStop> stops) async {
+    // In the tap itself, before any wait: a phone's Safari speaks and
+    // sounds only from a user's gesture.
+    primeBrowserSpeech();
+    timelineMark('lunaway-guidance-tap');
+    setState(() => _starting = true);
+    try {
+      await _startGuidance(plan, selected, stops);
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  Future<void> _startGuidance(RoutePlan plan, int selected, List<RouteStop> stops) async {
+    final t = context.t;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final flow = ref.read(mapFlowProvider.notifier);
+    final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
+    // A page left meanwhile stays mounted for its exit: the route says so.
+    final page = ModalRoute.of(context);
+    if (!await ensureLocationAccess(context, ref) || !mounted || !(page?.isActive ?? true)) return;
+    timelineMark('lunaway-guidance-access');
+    // Android 13 and later asks whether the app may notify: the guidance's
+    // own notification, said first in the app's words, once. Android tells
+    // no "never again" any more: said each time, the reason would come
+    // before every guidance for a dialog Android no longer shows.
+    final notifications = ref.read(notificationAccessProvider);
+    if (await notifications.wouldAsk()) {
+      if (!mounted || !(page?.isActive ?? true)) return;
+      if (settings.notificationExplained) {
+        await notifications.ask();
+      } else {
+        final ask = await _explainNotification(context);
+        if (!mounted || !(page?.isActive ?? true)) return;
+        // Not kept: said again next time, nothing worse.
+        unawaited(
+          ref
+              .read(routeSettingsControllerProvider.notifier)
+              .notificationExplained()
+              .catchError((Object e) => _log.warning('notification reason not kept: $e')),
+        );
+        if (ask) await notifications.ask();
+      }
+      if (!mounted || !(page?.isActive ?? true)) return;
+    }
+    // The guidance is there at once, its screen opens on it, and what it
+    // still waits for (the voice, the position) shows over its map, with
+    // a way to try again when a part of the device fails.
+    final begun = ref
+        .read(guidanceControllerProvider.notifier)
+        .begin(
+          plan: plan,
+          routeIndex: selected,
+          target: widget.target!,
+          words: TranslatedWording(t, settings.units),
+          stops: stops,
+        );
+    timelineMark('lunaway-guidance-started');
+    if (!begun) {
+      showMessage(messenger, t.navigation.guidance.unavailable);
+      return;
+    }
+    // An "undo" of the preview's stops has nothing left to undo once the
+    // guidance runs with them.
+    messenger?.clearSnackBars();
+    // A card or a sheet over the preview or not: the guidance takes its
+    // place at once, the sheet goes with it. A preview left during the
+    // checks above started nothing.
+    flow.replacePage(NavigationRoutes.guidance);
   }
 
   @override
@@ -117,6 +205,8 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
       target: target,
       preview: stale ? null : preview.value,
       computing: computing,
+      starting: _starting,
+      onStart: _start,
     );
     if (size == WindowSize.compact) {
       return Scaffold(
@@ -1239,8 +1329,14 @@ class _Failure extends StatelessWidget {
 
 /// The foot of the preview: "C'est parti !", and the navigation apps a
 /// step aside ("Ouvrir dans...").
-class _ActionBar extends ConsumerStatefulWidget {
-  const new({required this.target, required this.preview, required this.computing});
+class _ActionBar extends ConsumerWidget {
+  const new({
+    required this.target,
+    required this.preview,
+    required this.computing,
+    required this.starting,
+    required this.onStart,
+  });
 
   final RouteTarget target;
   final RoutePreview? preview;
@@ -1249,18 +1345,14 @@ class _ActionBar extends ConsumerStatefulWidget {
   /// or the options before the change, not to be started.
   final bool computing;
 
-  @override
-  ConsumerState<_ActionBar> createState() => _ActionBarState();
-}
+  /// The guidance is starting: the page holds the wait, which goes on when
+  /// the bar is built again elsewhere (a phone turned in its holder).
+  final bool starting;
 
-class _ActionBarState extends ConsumerState<_ActionBar> {
-  bool _starting = false;
-
-  RouteTarget get target => widget.target;
-  RoutePreview? get preview => widget.preview;
+  final Future<void> Function(RoutePlan plan, int selected, List<RouteStop> stops) onStart;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -1268,11 +1360,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     final engine = engineState.value;
     final plan = preview?.plan;
     final ready =
-        !widget.computing &&
-        !_starting &&
-        plan != null &&
-        plan.status == RouteStatus.ok &&
-        plan.osrmJson != null;
+        !computing && plan != null && plan.status == RouteStatus.ok && plan.osrmJson != null;
     // Where Lunaway found no road the vehicle may take, the other apps,
     // which know nothing of its size, are not offered a tap away; the
     // place's directions still lead to them. Where Lunaway computes no
@@ -1340,10 +1428,13 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                   ),
                 ] else if (engine != null || engineState.isLoading)
-                  FilledButton.icon(
+                  // The spinner on the next frame, through the location and
+                  // notification checks, until the guidance's screen opens.
+                  BusyButton(
                     onPressed: ready && engine != null
-                        ? () => _start(plan, preview!.selected, preview!.stops)
+                        ? () => onStart(plan, preview!.selected, preview!.stops)
                         : null,
+                    busy: starting,
                     icon: const Icon(AppIcons.directions),
                     label: Text(t.navigation.preview.start),
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
@@ -1361,87 +1452,6 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
         ),
       ),
     );
-  }
-
-  Future<void> _start(RoutePlan plan, int selected, List<RouteStop> stops) async {
-    // In the tap itself, before any wait: a phone's Safari speaks and
-    // sounds only from a user's gesture.
-    primeBrowserSpeech();
-    setState(() => _starting = true);
-    try {
-      await _startGuidance(plan, selected, stops);
-    } finally {
-      if (mounted) setState(() => _starting = false);
-    }
-  }
-
-  Future<void> _startGuidance(RoutePlan plan, int selected, List<RouteStop> stops) async {
-    final t = context.t;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final flow = ref.read(mapFlowProvider.notifier);
-    // The preview's page outlives this bar: crossing a width class while
-    // the guidance starts (a phone turned in its holder) builds the bar
-    // again elsewhere, and this one is gone by the end.
-    final page = ModalRoute.of(context);
-    final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
-    if (!await ensureLocationAccess(context, ref) || !mounted) return;
-    // Android 13 and later asks whether the app may notify: the guidance's
-    // own notification, said first in the app's words, once. Android tells
-    // no "never again" any more: said each time, the reason would come
-    // before every guidance for a dialog Android no longer shows.
-    final notifications = ref.read(notificationAccessProvider);
-    if (await notifications.wouldAsk()) {
-      if (!mounted) return;
-      if (settings.notificationExplained) {
-        await notifications.ask();
-      } else {
-        final ask = await _explainNotification(context);
-        if (!mounted) return;
-        // Not kept: said again next time, nothing worse.
-        unawaited(
-          ref
-              .read(routeSettingsControllerProvider.notifier)
-              .notificationExplained()
-              .catchError((Object e) => _log.warning('notification reason not kept: $e')),
-        );
-        if (ask) await notifications.ask();
-      }
-      if (!mounted) return;
-    }
-    bool started;
-    try {
-      started = await ref
-          .read(guidanceControllerProvider.notifier)
-          .start(
-            plan: plan,
-            routeIndex: selected,
-            target: target,
-            words: TranslatedWording(t, settings.units),
-            stops: stops,
-          );
-    } on Object catch (e, st) {
-      // A part of the device that fails at the start (the voice, the
-      // screen's wake lock, the position) is said, rather than a button
-      // that seems to do nothing.
-      _log.warning('the guidance did not start', e, st);
-      started = false;
-    }
-    if (!started) {
-      showMessage(messenger, t.navigation.guidance.unavailable);
-      return;
-    }
-    // An "undo" of the preview's stops has nothing left to undo once the
-    // guidance runs with them.
-    messenger?.clearSnackBars();
-    // Still there, a card or a sheet over it or not: the guidance takes its
-    // place, the sheet goes with it.
-    if (page != null && page.isActive) {
-      flow.replacePage(NavigationRoutes.guidance);
-    } else {
-      // The preview was left while the guidance started: the guidance over
-      // the map, on an entry above the map's, as the preview was.
-      flow.openPage(NavigationRoutes.guidance);
-    }
   }
 }
 

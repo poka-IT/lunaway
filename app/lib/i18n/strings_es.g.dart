@@ -2261,6 +2261,7 @@ class _Translations$navigation$guidance$es extends Translations$navigation$guida
 	@override String get notificationText => 'La navegación continúa con la pantalla apagada.';
 	@override String get notificationChannel => 'Navegación';
 	@override String get unavailable => 'No se ha podido iniciar la navegación en este dispositivo.';
+	@override late final _Translations$navigation$guidance$startup$es startup = _Translations$navigation$guidance$startup$es._(_root);
 	@override late final _Translations$navigation$guidance$notificationWhy$es notificationWhy = _Translations$navigation$guidance$notificationWhy$es._(_root);
 	@override String get positionLost => 'Ubicación no disponible: comprueba que la ubicación del dispositivo está activada para Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Última ubicación recibida hace ${minutes} min: la hora de llegada se basa en ella.';
@@ -3288,6 +3289,23 @@ class _Translations$navigation$guidance$voiceMode$es extends Translations$naviga
 	@override String get saysMuted => 'Voz silenciada: todo aparece en pantalla, sin ningún sonido.';
 }
 
+// Path: navigation.guidance.startup
+class _Translations$navigation$guidance$startup$es extends Translations$navigation$guidance$startup$en {
+	_Translations$navigation$guidance$startup$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get preparing => 'Preparando la navegación';
+	@override String get route => 'Ruta cargada';
+	@override String get voiceWaiting => 'Preparando la voz';
+	@override String get voiceReady => 'Voz lista';
+	@override String get noVoice => 'Sin voz';
+	@override String get positionWaiting => 'Buscando tu ubicación';
+	@override String get positionReady => 'Ubicación encontrada';
+	@override String get failed => 'La navegación no ha podido prepararlo todo en este dispositivo.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$es extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$es._(TranslationsEs root) : this._root = root, super.internal(root);
@@ -4127,6 +4145,14 @@ extension on TranslationsEs {
 			'navigation.guidance.notificationText' => 'La navegación continúa con la pantalla apagada.',
 			'navigation.guidance.notificationChannel' => 'Navegación',
 			'navigation.guidance.unavailable' => 'No se ha podido iniciar la navegación en este dispositivo.',
+			'navigation.guidance.startup.preparing' => 'Preparando la navegación',
+			'navigation.guidance.startup.route' => 'Ruta cargada',
+			'navigation.guidance.startup.voiceWaiting' => 'Preparando la voz',
+			'navigation.guidance.startup.voiceReady' => 'Voz lista',
+			'navigation.guidance.startup.noVoice' => 'Sin voz',
+			'navigation.guidance.startup.positionWaiting' => 'Buscando tu ubicación',
+			'navigation.guidance.startup.positionReady' => 'Ubicación encontrada',
+			'navigation.guidance.startup.failed' => 'La navegación no ha podido prepararlo todo en este dispositivo.',
 			'navigation.guidance.notificationWhy.title' => 'Notificación de navegación',
 			'navigation.guidance.notificationWhy.body' => 'Durante la navegación, una notificación mantiene activas la ubicación y la voz con la pantalla apagada, y al tocarla vuelves a la navegación. Android te preguntará si Lunaway puede mostrarla.',
 			'navigation.guidance.notificationWhy.ask' => 'Continuar',
@@ -4423,6 +4449,8 @@ extension on TranslationsEs {
 			'translation.from.es' => 'Traducido automáticamente del español',
 			'translation.from.it' => 'Traducido automáticamente del italiano',
 			'translation.from.nl' => 'Traducido automáticamente del neerlandés',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Traducido automáticamente (idioma original: ${language})',
 			'translation.offline' => 'Para traducir hace falta conexión a internet.',
 			'translation.failedOffline' => 'Sin conexión: no se ha podido traducir el texto.',
@@ -4431,8 +4459,6 @@ extension on TranslationsEs {
 			'translation.gone' => 'Este texto ya no está disponible.',
 			'translation.unsupported' => 'No hay traducción disponible para este idioma.',
 			'translation.autoReviews' => 'Traducir las reseñas automáticamente',
-			_ => null,
-		} ?? switch (path) {
 			'translation.autoReviewsHint' => 'Las reseñas escritas en otro idioma se traducen en el propio servidor de Lunaway, sin pasar por servicios de terceros.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
@@ -4937,6 +4963,8 @@ extension on TranslationsEs {
 			'poi.kind.hardware' => 'Ferretería, bricolaje',
 			'poi.kind.home' => 'Hogar y muebles',
 			'poi.kind.electronics' => 'Electrónica y telefonía',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Perfumería, droguería',
 			'poi.kind.departmentStore' => 'Grandes almacenes, centro comercial',
 			'poi.kind.varietyStore' => 'Bazar',
@@ -4945,8 +4973,6 @@ extension on TranslationsEs {
 			'poi.kind.musicShop' => 'Tienda de música',
 			'poi.kind.petShop' => 'Tienda de animales',
 			'poi.kind.babyGoods' => 'Puericultura',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.fabric' => 'Telas y mercería',
 			'poi.kind.craft' => 'Artesano',
 			'poi.kind.shop' => 'Tienda',

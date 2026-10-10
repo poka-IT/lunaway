@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:lunaway/core/geo/geo.dart';
@@ -91,6 +92,16 @@ final class GlPlaceTiles {
     if (!current()) return;
     await c.addCircleLayer(
       PlaceTiles.source,
+      PlaceTiles.probeLayer,
+      probePaint,
+      sourceLayer: PlaceTiles.pinsSourceLayer,
+      minzoom: PlaceTiles.pinZoom,
+      belowLayerId: below,
+      enableInteraction: false,
+    );
+    if (!current()) return;
+    await c.addCircleLayer(
+      PlaceTiles.source,
       PlaceTiles.pinDotsLayer,
       dots(dark: dark, touch: touch),
       sourceLayer: PlaceTiles.pinsSourceLayer,
@@ -118,7 +129,7 @@ final class GlPlaceTiles {
   /// Takes the source and its layers away (the map turned to the places the
   /// device holds).
   Future<void> remove(gl.MapLibreMapController c) async {
-    for (final layer in PlaceTiles.filteredLayers.reversed) {
+    for (final layer in [...PlaceTiles.filteredLayers.reversed, PlaceTiles.probeLayer]) {
       await _quietly(() => c.removeLayer(layer));
     }
     await _quietly(() => c.removeSource(PlaceTiles.source));
@@ -160,24 +171,30 @@ final class GlPlaceTiles {
   /// ([PlaceFilter.matches], the tiles' rule), so their two numbers agree.
   /// Null when nothing changed since the last report (the same camera and
   /// view: a resize keeps the camera and changes the view).
+  /// [view] is the map's rectangle in the engine's units ([PlaceTiles.probeLayer]).
   Future<List<PlaceSummary>?> probe(
     gl.MapLibreMapController c, {
     required double zoom,
     required Object camera,
     required GeoBounds bounds,
+    required Rect view,
   }) async {
     if (_sent == null) return null;
     final key = (camera, bounds);
     if (key == _probed) return null;
     _probed = key;
     if (zoom < PlaceTiles.pinZoom) return const [];
-    final raw = await c.querySourceFeatures(
-      PlaceTiles.source,
-      PlaceTiles.pinsSourceLayer,
-      placeTileFilter(PlaceFilter.none),
-    );
+    final raw = await c.queryRenderedFeaturesInRect(view, [PlaceTiles.probeLayer], null);
     return placesOfFeatures(raw, bounds);
   }
+
+  /// The probe's paint: a dot nobody sees ([PlaceTiles.probeLayer]).
+  @visibleForTesting
+  static const probePaint = gl.CircleLayerProperties(
+    circleRadius: 1,
+    circleOpacity: 0,
+    circleStrokeWidth: 0,
+  );
 
   /// The dots' paint, larger in the country's view where a finger picks
   /// ([touch], [MapLook.touchDotRadius]).

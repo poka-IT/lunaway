@@ -62,6 +62,9 @@ final class _Feed implements LocationFeed {
   List<Fix> fixes = const [];
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async =>
       Fix(position: _start, accuracyM: 5, at: DateTime.now().toUtc(), speedMps: 0);
 

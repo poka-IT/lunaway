@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -165,7 +166,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   bool _moving = false;
 
   /// The rich marks, and when their passes run.
-  late final RichMarkDriver _rich = RichMarkDriver(_GlRichEngine(this), onReady: _requestRich);
+  late final _richEngine = _GlRichEngine(this);
+  late final RichMarkDriver _rich = RichMarkDriver(_richEngine, onReady: _requestRich);
   late final RichPasses _richPasses = RichPasses(_richPass);
 
   /// The route marks the rich marks hide, as the minor badges' filter has
@@ -238,6 +240,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final c = _controller;
     if (c == null || !mounted) return;
     final load = ++_styleLoads;
+    timelineMark('lunaway-route-map-style');
     bool current() => mounted && load == _styleLoads;
     _ready = false;
     const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
@@ -294,8 +297,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         await _addRouteLayer(c, id);
       }
       if (!current()) return;
+      timelineMark('lunaway-route-map-layers');
       _ready = true;
       _rich.reset();
+      _richEngine.forget();
       _richHidden = null;
       _sentLines = null;
       _sentZones = null;
@@ -533,17 +538,31 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     if (kIsWeb) return;
     final all = await PinSprites.load(PinSprites.ratioFor(_ratio));
     if (!current()) return;
-    await Future.wait([
+    // A few per frame: the plugin decodes each on Android's main thread,
+    // and the hundred of them at once held it for a burst of frames as the
+    // guidance opened.
+    final ids = [
       for (final id in RoutePlaceLayers.imageIds())
-        if (all[id] case final bytes?) c.addImage(id, bytes),
-    ]);
+        if (all.containsKey(id)) id,
+    ];
+    for (var i = 0; i < ids.length; i += _pinsPerFrame) {
+      await Future.wait([
+        for (final id in ids.skip(i).take(_pinsPerFrame)) c.addImage(id, all[id]!),
+      ]);
+      if (!current()) return;
+      await SchedulerBinding.instance.endOfFrame;
+      if (!current()) return;
+    }
   }
+
+  static const _pinsPerFrame = 8;
 
   /// Sends what changed of the places: a filter, a layer shown or hidden.
   Future<void> _syncPlaces(gl.MapLibreMapController c) async {
     final places = _props.places;
     final sent = _sentPlaces;
     if (places == sent) return;
+    _richEngine.forget();
     if (places == null) {
       if (_placeLayers) {
         for (final id in [...RoutePlaceLayers.layers, RichLayers.probe]) {
@@ -1261,7 +1280,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       attributionButtonMargins: hiddenAttributionMargins,
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
-      onMapCreated: (c) => _controller = c,
+      onMapCreated: (c) {
+        timelineMark('lunaway-route-map-created');
+        _controller = c;
+      },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick:
           kIsWeb &&
@@ -1280,6 +1302,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         _props.onCameraMove?.call();
       },
       onCameraIdle: () {
+        timelineMark('lunaway-route-map-idle');
         _moving = false;
         _cameraMoving = false;
         _props.onCameraIdle?.call();
@@ -1344,23 +1367,71 @@ final class _GlRichEngine implements RichMarkEngine {
 
   gl.MapLibreMapController? get _c => _state.mounted && _state._ready ? _state._controller : null;
 
+  /// The places found last, the camera and the part of the map they were
+  /// asked under, and how long ago ([tilePlacesStillHold]).
+  List<({Map<Object?, Object?> properties, LatLng at})>? _places;
+  RichCamera? _placesUnder;
+  Rect? _placesIn;
+  final _placesAge = Stopwatch();
+
+  /// Forgets the places found: the layers or their filter changed.
+  void forget() => _places = null;
+
   @override
   Future<List<({Map<Object?, Object?> properties, LatLng at})>> tilePlaces() async {
     final c = _c;
     final size = _state._size;
     if (c == null || _state._props.places?.placeFilter == null || size.isEmpty) return const [];
+    // Only where a mark may stand ([richQueryRect]): a place beyond would
+    // be written out by the engine, sent over and dropped.
+    final open = richQueryRect(size, _state._props.rich?.clear ?? EdgeInsets.zero);
+    if (open.isEmpty) return const [];
+    // The camera the plugin keeps from the map's moves (a browser's map is
+    // not followed, and answers in the page at no such cost).
+    final camera = kIsWeb ? null : c.cameraPosition;
+    final under = camera == null
+        ? null
+        : (
+            target: LatLng(camera.target.latitude, camera.target.longitude),
+            zoom: camera.zoom,
+            bearing: camera.bearing,
+            tilt: camera.tilt,
+          );
+    final kept = _places;
+    final keptUnder = _placesUnder;
+    if (kept != null &&
+        under != null &&
+        keptUnder != null &&
+        _placesIn == open &&
+        tilePlacesStillHold(
+          then: keptUnder,
+          now: under,
+          age: _placesAge.elapsed,
+          size: open.size,
+        )) {
+      return kept;
+    }
     final scale = _state._queryScale;
     final found = await c.queryRenderedFeaturesInRect(
-      Rect.fromLTWH(0, 0, size.width * scale, size.height * scale),
+      Rect.fromLTRB(open.left * scale, open.top * scale, open.right * scale, open.bottom * scale),
       [RichLayers.probe],
       null,
     );
-    return [
+    final places = [
       for (final f in found)
         if (f is Map)
           if (pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?) case [final at, ...])
             (properties: (f['properties'] as Map<Object?, Object?>?) ?? const {}, at: at),
     ];
+    // An empty view is asked again at the next pass: at the start its tiles
+    // may still be on their way.
+    _places = places.isEmpty ? null : places;
+    _placesUnder = under;
+    _placesIn = open;
+    _placesAge
+      ..reset()
+      ..start();
+    return places;
   }
 
   @override

@@ -247,6 +247,9 @@ final class _TourFeed implements LocationFeed {
   /// device stands for the scenes (asking the device would raise the
   /// system's permission dialog on iOS).
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async =>
       fixes?.first ?? Fix(position: _here, accuracyM: 5, at: DateTime.now().toUtc(), speedMps: 0);
 

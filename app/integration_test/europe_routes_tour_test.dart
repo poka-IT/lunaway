@@ -69,6 +69,9 @@ final class _StartFeed implements LocationFeed {
   LatLng at = const LatLng(43.6047, 1.4442);
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async => Fix(position: at, accuracyM: 5, at: DateTime.now().toUtc());
 
   @override

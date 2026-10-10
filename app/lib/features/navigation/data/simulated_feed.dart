@@ -35,6 +35,10 @@ final class SimulatedFeed implements LocationFeed {
   Future<Fix?> current() async =>
       path.isEmpty ? null : Fix(position: path.first, accuracyM: accuracyM, at: start);
 
+  /// None: the drive starts with its first fix.
+  @override
+  Future<Fix?> lastKnown() async => null;
+
   @override
   Stream<Fix> guidance(BackgroundNotice notice) async* {
     final fixes = drive(

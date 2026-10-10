@@ -885,6 +885,16 @@
       "notificationText": "De navigatie gaat door als het scherm uitstaat.",
       "notificationChannel": "Navigatie",
       "unavailable": "De navigatie kon op dit apparaat niet starten.",
+      "startup": {
+        "preparing": "Navigatie wordt voorbereid",
+        "route": "Route geladen",
+        "voiceWaiting": "Stem wordt voorbereid",
+        "voiceReady": "Stem klaar",
+        "noVoice": "Geen stem",
+        "positionWaiting": "Je positie wordt gezocht",
+        "positionReady": "Positie gevonden",
+        "failed": "De navigatie kon op dit apparaat niet alles voorbereiden."
+      },
       "notificationWhy": {
         "title": "Melding voor de navigatie",
         "body": "Tijdens het navigeren houdt een melding de positie en de stem actief als het scherm uitstaat, en met een tik op de melding kom je terug in de navigatie. Android vraagt of Lunaway deze melding mag tonen.",

@@ -6,6 +6,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
@@ -110,6 +111,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   @override
   void initState() {
     super.initState();
+    timelineMark('lunaway-guidance-screen');
     // Kept for the page's life, above both layouts: a notice shown goes on
     // when the phone turns.
     ref.listenManual(guidanceControllerProvider.select((s) => s?.alert), (before, alert) {

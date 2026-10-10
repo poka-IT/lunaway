@@ -79,6 +79,8 @@ Future<(TestApp, FakeRouteService)> openPreview(
   EnforcementFeed? enforcement,
   RoutingInfo? routing,
   AppLocale locale = AppLocale.fr,
+  VoiceOutput? voice,
+  FakeScreenWake? wake,
 }) async {
   final routes = FakeRouteService(
     answers ?? [routeFixture('utrillo_motorhome')],
@@ -99,6 +101,8 @@ Future<(TestApp, FakeRouteService)> openPreview(
       notifications: notifications,
       countries: countries,
       enforcement: enforcement,
+      voice: voice,
+      wake: wake,
     ),
   );
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
@@ -694,6 +698,103 @@ void main() {
       expect(session!.target, utrillo);
       expect(find.byTooltip('Arrêter le guidage'), findsOneWidget, reason: 'the guidance screen');
       expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
+    });
+
+    testWidgets("\"C'est parti !\" opens the guidance at once, which tells what it waits for", (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final voice = RecordingVoice()..picking = Completer<VoiceReadiness>();
+      final feed = FakeLocationFeed(position: const LatLng(45.84719, 1.28476));
+      final (app, routes) = await openPreview(
+        tester,
+        size: phone,
+        engine: LineEngine([plan]),
+        voice: voice,
+        feed: feed,
+      );
+      expect(routes.requests, hasLength(1), reason: "the preview's route");
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(1), reason: "the guidance starts on the preview's route");
+      expect(
+        find.byTooltip('Arrêter le guidage'),
+        findsOneWidget,
+        reason: 'the voice not ready yet',
+      );
+      expect(find.text('Préparation du guidage'), findsOneWidget);
+      expect(find.text('Itinéraire chargé'), findsOneWidget);
+      expect(find.text('Voix en préparation'), findsOneWidget);
+      expect(find.text('Recherche de votre position'), findsOneWidget);
+      expect(
+        find.textContaining('Aucune voix'),
+        findsNothing,
+        reason: 'no word of a missing voice while it is picked',
+      );
+      feed.send(
+        Fix(position: LineTrack(plan.routes.first).at(0), accuracyM: 5, at: DateTime.utc(2026)),
+      );
+      await settleShort(tester);
+      expect(find.text('Position trouvée'), findsOneWidget);
+      voice.picking!.complete(VoiceReadiness.ready);
+      await settleShort(tester);
+      expect(find.text('Préparation du guidage'), findsNothing, reason: 'ready');
+      expect(app.container(tester).read(guidanceControllerProvider)?.startup, isNull);
+    });
+
+    testWidgets("the tap on \"C'est parti !\" shows at once, before the checks answer", (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final (app, _) = await openPreview(tester, size: phone, engine: LineEngine([plan]));
+      final gate = app.location.statusGate = Completer<void>();
+      final asked = app.location.statusAsked;
+      final start = find.ancestor(
+        of: find.text("C'est parti !"),
+        matching: find.bySubtype<FilledButton>(),
+      );
+      await tester.tap(start);
+      await tester.pump();
+      expect(
+        find.descendant(of: start, matching: find.byType(CircularProgressIndicator)),
+        findsOneWidget,
+        reason: 'the next frame',
+      );
+      // A second tap meanwhile starts nothing more.
+      await tester.tap(start);
+      await tester.pump();
+      gate.complete();
+      await settleShort(tester);
+      expect(find.byTooltip('Arrêter le guidage'), findsOneWidget);
+      expect(app.location.statusAsked, asked + 1, reason: 'one start for two taps');
+    });
+
+    testWidgets("the voice is got ready while the preview is read, before \"C'est parti !\"", (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final voice = RecordingVoice();
+      await openPreview(tester, size: phone, engine: LineEngine([plan]), voice: voice);
+      expect(voice.prepares, 1, reason: 'bound before the tap, once');
+      tester.view.physicalSize = const Size(800, 900);
+      await settleShort(tester);
+      expect(voice.prepares, 1, reason: 'not again for another layout');
+    });
+
+    testWidgets('a part of the device that fails at the start is said, with a way to try again', (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final wake = FakeScreenWake()..failure = StateError('no wake lock');
+      await openPreview(tester, size: phone, engine: LineEngine([plan]), wake: wake);
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      expect(find.text("Le guidage n'a pas pu tout préparer sur cet appareil."), findsOneWidget);
+      wake.failure = null;
+      await tester.tap(find.text('Réessayer'));
+      await settleShort(tester);
+      expect(find.text('Réessayer'), findsNothing);
+      expect(wake.on, isTrue);
     });
 
     testWidgets('the reason of the notification is said once, then Android asks alone', (

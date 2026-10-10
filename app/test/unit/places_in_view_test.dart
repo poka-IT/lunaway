@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -23,12 +24,24 @@ Map<String, Object?> _feature(String id, double lat, double lon) => {
   'properties': {'id': id, 'kind': 'parking', 'night': 'allowed'},
 };
 
-/// A map engine that answers the queries of the places' tiles from
-/// [features] and keeps the filter each query asked with. Installing the
-/// layers draws nothing.
+/// A map engine that answers the queries of the places drawn from
+/// [features], and keeps the layers each query asked about and the filter
+/// each circle layer was added with. Installing the layers draws nothing.
 final class _Engine implements gl.MapLibreMapController {
-  final filters = <List<Object>?>[];
+  final queried = <List<String>>[];
+  final circleFilters = <String, Object?>{};
+  final sourceQueries = <String?>[];
   List<Object?> features = const [];
+
+  @override
+  Future<List<Object?>> queryRenderedFeaturesInRect(
+    Rect rect,
+    List<String> layerIds,
+    String? filter,
+  ) async {
+    queried.add(layerIds);
+    return features;
+  }
 
   @override
   Future<List<Object?>> querySourceFeatures(
@@ -36,8 +49,23 @@ final class _Engine implements gl.MapLibreMapController {
     String? sourceLayerId,
     List<Object>? filter,
   ) async {
-    filters.add(filter);
+    sourceQueries.add(sourceLayerId);
     return features;
+  }
+
+  @override
+  Future<void> addCircleLayer(
+    String sourceId,
+    String layerId,
+    gl.CircleLayerProperties properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    bool enableInteraction = true,
+  }) async {
+    circleFilters[layerId] = filter;
   }
 
   @override
@@ -88,10 +116,51 @@ void main() {
       dark: false,
       current: () => true,
     );
-    final found = await tiles.probe(engine, zoom: PlaceTiles.nameZoom, camera: 1, bounds: _view);
-    expect(engine.filters, [placeTileFilter(PlaceFilter.none)]);
+    final found = await tiles.probe(
+      engine,
+      zoom: PlaceTiles.nameZoom,
+      camera: 1,
+      bounds: _view,
+      view: const Rect.fromLTWH(0, 0, 1080, 1600),
+    );
+    expect(engine.queried, [
+      [PlaceTiles.probeLayer],
+    ]);
+    expect(engine.circleFilters.keys, contains(PlaceTiles.probeLayer));
+    expect(engine.circleFilters[PlaceTiles.probeLayer], isNull, reason: 'no filter on the probe');
+    expect(
+      engine.circleFilters[PlaceTiles.pinDotsLayer],
+      placeTileFilter(const PlaceFilter(freeOnly: true, minRating: 4)),
+    );
     expect(found?.map((p) => p.id), ['a']);
   });
+
+  test(
+    'the places in view are read from those drawn, not from every tile the engine holds',
+    () async {
+      // The source holds each place once per tile kept, lower zooms
+      // included: asked of it, the engine wrote out up to 1 150 copies for
+      // 86 places in view after a move (plan/research/112-perf-android.md).
+      final engine = _Engine()..features = [_feature('a', 45.9, 6.1)];
+      final tiles = GlPlaceTiles();
+      await tiles.install(
+        engine,
+        const PlaceTilesView(tileJsonUrl: 'https://api.example/places/tiles.json'),
+        pinScale: 1,
+        dark: false,
+        current: () => true,
+      );
+      await tiles.probe(
+        engine,
+        zoom: PlaceTiles.nameZoom,
+        camera: 1,
+        bounds: _view,
+        view: const Rect.fromLTWH(0, 0, 1080, 1600),
+      );
+      expect(engine.sourceQueries, isEmpty);
+      expect(engine.queried, hasLength(1));
+    },
+  );
 
   test('the places of the features are those inside the view, each once', () {
     final raw = <Object?>[

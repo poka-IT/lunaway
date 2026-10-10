@@ -58,14 +58,13 @@ impl Session {
         index: u32,
         settings: GuidanceSettings,
     ) -> Result<Self, GuidanceError> {
-        let mut routes = OsrmResponseParser::new(POLYLINE_PRECISION)
-            .parse_response(osrm_json.to_vec())
-            .map_err(|e| GuidanceError::invalid_route(e.to_string()))?;
-        let count = u32::try_from(routes.len()).unwrap_or(u32::MAX);
-        if index >= count {
-            return Err(GuidanceError::no_such_route(index, count));
-        }
-        let route = routes.swap_remove(index as usize);
+        let chosen = ChosenRoute::of(osrm_json, index)?;
+        let mut route = OsrmResponseParser::new(POLYLINE_PRECISION)
+            .parse_response(chosen.answer)
+            .map_err(|e| GuidanceError::invalid_route(e.to_string()))?
+            .pop()
+            .ok_or_else(|| GuidanceError::invalid_route("the answer has no route"))?;
+        chosen.limits.annotate(&mut route.steps);
         let points: Vec<Position> = route
             .geometry
             .iter()
@@ -78,7 +77,7 @@ impl Session {
         }
         let line = RouteLine::new(points)
             .ok_or_else(|| GuidanceError::invalid_route("the route has no line"))?
-            .with_legs(&leg_lengths(osrm_json, index as usize));
+            .with_legs(&chosen.leg_lengths);
         let track = StepTrack::new(&route.steps).ok_or_else(|| {
             GuidanceError::invalid_route("the steps hold no line, or a point out of range")
         })?;
@@ -355,23 +354,121 @@ fn speed_limit_kmh(annotation: &str) -> Option<f64> {
     }
 }
 
-/// The lengths of the legs of route `index`, metres, as the router reports
-/// them; empty when the answer does not say.
-fn leg_lengths(osrm_json: &[u8], index: usize) -> Vec<f64> {
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(osrm_json) else {
-        return Vec::new();
-    };
-    value
-        .get("routes")
-        .and_then(|r| r.get(index))
-        .and_then(|r| r.get("legs"))
-        .and_then(serde_json::Value::as_array)
-        .map(|legs| {
-            legs.iter()
-                .filter_map(|l| l.get("distance").and_then(serde_json::Value::as_f64))
-                .collect()
+/// The route a guidance follows, taken out of the router's answer before
+/// Ferrostar reads it.
+///
+/// Ferrostar reads every route of an answer, and slices a leg's annotations
+/// for each step by copying the whole leg's first: its time grows with the
+/// steps times the segments, about 170 ms on a desktop for a 144 km answer
+/// with two alternatives (`plan/research/112-perf-android.md`), on the
+/// thread that draws the app. Here it reads the chosen route alone, without
+/// its annotations, and [`SpeedLimits::annotate`] gives each step the one
+/// annotation the guidance reads, the speed limit, in one pass.
+struct ChosenRoute {
+    /// The answer with the chosen route alone, for Ferrostar.
+    answer: Vec<u8>,
+    /// The lengths of its legs, metres, as the router reports them; empty
+    /// when the answer does not say.
+    leg_lengths: Vec<f64>,
+    limits: SpeedLimits,
+}
+
+impl ChosenRoute {
+    fn of(osrm_json: &[u8], index: u32) -> Result<Self, GuidanceError> {
+        let mut answer: serde_json::Value = serde_json::from_slice(osrm_json)
+            .map_err(|e| GuidanceError::invalid_route(e.to_string()))?;
+        // The router's own word first, as Ferrostar would read it.
+        if let Some(code) = answer.get("code").and_then(serde_json::Value::as_str)
+            && code != "Ok"
+        {
+            let message = answer
+                .get("message")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            return Err(GuidanceError::invalid_route(format!(
+                "the router answered {code}: {message}"
+            )));
+        }
+        let routes = answer
+            .get_mut("routes")
+            .and_then(serde_json::Value::as_array_mut)
+            .ok_or_else(|| GuidanceError::invalid_route("the answer has no routes"))?;
+        let count = u32::try_from(routes.len()).unwrap_or(u32::MAX);
+        if index >= count {
+            return Err(GuidanceError::no_such_route(index, count));
+        }
+        let mut route = routes.swap_remove(index as usize);
+        let mut leg_lengths = Vec::new();
+        let mut legs = Vec::new();
+        if let Some(list) = route
+            .get_mut("legs")
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            for leg in list {
+                if let Some(d) = leg.get("distance").and_then(serde_json::Value::as_f64) {
+                    leg_lengths.push(d);
+                }
+                let steps = leg
+                    .get("steps")
+                    .and_then(serde_json::Value::as_array)
+                    .map_or(0, Vec::len);
+                let maxspeed = leg
+                    .as_object_mut()
+                    .and_then(|l| l.remove("annotation"))
+                    .and_then(|mut a| a.get_mut("maxspeed").map(serde_json::Value::take))
+                    .and_then(|m| match m {
+                        serde_json::Value::Array(values) => Some(values),
+                        _ => None,
+                    });
+                legs.push(LegLimits { steps, maxspeed });
+            }
+        }
+        *routes = vec![route];
+        let answer =
+            serde_json::to_vec(&answer).map_err(|e| GuidanceError::invalid_route(e.to_string()))?;
+        Ok(Self {
+            answer,
+            leg_lengths,
+            limits: SpeedLimits { legs },
         })
-        .unwrap_or_default()
+    }
+}
+
+/// The speed limit of each segment of each leg (the `maxspeed` annotation).
+struct SpeedLimits {
+    legs: Vec<LegLimits>,
+}
+
+/// One leg's number of steps, and the speed limit of each of its segments
+/// when the answer gives them.
+struct LegLimits {
+    steps: usize,
+    maxspeed: Option<Vec<serde_json::Value>>,
+}
+
+impl SpeedLimits {
+    /// Gives each step the annotations of its segments, as Ferrostar slices
+    /// them (a step of n points takes the next n - 1 segments of its leg;
+    /// one past the leg's segments takes none), holding the speed limit
+    /// alone: the one annotation [`speed_limit_kmh`] reads.
+    fn annotate(self, steps: &mut [ferrostar::models::RouteStep]) {
+        let mut steps = steps.iter_mut();
+        for leg in self.legs {
+            let mut start = 0usize;
+            for step in steps.by_ref().take(leg.steps) {
+                let end = start + step.geometry.len().saturating_sub(1);
+                step.annotations = leg.maxspeed.as_ref().and_then(|values| {
+                    values.get(start..end).map(|slice| {
+                        slice
+                            .iter()
+                            .map(|v| format!("{{\"maxspeed\":{v}}}"))
+                            .collect()
+                    })
+                });
+                start = end;
+            }
+        }
+    }
 }
 
 /// Where the route from `from_m` metres onwards drives through each event,
@@ -503,5 +600,141 @@ fn same_way(line: &RouteLine, shape: &[Position], start_m: f64, end_m: f64) -> b
             );
             sx * rx + sy * ry >= 0.0
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, reason = "test preconditions")]
+
+    use lunaway_domain::routing::polyline;
+
+    use super::*;
+
+    const LIMOGES: &str = include_str!("../tests/fixtures/limoges_drive.osrm.json");
+    const LIMOGES_STOP: &str = include_str!("../tests/fixtures/limoges_stop.osrm.json");
+    const UTRILLO: &str = include_str!("../tests/fixtures/utrillo_motorhome.osrm.json");
+    const PERPIGNAN: &str = include_str!("../tests/fixtures/perpignan_figueres.osrm.json");
+
+    type StepLimits = Vec<Option<Vec<Option<f64>>>>;
+
+    fn limits_of(steps: &[ferrostar::models::RouteStep]) -> StepLimits {
+        steps
+            .iter()
+            .map(|s| {
+                s.annotations
+                    .as_ref()
+                    .map(|a| a.iter().map(|j| speed_limit_kmh(j)).collect())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_step_reads_the_speed_limits_ferrostar_slices_for_it() {
+        let mut with_limits = 0;
+        for (name, osrm, index) in [
+            ("limoges", LIMOGES, 0u32),
+            ("limoges stop", LIMOGES_STOP, 0),
+            ("utrillo", UTRILLO, 0),
+            ("utrillo alternative", UTRILLO, 1),
+            ("perpignan", PERPIGNAN, 0),
+        ] {
+            let session = Session::new(osrm.as_bytes(), index, GuidanceSettings::default())
+                .expect("a recorded route");
+            let ours = limits_of(&session.route.steps);
+            // Ferrostar's own reading of the whole answer.
+            let routes = OsrmResponseParser::new(POLYLINE_PRECISION)
+                .parse_response(osrm.as_bytes().to_vec())
+                .expect("a recorded answer");
+            let theirs = limits_of(&routes[index as usize].steps);
+            assert_eq!(ours, theirs, "{name}");
+            if ours.iter().flatten().flatten().any(Option::is_some) {
+                with_limits += 1;
+            }
+        }
+        assert!(
+            with_limits >= 2,
+            "answers with limits to compare: {with_limits}"
+        );
+    }
+
+    #[test]
+    fn each_leg_through_a_stop_slices_its_own_limits() {
+        // The drive through a stop, its two legs given a limit of their own
+        // for every segment (the recording has none): a slicing that ran on
+        // from one leg to the next, or shifted by a segment, reads other
+        // figures than Ferrostar's.
+        let mut answer: serde_json::Value = serde_json::from_str(LIMOGES_STOP).expect("an answer");
+        let legs = answer["routes"][0]["legs"].as_array_mut().expect("legs");
+        for (l, leg) in legs.iter_mut().enumerate() {
+            let segments: usize = leg["steps"]
+                .as_array()
+                .expect("steps")
+                .iter()
+                .map(|s| {
+                    polyline::decode(s["geometry"].as_str().expect("a polyline"))
+                        .expect("a valid polyline")
+                        .len()
+                        .saturating_sub(1)
+                })
+                .sum();
+            leg["annotation"] = serde_json::json!({
+                "maxspeed": (0..segments)
+                    .map(|i| serde_json::json!({ "speed": 1000 * (l + 1) + i, "unit": "km/h" }))
+                    .collect::<Vec<_>>(),
+            });
+        }
+        let osrm = serde_json::to_string(&answer).expect("json");
+        let session =
+            Session::new(osrm.as_bytes(), 0, GuidanceSettings::default()).expect("a route");
+        let routes = OsrmResponseParser::new(POLYLINE_PRECISION)
+            .parse_response(osrm.as_bytes().to_vec())
+            .expect("an answer");
+        let ours = limits_of(&session.route.steps);
+        assert_eq!(ours, limits_of(&routes[0].steps));
+        let second_leg = ours
+            .iter()
+            .flatten()
+            .flatten()
+            .flatten()
+            .any(|v| *v >= 2000.0);
+        assert!(second_leg, "the second leg's own limits are read");
+    }
+
+    #[test]
+    fn the_legs_keep_the_lengths_of_the_chosen_route() {
+        let chosen = ChosenRoute::of(LIMOGES_STOP.as_bytes(), 0).expect("a route");
+        assert_eq!(chosen.leg_lengths.len(), 2, "two legs through the stop");
+        assert!(chosen.leg_lengths.iter().all(|d| *d > 1_000.0));
+        // The alternative of 4.9 km, not the main route of 1.8 km.
+        let other = ChosenRoute::of(UTRILLO.as_bytes(), 1).expect("the alternative");
+        assert!((other.leg_lengths.iter().sum::<f64>() - 4_887.279).abs() < 1.0);
+    }
+
+    #[test]
+    fn a_router_that_found_nothing_is_said_as_such() {
+        let Err(e) = Session::new(
+            br#"{"code":"NoRoute","message":"No path found"}"#,
+            0,
+            GuidanceSettings::default(),
+        ) else {
+            panic!("no route to guide");
+        };
+        assert_eq!(e.kind, crate::api::engine::GuidanceErrorKind::InvalidRoute);
+        assert!(e.message.contains("NoRoute"), "{}", e.message);
+    }
+
+    #[test]
+    fn only_the_route_asked_for_is_read() {
+        // The alternative made unreadable: the main route is still guided,
+        // and the alternative is refused.
+        let mut answer: serde_json::Value = serde_json::from_str(UTRILLO).expect("an answer");
+        answer["routes"][1]["geometry"] = serde_json::json!(42);
+        let broken = serde_json::to_vec(&answer).expect("json");
+        assert!(Session::new(&broken, 0, GuidanceSettings::default()).is_ok());
+        let Err(e) = Session::new(&broken, 1, GuidanceSettings::default()) else {
+            panic!("the broken alternative cannot be guided");
+        };
+        assert_eq!(e.kind, crate::api::engine::GuidanceErrorKind::InvalidRoute);
     }
 }
