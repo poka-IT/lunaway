@@ -2292,6 +2292,14 @@ class _Translations$navigation$enforcement$es extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} a ${distance}';
 	@override String limit({required Object limit}) => 'límite ${limit}';
 	@override String averageLimit({required Object limit}) => 'media máxima ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listInteriorMinistry => 'Ministerio del Interior francés';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Bruxelles Mobilité';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: vehicle.types
@@ -3796,6 +3804,14 @@ extension on TranslationsEs {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} a ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'límite ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'media máxima ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listInteriorMinistry' => 'Ministerio del Interior francés',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Lugares cercanos',
 			'list.empty' => 'No hay lugares por aquí con estos filtros',
 			'list.emptyHint' => 'Mueve el mapa, aléjalo o quita algún filtro.',
@@ -4010,6 +4026,8 @@ extension on TranslationsEs {
 			'account.signOutBody' => 'La clave de la cuenta se borra de este dispositivo. Para volver, necesitarás tu tarjeta de recuperación. Tus favoritos se quedan aquí.',
 			'account.signOutNoCard' => 'No has creado ninguna tarjeta de recuperación en este dispositivo. Sin ella, esta cuenta se perderá para siempre.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Una contribución pendiente no se enviará.', other: '${n} contribuciones pendientes no se enviarán.', ), 
+			_ => null,
+		} ?? switch (path) {
 			'account.signedOut' => 'Sesión cerrada. Tus favoritos se quedan en este dispositivo.',
 			'account.lost' => 'Esta cuenta ya no se abre en este dispositivo. Recupérala con tu tarjeta de recuperación: Perfil, Recuperar mi cuenta.',
 			'account.lostAction' => 'Recuperar',
@@ -4018,8 +4036,6 @@ extension on TranslationsEs {
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
 			'recovery.title' => 'Tarjeta de recuperación',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
 			'recovery.replaces' => 'Una tarjeta nueva sustituye a la anterior: el código antiguo dejará de funcionar.',
 			'recovery.replaceTitle' => ({required Object date}) => '¿Sustituir la tarjeta del ${date}?',
@@ -4524,6 +4540,8 @@ extension on TranslationsEs {
 			'offlineMaps.keepOpen' => 'Mantén la aplicación abierta durante la descarga: se interrumpe cuando la aplicación pasa a segundo plano y se reanuda cuando vuelves.',
 			'offlineMaps.dataOf' => ({required Object date}) => 'datos del ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Actualizar, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.deleteNamed' => ({required Object name}) => 'Eliminar ${name}',
 			'offlineMaps.deleteTitle' => ({required Object name}) => '¿Eliminar ${name} de este dispositivo?',
 			'offlineMaps.deleteBody' => 'Ya no se verá sin conexión. Puedes volver a descargarla.',
@@ -4532,8 +4550,6 @@ extension on TranslationsEs {
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',
 			'offlineMaps.noticePlacesOnly' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar',
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',

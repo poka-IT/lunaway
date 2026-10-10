@@ -493,15 +493,15 @@ class _EnforcementNote extends ConsumerWidget {
         for (final s in cited.values)
           Text(switch ((zones.containsKey(s.id), cameras.containsKey(s.id))) {
             (true, true) => t.navigation.marks.bothFrom(
-              source: s.name,
+              source: t.listName(s),
               date: t.listDate(s, now: now),
             ),
             (true, false) => t.navigation.marks.zonesFrom(
-              source: s.name,
+              source: t.listName(s),
               date: t.listDate(s, now: now),
             ),
             _ => t.navigation.marks.camerasFrom(
-              source: s.name,
+              source: t.listName(s),
               date: t.listDate(s, now: now),
             ),
           }, style: muted),

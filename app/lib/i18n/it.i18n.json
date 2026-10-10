@@ -1000,7 +1000,15 @@
       "ruleExact": "$country: autovelox",
       "ahead": "$what tra $distance",
       "limit": "limite $limit",
-      "averageLimit": "media massima $limit"
+      "averageLimit": "media massima $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listInteriorMinistry": "Ministero dell'Interno francese",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {

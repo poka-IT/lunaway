@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/plural_rules.dart';
@@ -111,6 +112,34 @@ void main() {
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
+  testWidgets('three lists of a French zone take one line, cut short', (tester) async {
+    EnforcementSource list(String id, String name) => EnforcementSource(
+      id: id,
+      name: name,
+      attribution: name,
+      fetchedAt: DateTime.utc(2026, 10, 9, 5),
+      listUpdatedAt: DateTime.utc(2025, 12, 30),
+    );
+    final zone = EnforcementAlert(
+      id: 'z',
+      kind: EnforcementKind.zone,
+      aheadM: 0,
+      remainingM: 1800,
+      sources: [
+        list('securite-routiere', 'Sécurité routière, radars'),
+        list('fr-dsr', 'Liste des radars fixes en France'),
+        list('osm', 'OpenStreetMap'),
+      ],
+    );
+    await _pump(tester, zone, width: 364);
+    final cited = tester.renderObject<RenderParagraph>(
+      find.descendant(of: find.textContaining(' · '), matching: find.byType(RichText)),
+    );
+    final line = cited.getFullHeightForCaret(const TextPosition(offset: 0));
+    expect(cited.size.height, lessThan(line * 1.5), reason: 'one line, at text 2x');
+    expect(find.textContaining('Liste des radars'), findsNothing, reason: 'named in German');
+  });
+
   testWidgets('the lists are cited in one run of text, not a line each', (tester) async {
     await _pump(tester, _banners['a camera ahead']!, width: 364);
     final cited = find.textContaining(' · ');
@@ -163,6 +192,19 @@ void main() {
       enforcementText(de, passed, DistanceUnits.metric),
       isNot(contains(de.navigation.enforcement.remaining(distance: ''))),
     );
+  });
+
+  testWidgets('a zone held past its end, or just ahead, shows no "0 m" figure', (tester) async {
+    const held = EnforcementAlert(id: 'z', kind: EnforcementKind.zone, aheadM: 0, remainingM: 0);
+    const near = EnforcementAlert(id: 'z', kind: EnforcementKind.zone, aheadM: 6, remainingM: 0);
+    for (final alert in [held, near]) {
+      await _pump(tester, alert, width: 360);
+      expect(find.textContaining(RegExp(r'\b0 m\b')), findsNothing, reason: '$alert');
+      expect(find.textContaining('Gefahrenzone'), findsWidgets, reason: 'the kind alone');
+    }
+    final fr = AppLocale.fr.buildSync();
+    expect(enforcementText(fr, held, DistanceUnits.metric), 'Zone de danger.');
+    expect(enforcementText(fr, near, DistanceUnits.metric), 'Zone de danger.');
   });
 
   test('the end of a zone or a section and a rule come as passing notices, calm', () {

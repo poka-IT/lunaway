@@ -2292,6 +2292,14 @@ class _Translations$navigation$enforcement$nl extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} over ${distance}';
 	@override String limit({required Object limit}) => 'maximaal ${limit}';
 	@override String averageLimit({required Object limit}) => 'gemiddeld maximaal ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listInteriorMinistry => 'Frans ministerie van Binnenlandse Zaken';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Brussel Mobiliteit';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: vehicle.types
@@ -3796,6 +3804,14 @@ extension on TranslationsNl {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} over ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'maximaal ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'gemiddeld maximaal ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listInteriorMinistry' => 'Frans ministerie van Binnenlandse Zaken',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Brussel Mobiliteit',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Plekken in de buurt',
 			'list.empty' => 'Hier geen plekken met deze filters',
 			'list.emptyHint' => 'Verschuif de kaart, zoom uit of maak de filters ruimer.',
@@ -4010,6 +4026,8 @@ extension on TranslationsNl {
 			'account.signOutBody' => 'De sleutel van het account wordt van dit apparaat verwijderd. Om terug te komen heb je je herstelkaart nodig. Je favorieten blijven hier.',
 			'account.signOutNoCard' => 'Je hebt op dit apparaat geen herstelkaart gemaakt. Zonder herstelkaart ben je dit account voorgoed kwijt.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Eén bijdrage die nog op verzending wacht, wordt niet verstuurd.', other: '${n} bijdragen die nog op verzending wachten, worden niet verstuurd.', ), 
+			_ => null,
+		} ?? switch (path) {
 			'account.signedOut' => 'Uitgelogd. Je favorieten blijven op dit apparaat.',
 			'account.lost' => 'Dit account gaat niet meer open op dit apparaat. Herstel het met je herstelkaart: Profiel, Mijn account herstellen.',
 			'account.lostAction' => 'Herstellen',
@@ -4018,8 +4036,6 @@ extension on TranslationsNl {
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
 			'recovery.replaceTitle' => ({required Object date}) => 'De kaart van ${date} vervangen?',
@@ -4524,6 +4540,8 @@ extension on TranslationsNl {
 			'offlineMaps.keepOpen' => 'Houd de app open tijdens het downloaden: het stopt als de app naar de achtergrond gaat en gaat verder als je terugkomt.',
 			'offlineMaps.dataOf' => ({required Object date}) => 'gegevens van ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Bijwerken, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.deleteNamed' => ({required Object name}) => '${name} verwijderen',
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} van dit apparaat verwijderen?',
 			'offlineMaps.deleteBody' => 'Deze regio is dan niet meer zonder internet te zien. Je kunt hem opnieuw downloaden.',
@@ -4532,8 +4550,6 @@ extension on TranslationsNl {
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
 			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',

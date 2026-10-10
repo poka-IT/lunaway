@@ -1000,7 +1000,15 @@
       "ruleExact": "$country: Blitzer",
       "ahead": "$what in $distance",
       "limit": "Tempolimit $limit",
-      "averageLimit": "Schnitt höchstens $limit"
+      "averageLimit": "Schnitt höchstens $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listInteriorMinistry": "Französisches Innenministerium",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {

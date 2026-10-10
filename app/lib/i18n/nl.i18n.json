@@ -1000,7 +1000,15 @@
       "ruleExact": "$country: flitsers",
       "ahead": "$what over $distance",
       "limit": "maximaal $limit",
-      "averageLimit": "gemiddeld maximaal $limit"
+      "averageLimit": "gemiddeld maximaal $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listInteriorMinistry": "Frans ministerie van Binnenlandse Zaken",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Brussel Mobiliteit",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {

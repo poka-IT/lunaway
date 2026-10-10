@@ -1000,7 +1000,15 @@
       "ruleExact": "$country: speed cameras",
       "ahead": "$what in $distance",
       "limit": "limit $limit",
-      "averageLimit": "average limit $limit"
+      "averageLimit": "average limit $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listInteriorMinistry": "French Interior Ministry",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {

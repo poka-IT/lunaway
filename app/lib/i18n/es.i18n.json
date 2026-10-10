@@ -1000,7 +1000,15 @@
       "ruleExact": "$country: radares",
       "ahead": "$what a $distance",
       "limit": "límite $limit",
-      "averageLimit": "media máxima $limit"
+      "averageLimit": "media máxima $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listInteriorMinistry": "Ministerio del Interior francés",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {
