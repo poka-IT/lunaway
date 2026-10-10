@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
+import 'package:lunaway/features/places/domain/town_names.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_search.dart';
@@ -95,15 +96,15 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
 
 /// The title of the points of a search: what a search by kind seeks and
 /// where ("Pizzeria à Annecy", "Coiffeur près d'ici"), else the section's
-/// own name. One word naming one kind reads as the kind's name, spelled
-/// right and in the app's language ("coifeur", "Friseur": "Coiffeur");
-/// more words say more than the kind ("restaurant italien"), and a word
-/// naming several kinds says what they share ("pizzeria").
+/// own name. One word that spells the one kind it names, typed a little
+/// wrong, reads as the kind's name ("coifeur": "Coiffeur"); any other word
+/// is the user's own, which says more than the kind ("curry", "restaurant
+/// italien", "pizzeria").
 String poiSearchTitle(Translations t, PoiResults results, String query) {
   if (results.match != PoiMatch.kind) return t.poi.searchSection;
   final sought = soughtWords(query, town: results.town);
   final kind = results.kinds.length == 1 ? t.poiKind(results.kinds.single) : null;
-  final what = kind != null && (sought == null || !sought.contains(' '))
+  final what = kind != null && (sought == null || _spells(sought, kind))
       ? kind
       : sought ?? (results.kinds.isEmpty ? null : t.poiKind(results.kinds.first));
   if (what == null) return t.poi.searchSection;
@@ -111,6 +112,16 @@ String poiSearchTitle(Translations t, PoiResults results, String query) {
     final town? => t.poi.searchKindIn(what: what, town: town),
     null => t.poi.searchKindNear(what: what),
   };
+}
+
+/// Whether the one word [sought] spells the kind's name [kind]: the same
+/// first four letters, accents aside, of a name in one piece ("Clinique,
+/// centre de santé" is two).
+bool _spells(String sought, String kind) {
+  if (sought.contains(' ') || kind.contains(',')) return false;
+  final a = foldForSearch(sought);
+  final b = foldForSearch(kind);
+  return a.length >= 4 && b.length >= 4 && a.substring(0, 4) == b.substring(0, 4);
 }
 
 /// The line under a point of the search: its kind, what a restaurant

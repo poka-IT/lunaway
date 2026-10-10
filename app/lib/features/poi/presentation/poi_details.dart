@@ -1129,7 +1129,8 @@ class _PoiReviews extends ConsumerWidget {
     final read = ref.watch(pointReviewsProvider(poi.id));
     final ratings = [...poi.ratings, ...poi.externalRatings];
     final ownText =
-        OwnReview.of(read.value?.mine, ref.watch(pendingForPoiProvider(poi.id)))?.text != null;
+        OwnReview.of(ownPoiReview(ref, poi.id), ref.watch(pendingForPoiProvider(poi.id)))?.text !=
+        null;
     final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
     final named = poi.name;
     return _Section(
@@ -1175,9 +1176,9 @@ class _PoiReviews extends ConsumerWidget {
             AsyncData() => const <Widget>[],
             // Offline, plainly: the reviews are read online, nothing is
             // broken.
-            AsyncError(:final error) when error is GraphQLNetworkException => [
-              Text(t.poi.details.reviewsOffline, style: muted),
-            ],
+            AsyncError(:final error)
+                when error is GraphQLNetworkException && error is! GraphQLRateLimitedException =>
+              [Text(t.poi.details.reviewsOffline, style: muted)],
             AsyncError() => [
               MessageView(
                 title: t.poi.details.reviewsError,

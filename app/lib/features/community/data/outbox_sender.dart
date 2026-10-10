@@ -312,7 +312,11 @@ final class OutboxSender {
       await outbox.add(
         ContributionKind.deleteReview,
         // The point it was about, as a mark of the device: its page follows.
-        payload: {'id': review.id, OutboxStore.poiMark: ?e.payload['poiId']},
+        payload: {
+          'id': review.id,
+          OutboxStore.poiMark: ?e.payload['poiId'],
+          OutboxStore.nameMark: ?e.payload[OutboxStore.nameMark],
+        },
         placeId: e.placeId,
         accountId: e.accountId,
       );

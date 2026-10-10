@@ -271,6 +271,16 @@ void main() {
         poiSearchTitle(t, kinds(const [PoiKind.restaurant, PoiKind.fastFood]), 'pizzeria'),
         t.poi.searchKindNear(what: 'Pizzeria'),
       );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.restaurant]), 'curry'),
+        t.poi.searchKindNear(what: 'Curry'),
+        reason: "a cuisine's word says more than the kind",
+      );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.clinic]), 'clinique'),
+        t.poi.searchKindNear(what: 'Clinique'),
+        reason: 'a name of two pieces does not stand for one word',
+      );
       expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
     });
 

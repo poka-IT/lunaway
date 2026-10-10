@@ -211,6 +211,15 @@ final class OwnReview {
   }
 }
 
+/// The account's review of the point [id] as the server holds it: while
+/// its reviews are read again after a contribution, the server's answer to
+/// that contribution.
+Review? ownPoiReview(WidgetRef ref, String id) {
+  final read = ref.watch(pointReviewsProvider(id));
+  final sent = ref.watch(sentPoiReviewsProvider);
+  return read.isLoading && sent.containsKey(id) ? sent[id] : read.value?.mine;
+}
+
 /// "Your rating" in one tap on a star, and the way to write (or edit) a
 /// review, with the review the account already wrote: of a place, or of a
 /// point of interest ([YourReview.poi]), under the same rules.
@@ -256,14 +265,6 @@ class YourReview extends ConsumerWidget {
     } else {
       await showReviewSheet(context, placeId: placeId!, existing: existing);
     }
-  }
-
-  /// The account's review of the point: while its reviews are read again
-  /// after a contribution, the server's answer to that contribution.
-  static Review? _ownOfPoi(WidgetRef ref, String id) {
-    final read = ref.watch(pointReviewsProvider(id));
-    final sent = ref.watch(sentPoiReviewsProvider);
-    return read.isLoading && sent.containsKey(id) ? sent[id] : read.value?.mine;
   }
 
   List<PendingContribution> _waiting(WidgetRef ref) => switch (poiId) {
@@ -332,7 +333,7 @@ class YourReview extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final server = switch (poiId) {
-      final id? => _ownOfPoi(ref, id),
+      final id? => ownPoiReview(ref, id),
       null => ref.watch(placeExtrasProvider(placeId!)).value?.myReview,
     };
     final own = OwnReview.of(server, _waiting(ref));
