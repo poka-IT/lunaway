@@ -450,9 +450,9 @@ bool _beside(ItemOnRoute r, int? Function(double alongM) routeLimitAt) {
 /// user asked for its positions: [EnforcementRules.withChoices]); and
 /// France's positions asked for show Spain's cameras as well to a device
 /// in France (decision of the product owner, 2026-10-10). A camera whose
-/// own country's rule shows no points stays out, as the server leaves it
-/// out: France's without that choice, Germany's (served for its map at
-/// rest only).
+/// own country's rule shows no points stays out: France's, sent as points
+/// only to a user who chose them; Germany's, sent as points but shown
+/// under no rule.
 List<ItemOnRoute> camerasOnRoute(
   Iterable<ItemOnRoute> onRoute, {
   required EnforcementMode here,

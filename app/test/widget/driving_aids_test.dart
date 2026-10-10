@@ -929,9 +929,9 @@ void main() {
                 : p.distanceTo(route.line.last) < 500
                 ? end
                 : 'FR',
-            // A route into another country ends by the French border, within
-            // a kilometre of it, as at Le Perthus: France's items are asked
-            // for its end, whatever the country at the device.
+            // A route into another country ends within a kilometre of
+            // France: France's items are asked for at its end, whatever the
+            // country at the device. The route reads only at its two ends.
             near: (p) => end != 'FR' && p.distanceTo(route.line.last) < 500 ? ['FR'] : const [],
             rules: _rules,
           ),
@@ -979,8 +979,8 @@ void main() {
 
     // The rule where the device is holds for every camera of the route,
     // whatever its country (decision of the product owner, 2026-10-10). The
-    // route ends in Spain; each case gets what the server sends that client:
-    // France's zone, or France's points once they are asked for.
+    // route ends in Spain. France's items are those the server sends each
+    // client: its zone, or its points once they are asked for.
     for (final (name, device, exactIn, marks, zones) in [
       ('read in France by default: zones only, none of either country', 'FR', <String>{}, 0, 1),
       (
@@ -1005,7 +1005,9 @@ void main() {
         );
         expect(cameraMarks(), hasLength(marks));
         expect(SchematicRouteMap.last!.zones, hasLength(zones));
-        if (marks > 0) {
+        if (marks == 0) {
+          expect(find.textContaining('radar'), findsNothing, reason: 'nor in the legend');
+        } else {
           expect(
             find.descendant(
               of: find.byType(MarkLegend),

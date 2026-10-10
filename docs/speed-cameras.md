@@ -470,9 +470,13 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   driving, and while a guidance runs the vehicle's; no country known at the
   device (no position, no boundary library): nothing. That rule holds for
   every camera of the route, whatever its country (decision of the product
-  owner, 2026-10-10): a route into Spain read in France shows zones only
-  by default and the points of both countries once France's positions are
-  asked for; read in Spain, Spain's points. The guidance's map does the
+  owner, 2026-10-10): a route into Spain read in France shows France's
+  zones only by default, nothing of Spain's cameras (the server sends them
+  as points, and they have no zone), and the points of both countries once
+  France's positions are asked for; read in Spain, Spain's points and
+  France's zones (its points only for a user who asked for them). A
+  camera whose own country shows no points stays out under any rule:
+  Germany's, sent as points for nothing else. The guidance's map does the
   same with the vehicle's rule. The foot of the
   preview's panel cites each list with its date ("Zones de danger : ...",
   "Radars : ...", or both) by its licensor's wording, the list's
