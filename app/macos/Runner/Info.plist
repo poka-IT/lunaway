@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you or, when the map follows you, to rank a search; and when you add a place where you stand or report a problem on the road.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you or, when the map follows you, to rank a search; and when you add a place where you stand or report a problem on the road.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
