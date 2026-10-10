@@ -471,7 +471,7 @@ class _Translations$place$nl extends Translations$place$en {
 	final TranslationsNl _root; // ignore: unused_field
 
 	// Translations
-	@override String unnamedIn({required Object kind, required Object town}) => '${kind} in ${town}';
+	@override String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 	@override String away({required Object distance}) => 'Op ${distance} afstand';
 	@override String get directions => 'Route';
 	@override String get share => 'Delen';
@@ -505,6 +505,9 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get website => 'Website';
 	@override String get call => 'Bellen';
 	@override String get coordinates => 'Coördinaten';
+	@override String get address => 'Adres';
+	@override String get copyAddress => 'Adres kopiëren';
+	@override String addressSource({required Object source}) => 'Bron: ${source}';
 	@override String get copy => 'Coördinaten kopiëren';
 	@override String get copyShort => 'Kopiëren';
 	@override String copyAs({required Object format}) => 'Kopiëren als ${format}';
@@ -3200,7 +3203,7 @@ extension on TranslationsNl {
 			'filters.apply' => 'Toepassen',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Geen plek gevonden', one: '${count} plek tonen', other: '${count} plekken tonen', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} filter actief', other: '${n} filters actief', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} in ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => 'Op ${distance} afstand',
 			'place.directions' => 'Route',
 			'place.share' => 'Delen',
@@ -3233,6 +3236,9 @@ extension on TranslationsNl {
 			'place.website' => 'Website',
 			'place.call' => 'Bellen',
 			'place.coordinates' => 'Coördinaten',
+			'place.address' => 'Adres',
+			'place.copyAddress' => 'Adres kopiëren',
+			'place.addressSource' => ({required Object source}) => 'Bron: ${source}',
 			'place.copy' => 'Coördinaten kopiëren',
 			'place.copyShort' => 'Kopiëren',
 			'place.copyAs' => ({required Object format}) => 'Kopiëren als ${format}',
@@ -3503,11 +3509,11 @@ extension on TranslationsNl {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tussenstop ${n} onbereikbaar voor je voertuig: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -4017,11 +4023,11 @@ extension on TranslationsNl {
 			'account.signedOut' => 'Uitgelogd. Je favorieten blijven op dit apparaat.',
 			'account.lost' => 'Dit account gaat niet meer open op dit apparaat. Herstel het met je herstelkaart: Profiel, Mijn account herstellen.',
 			'account.lostAction' => 'Herstellen',
+			_ => null,
+		} ?? switch (path) {
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
@@ -4531,11 +4537,11 @@ extension on TranslationsNl {
 			'offlineMaps.deleteNamed' => ({required Object name}) => '${name} verwijderen',
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} van dit apparaat verwijderen?',
 			'offlineMaps.deleteBody' => 'Deze regio is dan niet meer zonder internet te zien. Je kunt hem opnieuw downloaden.',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',

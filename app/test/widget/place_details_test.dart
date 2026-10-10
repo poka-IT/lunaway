@@ -286,7 +286,60 @@ void main() {
 
   testWidgets('an unnamed place reads as its kind in its town', (tester) async {
     await openPlace(tester, unnamedParking);
-    expect(find.text('Parking à Saint-Malo'), findsWidgets);
+    expect(find.text('Parking · Saint-Malo'), findsWidgets);
+  });
+
+  testWidgets('an unnamed place reads as its kind and street, and its address copies in one tap', (
+    tester,
+  ) async {
+    final onStreet = Place(
+      id: 'test-on-street',
+      kind: PlaceKind.parking,
+      lat: 44.4818,
+      lon: 4.6896,
+      overnight: OvernightStatus.tolerated,
+      address: const Address(
+        street: '4 Rue de la Gare',
+        postcode: '07220',
+        city: 'Viviers',
+        countryCode: 'FR',
+      ),
+      provenance: const [FieldProvenance(field: 'address', sourceId: 'osm')],
+      updatedAt: DateTime.utc(2026, 9, 20),
+      sources: [
+        PlaceSource(source: osm, externalId: 'way/9', fetchedAt: DateTime.utc(2026, 10, 3)),
+      ],
+    );
+    await openPlace(tester, onStreet, places: [onStreet]);
+    expect(find.text('Parking · Rue de la Gare'), findsWidgets);
+    expect(inDetails(find.text('4 Rue de la Gare\n07220 Viviers')), findsOneWidget);
+    expect(
+      inDetails(find.text("Source : © les contributeurs d'OpenStreetMap")),
+      findsOneWidget,
+      reason: 'an address from the reverse geocoding credits OpenStreetMap as its licence asks',
+    );
+    await tester.tap(find.byTooltip("Copier l'adresse"));
+    await tester.pump();
+    expect(clipboard.last, '4 Rue de la Gare, 07220 Viviers');
+    expect(find.text('Copié : 4 Rue de la Gare, 07220 Viviers'), findsOneWidget);
+  });
+
+  testWidgets('a private host shows its town, never a street', (tester) async {
+    final host = Place(
+      id: 'test-host',
+      kind: PlaceKind.homestay,
+      lat: 44.4818,
+      lon: 4.6896,
+      overnight: OvernightStatus.allowed,
+      address: const Address(street: '3 Impasse des Lilas', postcode: '07220', city: 'Viviers'),
+      updatedAt: DateTime.utc(2026, 9, 20),
+      sources: [
+        PlaceSource(source: osm, externalId: 'node/10', fetchedAt: DateTime.utc(2026, 10, 3)),
+      ],
+    );
+    await openPlace(tester, host, places: [host]);
+    expect(find.textContaining('Impasse des Lilas'), findsNothing);
+    expect(inDetails(find.text('07220 Viviers')), findsOneWidget);
   });
 
   testWidgets('copy puts the decimal coordinates on the clipboard and says what was copied', (
@@ -549,6 +602,13 @@ void main() {
     await openPlace(tester, lakeArea);
     // 4.3 over 128 reviews and 4.0 over 2, weighted.
     expect(inDetails(find.text('4,3 (130)')), findsOneWidget);
+    // The reviews' section is an item of the card's list, built as it
+    // comes into view, under the address and the coordinates.
+    await tester.scrollUntilVisible(
+      find.text('4,3 (128)'),
+      400,
+      scrollable: inDetails(find.byType(Scrollable)).first,
+    );
     expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
   });
 

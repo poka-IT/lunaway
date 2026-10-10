@@ -876,8 +876,8 @@ class Translations$place$en {
 
 	// Translations
 
-	/// en: '$kind in $town'
-	String unnamedIn({required Object kind, required Object town}) => '${kind} in ${town}';
+	/// en: '$kind · $where'
+	String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 
 	/// en: '$distance away'
 	String away({required Object distance}) => '${distance} away';
@@ -970,6 +970,15 @@ class Translations$place$en {
 
 	/// en: 'Coordinates'
 	String get coordinates => 'Coordinates';
+
+	/// en: 'Address'
+	String get address => 'Address';
+
+	/// en: 'Copy the address'
+	String get copyAddress => 'Copy the address';
+
+	/// en: 'Source: $source'
+	String addressSource({required Object source}) => 'Source: ${source}';
 
 	/// en: 'Copy the coordinates'
 	String get copy => 'Copy the coordinates';
@@ -6531,7 +6540,7 @@ extension on Translations {
 			'filters.apply' => 'Apply',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'No place matches', one: 'Show ${count} place', other: 'Show ${count} places', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} filter on', other: '${n} filters on', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} in ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => '${distance} away',
 			'place.directions' => 'Directions',
 			'place.share' => 'Share',
@@ -6564,6 +6573,9 @@ extension on Translations {
 			'place.website' => 'Website',
 			'place.call' => 'Call',
 			'place.coordinates' => 'Coordinates',
+			'place.address' => 'Address',
+			'place.copyAddress' => 'Copy the address',
+			'place.addressSource' => ({required Object source}) => 'Source: ${source}',
 			'place.copy' => 'Copy the coordinates',
 			'place.copyShort' => 'Copy',
 			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
@@ -6834,11 +6846,11 @@ extension on Translations {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -7348,11 +7360,11 @@ extension on Translations {
 			'account.signedOut' => 'Signed out. Your favourites stay on this device.',
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
 			'account.lostAction' => 'Recover',
+			_ => null,
+		} ?? switch (path) {
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
@@ -7862,11 +7874,11 @@ extension on Translations {
 			'offlineMaps.deleteNamed' => ({required Object name}) => 'Delete ${name}',
 			'offlineMaps.deleteTitle' => ({required Object name}) => 'Delete ${name} from this device?',
 			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
 			'offlineMaps.listCopy' => 'List kept from the last connection.',
 			'offlineMaps.entryHint' => 'To travel without network',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',

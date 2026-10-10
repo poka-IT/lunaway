@@ -272,7 +272,7 @@
     }
   },
   "place": {
-    "unnamedIn": "$kind in $town",
+    "unnamedTitle": "$kind · $where",
     "away": "Op $distance afstand",
     "directions": "Route",
     "share": "Delen",
@@ -310,6 +310,9 @@
     "website": "Website",
     "call": "Bellen",
     "coordinates": "Coördinaten",
+    "address": "Adres",
+    "copyAddress": "Adres kopiëren",
+    "addressSource": "Bron: $source",
     "copy": "Coördinaten kopiëren",
     "copyShort": "Kopiëren",
     "copyAs": "Kopiëren als $format",

@@ -5,6 +5,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/season.dart';
+import 'package:lunaway/features/places/domain/street_name.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -147,16 +148,30 @@ extension Labels on Translations {
     .trailer => _t.vehicle.towing.trailer,
   };
 
-  /// The name, or "Car park in Annecy" when the place has none.
-  String placeTitle({required String? name, required PlaceKind kind, String? city}) {
+  /// The name, or, for a place without one, its kind and its street
+  /// without the house number ("Car park · Rue de la Gare"), else its
+  /// kind and its town ("Car park · Annecy"): four unnamed car parks of a
+  /// town read as four places. A private host is never titled by its
+  /// street, only by its town (`plan/research/69-extcom-suites.md`).
+  String placeTitle({
+    required String? name,
+    required PlaceKind kind,
+    String? city,
+    String? street,
+  }) {
     if (name != null && name.isNotEmpty) return name;
-    if (city != null && city.isNotEmpty) {
-      return _t.place.unnamedIn(kind: this.kind(kind), town: city);
+    final where = switch (kind) {
+      PlaceKind.homestay => null,
+      _ => streetName(street),
+    };
+    if (where ?? city case final where? when where.isNotEmpty) {
+      return _t.place.unnamedTitle(kind: this.kind(kind), where: where);
     }
     return this.kind(kind);
   }
 
-  String summaryTitle(PlaceSummary p) => placeTitle(name: p.name, kind: p.kind, city: p.city);
+  String summaryTitle(PlaceSummary p) =>
+      placeTitle(name: p.name, kind: p.kind, city: p.city, street: p.street);
 
   /// "yesterday", "3 months ago": how old [date] is at [now].
   String ago(DateTime date, DateTime now) {
