@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/location/browser_location.dart';
 import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/features/map/application/locating.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -20,7 +21,7 @@ Future<void> locateUser(BuildContext context, WidgetRef ref) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (!await ensureLocationAccess(context, ref) || !context.mounted) return;
   final controller = ref.read(mapControllerProvider);
-  final position = await controller?.locateUser();
+  final position = await _waiting(ref, () async => await controller?.locateUser());
   if (!context.mounted) return;
   if (position == null) {
     showMessage(messenger, t.location.noFix);
@@ -28,6 +29,16 @@ Future<void> locateUser(BuildContext context, WidgetRef ref) async {
   }
   ref.read(userLocationProvider.notifier).update(position);
   await controller?.moveTo(position, zoom: 12);
+}
+
+/// Runs [wait] with the locate button turning ([locatingProvider]).
+Future<T> _waiting<T>(WidgetRef ref, Future<T> Function() wait) async {
+  final locating = ref.read(locatingProvider.notifier)..start();
+  try {
+    return await wait();
+  } finally {
+    locating.stop();
+  }
 }
 
 /// The web: the browser asks the user itself, and some browsers show that
@@ -38,7 +49,7 @@ Future<void> _locateInBrowser(BuildContext context, WidgetRef ref, BrowserLocati
   final request = browser.locate();
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
-  final fix = await request;
+  final fix = await _waiting(ref, () => request);
   if (!context.mounted) return;
   switch (fix) {
     case BrowserPosition(:final position, :final accuracy):

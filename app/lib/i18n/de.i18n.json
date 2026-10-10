@@ -360,6 +360,7 @@
     },
     "deletedAccount": "Gelöschtes Konto",
     "reviewVehicle": {
+      "car": "Auto",
       "van": "Van",
       "campervan": "Kastenwagen",
       "motorhome": "Wohnmobil",
@@ -1088,7 +1089,8 @@
     "deleteListPoints(param=n)": {
       "one": "Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.",
       "other": "Die $n in dieser Liste gespeicherten Punkte werden mit ihr gelöscht."
-    }
+    },
+    "listNameRequired": "Geben Sie der Liste einen Namen"
   },
   "vehicle": {
     "title": "Mein Fahrzeug",
@@ -1098,6 +1100,7 @@
     "edit": "Bearbeiten",
     "type": "Typ",
     "types": {
+      "car": "Auto",
       "van": "Van",
       "campervan": "Kastenwagen",
       "lowProfile": "Teilintegriert",
@@ -1119,8 +1122,6 @@
     "heightShort": "H $value",
     "widthShort": "B $value",
     "lengthShort": "L $value",
-    "notANumber": "Bitte eine Zahl eingeben, z. B. 2,90",
-    "outOfRange": "Zwischen $min und $max $unit",
     "navigationLater": "Die Navigation von Lunaway berücksichtigt alle diese Maße.",
     "save": "Speichern",
     "clear": "Löschen",
@@ -1132,7 +1133,9 @@
     "lpgHeatingHint": "Auch die Autogaspreise erscheinen an den Tankstellen.",
     "cruiseTitle": "Maximale Reisegeschwindigkeit",
     "cruiseHint": "Die Fahrzeiten setzen voraus, dass Sie nie schneller fahren, auch wo die Straße es erlaubt. Angesagt werden weiterhin die Tempolimits der Straße.",
-    "cruiseNone": "Keine Begrenzung"
+    "cruiseNone": "Keine Begrenzung",
+    "saved": "Fahrzeug gespeichert",
+    "carHint": "Kleinwagen, Limousine, Kombi, SUV"
   },
   "vehicleHeight": {
     "title": "Höhe Ihres Fahrzeugs",
@@ -1363,7 +1366,8 @@
     "submit": "Konto wiederherstellen",
     "notFound": "Zu diesem Code gibt es kein Konto. Prüfen Sie die Karte oder erstellen Sie auf einem angemeldeten Gerät eine neue.",
     "tooMany": "Vorerst zu viele Versuche. Versuchen Sie es in einer Stunde erneut.",
-    "done": "Konto wiederhergestellt: $name"
+    "done": "Konto wiederhergestellt: $name",
+    "required": "Geben Sie den Code Ihrer Sicherungskarte ein"
   },
   "deletion": {
     "title": "Mein Konto löschen",
@@ -1574,7 +1578,8 @@
       "danger": "Diebstahl, Überfall, instabiler Untergrund"
     },
     "note": "Etwas hinzuzufügen? (optional)",
-    "send": "Melden"
+    "send": "Melden",
+    "kindRequired": "Wählen Sie das Problem aus"
   },
   "reportSheet": {
     "review": "Diese Rezension melden",
@@ -1598,7 +1603,9 @@
     "muted": "$name ist ausgeblendet",
     "deletePhoto": "Mein Foto löschen",
     "deletePhotoTitle": "Dieses Foto löschen?",
-    "deletePhotoBody": "Es wird von der Platzseite und von unseren Servern entfernt."
+    "deletePhotoBody": "Es wird von der Platzseite und von unseren Servern entfernt.",
+    "reasonRequired": "Wählen Sie einen Grund",
+    "noteRequired": "Beschreiben Sie kurz, was nicht stimmt"
   },
   "reviewSheet": {
     "titleNew": "Ihre Rezension",
@@ -1673,7 +1680,6 @@
     "submitEdit": "Änderung speichern",
     "submitPropose": "Vorschlag senden",
     "nothingChanged": "Nichts geändert",
-    "invalidNumber": "Bitte eine Zahl eingeben",
     "invalidWebsite": "Eine Adresse, die mit http:// oder https:// beginnt",
     "added": "Danke: Der Platz erscheint gleich auf der Karte",
     "proposed": "Danke: Ihr Vorschlag geht in die Prüfung"
@@ -2267,7 +2273,8 @@
     "lower": "10 cm niedriger",
     "higher": "10 cm höher",
     "passed": "Gerade passiert: $what. Noch da?",
-    "notHere": "Lunaway nimmt Meldungen dort an, wo ein offizieller Datenfeed sie abgleicht: $countries."
+    "notHere": "Lunaway nimmt Meldungen dort an, wo ein offizieller Datenfeed sie abgleicht: $countries.",
+    "kindRequired": "Wählen Sie aus, was Sie sehen"
   },
   "countries": {
     "ad": "Andorra",
@@ -2322,5 +2329,20 @@
     "re": "Réunion",
     "yt": "Mayotte",
     "franceRest": "Frankreich, ohne Gemeindezuordnung"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n Feld zu korrigieren",
+      "other": "$n Felder zu korrigieren"
+    },
+    "fieldError": "$label: $error",
+    "between": "Zwischen $min und $max $unit",
+    "numberBetween": "Eine Zahl zwischen $min und $max $unit",
+    "number": "Eine Zahl, zum Beispiel $example",
+    "failed": "Nicht gespeichert. Ihre Eingaben bleiben erhalten."
+  },
+  "busy": {
+    "working": "Läuft",
+    "slow": "Läuft noch: Das Netz antwortet langsam."
   }
 }

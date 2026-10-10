@@ -360,6 +360,7 @@
     },
     "deletedAccount": "Cuenta eliminada",
     "reviewVehicle": {
+      "car": "Coche",
       "van": "Van",
       "campervan": "Furgoneta camper",
       "motorhome": "Autocaravana",
@@ -1088,7 +1089,8 @@
     "deleteListPoints(param=n)": {
       "one": "El punto guardado en esta lista se elimina con ella.",
       "other": "Los $n puntos guardados en esta lista se eliminan con ella."
-    }
+    },
+    "listNameRequired": "Ponle un nombre a la lista"
   },
   "vehicle": {
     "title": "Mi vehículo",
@@ -1098,6 +1100,7 @@
     "edit": "Editar",
     "type": "Tipo",
     "types": {
+      "car": "Coche",
       "van": "Van",
       "campervan": "Furgoneta camper",
       "lowProfile": "Perfilada",
@@ -1119,8 +1122,6 @@
     "heightShort": "Alto $value",
     "widthShort": "Ancho $value",
     "lengthShort": "Largo $value",
-    "notANumber": "Un número, por ejemplo 2,90",
-    "outOfRange": "Entre $min y $max $unit",
     "navigationLater": "La navegación de Lunaway tiene en cuenta todas estas dimensiones.",
     "save": "Guardar",
     "clear": "Borrar",
@@ -1132,7 +1133,9 @@
     "lpgHeatingHint": "El precio del GLP también aparece en las gasolineras.",
     "cruiseTitle": "Velocidad máxima de crucero",
     "cruiseHint": "Los tiempos de trayecto suponen que nunca vas más rápido, aunque la carretera lo permita. Los límites de velocidad que se anuncian durante la navegación siguen siendo los de la carretera.",
-    "cruiseNone": "Sin límite"
+    "cruiseNone": "Sin límite",
+    "saved": "Vehículo guardado",
+    "carHint": "Utilitario, berlina, familiar, SUV"
   },
   "vehicleHeight": {
     "title": "Altura de tu vehículo",
@@ -1363,7 +1366,8 @@
     "submit": "Recuperar la cuenta",
     "notFound": "Ninguna cuenta tiene este código. Comprueba la tarjeta o crea una nueva desde un dispositivo con la sesión iniciada.",
     "tooMany": "Demasiados intentos por ahora. Vuelve a intentarlo dentro de una hora.",
-    "done": "Cuenta recuperada: $name"
+    "done": "Cuenta recuperada: $name",
+    "required": "Escribe el código de tu tarjeta de recuperación"
   },
   "deletion": {
     "title": "Eliminar mi cuenta",
@@ -1574,7 +1578,8 @@
       "danger": "Robo, agresión, terreno inestable"
     },
     "note": "¿Algo que añadir? (opcional)",
-    "send": "Avisar"
+    "send": "Avisar",
+    "kindRequired": "Elige el problema que has visto"
   },
   "reportSheet": {
     "review": "Denunciar esta reseña",
@@ -1598,7 +1603,9 @@
     "muted": "$name está oculto",
     "deletePhoto": "Eliminar mi foto",
     "deletePhotoTitle": "¿Eliminar esta foto?",
-    "deletePhotoBody": "Desaparece de la ficha y de nuestros servidores."
+    "deletePhotoBody": "Desaparece de la ficha y de nuestros servidores.",
+    "reasonRequired": "Elige un motivo",
+    "noteRequired": "Di en pocas palabras qué falla"
   },
   "reviewSheet": {
     "titleNew": "Tu reseña",
@@ -1673,7 +1680,6 @@
     "submitEdit": "Guardar el cambio",
     "submitPropose": "Enviar la propuesta",
     "nothingChanged": "No ha cambiado nada",
-    "invalidNumber": "Introduce un número",
     "invalidWebsite": "Una dirección que empiece por http:// o https://",
     "added": "Gracias: el lugar aparecerá en el mapa en un momento",
     "proposed": "Gracias: tu propuesta pasa a revisión"
@@ -2267,7 +2273,8 @@
     "lower": "10 cm más bajo",
     "higher": "10 cm más alto",
     "passed": "Acabas de pasar: $what. ¿Sigue ahí?",
-    "notHere": "Lunaway acepta avisos donde una fuente oficial los contrasta: $countries."
+    "notHere": "Lunaway acepta avisos donde una fuente oficial los contrasta: $countries.",
+    "kindRequired": "Elige lo que ves"
   },
   "countries": {
     "ad": "Andorra",
@@ -2322,5 +2329,20 @@
     "re": "Reunión",
     "yt": "Mayotte",
     "franceRest": "Francia, sin municipio"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n campo por corregir",
+      "other": "$n campos por corregir"
+    },
+    "fieldError": "$label: $error",
+    "between": "Entre $min y $max $unit",
+    "numberBetween": "Un número entre $min y $max $unit",
+    "number": "Un número, por ejemplo $example",
+    "failed": "No se ha guardado. Lo que has escrito se conserva."
+  },
+  "busy": {
+    "working": "En curso",
+    "slow": "Sigue en curso: la red responde despacio."
   }
 }

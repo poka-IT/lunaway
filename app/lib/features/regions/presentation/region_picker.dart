@@ -13,6 +13,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('regions');
@@ -137,7 +138,9 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
           ),
         ),
         const SizedBox(height: Space.s),
-        FilledButton(
+        // One choice per tap: a second tap while it is stored closed the
+        // screen under the sheet as well.
+        BusyButton(
           onPressed: added.isEmpty && removed.isEmpty && kept != null
               ? null
               : () async {
@@ -145,7 +148,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
                   await ref.read(keptRegionsControllerProvider.notifier).choose(selection);
                   if (navigator.mounted) navigator.pop();
                 },
-          child: Text(
+          label: Text(
             added.isEmpty
                 ? t.common.save
                 : t.regions.download(size: t.fileSize(catalog.bytesOf(added))),

@@ -31,6 +31,9 @@ Future<void> toggleDefaultFavorite(BuildContext context, WidgetRef ref, PlaceSum
   // the app's root, which is still there once the panel has closed.
   final root = Navigator.of(context, rootNavigator: true);
   final repo = ref.read(favoritesRepositoryProvider);
+  // A second tap while the first is stored would read the lists before
+  // the first wrote them, and save or remove twice.
+  if (!_toggling.add(place.id)) return;
   try {
     final defaultId = await repo.defaultListId();
     final lists = await ref.read(placeListsProvider(place.id).future);
@@ -60,8 +63,13 @@ Future<void> toggleDefaultFavorite(BuildContext context, WidgetRef ref, PlaceSum
   } on Object catch (error, stack) {
     _log.warning('saving a favourite failed', error, stack);
     showMessage(messenger, t.common.saveFailed);
+  } finally {
+    _toggling.remove(place.id);
   }
 }
+
+/// The places whose save or removal is under way.
+final _toggling = <String>{};
 
 /// The actions of a place, always in reach: below the details on a phone
 /// (where the dock was), at the foot of the panel on wider screens.

@@ -172,7 +172,15 @@ void main() {
     await settleShort(tester);
     expect(find.text('Enregistrer dans une liste'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('point-name'))).controller!.text,
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const Key('point-name')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller!
+          .text,
       'Point du 6 oct.',
       reason: 'the name proposed',
     );
@@ -202,7 +210,10 @@ void main() {
     await tester.tap(find.text('Renommer'));
     await settleShort(tester);
     final field = find.byKey(const Key('point-name'));
-    final selected = tester.widget<TextField>(field).controller!.selection;
+    final selected = tester
+        .widget<TextField>(find.descendant(of: field, matching: find.byType(TextField)))
+        .controller!
+        .selection;
     expect((selected.start, selected.end), (0, 'Chez Paul'.length), reason: 'ready to retype');
     await tester.enterText(field, 'Chez Paul et Lise');
     await tester.tap(find.text('Terminé'));

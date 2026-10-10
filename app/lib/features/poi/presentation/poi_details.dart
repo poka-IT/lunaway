@@ -40,6 +40,7 @@ import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -673,13 +674,15 @@ class _StillThere extends ConsumerWidget {
           spacing: Space.s,
           runSpacing: Space.s,
           children: [
-            OutlinedButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: true),
+              look: BusyLook.outlined,
               icon: const Icon(AppIcons.confirmed),
               label: Text(t.poi.stillThere),
             ),
-            TextButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: false),
+              look: BusyLook.text,
               icon: const Icon(AppIcons.gone),
               label: Text(t.poi.gone),
             ),
@@ -1191,6 +1194,7 @@ class _PoiReviews extends ConsumerWidget {
                 title: t.poi.details.reviewsError,
                 action: t.common.retry,
                 onAction: () => ref.invalidate(pointReviewsProvider(poi.id)),
+                busy: ref.watch(pointReviewsProvider(poi.id)).isLoading,
                 compact: true,
               ),
             ],

@@ -93,6 +93,8 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$roadReport$nl roadReport = _Translations$roadReport$nl._(_root);
 	@override late final _Translations$countries$nl countries = _Translations$countries$nl._(_root);
 	@override late final _Translations$areas$nl areas = _Translations$areas$nl._(_root);
+	@override late final _Translations$forms$nl forms = _Translations$forms$nl._(_root);
+	@override late final _Translations$busy$nl busy = _Translations$busy$nl._(_root);
 }
 
 // Path: nav
@@ -736,6 +738,7 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 		one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.',
 		other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.',
 	);
+	@override String get listNameRequired => 'Geef de lijst een naam';
 }
 
 // Path: vehicle
@@ -763,8 +766,6 @@ class _Translations$vehicle$nl extends Translations$vehicle$en {
 	@override String heightShort({required Object value}) => 'H ${value}';
 	@override String widthShort({required Object value}) => 'B ${value}';
 	@override String lengthShort({required Object value}) => 'L ${value}';
-	@override String get notANumber => 'Een getal, bijvoorbeeld 2,90';
-	@override String outOfRange({required Object min, required Object max, required Object unit}) => 'Tussen ${min} en ${max} ${unit}';
 	@override String get navigationLater => 'De navigatie van Lunaway houdt rekening met al deze afmetingen.';
 	@override String get save => 'Opslaan';
 	@override String get clear => 'Wissen';
@@ -777,6 +778,8 @@ class _Translations$vehicle$nl extends Translations$vehicle$en {
 	@override String get cruiseTitle => 'Maximale kruissnelheid';
 	@override String get cruiseHint => 'Reistijden gaan ervan uit dat je nooit harder rijdt, ook waar de weg dat toestaat. De maximumsnelheden die tijdens het rijden worden aangekondigd, blijven die van de weg.';
 	@override String get cruiseNone => 'Geen limiet';
+	@override String get saved => 'Voertuig opgeslagen';
+	@override String get carHint => 'Stadsauto, sedan, stationwagen, SUV';
 }
 
 // Path: vehicleHeight
@@ -1048,6 +1051,7 @@ class _Translations$recover$nl extends Translations$recover$en {
 	@override String get notFound => 'Geen enkel account heeft deze code. Controleer de kaart, of maak een nieuwe vanaf een apparaat waarop je bent ingelogd.';
 	@override String get tooMany => 'Te veel pogingen. Probeer het over een uur opnieuw.';
 	@override String done({required Object name}) => 'Account hersteld: ${name}';
+	@override String get required => 'Typ de code van je herstelkaart';
 }
 
 // Path: deletion
@@ -1258,6 +1262,7 @@ class _Translations$issueSheet$nl extends Translations$issueSheet$en {
 	@override late final _Translations$issueSheet$hint$nl hint = _Translations$issueSheet$hint$nl._(_root);
 	@override String get note => 'Iets toe te voegen? (optioneel)';
 	@override String get send => 'Melden';
+	@override String get kindRequired => 'Kies het probleem dat je zag';
 }
 
 // Path: reportSheet
@@ -1283,6 +1288,8 @@ class _Translations$reportSheet$nl extends Translations$reportSheet$en {
 	@override String get deletePhoto => 'Mijn foto verwijderen';
 	@override String get deletePhotoTitle => 'Deze foto verwijderen?';
 	@override String get deletePhotoBody => 'De foto verdwijnt van de pagina en van onze servers.';
+	@override String get reasonRequired => 'Kies een reden';
+	@override String get noteRequired => 'Zeg in een paar woorden wat er mis is';
 }
 
 // Path: reviewSheet
@@ -1385,7 +1392,6 @@ class _Translations$placeForm$nl extends Translations$placeForm$en {
 	@override String get submitEdit => 'Wijziging opslaan';
 	@override String get submitPropose => 'Voorstel versturen';
 	@override String get nothingChanged => 'Er is niets gewijzigd';
-	@override String get invalidNumber => 'Vul een getal in';
 	@override String get invalidWebsite => 'Een adres dat begint met http:// of https://';
 	@override String get added => 'Bedankt: de plek staat zo op de kaart';
 	@override String get proposed => 'Bedankt: je voorstel wordt gecontroleerd';
@@ -1626,6 +1632,7 @@ class _Translations$roadReport$nl extends Translations$roadReport$en {
 	@override String get higher => '10 cm hoger';
 	@override String passed({required Object what}) => 'Je bent net langsgekomen: ${what}. Is het er nog?';
 	@override String notHere({required Object countries}) => 'Lunaway neemt meldingen aan waar een officiële bron ze kan controleren: ${countries}.';
+	@override String get kindRequired => 'Kies wat je ziet';
 }
 
 // Path: countries
@@ -1696,6 +1703,35 @@ class _Translations$areas$nl extends Translations$areas$en {
 	@override String get franceRest => 'Frankrijk, overig';
 }
 
+// Path: forms
+class _Translations$forms$nl extends Translations$forms$en {
+	_Translations$forms$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String toFix({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: '${n} veld te verbeteren',
+		other: '${n} velden te verbeteren',
+	);
+	@override String fieldError({required Object label, required Object error}) => '${label}: ${error}';
+	@override String between({required Object min, required Object max, required Object unit}) => 'Tussen ${min} en ${max} ${unit}';
+	@override String numberBetween({required Object min, required Object max, required Object unit}) => 'Een getal tussen ${min} en ${max} ${unit}';
+	@override String number({required Object example}) => 'Een getal, bijvoorbeeld ${example}';
+	@override String get failed => 'Niet opgeslagen. Wat je hebt ingevuld, blijft bewaard.';
+}
+
+// Path: busy
+class _Translations$busy$nl extends Translations$busy$en {
+	_Translations$busy$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get working => 'Bezig';
+	@override String get slow => 'Nog bezig: het netwerk reageert traag.';
+}
+
 // Path: search.addressKind
 class _Translations$search$addressKind$nl extends Translations$search$addressKind$en {
 	_Translations$search$addressKind$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -1730,6 +1766,7 @@ class _Translations$place$reviewVehicle$nl extends Translations$place$reviewVehi
 	final TranslationsNl _root; // ignore: unused_field
 
 	// Translations
+	@override String get car => 'Auto';
 	@override String get van => 'Busje';
 	@override String get campervan => 'Buscamper';
 	@override String get motorhome => 'Camper';
@@ -2365,6 +2402,7 @@ class _Translations$vehicle$types$nl extends Translations$vehicle$types$en {
 	final TranslationsNl _root; // ignore: unused_field
 
 	// Translations
+	@override String get car => 'Auto';
 	@override String get van => 'Busje';
 	@override String get campervan => 'Buscamper';
 	@override String get lowProfile => 'Halfintegraal';
@@ -3628,6 +3666,7 @@ extension on TranslationsNl {
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'externe beoordeling', other: 'externe beoordelingen', ), 
 			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lunaway-beoordeling', other: 'Lunaway-beoordelingen', ), 
 			'place.deletedAccount' => 'Verwijderd account',
+			'place.reviewVehicle.car' => 'Auto',
 			'place.reviewVehicle.van' => 'Busje',
 			'place.reviewVehicle.campervan' => 'Buscamper',
 			'place.reviewVehicle.motorhome' => 'Camper',
@@ -3860,9 +3899,9 @@ extension on TranslationsNl {
 			'navigation.states.pickOtherPointClick' => 'Kies een bestemming vóór het obstakel: klik met de rechtermuisknop op de kaart.',
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
-			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
 			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
 			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			'navigation.noRoute.originUnreachable' => 'Je voertuig kan hier niet vertrekken',
@@ -4224,12 +4263,14 @@ extension on TranslationsNl {
 			'favorites.pointKind.point' => 'Punt op de kaart',
 			'favorites.pointKind.poi' => 'Winkel of voorziening',
 			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.', other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.', ), 
+			'favorites.listNameRequired' => 'Geef de lijst een naam',
 			'vehicle.title' => 'Mijn voertuig',
 			'vehicle.why' => 'Met de afmetingen worden plekken verborgen waar je voertuig niet past. Ze worden bij elke routeaanvraag meegestuurd en niet bewaard.',
 			'vehicle.none' => 'Beschrijf je voertuig om plekken te verbergen waar het niet past.',
 			'vehicle.add' => 'Mijn voertuig beschrijven',
 			'vehicle.edit' => 'Wijzigen',
 			'vehicle.type' => 'Type',
+			'vehicle.types.car' => 'Auto',
 			'vehicle.types.van' => 'Busje',
 			'vehicle.types.campervan' => 'Buscamper',
 			'vehicle.types.lowProfile' => 'Halfintegraal',
@@ -4248,8 +4289,6 @@ extension on TranslationsNl {
 			'vehicle.heightShort' => ({required Object value}) => 'H ${value}',
 			'vehicle.widthShort' => ({required Object value}) => 'B ${value}',
 			'vehicle.lengthShort' => ({required Object value}) => 'L ${value}',
-			'vehicle.notANumber' => 'Een getal, bijvoorbeeld 2,90',
-			'vehicle.outOfRange' => ({required Object min, required Object max, required Object unit}) => 'Tussen ${min} en ${max} ${unit}',
 			'vehicle.navigationLater' => 'De navigatie van Lunaway houdt rekening met al deze afmetingen.',
 			'vehicle.save' => 'Opslaan',
 			'vehicle.clear' => 'Wissen',
@@ -4262,6 +4301,8 @@ extension on TranslationsNl {
 			'vehicle.cruiseTitle' => 'Maximale kruissnelheid',
 			'vehicle.cruiseHint' => 'Reistijden gaan ervan uit dat je nooit harder rijdt, ook waar de weg dat toestaat. De maximumsnelheden die tijdens het rijden worden aangekondigd, blijven die van de weg.',
 			'vehicle.cruiseNone' => 'Geen limiet',
+			'vehicle.saved' => 'Voertuig opgeslagen',
+			'vehicle.carHint' => 'Stadsauto, sedan, stationwagen, SUV',
 			'vehicleHeight.title' => 'Hoogte van je voertuig',
 			'vehicleHeight.why' => 'Plekken met een hoogtelimiet onder deze hoogte worden verborgen. Plekken waarvan de hoogte niet bekend is, blijven zichtbaar.',
 			'vehicleHeight.needed' => 'Vul de hoogte in, bijvoorbeeld 2,90',
@@ -4372,11 +4413,11 @@ extension on TranslationsNl {
 			'account.editPseudonym' => 'Pseudoniem wijzigen',
 			'account.pseudonymTitle' => 'Je pseudoniem',
 			'account.pseudonymHint' => 'Openbaar: het staat bij je reviews en foto\'s. 3 tot 32 tekens.',
+			_ => null,
+		} ?? switch (path) {
 			'account.pseudonymInvalid' => '3 tot 32 tekens, waarvan minstens twee letters.',
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
 			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
@@ -4459,6 +4500,7 @@ extension on TranslationsNl {
 			'recover.notFound' => 'Geen enkel account heeft deze code. Controleer de kaart, of maak een nieuwe vanaf een apparaat waarop je bent ingelogd.',
 			'recover.tooMany' => 'Te veel pogingen. Probeer het over een uur opnieuw.',
 			'recover.done' => ({required Object name}) => 'Account hersteld: ${name}',
+			'recover.required' => 'Typ de code van je herstelkaart',
 			'deletion.title' => 'Mijn account verwijderen',
 			'deletion.intro' => 'Het verwijderen gebeurt direct en is definitief.',
 			'deletion.goneTitle' => 'Wat er verdwijnt',
@@ -4629,6 +4671,7 @@ extension on TranslationsNl {
 			'issueSheet.hint.danger' => 'Diefstal, geweld, instabiele ondergrond',
 			'issueSheet.note' => 'Iets toe te voegen? (optioneel)',
 			'issueSheet.send' => 'Melden',
+			'issueSheet.kindRequired' => 'Kies het probleem dat je zag',
 			'reportSheet.review' => 'Deze review melden',
 			'reportSheet.photo' => 'Deze foto melden',
 			'reportSheet.place' => 'Deze plek melden',
@@ -4649,6 +4692,8 @@ extension on TranslationsNl {
 			'reportSheet.deletePhoto' => 'Mijn foto verwijderen',
 			'reportSheet.deletePhotoTitle' => 'Deze foto verwijderen?',
 			'reportSheet.deletePhotoBody' => 'De foto verdwijnt van de pagina en van onze servers.',
+			'reportSheet.reasonRequired' => 'Kies een reden',
+			'reportSheet.noteRequired' => 'Zeg in een paar woorden wat er mis is',
 			'reviewSheet.titleNew' => 'Jouw review',
 			'reviewSheet.titleEdit' => 'Je review bewerken',
 			'reviewSheet.starsRequired' => 'Kies een beoordeling van 1 tot 5',
@@ -4712,7 +4757,6 @@ extension on TranslationsNl {
 			'placeForm.submitEdit' => 'Wijziging opslaan',
 			'placeForm.submitPropose' => 'Voorstel versturen',
 			'placeForm.nothingChanged' => 'Er is niets gewijzigd',
-			'placeForm.invalidNumber' => 'Vul een getal in',
 			'placeForm.invalidWebsite' => 'Een adres dat begint met http:// of https://',
 			'placeForm.added' => 'Bedankt: de plek staat zo op de kaart',
 			'placeForm.proposed' => 'Bedankt: je voorstel wordt gecontroleerd',
@@ -4883,14 +4927,14 @@ extension on TranslationsNl {
 			'poi.kind.nightclub' => 'Nachtclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sportcentrum',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.fitnessCentre' => 'Sportschool',
 			'poi.kind.swimmingPool' => 'Zwembad',
 			'poi.kind.waterPark' => 'Waterpark',
 			'poi.kind.golfCourse' => 'Golfbaan',
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Manege',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escaperoom',
@@ -5238,6 +5282,7 @@ extension on TranslationsNl {
 			'roadReport.higher' => '10 cm hoger',
 			'roadReport.passed' => ({required Object what}) => 'Je bent net langsgekomen: ${what}. Is het er nog?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway neemt meldingen aan waar een officiële bron ze kan controleren: ${countries}.',
+			'roadReport.kindRequired' => 'Kies wat je ziet',
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Oostenrijk',
 			'countries.ax' => 'Åland',
@@ -5288,6 +5333,14 @@ extension on TranslationsNl {
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'Frankrijk, overig',
+			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} veld te verbeteren', other: '${n} velden te verbeteren', ), 
+			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',
+			'forms.between' => ({required Object min, required Object max, required Object unit}) => 'Tussen ${min} en ${max} ${unit}',
+			'forms.numberBetween' => ({required Object min, required Object max, required Object unit}) => 'Een getal tussen ${min} en ${max} ${unit}',
+			'forms.number' => ({required Object example}) => 'Een getal, bijvoorbeeld ${example}',
+			'forms.failed' => 'Niet opgeslagen. Wat je hebt ingevuld, blijft bewaard.',
+			'busy.working' => 'Bezig',
+			'busy.slow' => 'Nog bezig: het netwerk reageert traag.',
 			_ => null,
 		};
 	}

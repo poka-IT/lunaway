@@ -67,7 +67,8 @@ class FormSheetFrame extends StatelessWidget {
   final List<Widget> children;
   final ScrollController? scrollController;
 
-  /// The primary action, a [FilledButton]; null for a sheet of choices.
+  /// The primary action: a form's `SubmitButton`, a `BusyButton` or a
+  /// [FilledButton]; null for a sheet of choices.
   final Widget? action;
   final Widget? footnote;
 
@@ -147,16 +148,17 @@ class FormSheetFrame extends StatelessWidget {
         children: [
           header,
           Flexible(
-            child: ListView(
+            // Every field built, not only those in sight: a form checks
+            // them all and scrolls to the first one wrong (LunaForm).
+            child: SingleChildScrollView(
               controller: scrollController,
-              shrinkWrap: true,
               padding: EdgeInsets.fromLTRB(
                 Space.xl,
                 Space.xs,
                 Space.xl,
                 foot == null ? Space.xl + media.padding.bottom : Space.xl,
               ),
-              children: children,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
             ),
           ),
           ?foot,

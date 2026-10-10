@@ -88,6 +88,7 @@ class CheapestFuelList extends ConsumerWidget {
               title: t.poi.cheapest.error,
               action: t.common.retry,
               onAction: () => ref.invalidate(around ? nearbyFuelProvider : fuelStationsProvider),
+              busy: offers.isLoading,
               compact: true,
             ),
           ),

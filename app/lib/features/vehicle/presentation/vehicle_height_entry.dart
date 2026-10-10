@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import 'package:logging/logging.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
-import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
-import 'package:lunaway/shared/widgets/field_label.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
-
-final _log = Logger('vehicle');
 
 /// Opens the short entry of the vehicle's height, for "my vehicle fits"
 /// used before any vehicle was described; returns the saved vehicle, or
@@ -62,17 +56,15 @@ class VehicleHeightEntry extends ConsumerStatefulWidget {
 }
 
 class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
-  final _form = GlobalKey<FormState>();
   late final _height = TextEditingController(
-    text: _format(ref.read(vehicleProvider).value?.heightM, '0.00'),
+    text: _format(ref.read(vehicleProvider).value?.heightM, 2),
   );
   late final _weight = TextEditingController(
-    text: _format(ref.read(vehicleProvider).value?.weightT, '0.0'),
+    text: _format(ref.read(vehicleProvider).value?.weightT, 1),
   );
-  bool _saving = false;
 
-  String _format(double? v, String pattern) =>
-      v == null ? '' : NumberFormat(pattern, context.t.$meta.locale.languageCode).format(v);
+  String _format(double? v, int digits) =>
+      v == null ? '' : formatDecimal(context, v, digits: digits);
 
   @override
   void dispose() {
@@ -81,11 +73,12 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
     super.dispose();
   }
 
+  /// Stores the height (the form has checked it); a failure keeps the
+  /// figures typed, with a way to try again.
   Future<void> _save() async {
-    if (_saving || !(_form.currentState?.validate() ?? false)) return;
-    final height = VehicleEditor.parse(_height.text);
+    final height = parseDecimal(_height.text);
     if (height == null) return;
-    final weight = VehicleEditor.parse(_weight.text);
+    final weight = parseDecimal(_weight.text);
     final existing = ref.read(vehicleProvider).value;
     final vehicle =
         existing?.copyWith(
@@ -98,22 +91,10 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
     // may already have swapped this entry for its switch, and the filter
     // must still turn on.
     final onSaved = widget.onSaved;
-    final repository = ref.read(vehicleRepositoryProvider);
     final settings = ref.read(settingsProvider.notifier);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final failed = context.t.common.saveFailed;
-    setState(() => _saving = true);
-    try {
-      await repository.save(vehicle);
-      // Inside the guard of a second tap: the sheet closes only after.
-      await settings.vehicleDescribed(vehicle);
-    } on Object catch (e) {
-      _log.warning('the height of the vehicle was not stored', e);
-      showMessage(messenger, failed);
-      return;
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await ref.read(vehicleRepositoryProvider).save(vehicle);
+    // Inside the form's guard of a second tap: the sheet closes only after.
+    await settings.vehicleDescribed(vehicle);
     Haptics.confirm();
     onSaved(vehicle);
   }
@@ -123,51 +104,8 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final locale = t.$meta.locale.languageCode;
-    String? Function(String?) inRange(
-      ({double min, double max}) range,
-      String unit, {
-      required bool required,
-    }) => (text) {
-      if (text == null || text.trim().isEmpty) return required ? t.vehicleHeight.needed : null;
-      final v = VehicleEditor.parse(text);
-      if (v == null) return t.vehicle.notANumber;
-      if (v < range.min || v > range.max) {
-        return t.vehicle.outOfRange(
-          min: NumberFormat('0.0#', locale).format(range.min),
-          max: NumberFormat('0.0#', locale).format(range.max),
-          unit: unit,
-        );
-      }
-      return null;
-    };
-
-    Widget field(
-      TextEditingController controller,
-      String label,
-      String unit,
-      IconData icon,
-      String? Function(String?) check, {
-      required TextInputAction action,
-      String? helper,
-    }) => TextFormField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      textInputAction: action,
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
-      decoration: InputDecoration(
-        label: FieldLabel(label),
-        helperText: helper,
-        suffixText: unit,
-        prefixIcon: Icon(icon),
-      ),
-      style: theme.textTheme.bodyLarge,
-      validator: check,
-      onFieldSubmitted: action == TextInputAction.done ? (_) => _save() : null,
-    );
-
-    return Form(
-      key: _form,
+    return LunaForm(
+      onSubmit: _save,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -181,37 +119,40 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
             ),
             const SizedBox(height: Space.xl),
           ],
-          field(
-            _height,
-            t.vehicle.height,
-            'm',
-            AppIcons.height,
-            inRange(Vehicle.heightRange, 'm', required: true),
-            action: TextInputAction.next,
+          LunaTextField(
+            controller: _height,
+            label: t.vehicle.height,
+            kind: FieldKind.decimal,
+            unit: 'm',
+            icon: AppIcons.height,
+            validator: decimalCheck(
+              context,
+              range: Vehicle.heightRange,
+              unit: 'm',
+              required: t.vehicleHeight.needed,
+            ),
           ),
           const SizedBox(height: Space.m),
           // "Optional" under the field rather than in its label: in the
           // label it cut the name of the weight in Spanish, Italian and
           // Dutch on a phone.
-          field(
-            _weight,
-            t.vehicleHeight.weight,
-            't',
-            AppIcons.weight,
-            inRange(Vehicle.weightRange, 't', required: false),
-            action: TextInputAction.done,
+          LunaTextField(
+            controller: _weight,
+            label: t.vehicleHeight.weight,
+            kind: FieldKind.decimal,
+            unit: 't',
+            icon: AppIcons.weight,
             helper: t.vehicleHeight.optional,
+            textInputAction: TextInputAction.done,
+            validator: decimalCheck(context, range: Vehicle.weightRange, unit: 't', digits: 1),
           ),
           const SizedBox(height: Space.l),
           // In a sheet the button is the one action; inside the filters it
           // stays second to the sheet's own button.
-          if (widget.heading)
-            FilledButton(onPressed: _saving ? null : _save, child: Text(t.vehicleHeight.apply))
-          else
-            FilledButton.tonal(
-              onPressed: _saving ? null : _save,
-              child: Text(t.vehicleHeight.apply),
-            ),
+          SubmitButton(
+            label: t.vehicleHeight.apply,
+            look: widget.heading ? BusyLook.filled : BusyLook.tonal,
+          ),
           const SizedBox(height: Space.s),
           Text(
             t.vehicleHeight.later,

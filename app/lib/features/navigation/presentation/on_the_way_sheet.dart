@@ -458,6 +458,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
               picture: !widget.driving,
               action: t.common.retry,
               onAction: () => ref.invalidate(fuelOffersProvider(query)),
+              busy: ref.watch(fuelOffersProvider(query)).isLoading,
             ),
           ),
         ],
@@ -523,6 +524,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
             picture: !widget.driving,
             action: t.common.retry,
             onAction: () => ref.invalidate(onTheWayListProvider(query)),
+            busy: ref.watch(onTheWayListProvider(query)).isLoading,
           ),
         ),
       ],
@@ -764,6 +766,7 @@ class _Message extends StatelessWidget {
     this.mood = SceneMood.empty,
     this.action,
     this.onAction,
+    this.busy = false,
   });
 
   final String title;
@@ -772,6 +775,7 @@ class _Message extends StatelessWidget {
   final bool picture;
   final String? action;
   final VoidCallback? onAction;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -784,6 +788,7 @@ class _Message extends StatelessWidget {
       picture: picture,
       action: action,
       onAction: onAction,
+      busy: busy,
     ),
   );
 }

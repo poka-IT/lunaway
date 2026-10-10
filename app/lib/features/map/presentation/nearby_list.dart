@@ -121,6 +121,7 @@ class _Failed extends ConsumerWidget {
       compact: true,
       action: t.common.retry,
       onAction: () => ref.invalidate(nearbyPlacesPageProvider),
+      busy: ref.watch(nearbyPlacesPageProvider).isLoading,
     );
   }
 }

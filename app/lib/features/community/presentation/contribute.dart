@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
@@ -9,6 +11,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// What became of a contribution the user just made.
@@ -21,6 +24,28 @@ enum Submitted {
 
   /// The server refused it; the message said why.
   refused,
+}
+
+/// How long a contribution goes unanswered before "sending" is said.
+const Duration sendingSaidAfter = Duration(milliseconds: 400);
+
+/// Runs [send] (the outbox's pass) and says the wait through [messenger]:
+/// the sheet that asked is often gone, so past a moment "sending" shows,
+/// and past [slowWait] that the network is slow, until the caller's answer
+/// replaces it. A quick answer shows alone.
+Future<void> saidWhileSent(
+  ScaffoldMessengerState? messenger,
+  Translations t,
+  Future<void> Function() send,
+) async {
+  final sending = Timer(sendingSaidAfter, () => showMessage(messenger, t.outbox.sending));
+  final slow = Timer(slowWait, () => showMessage(messenger, t.busy.slow));
+  try {
+    await send();
+  } finally {
+    sending.cancel();
+    slow.cancel();
+  }
 }
 
 /// Queues a contribution, sends it at once when the network allows, and
@@ -54,7 +79,7 @@ Future<Submitted> submitContribution(
     showMessage(messenger, sentText ?? t.outbox.sent);
     return Submitted.sent;
   }
-  await runner.kick();
+  await saidWhileSent(messenger, t, runner.kick);
   final after = await container.read(outboxStoreProvider).byId(entry.id);
   if (after == null) {
     Haptics.confirm();

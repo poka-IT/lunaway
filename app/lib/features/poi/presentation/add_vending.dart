@@ -14,6 +14,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// "A vending machine here?" under a chosen point: the three kinds a
@@ -45,8 +46,11 @@ class VendingQuickAdd extends ConsumerWidget {
           runSpacing: Space.s,
           children: [
             for (final kind in PoiKind.addable)
-              OutlinedButton.icon(
+              // One machine per tap: a second tap while the first is sent
+              // would queue a twin the server refuses.
+              BusyButton(
                 onPressed: () => addVendingMachine(context, ref, position, kind),
+                look: BusyLook.outlined,
                 icon: Icon(PoiLook.kind(kind), color: PoiLook.tone(kind.category)),
                 label: Text(_label(t, kind)),
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
@@ -94,7 +98,7 @@ Future<void> addVendingMachine(
     },
   );
   if (entry == null) return;
-  await runner.kick();
+  await saidWhileSent(messenger, t, runner.kick);
   final store = container.read(outboxStoreProvider);
   final after = await store.byId(entry.id);
   if (after == null) {

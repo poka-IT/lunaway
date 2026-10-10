@@ -15,6 +15,8 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 
 final _log = Logger('account');
 
@@ -343,43 +345,28 @@ class _RecoveryCard extends StatelessWidget {
   }
 }
 
-/// Changes the public pseudonym.
-Future<void> editPseudonym(BuildContext context, WidgetRef ref, String current) async {
-  final t = context.t;
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  final controller = ref.read(accountControllerProvider.notifier);
-  final next = await showDialog<String>(
-    context: context,
-    builder: (context) => _PseudonymDialog(initial: current),
-  );
-  if (next == null || next == current) return;
-  try {
-    await controller.rename(next);
-    showMessage(messenger, t.account.pseudonymSaved);
-  } on GraphQLResponseException catch (e) {
-    _log.info('pseudonym refused: $e');
-    showMessage(
-      messenger,
-      e.hasCode(GraphQLError.invalidInput) ? t.account.pseudonymRefused : t.common.failed,
-    );
-  } on Object catch (e) {
-    _log.info('pseudonym not saved: $e');
-    showMessage(messenger, t.common.offline);
-  }
-}
+/// Changes the public pseudonym: the dialog stays open while the server
+/// answers, says a refusal under the field and a failure above its button,
+/// and closes with a message once the name is taken.
+Future<void> editPseudonym(BuildContext context, WidgetRef ref, String current) => showDialog<void>(
+  context: context,
+  builder: (context) => _PseudonymDialog(initial: current),
+);
 
-class _PseudonymDialog extends StatefulWidget {
+class _PseudonymDialog extends ConsumerStatefulWidget {
   const new({required this.initial});
 
   final String initial;
 
   @override
-  State<_PseudonymDialog> createState() => _PseudonymDialogState();
+  ConsumerState<_PseudonymDialog> createState() => _PseudonymDialogState();
 }
 
-class _PseudonymDialogState extends State<_PseudonymDialog> {
+class _PseudonymDialogState extends ConsumerState<_PseudonymDialog> {
   late final _text = TextEditingController(text: widget.initial);
-  String? _error;
+
+  /// The server's refusal of the name typed, until it changes.
+  String? _refused;
 
   @override
   void dispose() {
@@ -387,36 +374,67 @@ class _PseudonymDialogState extends State<_PseudonymDialog> {
     super.dispose();
   }
 
-  void _save() {
-    final cleaned = Pseudonym.clean(_text.text);
-    if (cleaned == null) {
-      setState(() => _error = context.t.account.pseudonymInvalid);
+  Future<void> _save() async {
+    final t = context.t;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final next = Pseudonym.clean(_text.text);
+    if (next == null || next == widget.initial) {
+      navigator.pop();
       return;
     }
-    Navigator.of(context).pop(cleaned);
+    try {
+      await ref.read(accountControllerProvider.notifier).rename(next);
+    } on GraphQLResponseException catch (e) {
+      _log.info('pseudonym refused: $e');
+      if (!e.hasCode(GraphQLError.invalidInput)) throw FormFailure(t.common.failed);
+      if (mounted) setState(() => _refused = t.account.pseudonymRefused);
+      throw const FormRefused();
+    } on Object catch (e) {
+      _log.info('pseudonym not saved: $e');
+      throw FormFailure(t.common.offline);
+    }
+    navigator.pop();
+    showMessage(messenger, t.account.pseudonymSaved);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return AlertDialog(
-      title: Text(t.account.pseudonymTitle),
-      content: TextField(
-        controller: _text,
-        autofocus: true,
-        maxLength: Pseudonym.maxLength,
-        textCapitalization: TextCapitalization.words,
-        onSubmitted: (_) => _save(),
-        decoration: InputDecoration(
-          helperText: t.account.pseudonymHint,
-          errorText: _error,
-          helperMaxLines: 3,
+    return LunaForm(
+      onSubmit: _save,
+      child: AlertDialog(
+        title: Text(t.account.pseudonymTitle),
+        scrollable: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LunaTextField(
+              controller: _text,
+              label: t.account.pseudonymTitle,
+              showLabel: false,
+              autofocus: true,
+              maxLength: Pseudonym.maxLength,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              helper: t.account.pseudonymHint,
+              error: _refused,
+              onChanged: (_) {
+                if (_refused != null) setState(() => _refused = null);
+              },
+              validator: (v) =>
+                  Pseudonym.clean(v ?? '') == null ? t.account.pseudonymInvalid : null,
+            ),
+            const SizedBox(height: Space.s),
+            const FormStatusBar(),
+          ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
+          SubmitButton(label: t.common.save, statusLine: false),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
-        FilledButton(onPressed: _save, child: Text(t.common.save)),
-      ],
     );
   }
 }
@@ -459,18 +477,29 @@ Future<void> signOut(BuildContext context, WidgetRef ref, {required bool hasCard
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(t.common.cancel),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.account.signOut),
+          // The dialog stays, its button turning, while the server hears
+          // of it: offline that may take a while.
+          BusyButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              try {
+                await controller.signOut();
+                await outbox.clear();
+              } on Object catch (e) {
+                _log.warning('signing out failed: ${e.runtimeType}');
+                navigator.pop(false);
+                showMessage(messenger, t.common.failed);
+                return;
+              }
+              navigator.pop(true);
+            },
+            label: Text(t.account.signOut),
           ),
         ],
       );
     },
   );
-  if (!(ok ?? false)) return;
-  await controller.signOut();
-  await outbox.clear();
-  showMessage(messenger, t.account.signedOut);
+  if (ok ?? false) showMessage(messenger, t.account.signedOut);
 }
 
 /// The welcome after the first contribution made the account: its name,
