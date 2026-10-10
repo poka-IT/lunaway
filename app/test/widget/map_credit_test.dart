@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
@@ -149,6 +150,54 @@ void main() {
     await tester.pump(mapCreditInFull);
     await settleShort(tester);
     expect(inCredit(find.text('© OpenStreetMap')), findsNothing);
+  });
+
+  /// [credit] alone at the foot of a screen, as a route map holds it.
+  Future<void> pumpCredit(WidgetTester tester, MapCredit credit) => tester.pumpWidget(
+    ProviderScope(
+      child: TranslationProvider(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(alignment: Alignment.bottomLeft, child: credit),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  const photos = 'Photos : Source communautaire externe';
+
+  testWidgets("the photos' line shows in full with the credit, then folds with it into the mark, "
+      "and the credits' sheet names the source", (tester) async {
+    await pumpCredit(tester, const MapCredit(photos: true));
+    expect(inCredit(find.text('© OpenStreetMap')), findsOneWidget);
+    expect(inCredit(find.text(photos)), findsOneWidget, reason: 'in full at first');
+    await tester.pump(mapCreditInFull);
+    await tester.pumpAndSettle();
+    expect(
+      inCredit(find.text(photos)),
+      findsNothing,
+      reason: 'its agreement lets the mention stand a tap away (art. 5.3)',
+    );
+    expect(inCredit(find.text('© OpenStreetMap')), findsNothing);
+    final mark = tester.getRect(ground());
+    expect(mark.width, lessThanOrEqualTo(24), reason: 'the mark alone, $mark');
+    await tester.tap(find.byType(MapCredit));
+    await tester.pumpAndSettle();
+    expect(find.text('Crédits de la carte'), findsOneWidget);
+    expect(find.text(photos), findsOneWidget, reason: "the sheet names the photos' source");
+  });
+
+  testWidgets("over the guidance, folded, the caption is the mark alone, read with the photos' "
+      'source', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpCredit(tester, const MapCredit(photos: true, caption: true));
+    await tester.pump(mapCreditInFull);
+    await tester.pumpAndSettle();
+    expect(inCredit(find.text(photos)), findsNothing);
+    expect(tester.getRect(ground()).width, lessThanOrEqualTo(24));
+    expect(find.bySemanticsLabel('© OpenStreetMap. $photos'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('the credits read in every language of the app', (tester) async {

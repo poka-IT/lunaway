@@ -41,8 +41,12 @@ const Duration mapCreditInFull = Duration(seconds: 5);
 /// 2026-10-10).
 ///
 /// With [photos], a line names the source of the photos the route maps
-/// draw: the external community source's mention stands wherever its
-/// photos show (`RichStyle.credited`), and does not fold.
+/// draw (`RichStyle.credited`) and folds with the rest: the external
+/// community source's agreement lets its mention stand on a screen about
+/// the sources or anywhere reasonably reached (art. 5.3, read by the PO on
+/// 2026-10-10), so it shows in full with the credit, then in the credits'
+/// sheet and in the profile's sources. A place's page keeps it beside its
+/// photos.
 class MapCredit extends ConsumerStatefulWidget {
   const new({this.photos = false, this.caption = false, super.key});
 
@@ -147,11 +151,8 @@ class _MapCreditState extends ConsumerState<MapCredit> {
     final scaler = MapCredit._scaler(context);
     final icon = MapCredit._iconSize(context);
     const inset = MapCredit._inset;
-    final texts = [if (!folded) t.map.credit, if (photos) t.map.creditPhotos];
+    final texts = folded ? const <String>[] : [t.map.credit, if (photos) t.map.creditPhotos];
     final mark = icon + inset * 2;
-    // Over the guidance, folded, the photos' line stands alone: the mark
-    // opens nothing there, and the line takes the room left of the vehicle.
-    final marked = !(widget.caption && folded && photos);
     Widget ground({required bool ringed}) => AnimatedSize(
       duration: Motion.of(context, Motion.medium),
       curve: Motion.standard,
@@ -171,26 +172,22 @@ class _MapCreditState extends ConsumerState<MapCredit> {
           child: Padding(
             padding: texts.isEmpty
                 ? EdgeInsets.zero
-                : EdgeInsetsDirectional.fromSTEB(
-                    marked ? inset : inset * 1.5,
-                    inset / 2,
-                    inset * 1.5,
-                    inset / 2,
-                  ),
+                : const EdgeInsetsDirectional.fromSTEB(inset, inset / 2, inset * 1.5, inset / 2),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (marked)
-                  // Folded, the mark stands for the words a screen reader
-                  // still reads over the guidance.
-                  Semantics(
-                    label: folded && widget.caption ? t.map.credit : null,
-                    excludeSemantics: true,
-                    child: Icon(AppIcons.mapCredit, size: icon, color: scheme.onSurface),
-                  ),
+                // Folded, the mark stands for the words a screen reader
+                // still reads over the guidance.
+                Semantics(
+                  label: folded && widget.caption
+                      ? [t.map.credit, if (photos) t.map.creditPhotos].join('. ')
+                      : null,
+                  excludeSemantics: true,
+                  child: Icon(AppIcons.mapCredit, size: icon, color: scheme.onSurface),
+                ),
                 if (texts.isNotEmpty) ...[
-                  if (marked) const SizedBox(width: Space.xxs),
+                  const SizedBox(width: Space.xxs),
                   Flexible(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

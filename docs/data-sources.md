@@ -475,12 +475,15 @@ OpenStreetMap Foundation's attribution guidelines
   the surface at 85 % opacity, 4.5:1 over a white or a black map in both
   themes (`test/widget/map_credit_test.dart`).
 
-The photos of the external community source drawn on the route maps keep
-their mention while they may show, beside the "(i)" on the preview, alone
-once folded over the guidance: the code holds that its
-mention stands wherever its photos show (`RichStyle.credited`); the
-agreement's own words are kept outside the repository, and whether it lets
-the mention fold the same way is a question for the maintainer.
+The photos of the external community source drawn on the route maps are
+named by the map's credit while they may show (`RichStyle.credited`):
+"Photos : Source communautaire externe" stands in full with "©
+OpenStreetMap", then folds with it into the "(i)" on the preview and
+the guidance (the main map draws none of its photos), and the credits'
+sheet and the profile's sources list it. Its agreement (kept outside the repository, art. 5.3,
+read by the PO on 2026-10-10) lets the mention stand on a screen about the
+sources or anywhere reasonably reached. A place's page keeps it beside its
+photos.
 
 Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two

@@ -71,11 +71,12 @@ final class RichStyle {
   /// Whether the API answers: offline, a mark keeps its pictogram.
   final bool online;
 
-  /// Whether the screen names the external community source with the map,
-  /// whose mention its licence requires wherever its photos show: the
-  /// map's credit (the preview's `MapCredit`, the guidance's in its bar or
-  /// over the map) adds its line of the photos while [photos] holds. A
-  /// screen without the room for that line draws no photo. Lunaway's
+  /// Whether the screen names the external community source with the map:
+  /// the map's credit (the preview's `MapCredit`, the guidance's over the
+  /// map) adds its line of the photos while [photos] holds, shown in full
+  /// before it folds into its "(i)" with the rest, and listed in the
+  /// credits' sheet. A screen without the room for that line draws no
+  /// photo. Lunaway's
   /// community photos name their author on the place's card, a tap away
   /// (`communityPhotoSource`).
   final bool credited;

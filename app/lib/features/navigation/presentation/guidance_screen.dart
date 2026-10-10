@@ -598,9 +598,9 @@ RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}
 /// stood in it; on a screen on its side, beside the panel, which has no
 /// height to spare. Left of the road behind the vehicle either way: under
 /// the maneuver, it covered the road ahead. Folded since the run's first
-/// map, it is the "(i)" alone, with the photos' line while a place may show
-/// its photo ([RichStyle.photos]). A caption only: a stray touch while
-/// driving opens nothing.
+/// map, it is the "(i)" alone; in full, it adds the photos' line while a
+/// place may show its photo ([RichStyle.photos]). A caption only: a stray
+/// touch while driving opens nothing.
 class _MapSideCredit extends ConsumerWidget {
   const new({required this.photosCredited});
 
