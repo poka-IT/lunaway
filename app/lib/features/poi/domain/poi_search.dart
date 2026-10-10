@@ -52,8 +52,15 @@ final class PoiResults {
 /// "Annecy Plage" restaurant).
 bool poisFirst(PoiResults results, String query, Iterable<String> towns) {
   if (!results.strong) return false;
+  return !townNamed(query, towns);
+}
+
+/// Whether [query] is the name of one of [towns] as typed ("Annecy",
+/// "annecy le vieux"): that town heads the search's list, before the
+/// places that bear its name and those that lie in it.
+bool townNamed(String query, Iterable<String> towns) {
   final key = townKey(query);
-  return !towns.any((t) => townKey(t) == key);
+  return towns.any((t) => townKey(t) == key);
 }
 
 /// The words that link a kind and a town in a search ("pizzeria à annecy",
