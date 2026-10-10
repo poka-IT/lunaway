@@ -739,13 +739,14 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
   }
 }
 
-/// The places of the favourites, for the packs to suggest.
+/// The places and the saved points of the favourites, for the packs to
+/// suggest.
 @riverpod
 Future<List<LatLng>> favoritePositions(Ref ref) async {
   final repo = ref.watch(favoritesRepositoryProvider);
   final out = <LatLng>[];
   for (final list in await repo.watchLists().first) {
-    out.addAll([for (final e in await repo.watchEntries(list.id).first) e.position]);
+    out.addAll([for (final e in await repo.watchFavorites(list.id).first) e.position]);
   }
   return out;
 }

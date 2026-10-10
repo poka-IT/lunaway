@@ -66,7 +66,7 @@ Read on 2026-10-10 against `main` at 0c656d30 and the production API
 | Ratings, reviews, photos, "Still there?", problem reports, edits, new places | `app/lib/features/community/` |
 | Road reports during guidance: closed road, roadworks, narrow passage, low clearance, in France, Spain, the Netherlands | `app/lib/features/navigation/presentation/road_report_sheet.dart`; `Query.routing.roadEventReportCountries` in production on 2026-10-10: ES, FR, GI, MC, NL |
 | Account without e-mail, made at the first contribution, recovery card, deletion in the app | `app/lib/features/account/` |
-| Favourite lists, kept with the account once there is one | `app/lib/features/favorites/application/favorites_providers.dart` |
+| Favourite lists of places and of any point of the map (an address, a town, a shop), kept with the account once there is one | `app/lib/features/favorites/application/favorites_providers.dart`, `presentation/point_saving.dart` |
 | Vehicle profile fields | `app/lib/core/database/user_schema.drift` (`vehicles`) |
 | Six languages, voice guidance included | `app/lib/i18n/` (fr, en, de, es, it, nl), the routing engine's instructions in the app's language (`route_operations.dart`, `language`) |
 | Theme by sunset, phone and tablet layouts | `app/lib/features/profile/presentation/profile_screen.dart`, `app/lib/shared/adaptive_shell.dart` |

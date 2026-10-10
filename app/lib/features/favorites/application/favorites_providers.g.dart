@@ -175,6 +175,90 @@ final class FavoriteEntriesFamily extends $Family
   String toString() => r'favoriteEntriesProvider';
 }
 
+/// The places and the saved points of a list, newest first.
+
+@ProviderFor(favoriteItems)
+final favoriteItemsProvider = FavoriteItemsFamily._();
+
+/// The places and the saved points of a list, newest first.
+
+final class FavoriteItemsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Favorite>>,
+          List<Favorite>,
+          Stream<List<Favorite>>
+        >
+    with $FutureModifier<List<Favorite>>, $StreamProvider<List<Favorite>> {
+  /// The places and the saved points of a list, newest first.
+  FavoriteItemsProvider._({
+    required FavoriteItemsFamily super.from,
+    required int super.argument,
+  }) : super(
+         retry: null,
+         name: r'favoriteItemsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoriteItemsHash();
+
+  @override
+  String toString() {
+    return r'favoriteItemsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<Favorite>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<Favorite>> create(Ref ref) {
+    final argument = this.argument as int;
+    return favoriteItems(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FavoriteItemsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$favoriteItemsHash() => r'8768e667232f01f3fc890dcee16417b11dee5313';
+
+/// The places and the saved points of a list, newest first.
+
+final class FavoriteItemsFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<Favorite>>, int> {
+  FavoriteItemsFamily._()
+    : super(
+        retry: null,
+        name: r'favoriteItemsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The places and the saved points of a list, newest first.
+
+  FavoriteItemsProvider call(int listId) =>
+      FavoriteItemsProvider._(argument: listId, from: this);
+
+  @override
+  String toString() => r'favoriteItemsProvider';
+}
+
 /// The id of the default list, which the save button toggles.
 
 @ProviderFor(defaultFavoriteList)
@@ -214,18 +298,18 @@ final class DefaultFavoriteListProvider
 String _$defaultFavoriteListHash() =>
     r'3e4943719c1b3ab47691da16cbb9e3a5fe35eadb';
 
-/// The lists holding a place: empty means not saved.
+/// The lists holding a place or a saved point: empty means not saved.
 
 @ProviderFor(placeLists)
 final placeListsProvider = PlaceListsFamily._();
 
-/// The lists holding a place: empty means not saved.
+/// The lists holding a place or a saved point: empty means not saved.
 
 final class PlaceListsProvider
     extends
         $FunctionalProvider<AsyncValue<Set<int>>, Set<int>, Stream<Set<int>>>
     with $FutureModifier<Set<int>>, $StreamProvider<Set<int>> {
-  /// The lists holding a place: empty means not saved.
+  /// The lists holding a place or a saved point: empty means not saved.
   PlaceListsProvider._({
     required PlaceListsFamily super.from,
     required String super.argument,
@@ -271,7 +355,7 @@ final class PlaceListsProvider
 
 String _$placeListsHash() => r'737148786ee00c856f802e62e12326f7d1f1ac2c';
 
-/// The lists holding a place: empty means not saved.
+/// The lists holding a place or a saved point: empty means not saved.
 
 final class PlaceListsFamily extends $Family
     with $FunctionalFamilyOverride<Stream<Set<int>>, String> {
@@ -284,13 +368,102 @@ final class PlaceListsFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// The lists holding a place: empty means not saved.
+  /// The lists holding a place or a saved point: empty means not saved.
 
   PlaceListsProvider call(String placeId) =>
       PlaceListsProvider._(argument: placeId, from: this);
 
   @override
   String toString() => r'placeListsProvider';
+}
+
+/// The point saved as [id], with the name and note the user gave it; null
+/// when no list holds it.
+
+@ProviderFor(savedPoint)
+final savedPointProvider = SavedPointFamily._();
+
+/// The point saved as [id], with the name and note the user gave it; null
+/// when no list holds it.
+
+final class SavedPointProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<SavedPoint?>,
+          SavedPoint?,
+          Stream<SavedPoint?>
+        >
+    with $FutureModifier<SavedPoint?>, $StreamProvider<SavedPoint?> {
+  /// The point saved as [id], with the name and note the user gave it; null
+  /// when no list holds it.
+  SavedPointProvider._({
+    required SavedPointFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'savedPointProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$savedPointHash();
+
+  @override
+  String toString() {
+    return r'savedPointProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<SavedPoint?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<SavedPoint?> create(Ref ref) {
+    final argument = this.argument as String;
+    return savedPoint(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is SavedPointProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$savedPointHash() => r'00c7e2b85442b2c4101a615a9baaad87614c5439';
+
+/// The point saved as [id], with the name and note the user gave it; null
+/// when no list holds it.
+
+final class SavedPointFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<SavedPoint?>, String> {
+  SavedPointFamily._()
+    : super(
+        retry: null,
+        name: r'savedPointProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The point saved as [id], with the name and note the user gave it; null
+  /// when no list holds it.
+
+  SavedPointProvider call(String id) =>
+      SavedPointProvider._(argument: id, from: this);
+
+  @override
+  String toString() => r'savedPointProvider';
 }
 
 /// The list the favourites screen shows; null shows the default list.
@@ -351,6 +524,58 @@ abstract class _$SelectedFavoriteList extends $Notifier<int?> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The saved points of the list the favourites show (the default list
+/// until another is chosen): the map marks them, as it marks the places of
+/// the data.
+
+@ProviderFor(shownListPoints)
+final shownListPointsProvider = ShownListPointsProvider._();
+
+/// The saved points of the list the favourites show (the default list
+/// until another is chosen): the map marks them, as it marks the places of
+/// the data.
+
+final class ShownListPointsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<FavoritePointEntry>>,
+          List<FavoritePointEntry>,
+          Stream<List<FavoritePointEntry>>
+        >
+    with
+        $FutureModifier<List<FavoritePointEntry>>,
+        $StreamProvider<List<FavoritePointEntry>> {
+  /// The saved points of the list the favourites show (the default list
+  /// until another is chosen): the map marks them, as it marks the places of
+  /// the data.
+  ShownListPointsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'shownListPointsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$shownListPointsHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<FavoritePointEntry>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<FavoritePointEntry>> create(Ref ref) {
+    return shownListPoints(ref);
+  }
+}
+
+String _$shownListPointsHash() => r'594ebef3dec81f03fcb75c0e6e85309256f29e93';
 
 @ProviderFor(favoritesSync)
 final favoritesSyncProvider = FavoritesSyncProvider._();
@@ -445,7 +670,7 @@ final class FavoritesSyncControllerProvider
 }
 
 String _$favoritesSyncControllerHash() =>
-    r'56fe8c3e840fce4f4ecdfa6dec12353f568c153a';
+    r'39c52608c9607ac0918314c0cbbffbd7d8adf718';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes

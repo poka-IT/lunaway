@@ -259,7 +259,7 @@ Windows, send the browser's.
 | "Still there?" on a shop or service | the user answers | `poi_confirmations`: point, answer, date, account; purged after 365 days | `app/lib/features/poi/presentation/poi_details.dart`; `backend/crates/lunaway-db/src/pois.rs` (`ANSWER_DAYS`) |
 | Problem report, content report | the user reports | `issue_reports` (deleted after 90 days), `content_reports` (deleted a year after the moderator's decision): kind or reason, optional note | 20261006005548; `retention.rs` (`ISSUE_REPORT_DAYS`, `RESOLVED_DAYS`) |
 | New place, new vending machine, place edit | the user submits | `place_submissions`: the payload, with the position the user sets (a long press, or the map centre, which after "Show my position", or a launch that opens the map on the user, is the device's own position), linked to the account and device key; a rejected or withdrawn one emptied 30 days after the decision; at the account's deletion, the unapplied ones emptied and the applied ones kept without account | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `add_vending.dart`, `backend/crates/lunaway-db/src/submissions.rs`, `accounts.rs`, `retention.rs` (`SUBMISSION_PAYLOAD_DAYS`) |
-| Favourite lists | as soon as an account exists (made by the sync or by the first contribution), then 3 s after each change, at launch and on resume | list names and place ids (`favorite_lists`, `favorite_items`) | `app/lib/features/favorites/application/favorites_providers.dart`, `data/favorites_sync.dart` |
+| Favourite lists | as soon as an account exists (made by the sync or by the first contribution), then 3 s after each change, at launch and on resume | list names and place ids (`favorite_lists`, `favorite_items`); the points saved outside the places (an address, a town, a bare point, a shop): the name the user gave, an optional note, the postal address when known and the coordinates (`favorite_points`), private to the account and deleted with it | `app/lib/features/favorites/application/favorites_providers.dart`, `data/favorites_sync.dart` |
 | Muted authors | the user mutes | `muted_authors` | 20261006005548 |
 | Idempotency keys | each contribution sent through the queue | key, operation, SHA-256 of the arguments (for a road report, kind and value only), result id; 30 days (14 for a road report), deleted with what they made and with the account | `app/lib/features/community/data/outbox_sender.dart`; migrations `20261006151001`, `20261006151002`; `backend/crates/lunaway-api/src/main.rs` |
 | Client address | every request | not stored: rate limits and quotas count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
@@ -327,7 +327,9 @@ What each line covers:
 - Precise location: the start of each route and of each reroute of a
   guidance, and the route line sent for "On the way", processed for the
   request only; the position of a new place or vending machine, which can
-  be the device's own and is kept; the position and heading of a road
+  be the device's own and is kept; the coordinates of the points saved
+  in the favourite lists (an address, a bare point, a shop), kept with
+  the account once there is one; the position and heading of a road
   report, kept 14 days with the account. The form asks one answer per
   type: since part of it is kept, "Processed ephemerally" is no. Fraud
   prevention covers the road reports, which change the routes only once

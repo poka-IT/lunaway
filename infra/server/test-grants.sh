@@ -63,12 +63,12 @@ spatial_ref_sys SELECT"
 # version, through the views place_dot_sources and
 # poi_cluster_cells_computed. The towns the search finds by name
 # (migration 20261008220100): the API reads place_towns, the import role
-# keeps it. The search of the points (migration 20261010120000): the API
+# keeps it. The search of the points (migration 20261010135000): the API
 # reads poi_search and poi_search_words, the writers of the points keep
 # them through the triggers of pois.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews poi_reviews photos confirmations issue_reports content_reports moderation_queue
-  favorite_lists favorite_items place_submissions"
+  favorite_lists favorite_items favorite_points place_submissions"
 expected_app="$(sort <<EOF
 $postgis
 place_sources SELECT

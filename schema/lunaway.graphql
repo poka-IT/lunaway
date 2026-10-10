@@ -1278,13 +1278,18 @@ type FavoriteList {
 	"""
 	createdAt: DateTime!
 	"""
-	Last change of its name or places.
+	Last change of its name, places or points.
 	"""
 	updatedAt: DateTime!
 	"""
 	Its places, oldest first.
 	"""
 	places: [FavoriteItem!]!
+	"""
+	Its saved points (addresses, towns, bare points, shops), oldest
+	first.
+	"""
+	points: [FavoritePoint!]!
 }
 
 """
@@ -1299,6 +1304,128 @@ input FavoriteListInput {
 	Its places.
 	"""
 	placeIds: [UUID!]!
+	"""
+	Its saved points; a point the account's list already holds keeps
+	the account's copy.
+	"""
+	points: [FavoritePointInput!]! = []
+}
+
+"""
+A point saved in a favourite list outside the places of the data: an
+address, a town, a bare point of the map, a shop or a service. Private
+to the account: only its owner reads it.
+"""
+type FavoritePoint {
+	"""
+	Chosen by the device that saved it; unique within a list.
+	"""
+	id: UUID!
+	"""
+	What it is.
+	"""
+	kind: FavoritePointKind!
+	"""
+	The name the user gave it.
+	"""
+	name: String!
+	"""
+	A short note.
+	"""
+	note: String
+	"""
+	Its postal address, on one line.
+	"""
+	address: String
+	"""
+	Latitude, degrees.
+	"""
+	lat: Float!
+	"""
+	Longitude, degrees.
+	"""
+	lon: Float!
+	"""
+	A shop or a service (`POI`): the point of interest.
+	"""
+	poiId: UUID
+	"""
+	Its kind.
+	"""
+	poiKind: PoiKind
+	"""
+	When it was added to the list.
+	"""
+	addedAt: DateTime!
+	"""
+	Last change of what it holds.
+	"""
+	updatedAt: DateTime!
+}
+
+"""
+A point to save in a favourite list.
+"""
+input FavoritePointInput {
+	"""
+	Chosen by the device; saving the same id in a list again updates
+	that point.
+	"""
+	id: UUID!
+	"""
+	What it is.
+	"""
+	kind: FavoritePointKind!
+	"""
+	Its name, 1 to 120 characters.
+	"""
+	name: String!
+	"""
+	A short note, 280 characters at most; empty for none.
+	"""
+	note: String
+	"""
+	Its postal address, 200 characters at most; empty for none.
+	"""
+	address: String
+	"""
+	Latitude, degrees.
+	"""
+	lat: Float!
+	"""
+	Longitude, degrees.
+	"""
+	lon: Float!
+	"""
+	For a shop or a service (`POI`) only: the point of interest.
+	"""
+	poiId: UUID
+	"""
+	For a shop or a service (`POI`) only: its kind.
+	"""
+	poiKind: PoiKind
+}
+
+"""
+What a saved point is.
+"""
+enum FavoritePointKind {
+	"""
+	A postal address or a street the search found.
+	"""
+	ADDRESS
+	"""
+	A town or a postcode.
+	"""
+	TOWN
+	"""
+	A bare point of the map.
+	"""
+	POINT
+	"""
+	A shop or a service: a point of interest.
+	"""
+	POI
 }
 
 """
@@ -2210,10 +2337,24 @@ type Mutation {
 	"""
 	removeFromList(listId: UUID!, placeId: UUID!): FavoriteList!
 	"""
+	Saves a point (an address, a town, a bare point of the map, a shop
+	or a service) in one of the caller's lists, or updates the point of
+	the same id there: the last write wins. An account keeps 2000 saved
+	points at most.
+	"""
+	savePointToList(listId: UUID!, point: FavoritePointInput!): FavoriteList!
+	"""
+	Removes a saved point from one of the caller's lists; a point the
+	list does not hold is already removed.
+	"""
+	removePointFromList(listId: UUID!, pointId: UUID!): FavoriteList!
+	"""
 	Imports the favourites kept on the device before the account
 	existed: each list merges into the account's list of the same name.
-	At most 100 lists and 1000 places per call (call again for more);
-	unknown places are skipped. Returns every list of the account.
+	At most 100 lists, 1000 places and 500 points per call (call again
+	for more); unknown places are skipped, and a point the account's
+	list already holds keeps the account's copy. Returns every list of
+	the account.
 	"""
 	importFavorites(lists: [FavoriteListInput!]!): [FavoriteList!]!
 	"""
@@ -4780,7 +4921,8 @@ type Query {
 	"""
 	poiLayer: PoiLayer!
 	"""
-	The signed-in account's favourite lists, by name, with their places.
+	The signed-in account's favourite lists, by name, with their places
+	and the points saved in them.
 	"""
 	myFavoriteLists: [FavoriteList!]!
 }
