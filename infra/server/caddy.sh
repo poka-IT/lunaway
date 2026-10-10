@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Caddy on the backend, run as root by setup.sh: the package (pinned signing
-# key, common.sh), the rendered Caddyfile, the lunaway.net sites (available,
-# enabled only by infra/enable-domain.sh), the web roots with a placeholder
-# page, and a sandbox drop-in for the service. Every public site is a
+# Caddy on the backend, run as root by setup.sh: the package (the pinned
+# GitHub release, common.sh), the rendered Caddyfile, the lunaway.net sites
+# (available, enabled only by infra/enable-domain.sh), the web roots with a
+# placeholder page, and a sandbox drop-in for the service. Every public site is a
 # lunaway.net name: until infra/enable-domain.sh links them, Caddy serves
 # nothing but the API's loopback way to the geocoders (geocoders.caddy).
 . "$(dirname "$0")/common.sh"

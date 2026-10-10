@@ -1738,8 +1738,10 @@ is all the Caddyfiles of `infra/caddy/` use: the `/usr/bin/caddy` of the
 2.11.7 `.deb` is the very binary the Cloudsmith package had installed on
 both servers (same SHA-256, compared on 2026-10-10).
 
-Caddy no longer updates itself; `infra/verify.sh` prints a note when a
-newer release is out. To move to it, after reading its release notes:
+Caddy no longer updates itself. The workflow
+`.github/workflows/caddy-release.yml` goes red every morning (06:23 UTC)
+while a newer release is out, and `infra/verify.sh` prints a note. To move
+to it, after reading its release notes:
 
 ```bash
 infra/caddy/pin.sh 2.11.8          # checks the signature of the checksums file, writes the version and its SHA-512s
@@ -1749,7 +1751,10 @@ infra/configure.sh ops ops-status
 infra/verify.sh                    # "ok caddy 2.11.8, the pinned release" on both servers
 ```
 
-`pin.sh` needs cosign (`brew install cosign`). The signature is keyless: a
+`pin.sh` needs cosign (`brew install cosign`; 3.1.3 on 2026-10-10, which
+still takes the `--certificate` and `--signature` it marks as deprecated:
+a cosign without them stops `pin.sh` before it writes anything). The
+signature is keyless: a
 certificate issued to the release workflow of `caddyserver/caddy` at that
 very tag, which cosign checks against the Sigstore roots and the Rekor log;
 the servers check only the SHA-512 committed in `version.sh`. A new
@@ -3328,7 +3333,7 @@ sudo lunaway-admin road-events poll --force --only dir
 | backups | off-site copies encrypted with age to a key that exists only on the Mac; the ops server and the replica hold ciphertext |
 | SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server, and `extcom-drop`, from 10.42.0.3 only on the backend), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
 | SSH | fail2ban `sshd` jail (aggressive mode, systemd backend, nftables action, increasing ban time); the admin sources (no range wider than /16 or /48) and, on the backend, the ops server's private address are exempt |
-| system | unattended upgrades from Debian security and PGDG; Caddy pinned to a release and upgraded by hand, `infra/verify.sh` noting a newer one; reboot at 02:30 UTC when needed; needrestart restarts services; the upgrade waits for a running dump |
+| system | unattended upgrades from Debian security and PGDG; Caddy pinned to a release and upgraded by hand, a daily workflow (`caddy-release.yml`) red while a newer one is out; reboot at 02:30 UTC when needed; needrestart restarts services; the upgrade waits for a running dump |
 | system | sysctl hardening (rp_filter, no redirects or source routing, syncookies, kptr and dmesg restriction, BPF and ptrace limits, protected links), unused protocols and filesystems blacklisted, no core dumps, AppArmor, chrony, persistent journal capped at 1 GB and six weeks at most (weekly files, removed a month after a file's last entry), swap on zram (compressed memory, never on a disk) |
 | packages | Caddy from the `.deb` of its GitHub release, installed only when it hashes to the SHA-512 pinned in `infra/caddy/version.sh` (the release's checksums file, whose cosign signature `infra/caddy/pin.sh` checks), Debian's own `caddy` package refused by an apt preference; Gatus and the Rust build image pinned by digest |
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |

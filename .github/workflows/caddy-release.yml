@@ -1,0 +1,31 @@
+# The servers run the Caddy release pinned in infra/caddy/version.sh, which
+# no longer updates itself (docs/deploy.md, "Upgrading Caddy"). This run goes
+# red every morning while a newer release is out, so that a security fix
+# does not wait for someone to run infra/verify.sh by hand.
+name: caddy release
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: the pinned release is the latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          . infra/caddy/version.sh
+          latest="$(gh release view -R caddyserver/caddy --json tagName --jq .tagName)"
+          echo "pinned v$CADDY_VERSION, latest $latest"
+          if [ "$latest" != "v$CADDY_VERSION" ]; then
+            echo "::error::Caddy $latest is out, the servers run $CADDY_VERSION: docs/deploy.md, \"Upgrading Caddy\""
+            exit 1
+          fi

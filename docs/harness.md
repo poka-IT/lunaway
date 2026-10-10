@@ -35,6 +35,7 @@ thing gets deleted**, not left with a note; git history keeps it.
 | `tool/setup.sh` | clone bootstrap |
 | `opencode.json` | OpenCode permission denies (same git and secret rules) |
 | `.github/workflows/ci.yml` | `harness`, `app`, `backend` jobs |
+| `.github/workflows/caddy-release.yml` | daily, red while a Caddy release newer than the servers' pin is out (`docs/deploy.md`, "Upgrading Caddy") |
 
 ## What is enforced where
 

@@ -59,16 +59,19 @@ else
   echo "ok   no apt source names Caddy's former repository"
 fi
 # The release pinned in infra/caddy/version.sh, which verify.sh uploads
-# beside infra/server/; a running Caddy started from the binary in place
-# (one replaced under it shows as "(deleted)").
+# beside infra/server/; apt's candidate the installed package (no Debian
+# caddy above it, the apt preferences); a running Caddy started from the
+# binary in place (one replaced under it shows as "(deleted)").
 pinned="$(sed -n 's/^CADDY_VERSION=//p' "$(dirname "$0")/../caddy/version.sh" 2>/dev/null)"
 installed="$(dpkg-query -W -f '${Version}' caddy 2>/dev/null)"
+candidate="$(apt-cache policy caddy 2>/dev/null | awk '$1 == "Candidate:" { print $2 }')"
 binary="$(caddy version 2>/dev/null | cut -d' ' -f1)"
 exe="$(readlink "/proc/$(systemctl show -p MainPID --value caddy)/exe" 2>/dev/null)"
-if [ -n "$pinned" ] && [ "$installed" = "$pinned" ] && [ "$binary" = "v$pinned" ] && [ "$exe" = /usr/bin/caddy ]; then
-  echo "ok   caddy $installed, the pinned release, running from /usr/bin/caddy"
+if [ -n "$pinned" ] && [ "$installed" = "$pinned" ] && [ "$candidate" = "$pinned" ] && [ "$binary" = "v$pinned" ] \
+  && [ "$exe" = /usr/bin/caddy ]; then
+  echo "ok   caddy $installed, the pinned release and apt's candidate, running from /usr/bin/caddy"
 else
-  echo "FAIL caddy package ${installed:-absent}, binary ${binary:-absent}, running ${exe:-nothing}, pinned ${pinned:-unknown}"
+  echo "FAIL caddy package ${installed:-absent}, apt candidate ${candidate:-none}, binary ${binary:-absent}, running ${exe:-nothing}, pinned ${pinned:-unknown}"
 fi
 echo "--- units"
 systemctl list-unit-files --no-pager --no-legend 'lunaway*' 'gatus*' | awk '{ print $1, $2 }'

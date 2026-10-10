@@ -50,7 +50,7 @@ fi
 # Caddy is pinned and no longer updates itself (infra/caddy/version.sh): a
 # newer release is for the maintainer to read and pin.
 . "$LUNAWAY_INFRA_DIR/caddy/version.sh"
-latest="$(curl -fsS -m 10 https://api.github.com/repos/caddyserver/caddy/releases/latest 2>/dev/null \
+latest="$(curl -fsS -m 10 -A "Lunaway infra (+https://lunaway.net)" https://api.github.com/repos/caddyserver/caddy/releases/latest 2>/dev/null \
   | python3 -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo unknown)"
 if [ "$latest" = "v$CADDY_VERSION" ]; then
   echo "ok   Caddy $CADDY_VERSION pinned, the latest release"
