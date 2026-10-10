@@ -201,7 +201,7 @@ void main() {
 
     final dsr = EnforcementSource(
       id: 'fr-dsr',
-      name: 'Liste des radars fixes en France',
+      name: 'Délégation à la sécurité routière, radars fixes',
       attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
       fetchedAt: DateTime.utc(2026, 10, 9),
       listUpdatedAt: DateTime.utc(2025, 12, 30, 12),
@@ -210,21 +210,19 @@ void main() {
     test('carries its year when it is not this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2026, 10, 9)),
-        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr), "
-        'liste du 30 déc. 2025',
+        'Délégation à la sécurité routière, radars fixes, liste du 30 déc. 2025',
       );
     });
 
     test('goes without it this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2025, 12, 31)),
-        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr), "
-        'liste du 30 déc.',
+        'Délégation à la sécurité routière, radars fixes, liste du 30 déc.',
       );
     });
   });
 
-  group('a list is cited by its licensor', () {
+  group("the route preview cites a list by its licensor's wording", () {
     EnforcementSource list(String attribution) => EnforcementSource(
       id: 'x',
       name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
@@ -239,14 +237,13 @@ void main() {
       );
     });
 
-    test('a sentence loses its final period, since the date follows it', () {
+    test('an attribution written as a sentence gives way to the name before a date', () {
       expect(
         list(
           'Inneholder data under norsk lisens for offentlige data (NLOD) '
           'tilgjengeliggjort av Statens vegvesen.',
         ).credit,
-        'Inneholder data under norsk lisens for offentlige data (NLOD) '
-        'tilgjengeliggjort av Statens vegvesen',
+        'Statens vegvesen, NVDB, automatisk trafikkontroll',
       );
     });
 
@@ -266,6 +263,16 @@ void main() {
         ],
       });
       expect(page.sources.single.credit, 'Bruxelles Mobilité, radars fixes');
+    });
+
+    test('an answer without a name gives an empty name, never the word "null"', () {
+      final page = enforcementPageFromJson({
+        'cursor': 'n3.a',
+        'sources': [
+          {'id': 'x', 'attribution': 'Bruxelles Mobilité', 'fetchedAt': '2026-10-09T05:00:00Z'},
+        ],
+      });
+      expect(page.sources.single.name, '');
     });
   });
 }

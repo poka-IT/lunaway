@@ -168,8 +168,12 @@ EnforcementSource? _source(Map<String, dynamic> json) {
   if (json['id'] is! String || fetched == null) return null;
   return EnforcementSource(
     id: json['id'] as String,
-    name: '${json['name']}',
-    // Empty when absent, never the word "null": the name is cited then.
+    // Both empty when absent, never the word "null": the banner cites the
+    // name, the preview the attribution or else the name.
+    name: switch (json['name']) {
+      final String n => n,
+      _ => '',
+    },
     attribution: switch (json['attribution']) {
       final String a => a,
       _ => '',

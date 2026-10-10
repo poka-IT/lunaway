@@ -13,12 +13,30 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 
-// The French list as the API serves it: its name says nothing of its
-// licensor, its attribution names it, and runs the longest of the lists.
+import '../helpers/fonts.dart';
+
+// The French lists as the API serves them: the banner cites a list by its
+// name, which names its licensor, and leaves the longer attribution to the
+// route preview.
 final _list = EnforcementSource(
   id: 'fr-dsr',
-  name: 'Liste des radars fixes en France',
+  name: 'Délégation à la sécurité routière, radars fixes',
   attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
+  fetchedAt: DateTime.utc(2026, 10, 6, 5),
+);
+final _map = EnforcementSource(
+  id: 'securite-routiere',
+  name: 'Sécurité routière, radars',
+  attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
+  fetchedAt: DateTime.utc(2026, 10, 6, 5),
+);
+// The longest of the other names; its attribution is a whole sentence.
+final _norway = EnforcementSource(
+  id: 'no-nvdb-atk',
+  name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
+  attribution:
+      'Inneholder data under norsk lisens for offentlige data (NLOD) '
+      'tilgjengeliggjort av Statens vegvesen.',
   fetchedAt: DateTime.utc(2026, 10, 6, 5),
 );
 
@@ -91,6 +109,7 @@ void main() {
   setUpAll(() async {
     await registerPluralRules();
     await initializeDateFormatting('de');
+    await initializeDateFormatting('fr');
   });
 
   // German runs the longest of the six; 240 dp is a small phone's notice
@@ -118,12 +137,72 @@ void main() {
     final cited = find.textContaining(' · ');
     expect(cited, findsOneWidget, reason: 'two lists, one text');
     expect(
-      find.textContaining("Ministère de l'Intérieur, Délégation à la sécurité routière"),
+      find.textContaining('Délégation à la sécurité routière, radars fixes'),
       findsOneWidget,
-      reason: 'the Licence Ouverte asks for the licensor',
+      reason: 'the Licence Ouverte asks for the licensor, which the name gives',
     );
-    expect(find.textContaining('Liste des radars fixes'), findsNothing);
+    expect(
+      find.textContaining('data.gouv.fr'),
+      findsNothing,
+      reason: "the attribution is the route preview's",
+    );
   });
+
+  // The banner sits over the top of the map while driving: the lists it
+  // cites take three lines at most on a phone, measured with the app's own
+  // typefaces (the test font draws every glyph as a square).
+  for (final locale in [AppLocale.fr, AppLocale.de]) {
+    for (final (name, sources) in [
+      ('both French lists', [_map, _list]),
+      ("Norway's list", [_norway]),
+    ]) {
+      testWidgets('$name take three lines at most at 360 dp in ${locale.languageCode}', (
+        tester,
+      ) async {
+        await loadRealFonts();
+        await LocaleSettings.setLocale(locale);
+        final zone = EnforcementAlert(
+          id: 'z',
+          kind: EnforcementKind.zone,
+          aheadM: 0,
+          remainingM: 1200,
+          limitKmh: 80,
+          sources: sources,
+        );
+        await tester.pumpWidget(
+          TranslationProvider(
+            child: MaterialApp(
+              theme: lunaTheme(Brightness.light),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: 360,
+                    child: EnforcementNotice(
+                      alert: zone,
+                      units: DistanceUnits.metric,
+                      now: DateTime(2026, 10, 9),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final cited = find.textContaining(sources.first.name);
+        expect(cited, findsOneWidget);
+        final style = tester.widget<Text>(cited).style!;
+        // A line's box is the font's own metrics, rounded: a fourth line
+        // adds a whole one, so half a line of slack tells three from four.
+        final line = style.fontSize! * (style.height ?? 1.2);
+        expect(
+          tester.getSize(cited).height,
+          lessThan(3.5 * line),
+          reason: "three lines of lists pushed the map's top third out of sight",
+        );
+      });
+    }
+  }
 
   testWidgets('the look gives the notice one sentence and makes no live region of its own', (
     tester,

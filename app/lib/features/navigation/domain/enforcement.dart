@@ -261,14 +261,16 @@ final class EnforcementSource {
   /// it when the list gives none.
   final DateTime? listUpdatedAt;
 
-  /// What a screen cites the list by: its [attribution], which names the
-  /// licensor (the Licence Ouverte asks for the licensor and the date, the
-  /// list's own name gives neither), else its [name]. A final period goes,
-  /// since the list's date follows it.
+  /// What the route preview's foot cites the list by, where there is room:
+  /// its [attribution], the licensor's own wording, else its [name]. An
+  /// attribution written as a sentence (Norway's NLOD one) does not fit
+  /// in front of the list's date: the name stands for it there, and the
+  /// credits page quotes the sentence. Where room is short (the guidance
+  /// banner, a camera's callout) the [name] is cited, and every list's name
+  /// names its licensor.
   String get credit {
     final text = attribution.trim();
-    final cited = text.isEmpty ? name : text;
-    return cited.endsWith('.') ? cited.substring(0, cited.length - 1) : cited;
+    return text.isEmpty || text.endsWith('.') ? name : text;
   }
 }
 

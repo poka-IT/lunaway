@@ -305,15 +305,17 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
-  /// "Ministère de l'Intérieur, Délégation à la sécurité routière
-  /// (data.gouv.fr), liste du 6 oct.": a list of speed cameras by its
-  /// licensor ([EnforcementSource.credit]) with the date it gives of its
-  /// last update, else of its last read (the French list and Catalonia's
-  /// ask for both); its year as well when it is not this year's ("liste du
-  /// 30 déc. 2025").
+  /// "Délégation à la sécurité routière, radars fixes, liste du 6 oct.": a
+  /// list of speed cameras by its name, which names its licensor, with the
+  /// date it gives of its last update, else of its last read (the
+  /// Licence Ouverte of the French list asks for both); its year as well
+  /// when it is not this year's ("liste du 30 déc. 2025"). For the guidance
+  /// banner and a camera's callout: the full attribution
+  /// ([EnforcementSource.credit]) made the French banner twice as tall
+  /// (4 lines instead of 2 at 360 dp), so it stays in the route preview.
   String enforcementSource(EnforcementSource s, {required DateTime now}) =>
       _t.navigation.guidance.enforcementSource(
-        source: s.credit,
+        source: s.name,
         date: listDate(s, now: now),
       );
 

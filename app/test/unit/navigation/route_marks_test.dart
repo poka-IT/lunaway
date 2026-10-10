@@ -289,7 +289,8 @@ void main() {
       expect(words.category, 'Radar');
       expect(words.title, 'Radar fixe · 90 km/h');
       expect(words.lines, ['à 12 km du départ', 'Contrôle votre sens de circulation']);
-      expect(words.source, 'Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.');
+      // The callout is short of room: the name, which names the licensor.
+      expect(words.source, 'Sécurité routière, liste du 6 oct.');
       final section = markWords(
         cameraMarker(
           camera(

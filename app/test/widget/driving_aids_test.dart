@@ -189,10 +189,7 @@ void main() {
       reason: 'a warning sign, never a camera',
     );
     // The French list is cited with its date, as its reuse requires.
-    expect(
-      find.text('Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.'),
-      findsOneWidget,
-    );
+    expect(find.text('Sécurité routière, liste du 6 oct.'), findsOneWidget);
     await drive(tester, _drive(route, fromM: 760, toM: 1200));
     expect(find.descendant(of: banner, matching: find.textContaining('encore')), findsOneWidget);
     expect(find.textContaining('Radar'), findsNothing, reason: 'France: zones only');
@@ -711,14 +708,9 @@ void main() {
       expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
       expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
       expect(
-        find.descendant(
-          of: banner,
-          matching: find.text(
-            'Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.',
-          ),
-        ),
+        find.descendant(of: banner, matching: find.text('Sécurité routière, liste du 6 oct.')),
         findsOneWidget,
-        reason: 'the list by its licensor, with its date',
+        reason: 'the list by its name, which names its licensor, with its date',
       );
       final mark = cameraMarks().single;
       expect(mark.id, 'camera:${item.id}');
@@ -737,12 +729,7 @@ void main() {
         reason: 'from the vehicle, not from the start',
       );
       expect(
-        find.descendant(
-          of: card,
-          matching: find.text(
-            'Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.',
-          ),
-        ),
+        find.descendant(of: card, matching: find.text('Sécurité routière, liste du 6 oct.')),
         findsOneWidget,
       );
     });
