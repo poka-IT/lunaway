@@ -86,6 +86,12 @@ explains why, never by `--no-verify`.
 - **No tracker, no ad SDK, no analytics.** The app talks only to hosts listed
   in `tool/allowed_hosts.txt`; a new host is a reviewed decision. Gate:
   `structure_check` rule `allowed-hosts`.
+- **The position on Android comes from the platform's LocationManager**,
+  whose `fused` provider Google Play services may serve as the system's.
+  Play services' FusedLocationProviderClient does not run in the app: its
+  data would be declared as a third-party SDK's. Gate: `structure_check`
+  rule `platform-location`, on the app's own code; a new plugin that reads
+  the position is checked on an emulator. Depth: `docs/play-store.md`.
 - **Secrets** (`.env`, keystores, Apple keys) never enter git nor an agent's
   context. Gates: settings deny rules, edit guard, pre-commit.
 

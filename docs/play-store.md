@@ -361,14 +361,31 @@ Not declared, with the reason:
 - Personal info, Email address, Phone number, Address, Other info: none
   asked.
 - Location through Play Services: the store flavor carries
-  `play-services-location` through maplibre_gl. The guidance and the
-  route's start force Android's own LocationManager
-  (`app/lib/features/navigation/data/location_feed.dart`,
+  `play-services-location` through geolocator_android and maplibre_gl and
+  runs none of it. The guidance and the route's start force Android's
+  LocationManager (`app/lib/features/navigation/data/location_feed.dart`,
   `forceLocationManager: true`); the map's own location layer creates
-  Google's provider only for a high accuracy request, and the app sets no
-  `locationEngineProperties` (`app/lib/features/map/presentation/gl_map.dart`;
+  Play services' FusedLocationProviderClient only for a high accuracy
+  request, and the app leaves `locationEnginePlatforms` at its default,
+  balanced priority (`app/lib/features/map/presentation/gl_map.dart`;
   maplibre_gl 0.27.1, `LocationEngineFactory.kt`), so MapLibre's default
-  engine on Android's LocationManager runs.
+  engine on the LocationManager runs. From Android 12 both read the
+  platform's `fused` provider, which Google Play services serve on a phone
+  that has them (the AOSP provider or microG elsewhere): the system's
+  location service, under the system's settings, the same in the F-Droid
+  build. Checked on an Android 15 Google APIs emulator, store and F-Droid
+  builds alike: `adb shell dumpsys location` lists the app's own
+  registrations under `fused provider` (balanced for the map, high
+  accuracy for the route's start and the guidance), and the app's process
+  is not a client of `GoogleLocationManagerService`, the Play services
+  service a FusedLocationProviderClient binds (`adb shell dumpsys activity
+  services com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService`).
+  A control build whose guidance dropped `forceLocationManager` did show
+  up there as a client, with no high accuracy registration of its own
+  under `fused provider`. The structure rule `platform-location` and
+  `app/test/unit/navigation/location_feed_test.dart` hold the code to it;
+  after an update of geolocator_android or maplibre_gl, or a new plugin
+  that reads the position, the same two commands check it again.
 - App info and performance (crash logs, diagnostics): none collected; the
   logs stay on the device and reach only an attached debugger
   (`app/lib/main.dart`).
@@ -482,7 +499,7 @@ are published only as counts and dates.
 
 | Feature | New datum | Form change |
 |---|---|---|
-| Map location at high accuracy (`enableHighAccuracy`, or `forceLocationManager` removed) | the store flavor switches to Google's fused provider from `play-services-location` | check Google's disclosure for that library and declare what it collects |
+| Position through Play services' own library (map location at high accuracy through `locationEnginePlatforms`, or `forceLocationManager` removed) | the store flavor runs `play-services-location`'s FusedLocationProviderClient inside the app, in place of the platform's location service | check Google's disclosure for that library and declare what it collects |
 | Address search answered by a geocoder of our own for France too (a self-hosted BAN) | the text no longer leaves our servers | In-app search history: shared no |
 
 ## Ready to publish: what the app side delivers

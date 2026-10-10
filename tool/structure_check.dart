@@ -184,6 +184,12 @@ final _rules = <_Rule>[
     _unshieldedWebMaps,
   ),
   _Rule(
+    'platform-location',
+    "On Android the app reads the position through the platform's LocationManager. geolocator and maplibre_gl both carry Play services' FusedLocationProviderClient in the store build and switch to it on a request this rule catches; Google's location library would then run inside the app, and the store declarations would have to cover what it collects.",
+    "Read the position through LocationFeed (app/lib/features/navigation/data/location_feed.dart), which forces the location manager, and leave maplibre_gl's locationEnginePlatforms at its default, balanced priority. A new reader: docs/play-store.md, 'Location through Play Services', says how to check it on an emulator before allowing it here.",
+    _inAppLocationLibrary,
+  ),
+  _Rule(
     'allowed-hosts',
     'Every host the app may talk to (app/lib, app/web, app/assets/map, app/packages) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',
@@ -202,6 +208,65 @@ List<_Hit> _unshieldedWebMaps(List<_Source> sources) {
     if (s.code.any((l) => l.contains('WebMapPointer('))) continue;
     hits.addAll(builds);
   }
+  return hits;
+}
+
+/// The geolocator calls each file may hold. On Android a geolocator request
+/// without `forceLocationManager` goes to Play services'
+/// FusedLocationProviderClient, and `isLocationServiceEnabled` always does
+/// when they are installed: a call added to one of these files trips the
+/// rule as well.
+const _geolocatorReaders = {
+  // The route's start and the guidance, both with forceLocationManager, held
+  // by app/test/unit/navigation/location_feed_test.dart.
+  'app/lib/features/navigation/data/location_feed.dart': 2,
+  // The map map_view.dart builds on macOS and Windows only.
+  'app/lib/features/map/presentation/web_view_map.dart': 1,
+  // Desktop only: phones ask permission_handler, which reads LocationManager.
+  'app/lib/core/location/location_access.dart': 1,
+};
+
+/// The Android code of the app and of its own packages, Java and Groovy
+/// included: what it names ships in the app's process.
+const _androidRoots = ['app/android/', _packagesRoot];
+const _androidExtensions = ['.kt', '.kts', '.java', '.gradle'];
+
+/// What would bring Play services' location library into the app's process:
+/// a maplibre_gl location engine request (a high accuracy one picks
+/// GMSLocationEngine), a geolocator call beyond [_geolocatorReaders], or
+/// Android code naming that library.
+List<_Hit> _inAppLocationLibrary(List<_Source> sources) {
+  final hits = _grep(
+    sources,
+    RegExp(r'\bLocationEnginePlatforms\b|\blocationEnginePlatforms\s*:|\bLocationPriority\.'),
+    where: (x) => x.dart && !x.generated,
+  );
+  final calls = <String, List<_Hit>>{};
+  for (final h in _grep(
+    sources,
+    RegExp(r'\.(getCurrentPosition|getPositionStream|getLastKnownPosition|isLocationServiceEnabled)\('),
+    where: (x) => x.dart && !x.generated,
+    // The browser's own API, in the web-only files.
+    unless: RegExp(r'navigator\.geolocation\.'),
+  )) {
+    calls.putIfAbsent(h.file, () => []).add(h);
+  }
+  for (final e in calls.entries) {
+    if (e.value.length > (_geolocatorReaders[e.key] ?? 0)) hits.addAll(e.value);
+  }
+  final android = [
+    for (final root in _androidRoots)
+      if (Directory(root).existsSync())
+        for (final f in _walk(Directory(root)))
+          if (_androidExtensions.any(f.path.endsWith))
+            _Source.native(f.path.replaceAll(r'\', '/'), f.readAsStringSync()),
+  ];
+  hits.addAll(
+    _grep(
+      android,
+      RegExp(r'com\.google\.android\.gms[.:]play-services-location|com\.google\.android\.gms\.location\b'),
+    ),
+  );
   return hits;
 }
 

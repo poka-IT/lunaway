@@ -111,10 +111,12 @@ android {
     }
 }
 
-// maplibre_gl declares play-services-location for an optional high-accuracy
-// engine the app does not use (it keeps the default, balanced priority, which
-// runs on Android's LocationManager). The F-Droid build leaves Play Services
-// out entirely.
+// maplibre_gl and geolocator_android declare play-services-location, for a
+// high-accuracy map engine and a fused client the app never asks for (the
+// map keeps the default, balanced priority, and the route's start and the
+// guidance force Android's LocationManager: docs/play-store.md, "Location
+// through Play Services"). The F-Droid build leaves Play Services out
+// entirely.
 configurations.configureEach {
     if (name.startsWith("fdroid")) {
         exclude(group = "com.google.android.gms")

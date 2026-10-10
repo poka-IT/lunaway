@@ -37,14 +37,19 @@ abstract interface class LocationFeed {
   Stream<Fix> guidance(BackgroundNotice notice);
 }
 
-/// [LocationFeed] over geolocator: Android's own location manager, Core
+/// [LocationFeed] over geolocator: Android's location manager, Core
 /// Location on iOS and macOS, the browser's on the web.
 ///
-/// Never Google's fused provider, though the store build carries Play
-/// Services through maplibre_gl: that library collects data of its own,
-/// which the store declarations would then have to cover
-/// (`docs/play-store.md`, "When a feature ships"). The satellites give a
-/// fix a second on the road, which is what guidance needs.
+/// On Android, `forceLocationManager` keeps every request on the platform's
+/// LocationManager, and the system's provider answers it. From Android 12
+/// geolocator takes the `fused` provider when the device has one: Google
+/// Play services serve it on a phone that carries them, the AOSP provider
+/// or microG elsewhere. Before Android 12 it takes `gps`, else `network`.
+/// Without the flag, geolocator would hand the request to Play services'
+/// FusedLocationProviderClient whenever they are installed, which runs
+/// Google's location library inside the app: the store declarations would
+/// then have to cover what that library collects (`docs/play-store.md`,
+/// "Location through Play Services").
 final class GeolocatorFeed implements LocationFeed {
   const new();
 
