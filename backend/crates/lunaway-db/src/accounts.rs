@@ -455,10 +455,12 @@ pub struct TrustInputs {
     /// Places confirmed (each place once).
     pub confirmations: i64,
     /// Published contributions, counted once per place and kind (a script
-    /// confirming the same place every day earns one).
+    /// confirming the same place every day earns one); the reviews of
+    /// points of interest are left out (`AccountStats::contributions`).
     pub contributions: i64,
-    /// Reviews and photos a moderator removed, counted on the account so
-    /// that deleting them does not erase the record.
+    /// Reviews (of places and of points) and photos a moderator removed,
+    /// counted on the account so that deleting them does not erase the
+    /// record.
     pub removals: i64,
     /// Sponsored by a level-2 account.
     pub sponsored: bool,
@@ -951,9 +953,12 @@ pub async fn ban(
     // The texts go, the ratings stay as ratings without text: the summary
     // leaves a banned account's ratings out, and a text kept "removed"
     // would still be stored.
+    // The day of the visit and the vehicle go with the text: kept with the
+    // account, they would date where it was.
     sqlx::query!(
         r#"
-        UPDATE reviews SET body = NULL, lang = NULL, updated_at = now()
+        UPDATE reviews SET body = NULL, lang = NULL, visited_on = NULL, vehicle = NULL,
+               updated_at = now()
         WHERE account_id = $1 AND body IS NOT NULL
         "#,
         account
@@ -962,7 +967,7 @@ pub async fn ban(
     .await?;
     sqlx::query!(
         r#"
-        UPDATE poi_reviews SET body = NULL, lang = NULL, updated_at = now()
+        UPDATE poi_reviews SET body = NULL, lang = NULL, visited_on = NULL, updated_at = now()
         WHERE account_id = $1 AND body IS NOT NULL
         "#,
         account

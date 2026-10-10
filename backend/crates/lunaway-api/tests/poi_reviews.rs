@@ -1,8 +1,9 @@
 //! Ratings and reviews of the points of interest over HTTP, as the app
 //! sees them: a rating then a review of a shop, the review that replaces
-//! it, its deletion, a text held for a moderator, reports that hide it, a
-//! deleted or banned author, the levels, a point the map does not show,
-//! and the rating of a list of points read in one query.
+//! it, its deletion, a text held for a moderator or pasted elsewhere,
+//! reports that hide it, the pages and the muted authors, a deleted or
+//! banned author, the levels, a point the map does not show, and the
+//! rating of a list of points read in one query.
 
 #![allow(
     clippy::unwrap_used,
@@ -461,14 +462,203 @@ async fn a_ban_takes_the_texts_and_the_stars_of_points_away(pool: PgPool) {
         json!([]),
         "a banned account's stars stop counting"
     );
-    let body: Option<String> = sqlx::query_scalar!(
-        "SELECT body FROM poi_reviews WHERE account_id = $1",
+    let kept = sqlx::query!(
+        "SELECT body, visited_on FROM poi_reviews WHERE account_id = $1",
         spammer_id
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(body, None, "its text is deleted at the ban");
+    assert_eq!(
+        (kept.body, kept.visited_on),
+        (None, None),
+        "its text and the day of its visit are deleted at the ban"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_text_pasted_on_another_point_or_a_place_waits_for_a_moderator(pool: PgPool) {
+    crate::community::seeded(&pool).await;
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let bakery = point_named(&pool, "Maison Bochard").await;
+    let shop = point_named(&pool, "Carrefour Market").await;
+    let place = crate::community::place_named(&pool, "Camping municipal du Port").await;
+    let other_place = crate::community::place_named(&pool, "Aire Val-du-Layon").await;
+    let review_place = r"
+        mutation($id: UUID!, $text: String!) {
+          review(placeId: $id, stars: 4, text: $text) { status }
+        }";
+    let (alice, _) = sign_in(&app, &Device::new(1)).await;
+    let (bob, _) = sign_in(&app, &Device::new(2)).await;
+
+    let text = "Accueil chaleureux et prix honnêtes, je reviendrai.";
+    let first = gql(
+        &app,
+        Some(&alice),
+        REVIEW,
+        json!({"id": bakery, "stars": 5, "text": text}),
+    )
+    .await;
+    assert_eq!(ok(&first)["reviewPoi"]["status"], "PUBLISHED");
+    let pasted = gql(
+        &app,
+        Some(&alice),
+        REVIEW,
+        json!({"id": shop, "stars": 5, "text": text}),
+    )
+    .await;
+    assert_eq!(
+        ok(&pasted)["reviewPoi"]["status"],
+        "PENDING",
+        "the same text on a second point"
+    );
+    let on_a_place = gql(
+        &app,
+        Some(&alice),
+        review_place,
+        json!({"id": place, "text": text}),
+    )
+    .await;
+    assert_eq!(
+        ok(&on_a_place)["review"]["status"],
+        "PENDING",
+        "the text of a point pasted on a place"
+    );
+
+    let bob_text = "Emplacements plats et calmes, bornes en état.";
+    let on_bob_place = gql(
+        &app,
+        Some(&bob),
+        review_place,
+        json!({"id": other_place, "text": bob_text}),
+    )
+    .await;
+    assert_eq!(ok(&on_bob_place)["review"]["status"], "PUBLISHED");
+    let on_a_point = gql(
+        &app,
+        Some(&bob),
+        REVIEW,
+        json!({"id": bakery, "stars": 4, "text": bob_text}),
+    )
+    .await;
+    assert_eq!(
+        ok(&on_a_point)["reviewPoi"]["status"],
+        "PENDING",
+        "the text of a place pasted on a point"
+    );
+    let reasons: Vec<String> = sqlx::query_scalar!(
+        "SELECT reason FROM moderation_queue WHERE kind = 'held_review' ORDER BY created_at"
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(reasons, ["repetition", "repetition", "repetition"]);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_s_reviews_come_by_pages_without_the_authors_the_reader_muted(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let bakery = point_named(&pool, "Maison Bochard").await;
+    let texts = [
+        "Baguette croustillante, file d'attente le dimanche.",
+        "Viennoiseries au beurre, un peu chères.",
+        "Ouvert tôt, pratique avant la route.",
+    ];
+    let mut authors = Vec::new();
+    for (n, text) in (1..).zip(texts) {
+        let (token, id) = sign_in(&app, &Device::new(n)).await;
+        ok(&gql(
+            &app,
+            Some(&token),
+            REVIEW,
+            json!({"id": bakery, "stars": 4, "text": text}),
+        )
+        .await);
+        authors.push(id);
+    }
+    let page = r"
+        query($id: UUID!, $after: String) {
+          poi(id: $id) {
+            reviews(first: 2, after: $after) {
+              nodes { text authorId } totalCount hasNextPage endCursor
+            }
+          }
+        }";
+    let first = gql(&app, None, page, json!({"id": bakery})).await;
+    let first = &ok(&first)["poi"]["reviews"];
+    assert_eq!(first["totalCount"], 3);
+    assert_eq!(first["hasNextPage"], true);
+    assert_eq!(
+        first["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["text"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        [texts[2], texts[1]],
+        "newest first"
+    );
+    let next = gql(
+        &app,
+        None,
+        page,
+        json!({"id": bakery, "after": first["endCursor"]}),
+    )
+    .await;
+    let next = &ok(&next)["poi"]["reviews"];
+    assert_eq!(next["nodes"][0]["text"], texts[0]);
+    assert_eq!(next["hasNextPage"], false);
+
+    let (reader, _) = sign_in(&app, &Device::new(9)).await;
+    ok(&gql(
+        &app,
+        Some(&reader),
+        "mutation($id: UUID!) { muteAuthor(accountId: $id) }",
+        json!({"id": authors[0]}),
+    )
+    .await);
+    let seen = gql(&app, Some(&reader), page, json!({"id": bakery})).await;
+    let seen = &ok(&seen)["poi"]["reviews"];
+    assert_eq!(
+        seen["totalCount"], 2,
+        "the muted author's review is left out"
+    );
+    assert!(
+        seen["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|n| n["authorId"] != authors[0].to_string())
+    );
+
+    let too_long = gql(
+        &app,
+        None,
+        "query($id: UUID!) { poi(id: $id) { reviews(first: 51) { totalCount } } }",
+        json!({"id": bakery}),
+    )
+    .await;
+    assert_eq!(
+        code(&too_long),
+        "INVALID_INPUT",
+        "50 reviews a page at most"
+    );
+    let every_point = gql(
+        &app,
+        None,
+        r"{ pois(bbox: {south: 45.9, west: 5.3, north: 46.0, east: 5.4}, first: 20) {
+              nodes { reviews { totalCount } } } }",
+        json!({}),
+    )
+    .await;
+    assert!(
+        every_point.get("errors").is_some(),
+        "a query per point is for its card, not for a list: {every_point}"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

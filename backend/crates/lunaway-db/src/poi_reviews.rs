@@ -2,7 +2,8 @@
 //! written by the API under the rules of the reviews of places
 //! ([`crate::community`]): one per account and point, a rating alone
 //! published at once, a text through the automatic rules, withdrawn rather
-//! than deleted while moderation holds it or reports wait on it. A point is
+//! than deleted once moderation hid or removed it or while reports wait on
+//! it. A point is
 //! never merged, so a row stays with its point; and a point carries no
 //! community summary, so its rating is read from these rows when it is
 //! served ([`ratings_of`]), one query for a whole list of points.
@@ -14,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     DbError, PgPool,
-    community::{MissingRow, Page, enqueue, forget_target, page},
+    community::{MissingRow, Page, enqueue, forget_target, moderated, page},
 };
 
 /// A rating or a review of a point as stored, with its author's public
@@ -62,12 +63,6 @@ async fn own_row(
     .fetch_optional(conn)
     .await?
     .map(|r| (r.id, r.status)))
-}
-
-/// Whether moderation took the review out of view: the author cannot bring
-/// it back by writing again.
-fn moderated(status: &str) -> bool {
-    matches!(status, "hidden" | "removed")
 }
 
 async fn row_in(conn: &mut PgConnection, id: Uuid) -> Result<Option<PoiReviewRow>, DbError> {

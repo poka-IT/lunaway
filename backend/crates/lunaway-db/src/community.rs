@@ -232,7 +232,7 @@ async fn own_row_in_family(
 
 /// Whether moderation took the review out of view: the author cannot bring
 /// it back by writing again.
-fn moderated(status: &str) -> bool {
+pub(crate) fn moderated(status: &str) -> bool {
     matches!(status, "hidden" | "removed")
 }
 
