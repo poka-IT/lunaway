@@ -104,7 +104,7 @@ final class PreviewEnforcementProvider
 }
 
 String _$previewEnforcementHash() =>
-    r'aa8078411c77392b018bdb814ba818ced50e944c';
+    r'ec87e065f8a55602f73867a916b1032039395a26';
 
 /// What the preview draws on [route], read from [device], where the device
 /// is (never a start chosen elsewhere): under the strictest rule of the
