@@ -26,6 +26,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import '../helpers/fake_browser.dart';
 import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
+import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 import 'map_screen_test.dart' show systemBack;
@@ -97,7 +98,9 @@ Future<(TestApp, FakeBrowser?)> _pump(
 }) async {
   final browser = web ? FakeBrowser(tester) : null;
   final plan = routeFixture('utrillo_motorhome');
-  final online = FakeOnlinePlaces(samplePlaces)..addresses.add(_address);
+  final online = FakeOnlinePlaces(samplePlaces)
+    ..addresses.add(_address)
+    ..pois.add(bakeryJson);
   final app = await pumpLunaway(
     tester,
     size: size,

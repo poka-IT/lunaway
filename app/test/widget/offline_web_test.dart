@@ -181,7 +181,7 @@ void main() {
       );
       app
           .container(tester)
-          .read(selectionProvider.notifier)
+          .read(mapFlowProvider.notifier)
           .select(PlaceSelection(hint.id, hint: hint));
       await tester.pump(const Duration(milliseconds: 1500));
       final page = find.byType(PlaceDetails);

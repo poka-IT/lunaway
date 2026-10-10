@@ -208,7 +208,7 @@ void main() {
         );
         app
             .container(tester)
-            .read(selectionProvider.notifier)
+            .read(mapFlowProvider.notifier)
             .select(PoiSelection(poiFromJson(cafe)!.feature));
         await settleShort(tester);
         expect(find.text(t.poi.details.googleMaps), findsOneWidget);

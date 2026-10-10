@@ -249,7 +249,7 @@ void main() {
       external: recorded(),
       places: [once, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(once.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(once.id));
     await settleShort(tester);
     final head = find.ancestor(of: find.text('Aire des Chênes (démo)'), matching: find.byType(Row));
     expect(
@@ -284,7 +284,7 @@ void main() {
       external: external,
       places: [once, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(once.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(once.id));
     await settleShort(tester);
     final night = inDetails(find.text('Nuit autorisée')).first;
     final before = tester.getTopLeft(night).dy;
@@ -354,7 +354,7 @@ void main() {
       external: external,
       places: [rated, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(rated.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(rated.id));
     await settleShort(tester);
     final head = find.ancestor(of: find.text('Aire des Frênes (démo)'), matching: find.byType(Row));
     expect(
