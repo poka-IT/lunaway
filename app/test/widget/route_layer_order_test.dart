@@ -135,6 +135,8 @@ class FakeMap {
     const next = options.transformStyle({ layers: this.layers }, clone(style));
     this.layers = next.layers;
   }
+  getContainer() { return { addEventListener() {} }; }
+  isMoving() { return false; }
   getCanvasContainer() {
     return { addEventListener() {}, appendChild() {}, dispatchEvent() {}, classList: { toggle() {}, add() {}, remove() {} } };
   }

@@ -115,6 +115,8 @@ class FakeMap {
     if (before !== undefined && at < 0) throw new Error('no layer ' + before);
     if (at < 0) this.layers.push(layer); else this.layers.splice(at, 0, layer);
   }
+  getContainer() { return { addEventListener() {} }; }
+  isMoving() { return false; }
   getCanvasContainer() {
     return { addEventListener() {}, appendChild() {}, dispatchEvent() {}, classList: { toggle() {}, add() {}, remove() {} } };
   }
