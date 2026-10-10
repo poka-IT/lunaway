@@ -1,68 +1,69 @@
 # Deploying the backend
 
-Lunaway runs on three Hetzner Cloud servers in their own Hetzner project,
-built and kept by the scripts in `infra/`, plus one nightly job on the
-maintainer's Mac. The third, the geocoding server, serves the addresses of
-the map's search to the backend alone (see "Geocoding"). Everything is idempotent: running a script again changes
-only what differs from the files in the repository.
+Lunaway runs on one Hetzner Cloud server, `lunaway-backend-1`, in its own
+Hetzner project, built and kept by the scripts in `infra/`, plus a nightly
+job and a routing graph build on the maintainer's Mac and a probe on
+GitHub's machines. Everything is idempotent: running a script again changes
+only what differs from the files in the repository. Until 2026-10-10 three
+servers shared the work ("Sizing", "The merge of 2026-10-10").
 
 ```
  internet
-   │ Hetzner Cloud Firewalls: 22 from admin sources; 80, 443 tcp+udp, ICMP
+   │ Hetzner Cloud Firewall: 22 from admin sources; 80, 443 tcp+udp, ICMP
    ▼
- lunaway-backend-1, fsn1 (10.42.0.2)           lunaway-sync-1, nbg1 (10.42.0.3), role "ops"
-   nftables, fail2ban                            nftables, fail2ban
-   Caddy :80 :443 ── 127.0.0.1:8484 lunaway-api  Caddy :80 :443 ── 127.0.0.1:8080 Gatus
-     /upload ── lunaway-api, writes the photos     public status page, checks from outside
-     /external-photos/ ── lunaway-api, a partner's photo on first view
-     /media/ from /srv/data/media
-     /tiles/ ── 127.0.0.1:8485 pmtiles serve       dump replica, 14 days, and photos (/srv/data/backups)
-       planet archive on /srv/tiles (own volume),
-       refreshed monthly from Protomaps,
-       and the offline packs cut from it
-     /fdroid/repo/ from /srv/lunaway/fdroid
+ lunaway-backend-1, cx53, fsn1: root disk 320 GB local NVMe; volume lunaway-data (150 GB) at /srv/data
+   nftables, fail2ban
+   Caddy :80 :443
+     api.lunaway.net ── 127.0.0.1:8484 lunaway-api
+       /upload, /external-photos/ ── lunaway-api, writes the photos
+       /media/ from /srv/data/media, /packs/places/ from /srv/data/packs/places
+     tiles.lunaway.net ── 127.0.0.1:8485 pmtiles serve
+       an extract of Lunaway's zone in /srv/basemap, cut monthly from Protomaps' build;
+       the offline packs cut from it, in /srv/data/basemap/packs
+     lunaway.net ── the site, the web app, /fdroid/repo/ (/srv/lunaway)
+     status.lunaway.net ── 127.0.0.1:8080 Gatus, the status page
+     127.0.0.1:8486, the API's way out ── /ban/ ──────────► https://data.geopf.fr
+                                       ── /photon/ ───────► 127.0.0.1:2322 photon@europe, :2323 photon@morocco
+                                       ── /translator/ ───► 127.0.0.1:2324 lunaway-translate (OPUS-MT)
    PostgreSQL 18 + PostGIS (localhost, on the root disk)
+   Valhalla 127.0.0.1:8002, graphs in /srv/routing ◄── daily refresh from the release `routing-graph`
    lunaway CLI timers: ingest; conflation worker (NOTIFY, 5 min)
-   nightly dump and photo copy, age-encrypted
-   lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
-                    (10.42.0.0/16), forced ─────── replica key: rrsync -ro, encrypted dumps and photos
-                    commands, from 10.42.0.3 only ─ the feed producer's erasures key: the erased
-                                                    authors' hashes (/srv/data/extcom-erasures)
-   extcom-drop ◄─── SSH over lunaway-net ───────── the external community feed's producer:
-                    rrsync -wo into /srv/data/extcom-inbox, from 10.42.0.3 only
+   nightly dump and photo copy, age-encrypted, into /srv/data/backups/offsite
+   Gatus ──────────────────── SSH 127.0.0.1 ──► lunaway-pull: health JSON
+   external feed's crawler ── SSH 127.0.0.1 ──► extcom-drop: rrsync -wo into /srv/data/extcom-inbox
+                           ── SSH 127.0.0.1 ──► lunaway-pull: the erased authors' hashes
 
- maintainer's Mac, 04:30 local ── SSH, rrsync -ro ──► ops replica ──► ~/Backups/lunaway, 29 days
+ maintainer's Mac, 04:30 local ── SSH, rrsync -ro ──► /srv/data/backups/offsite ──► ~/Backups/lunaway, 29 days
                                 ── HTTPS ───────────► status page API
                                 ── gh ──────────────► GitHub issue "ops: alerte"
- maintainer's Mac, Sundays 03:00 ── hcloud ─────────► throwaway build server (ccx33, purpose=routing-build)
+ maintainer's Mac, Sundays 03:00 ── hcloud ─────────► throwaway build server (ccx33, purpose=routing-build),
+   a build every other week                          deleted after the build
                                 ◄── SSH, pinned ──── Europe routing graph bundle
-                                ── gh, signed ──────► release `routing-graph` ◄── backend, daily refresh
-
- lunaway-backend-1 Caddy 127.0.0.1:8486 ── lunaway-net ──► lunaway-geocode-1, fsn1 (10.42.0.4), role "geocode"
-   (the API's searches                                    photon@europe :2322, photon@morocco :2323
-    and translations)                                     lunaway-translate :2324 (OPUS-MT on CTranslate2)
-                       ── HTTPS ──► data.geopf.fr          monthly refresh from download1.graphhopper.com
+                                ── gh, signed ──────► release `routing-graph`
+ GitHub Actions, every 15 minutes ── HTTPS ─────────► the site, the API, the basemap, a search, a route;
+                                                      GitHub issue "ops: alerte"
 ```
 
-The backend never connects to the ops server. Lunaway ingests open data,
-and one source under a written licence whose feed its producer drops on
-the backend (`.claude/rules/data-sources.md`, "The external community
-feed" below); the imports run on the backend.
+Every service talks to the others over the loopback. The server keeps
+10.42.0.2 on the private network `lunaway-net`, which no service uses.
+Lunaway ingests open data, and one source under a written licence whose
+feed its crawler drops on the server (`.claude/rules/data-sources.md`, "The
+external community feed" below); the imports run on the server.
 
 ## Files
 
 | path | runs | role |
 |---|---|---|
-| `infra/lib.sh` | here | roles, names, private IPs; reads `~/.config/lunaway/env` |
-| `infra/provision.sh` | here | admin key, private network, then per role: firewall, server, primary IPs, volume |
+| `infra/lib.sh` | here | the server's role (`backend`), names, private IP; reads `~/.config/lunaway/env` |
+| `infra/provision.sh` | here | admin key, private network, then the server's firewall, the server, its primary IPs, its data volume |
 | `infra/cloud-init.yaml` | first boot | admin account, SSH policy, nftables, fail2ban, sysctl, automatic updates |
-| `infra/configure.sh` | here | copies `infra/` to a server, runs `infra/server/setup.sh` for its role, reboots if an update asks |
-| `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline routing ops-access`, ops steps `harden data-volume ops-replica ops-status`, geocoding steps `harden geocode translate`, and the test and release helpers |
+| `infra/configure.sh` | here | copies `infra/` to the server, runs `infra/server/setup.sh`, reboots if an update asks |
+| `infra/server/*.sh` | server, root | the steps `harden data-volume postgres caddy tiles backups api pipeline routing geocode translate ops-status ops-access`, in that order, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container (`infra/build/build-api.sh`), uploads the API and the CLI, migrates, switches the release, checks |
 | `infra/server/pause-jobs.sh` | backend | installed by `install-release.sh` as `/usr/local/sbin/lunaway-pause-jobs`: the long jobs of the CLI stopped between two transactions while a migration runs, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
 | `infra/server/postgres-move.sh` | backend, root | moves the PostgreSQL cluster into the data directory `postgres.sh` creates on the root disk, in a maintenance window: stops it, copies, compares the files and checks every page's checksum, switches, starts it, keeps the old directory renamed (see "PostgreSQL on the root disk"); `--check` says what it would do |
 | `infra/build/remote-build.sh` | here | with `LUNAWAY_BUILDER=hetzner`, the same build on a throwaway Hetzner server, deleted at the end |
-| `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
+| `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
@@ -71,23 +72,25 @@ feed" below); the imports run on the backend.
 | `infra/files/usr/local/sbin/lunaway-extcom-erasures` | backend | the forced command of the feed producer's erasures key on `lunaway-pull`: prints the list of the source's erased authors (see "The external community feed"); `infra/tests/extcom-erasures.sh` checks it against a scratch list |
 | `infra/files/usr/local/sbin/lunaway-unit-result` | backend | run by a unit's `ExecStopPost=`, keeps how its last finished run ended in `/var/lib/lunaway-unit-result/<name>.result` (root 0755, made by the `pipeline` step; the script writes nowhere else) for the health probe; `infra/tests/unit-result.sh` checks it |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
-| `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
-| `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
-| `infra/verify.sh` | here | external and internal checks of both servers, the status page, the pulls, and what each database role may do (`infra/server/test-grants.sh`) |
-| `infra/files/` | server | configuration files, installed at the same path under `/`; `files/roles/<role>/` holds the per-role ones |
+| `infra/ssh-access.sh` | here | which addresses may reach SSH on the server |
+| `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the server, and the status page once `status.lunaway.net` does |
+| `infra/verify.sh` | here | external and internal checks of the server, the status page, the Mac's pull, and what each database role may do (`infra/server/test-grants.sh`) |
+| `infra/files/` | server | configuration files, installed at the same path under `/`; `files/roles/backend/` holds the role's nftables openings |
 | `infra/systemd/` | server | units and drop-ins, installed in `/etc/systemd/system/` |
-| `infra/caddy/` | servers | the backend's Caddyfile and domain sites, the ops server's `status.Caddyfile`, the pinned Caddy release (`version.sh`) and `pin.sh`, which pins another (see "Upgrading Caddy") |
+| `infra/caddy/` | server | the Caddyfile and the sites (`lunaway.net.caddy`, `status.caddy`, `geocoders.caddy`), the pinned Caddy release (`version.sh`) and `pin.sh`, which pins another (see "Upgrading Caddy") |
 | `infra/tiles/` | here, backend | the basemap's pins (`version.sh`: go-pmtiles, basemaps-assets, the tile schema) and `assets-hash.py`, which computes the fonts and sprites pin; `packs/regions.py` builds `packs/regions.geojson`, the outlines of the offline packs (see "Offline packs") |
 | `infra/fdroid/` | here | Lunaway's own F-Droid repository: `keys.sh` (its two keys), `publish.sh` (an APK into the repository, up to the server), `requirements.txt` (fdroidserver, pinned with hashes), `legal.p2p.lunaway.yml` (the app's metadata there), and `fdroiddata/` (the draft for the official F-Droid); see "F-Droid repository" |
-| `infra/ops/gatus/` | ops | Gatus's configuration template and the pinned release (`version.sh`) |
+| `infra/ops/gatus/` | server | Gatus's configuration template and the pinned release (`version.sh`) |
 | `infra/ops/mac/` | the Mac | the nightly job, its launchd plist and `install.sh` |
-| `infra/ops/mac-routing/` | the Mac | the weekly routing graph build: `lunaway-routing-build.sh` (a throwaway Hetzner build server, the bundle signed and published), its two launchd plists (the Sunday build, the hourly sweep) and `install.sh`; see "Routing" |
+| `infra/ops/mac-routing/` | the Mac | the routing graph build, every other week: `lunaway-routing-build.sh` (a throwaway Hetzner build server, the bundle signed and published), its two launchd plists (the Sunday trigger, the hourly sweep) and `install.sh`; see "Routing" |
+| `infra/ops/probe/`, `.github/workflows/external-probe.yml` | GitHub's machines | the external probe, every 15 minutes; see "The external probe" |
 | `infra/web/site/` | backend | the website, generated by `tool/site/build.py` from `tool/site/src/` (French at `/`, English under `/en/`); `infra/web/app/` is the web app's fallback page |
 | `infra/tests/caddy-layout.sh` | here | runs `infra/caddy/` in the servers' Caddy release (native binaries on macOS and Linux x86_64, the Docker images with `LUNAWAY_CADDY_DOCKER=1`), the tile routes against a real `pmtiles serve`, and checks every route, header and the log masking |
 | `infra/tests/caddy-package.sh` | here | checks that the servers' installation of Caddy (`install_caddy_package`, `infra/server/common.sh`) refuses a package that does not hash to the pin, with stand-ins for curl and dpkg; `tool/check.sh` runs it |
-| `infra/geocode/` | geocoding server | Photon's pins (`version.sh`), its unit (`photon@.service`, one instance per database), and the monthly refresh of the databases (`lunaway-photon-refresh` and its unit and timer); installed by the step `geocode`; see "Geocoding" |
-| `infra/translate/` | geocoding server | the translation server (`lunaway-translate.py`, its unit `lunaway-translate.service`), its Python packages pinned with their hashes (`requirements.in`, compiled into `requirements.txt`), its models (`models.txt`: each OPUS-MT archive and its SHA-256) and their installer (`lunaway-translate-models` and its unit); installed by the step `translate`; see "Translation". `infra/tests/translate-server.py` checks the server without its models |
-| `infra/caddy/geocoders.caddy` | backend | the API's way to the geocoders and to the translation server on the loopback (127.0.0.1:8486), installed in `/etc/caddy/sites-enabled/` with or without the domain |
+| `infra/geocode/` | server | Photon's pins (`version.sh`), its unit (`photon@.service`, one instance per database), and the monthly refresh of the databases (`lunaway-photon-refresh` and its unit and timer); installed by the step `geocode`; see "Geocoding" |
+| `infra/translate/` | server | the translation server (`lunaway-translate.py`, its unit `lunaway-translate.service`), its Python packages pinned with their hashes (`requirements.in`, compiled into `requirements.txt`), its models (`models.txt`: each OPUS-MT archive and its SHA-256) and their installer (`lunaway-translate-models` and its unit); installed by the step `translate`; see "Translation". `infra/tests/translate-server.py` checks the server without its models |
+| `infra/caddy/geocoders.caddy` | backend | the API's way to the geocoders and to the translation server, all on the loopback (127.0.0.1:8486), installed in `/etc/caddy/sites-enabled/` with or without the domain |
+| `infra/caddy/status.caddy` | backend | the status page's site, installed in `/etc/caddy/sites-available/` by the `caddy` step and linked into `sites-enabled/` by `infra/enable-domain.sh` once `status.lunaway.net` points at the server |
 | `infra/routing/` | build server, backend | the routing engine: its pins (`version.sh`), the graph build (`europe-build.sh` and `europe-extracts.txt` on the build server, `build-graph.sh`, `valhalla-build.sh`, `osmium.Dockerfile`, `test-routes.json`), its measurement (`measure-build.sh`, `measure-remote.sh`), and on the backend the engine's units (`valhalla.container`, `valhalla-candidate.container`), its configuration (`valhalla.json`) and the graph refresh (`lunaway-routing-refresh` and its unit and timer) and the public half of the build key (`routing-signers`); installed by the backend step `routing`; see "Routing" |
 
 ## Private settings
@@ -103,14 +106,14 @@ in `~/.config/lunaway/env` (directory 0700, file 0600):
 | `LUNAWAY_SSH_ALLOW` | CIDRs allowed to reach SSH (written by `provision.sh`, `ssh-access.sh`) |
 | `LUNAWAY_BACKUP_RECIPIENT` | the age public key the dumps are encrypted to (written by `infra/ops/mac/install.sh keys`) |
 | `LUNAWAY_API_HOST`, `LUNAWAY_TILES_URL`, `LUNAWAY_WEB_URL`, `LUNAWAY_STATUS_DOMAIN`, `LUNAWAY_MEDIA_BASE_URL` | optional: the public names, `api.lunaway.net`, `https://tiles.lunaway.net`, `https://lunaway.net`, `status.lunaway.net` and `https://api.lunaway.net/media/` unless set (`infra/lib.sh`; see "The domain") |
-| `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*` | addresses, volume ids (the backend's tile volume in `LUNAWAY_BACKEND_TILES_VOLUME_ID`), types, written by `provision.sh` |
+| `LUNAWAY_BACKEND_*` | the server's addresses, data volume id, type and location, written by `provision.sh` |
 
 `~/.config/lunaway/ssh_config` (written by the scripts) defines the hosts
-`lunaway` (backend) and `lunaway-ops` (also `lunaway-sync`, the server's first
-role), both as the admin user `ops`, and `lunaway-ops-pull` for the Mac's
-nightly pull: `ssh -F ~/.config/lunaway/ssh_config lunaway`. Adding
-`Include ~/.config/lunaway/ssh_config` at the top of `~/.ssh/config` makes it
-`ssh lunaway`.
+`lunaway`, the server as the admin user `ops`, and `lunaway-backup-pull`,
+the same server as `lunaway-pull` with the Mac's pull key and the host key
+pinned, for the nightly pull: `ssh -F ~/.config/lunaway/ssh_config lunaway`.
+Adding `Include ~/.config/lunaway/ssh_config` at the top of `~/.ssh/config`
+makes it `ssh lunaway`.
 
 Secrets live where they are used and nowhere else:
 
@@ -121,10 +124,10 @@ Secrets live where they are used and nowhere else:
 | the external community source's settings (`LUNAWAY_EXTCOM_AGREEMENT_REF`, `LUNAWAY_EXTCOM_PHOTO_HOSTS`, `docs/feeds.md`) | backend, `/etc/lunaway/extcom.env` (root, 0600), and nowhere in the repository: a photo host names the partner. Given by the maintainer and installed without being shown: `printf 'LUNAWAY_EXTCOM_AGREEMENT_REF=%s\nLUNAWAY_EXTCOM_PHOTO_HOSTS=%s\n' "$ref" "$hosts" \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/extcom.env'`, then `infra/configure.sh backend pipeline`, which turns the feed's import on. Loaded by `lunaway-ingest-extcom.service` and `lunaway-admin ingest extcom` alone (the API reads the hosts of the agreement in force from the database, where each import writes them). An age-encrypted copy, `extcom-env.age`, in the backup chain, encrypted again by the `pipeline` step whenever the file is newer than it. To restore it: `age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/extcom-env.age \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/extcom.env'` |
 | the takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) | backend, `/etc/lunaway/takedown.env` (root, 0600), loaded only by the conflation units (`lunaway-conflate-worker`, `lunaway-conflate`) and `lunaway-admin conflate|takedowns|take-down|replay-takedowns` (the import role without outbound network), never by the imports nor the API; an age-encrypted copy, `takedown-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: the cells stored around every place taken down are keyed with it, and the step refuses to generate another while the copy exists (see "Backups and restore") |
 | the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
-| the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
-| the external community feed producer's keys | ops server, made and kept by its private deployment (the push key for `extcom-drop`, the erasures key for `lunaway-pull`); the erasures key's public half sits in `/etc/lunaway-ops/extcom-erasures_ed25519.pub`, where `infra/configure.sh backend` reads it |
+| the status page's probe key | server, `/etc/lunaway-ops/probe_ed25519` (root, 0600), made by the `ops-status` step; Gatus's configuration carries it inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
+| the external community feed crawler's keys | server, made and kept by its private deployment (the push key for `extcom-drop`, the erasures key for `lunaway-pull`); the erasures key's public half sits in `/etc/lunaway-ops/extcom-erasures_ed25519.pub`, where the `ops-access` step reads it |
 | the age identity that decrypts every dump | the Mac only, `~/.config/lunaway/backup-age.key` (0600); keep an offline copy (a password manager): without it no backup can be read |
-| the Mac's pull key | the Mac, `~/.config/lunaway/ops-pull_ed25519` (0600) |
+| the Mac's pull key | the Mac, `~/.config/lunaway/backup-pull_ed25519` (0600); its public half goes to the server through `infra/configure.sh backend ops-access` |
 | the F-Droid repository key, the F-Droid APK key and their passwords | the Mac, `~/.config/lunaway/fdroid/` (0700, files 0600), and an age-encrypted copy in the backup chain (see "F-Droid repository") |
 | the routing graph's signing key | the Mac, `~/.config/lunaway/routing-signing_ed25519` (0600), and an age-encrypted copy in the backup chain, `routing-signing-key-<stamp>.age` (see "Routing") |
 | the Hetzner API token | the Mac only, in the hcloud context of the project (`~/.config/hcloud/cli.toml`); never on a server, never on GitHub |
@@ -132,49 +135,78 @@ Secrets live where they are used and nowhere else:
 ## First installation
 
 ```bash
-infra/ops/mac/install.sh keys   # the age identity and the pull key, on the Mac
-infra/provision.sh              # both servers, the network, the volumes; waits for cloud-init
-infra/configure.sh ops          # first: generates the probe and replica keys, pins the backend's host key
-infra/configure.sh backend      # every backend step; lunaway-pull takes the ops server's keys;
-                                # the tiles step starts the first planet download and its checks (about 45 minutes)
-infra/enable-domain.sh          # the lunaway.net sites, once their DNS records point at the backend
+infra/ops/mac/install.sh keys   # the age identity and the Mac's pull key, on the Mac
+infra/provision.sh              # the server, the network, the data volume; waits for cloud-init
+infra/configure.sh backend      # every step; the tiles step starts the first cut of the basemap
+                                # (517 s on 2026-10-10), then the offline packs; ops-status makes the
+                                # probe key, ops-access lets it and the Mac's key into lunaway-pull
+infra/enable-domain.sh          # the lunaway.net sites, and status.lunaway.net, once their DNS records point at the server
 infra/deploy-api.sh             # builds HEAD, migrates, deploys, checks https://api.lunaway.net
 infra/configure.sh backend pipeline   # turns the import timers and the conflation worker on, now that the CLI is there
 infra/deploy-gatus.sh           # the status page's engine
+ssh -F ~/.config/lunaway/ssh_config lunaway sudo systemctl start lunaway-photon-refresh   # Photon's first databases, about an hour
+infra/configure.sh backend geocode   # once they are in: enables photon@europe, photon@morocco and their monthly refresh
 infra/ops/mac/install.sh        # the nightly job on the Mac
-infra/verify.sh                 # both servers, the status page, the pulls
+infra/verify.sh                 # the server, the status page, the Mac's pull
 ```
 
-Each server is created stopped, attached to `lunaway-net` with its fixed
-address, then started, so cloud-init configures the private interface at
-first boot. `infra/provision.sh --render-only ROLE FILE` writes the rendered
-user data for review without creating anything.
+The translation models come with the `translate` step itself (minutes).
+The external community feed's crawler comes from its private repository;
+once it is installed, `infra/configure.sh backend ops-access` lets its
+erasures key in.
+
+The server is created stopped, attached to `lunaway-net` with its fixed
+address (10.42.0.2), then started, so cloud-init configures the private
+interface at first boot; no service uses that network, and the server stays
+on it so that a second server can join without readdressing.
+`infra/provision.sh --render-only backend FILE` writes the rendered user
+data for review without creating anything.
 
 ## Sizing
 
-Prices excluding VAT on 2026-10-06, and on 2026-10-10 for cx53 and the
-replica volume (`hcloud server-type describe`); the Lunaway project is
-billed with 20% VAT.
+Prices from Hetzner's API (`/v1/pricing`) on 2026-10-10, excluding VAT;
+the Lunaway project is billed with 20% VAT.
 
 | resource | type | why | EUR a month excl. VAT |
 |---|---|---|---|
-| `lunaway-backend-1` | cx43, 8 vCPU, 16 GB, 160 GB NVMe, fsn1; cx53 decided (below) | the API, PostgreSQL on the root disk (see "PostgreSQL on the root disk"), the imports, and the Europe routing engine (6 GB cap, two graphs of 20.4 GB on the root disk; see "Routing") | 15.99 |
-| its daily backups | 20% of the server | images of the root disk, which carry the database and a copy of the latest dumps | 3.20 |
-| `lunaway-data` | volume, 150 GB | dumps, import cache, photos (budget below) | 8.58 |
-| `lunaway-tiles` | volume, 350 GB | the basemap: two planet archives at the peak of a refresh, and two sets of offline packs (see "Basemap") | 20.02 |
-| `lunaway-sync-1` (role ops) | cx23, 2 vCPU, 4 GB, 40 GB, nbg1 | Gatus and Caddy, a nightly rsync | 5.49 |
-| `lunaway-sync-data` | volume, 60 GB | the dump replica: 14 nightly dumps of 2.2 GB (2026-10-10), grown from 20 GB that day | 3.43 |
-| `lunaway-geocode-1` (role geocode) | cx43, 8 vCPU, 16 GB, 160 GB NVMe, fsn1 | Photon over Europe and Morocco, two copies of the Europe database during a refresh (see "Geocoding"), and the translation server (see "Translation") | 15.99 |
-| 3 primary IPv4 | | mobile networks and campsite Wi-Fi without IPv6; the geocoding server's, for GraphHopper and GitHub, which answer over IPv4 only | 1.50 |
+| `lunaway-backend-1` | cx53, 16 shared vCPU, 32 GB, 320 GB local NVMe, fsn1 | everything: the API, PostgreSQL on the root disk, the imports, the routing engine, the basemap, Photon, the translation server, Gatus and the external feed's crawler (the root disk and the memory below) | 29.49 |
+| `lunaway-data` | volume, 150 GB | dumps, import cache, photos, offline packs, the crawler's state (below) | 8.58 |
+| primary IPv4 | | mobile networks and campsite Wi-Fi without IPv6; GraphHopper and GitHub, which answer over IPv4 only | 0.50 |
 | `lunaway-net`, primary IPv6 | | | 0 |
+| the routing build | a ccx33 at 0.2219 an hour, about 3.4 hours every two weeks (see "Routing") | the Europe graph | about 1.6 (0.75 a build) |
 
-`provision.sh` tries types in order of value and keeps the first one the API
-accepts: for the backend `cx53` (16 vCPU, 32 GB, 29.49), `cx43` (8 vCPU,
-16 GB, 15.99), `cax31`, then `cx33`; for the ops server `cax11`, then `cx23`. On 2026-10-06 the API refused `cx43`
-in nbg1 and fsn1 (out of stock) and every ARM type in both German sites, so
-the backend runs on `cx33`. The type list's `available` flag is not a
-reliable stock signal: on the same day it said `cx43` was unavailable
-everywhere, and the API had still created one in nbg1 an hour earlier.
+The server, its volume and its address cost 38.57 a month, about 40 with
+the routing build. Hetzner's daily backups would add 20% of the server
+(5.90); they are off ("Backups and restore").
+
+Before the merge of 2026-10-10 the same work cost 74.20 a month, plus
+about 3.30 for the weekly routing build:
+
+| resource | type | EUR a month excl. VAT |
+|---|---|---|
+| `lunaway-backend-1` | cx43, 8 vCPU, 16 GB, 160 GB, fsn1 | 15.99 |
+| its daily backups | 20% of the server | 3.20 |
+| `lunaway-geocode-1` (Photon, the translation server) | cx43, fsn1 | 15.99 |
+| `lunaway-sync-1`, role ops (the status page, the dump replica, the external feed's crawler) | cx23, nbg1 | 5.49 |
+| `lunaway-data`, `lunaway-tiles` (the basemap), `lunaway-sync-data` (the replica) | volumes, 150 + 350 + 60 GB at 0.0572 a GB | 32.03 |
+| 3 primary IPv4 | 0.50 each | 1.50 |
+
+While `lunaway-sync-1` still serves the status page ("Moving the status
+page's name"), it adds 5.49, its volume 3.43 and its IPv4 0.50.
+
+`provision.sh` tries `cx53` in fsn1, then nbg1, then hel1
+(`backend:candidates` in `infra/lib.sh`, `LUNAWAY_BACKEND_CANDIDATES` in
+the private settings overrides it). The data volume is in fsn1, and a
+volume attaches only to a server of its own location. The project's limit
+of shared vCPU is 18, and the cx53 takes 16: the throwaway servers take
+dedicated vCPU, which count apart (the API builder a ccx23, "Deploying the
+API"; the routing build a ccx33, "Routing").
+
+On 2026-10-06 the API refused `cx43` in nbg1 and fsn1 (out of stock) and
+every ARM type in both German sites, so the backend started on `cx33`. The
+type list's `available` flag is not a reliable stock signal: on the same
+day it said `cx43` was unavailable everywhere, and the API had still
+created one in nbg1 an hour earlier.
 
 The backend moved from `cx33` to `cx43` in place on 2026-10-06 at 22:58
 UTC, for the Europe routing graph (plan/research/35-routage-europe-prod.md):
@@ -186,44 +218,137 @@ filesystem grew to 150 GB by itself at boot), `hcloud server poweron`, then
 again 2 min 17 s after the shutdown (22:58:09 to 23:00:26 UTC). A fresh dump was taken and pulled to the
 ops server and the Mac before.
 
-On 2026-10-10 the backend was to move to `cx53` (16 shared vCPU, 32 GB,
-320 GB, 29.49 a month and 5.90 for its backups), so that the search
-tables (`pois` 8.2 GB, `poi_search` 2.1 GB) and the places stay in memory
-next to the routing engine (plan/research/104-backend-32go.md). PostgreSQL
-moved to the root disk in the same window ("PostgreSQL on the root disk");
-the type change was refused: `hcloud server change-type` answered `shared
-core limit exceeded`, the project's three servers holding 18 shared vCPU
-(cx43, cx23, cx43) and cx53 adding 8. A limit raise is asked from the
-Hetzner Console (Limits). Then, in a window of about three minutes:
+On the morning of 2026-10-10 the move to `cx53`, so that the search tables
+(`pois` 8.2 GB, `poi_search` 2.1 GB) and the places stay in memory next to
+the routing engine (plan/research/104-backend-32go.md), was refused:
+`hcloud server change-type` answered `shared core limit exceeded`, the
+project's three servers holding 18 shared vCPU (cx43, cx23, cx43) and cx53
+adding 8. PostgreSQL moved to the root disk in the same window
+("PostgreSQL on the root disk"). The merge of the afternoon freed the
+geocoding server's 8.
 
-```bash
-hcloud --context lunaway server shutdown lunaway-backend-1    # wait until "off"
-hcloud --context lunaway server change-type lunaway-backend-1 cx53   # grows the disk to 320 GB, for good
-hcloud --context lunaway server poweron lunaway-backend-1
-LUNAWAY_NO_REBOOT=1 infra/configure.sh backend postgres        # PostgreSQL retuned for 32 GB
-```
+### The merge of 2026-10-10
 
-The disk grows with the type: afterwards no type with a smaller disk than
-320 GB (cx43 included) can take the server back. With 160 GB kept, the
-database and two routing graphs would fill the root disk to about 78% at a
-graph refresh, against the status page's 80%.
+The product owner decided on 2026-10-10 to run everything on the backend,
+resized to cx53, and it was done that afternoon (times UTC):
 
-### The data volume
+1. Photon's databases and the translation models were copied live from the
+   geocoding server to the backend over the private network, through a
+   temporary write-only account: 51,085,329,815 bytes in 952 files at
+   195 MB/s, 4.4 minutes. Photon was started on the copy and searched
+   before anything was deleted.
+2. Photon and the translation server stopped on the geocoding server at
+   12:51:47; a last pass of the copy; `lunaway-geocode-1` was deleted at
+   12:52:58, with its IPv4.
+3. The backend shut down at 12:53:10, `hcloud server change-type
+   lunaway-backend-1 cx53` grew its disk to 320 GB, and the API answered
+   again at 12:58:34.9: no answer from 12:53:15.7, 5 min 19 s, of which the
+   type change took 4 min 46 s. The disk grew with the type: no type with a
+   smaller disk than 320 GB (cx43 included) can take the server back.
+4. The copy went to the root disk in 3 min 23 s; Photon and the
+   translation server answered from the backend between 13:02:45 and
+   13:02:59. The addresses outside France and the translation did not
+   answer for 11 min 12 s.
+5. PostgreSQL was retuned at 13:03:41 (`infra/configure.sh backend
+   postgres`); its restart killed a run of `lunaway-packs`, started again by
+   hand.
+6. The basemap moved to an extract of Lunaway's zone, cut from Protomaps'
+   build 20261010 in 517 s (35,656,103,392 bytes, a memory peak of 3.0 GB
+   in its cgroup, `pmtiles verify` 2 s), switched at 13:17:29 without a cut
+   in service. The tile volume `lunaway-tiles` (350 GB) was deleted at
+   13:37.
+7. The external feed's crawler was stopped on the ops server by SIGINT at
+   13:18:37 ("interrupted; the state is saved"); its state (4 files,
+   1,092,333,401 bytes) went to the backend with tar through the Mac,
+   compared file by file (type, mode, owner, size, SHA-256: identical). It
+   started on the backend at 13:24:04 and published its first feed to
+   127.0.0.1 at about 13:41.
+8. A fresh dump, 13:37:36, was pulled to the Mac and decrypted (83 TABLE
+   DATA entries listed); then Hetzner's daily backups of the backend were
+   disabled at 13:42:40, which deleted its 6 images.
+
+Checked through `https://api.lunaway.net` at 13:03: the addresses of
+France, Germany (Photon Europe) and Morocco complete, a route from Lyon to
+Marseille in 1,288 ms. The search, measured on the backend against
+127.0.0.1:8484 at 13:43 with the bench of plan/research/104 and 98 (125
+requests): p50 30.2 ms and p95 102.2 ms on the first pass, p50 19.3 ms and
+p95 62.1 ms on the second; on the cx43 that morning, 35.4 and 87.6 ms warm.
+
+The ops server and its volume stay until the status page's name moves
+("Moving the status page's name").
+
+### The root disk
+
+301 GB formatted. Measured from 13:37 to 13:45 UTC on 2026-10-10, 172 GB
+used (60%):
 
 | content | size |
 |---|---|
-| PostgreSQL | on the root disk since 2026-10-10 (next section); its old directory stays here, renamed, until removed by hand |
+| PostgreSQL (`/var/lib/postgresql/18/main`) | about 22 GB |
+| two routing graphs (`/srv/routing`) | about 39 GB |
+| Photon's databases (`/srv/photon`) | 48,264,513,088 bytes: Europe 48,143,092,958, Morocco 121,420,130 |
+| the translation models (`/srv/translate`) | 2,820,315,809 bytes |
+| the basemap extract (`/srv/basemap`) | 35,656,103,392 bytes |
+| the system, the releases, the journals, the three encrypted dumps (`/var/backups/lunaway`) | the rest |
+
+Each refresh holds a second copy for a while:
+
+| refresh | when (UTC) | adds | for |
+|---|---|---|---|
+| routing graph | the daily check at 04:30 installs a new graph every two weeks | about 29 GB, the download and the graph being unpacked | about an hour |
+| Photon | the third Sunday of the month, 09:00 | 48 GB, the new Europe database, unpacked as the dump streams in (no 32 GB file on disk); the previous one goes once the new one answers | the refresh, about an hour |
+| basemap | the 2nd of the month, 05:00 | 36 GB, the new extract | a day: `lunaway-tiles-prune` removes the build not served once the new one has served a day |
+
+The Photon refresh and the basemap's two days never overlap, and the
+basemap refresh refuses a cut that would take the root disk past 80%.
+Photon's 48 GB on top of the 172 GB of 2026-10-10 come to about 220 GB,
+about 77% as `df` counts it (computed), under the status page's 80%.
+
+### Memory
+
+32 GB, 31,344 MB visible to the system. At 13:37 UTC on 2026-10-10, before
+the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
+
+| unit | memory | cap |
+|---|---|---|
+| PostgreSQL | 7.5 GB | |
+| `photon@europe` | 3.1 GB (2.68 GB resident; a heap of 2 GB) | `MemoryHigh` 6 GB, `MemoryMax` 7 GB |
+| `photon@morocco` | 0.8 GB (a heap of 512 MB) | the same unit file |
+| `lunaway-translate` | 3.2 GB | `MemoryHigh` 4 GB, `MemoryMax` 4.5 GB |
+| `lunaway-api` | 0.3 GB | `MemoryHigh` 1.25 GB, `MemoryMax` 1.5 GB |
+| the external feed's crawler | 0.47 GB | |
+| Caddy | 0.11 GB | |
+| Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
+| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 6 GB (`--memory=6g`) |
+
+The database, the routing engine and Photon read their files through the
+page cache they share; PostgreSQL's settings ("PostgreSQL on the root
+disk") and Photon's caps ("Geocoding") leave each its part.
+
+### The data volume
+
+147 GB formatted. On 2026-10-10 at 13:45, after the merge, 101 GB used
+(73%):
+
+| content | size |
+|---|---|
+| PostgreSQL's old directory, `/srv/data/postgresql/18/main.moved-20261010T091538Z` | 20 GB, to remove after 2026-10-12 and before 2026-11-09 (next section) |
+| the offline packs (`/srv/data/basemap/packs`) | one set, 19 GB; two sets for a week after each basemap refresh |
 | the OpenStreetMap France extract in the import cache (`/srv/data/ingest`) | 5.9 GB (5,867,462,742 bytes on 2026-10-05); during the daily refresh the old file stays until the new one is complete, so 12 GB at the peak |
-| 7 nightly dumps and their 7 encrypted copies | 2.2 GB a dump with Europe's establishments (2026-10-10), so about 31 GB |
+| 3 nightly dumps and their 3 encrypted copies | 2.2 GB a dump with Europe's establishments (2026-10-10), so about 13 GB |
+| the external feed crawler's state | 4 files, 1,092,333,401 bytes (2026-10-10) |
 | community photos (`/srv/data/media`) | to size when the feature is designed |
 | open content photos (`/srv/data/media/external`) | a photo's two WebP files (1 280 and 512 pixels) took 262 KB from Commons and 203 KB from Panoramax on average on 2026-10-10 (784 and 73 photos of points of France). The points add up to about 1.4 GB a week from Commons (2 000 points, 2.6 photos a point) until each has been asked once: about 16 GB for the 22 861 points of France that name a Commons file or a Wikidata item |
 
 The volume was sized for an image feed that no longer exists; a volume
 cannot shrink, and the photos will use the room. On 2026-10-06, 140 GB of
-its 147 GB were free. It grows online (`hcloud volume resize lunaway-data
---size <GB>`, then `sudo resize2fs /dev/disk/by-id/scsi-0HC_Volume_<id>` on
-the backend, about 0.06 EUR per GB a month): the status page turns red at
-80%.
+its 147 GB were free. The packs of the next basemap refresh (2026-11-02)
+add 19 GB for a week: with the old PostgreSQL directory still there, the
+volume would hold about 120 GB, about 87% as `df` counts it (computed), and
+the status page would turn red. It grows online (`hcloud volume resize
+lunaway-data --size <GB>`, then `sudo resize2fs
+/dev/disk/by-id/scsi-0HC_Volume_<id>` on the server, 0.0572 EUR per GB a
+month): the status page turns red at 80%.
 
 ### PostgreSQL on the root disk
 
@@ -239,11 +364,10 @@ dumps stay on the volume, so a dump never shares a disk with the database.
 | data | where |
 |---|---|
 | the cluster, its tables and its journal (21 GB on 2026-10-10) | root disk, `/var/lib/postgresql/18/main` (`PG_DATADIR` in `infra/server/common.sh`) |
-| the plaintext dumps and their encrypted copies for the ops server, the photos' encrypted copies, the journals of deletions and takedowns | data volume, `/srv/data/backups/`, `/srv/data/account-deletions/`, `/srv/data/place-takedowns/` |
+| the plaintext dumps and their encrypted copies for the Mac's pull, the photos' encrypted copies, the journals of deletions and takedowns | data volume, `/srv/data/backups/`, `/srv/data/account-deletions/`, `/srv/data/place-takedowns/` |
 | the three latest encrypted dumps | root disk, `/var/backups/lunaway/postgresql/` |
-| the import cache, the photos, the regional packs, the external feed's inbox | data volume |
-| the routing graphs, the releases, the system journal | root disk |
-| the basemap | tile volume |
+| the import cache, the photos, the regional packs, the external feed's inbox, the basemap's offline packs, the crawler's state | data volume |
+| the routing graphs, Photon's databases, the translation models, the basemap extract, the releases, the system journal | root disk |
 
 - `postgres.sh` creates the cluster there on a new server, and stops when
   the cluster is registered anywhere else, naming `postgres-move.sh`. The
@@ -277,26 +401,37 @@ dumps stay on the volume, so a dump never shares a disk with the database.
   its name (`sudo rm -r` of that literal path); a deleted record must leave
   it by 2026-11-09, the 30 days of the privacy page. `infra/verify.sh`
   notes it, and fails once it is 7 days old.
-- The server's daily Hetzner images now carry the database itself, for
-  their 7 days ("How long things are kept"), unencrypted, as the privacy
-  page says. They are taken while it runs; the dumps stay the restore path.
-  Restoring such an image restores that day's database too (see "Backups
-  and restore").
+- The server has no Hetzner backup images: an image of a root disk that
+  holds the database would keep it unencrypted for the images' 7 days.
+  Hetzner's daily backups were disabled on 2026-10-10 at 13:42:40 UTC,
+  which deleted their 6 images ("The merge of 2026-10-10").
 - A rebuilt server has a new root disk: its cluster starts empty and takes
   the latest dump ("Backups and restore"). The volume no longer carries the
   database across a rebuild.
 
 The memory settings come from the machine's (`postgres.sh`, so a second run
-after a resize retunes them); the 32 GB column is what cx53 will get:
+after a resize retunes them). The other tenants hold about 21 GB at their
+caps (`others` = 21,504 MB): the routing engine 6 GB, an import reading an
+extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
+1.5 GB, and since the merge Photon's two JVMs about 3.5 GB, the translation
+server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. Their page cache is the
+database's too, so PostgreSQL keeps a smaller share for itself than on a
+server of its own:
 
-| setting | rule | 16 GB (cx43) | 32 GB (cx53) |
-|---|---|---|---|
-| `shared_buffers` | a quarter of the memory | 3905 MB | about 7800 MB |
-| `effective_cache_size` | the larger of half the memory and the memory less 12 GB (the routing engine's 6, the API's 1.5, an import's 3, the system's 1.5) | 7810 MB | about 19,000 MB |
-| `work_mem` | 1/256 of the memory: at 61 MB no statement of the API spilled to disk in three days; the imports' spills were 82 MB in the median | 61 MB | about 122 MB |
-| `maintenance_work_mem` | 1/16 of the memory, 2 GB at most (the migrations' index builds) | 976 MB | about 1950 MB |
-| `autovacuum_work_mem` | 512 MB at most, for each of the three workers | 512 MB | 512 MB |
-| `max_parallel_workers_per_gather`, `max_parallel_maintenance_workers` | half the vCPU, 4 at most: 8 processes for one query would crowd the API and the routing engine on shared vCPU | 4 | 4 |
+| setting | rule | 32 GB (cx53), 31,344 MB visible |
+|---|---|---|
+| `shared_buffers` | an eighth of the memory: the rest of the database's hot pages sit in the page cache the other tenants share | 3,918 MB |
+| `effective_cache_size` | the memory less the other tenants' 21 GB, a quarter of the memory at least | 9,840 MB |
+| `work_mem` | 1/512 of the memory: at 61 MB no statement of the API spilled to disk in three days; the imports' spills were 82 MB in the median | 61 MB |
+| `maintenance_work_mem` | 1/16 of the memory, 2 GB at most (the migrations' index builds) | 1,959 MB |
+| `autovacuum_work_mem` | 512 MB at most, for each of the three workers | 512 MB |
+| `max_parallel_workers_per_gather`, `max_parallel_maintenance_workers` | half the vCPU, 4 at most: 8 processes for one query would crowd the API and the routing engine on shared vCPU | 4 |
+
+On the cx43 (16 GB), before the merge, the rules were a quarter of the
+memory for `shared_buffers` (3,905 MB) and 1/256 for `work_mem` (61 MB), and
+`effective_cache_size` the memory less 12 GB, half of it at least
+(7,810 MB). Applied at 13:03:41 UTC on 2026-10-10, with a restart of
+PostgreSQL.
 
 ## Deploying the API
 
@@ -353,22 +488,23 @@ releases stay until removed by name.
 
 The API refuses to start when it cannot write the account deletion journal
 (`LUNAWAY_DELETION_JOURNAL=/srv/data/account-deletions`, in
-`/etc/lunaway/media.env`; see "Backups and restore"). Servers configured
-before the journal existed take, before the first deploy of a release that
-has it, `infra/configure.sh ops ops-replica` (the replica's directory for
-the journal's copy, setgid so the Mac's pull can read it), then
-`infra/configure.sh backend backups api` (the directory, the unit's access
-to it, the variable and the hourly encrypted copy). Without the backend
+`/etc/lunaway/media.env`; see "Backups and restore"). A server configured
+before the journal existed takes, before the first deploy of a release that
+has it, `infra/configure.sh backend backups api` (the directory, the unit's
+access to it, the variable and the hourly encrypted copy). Without that
 step the new release fails its `/health` check and `current` goes back.
 
 Without a working local Docker, `LUNAWAY_BUILDER=hetzner infra/deploy-api.sh`
 runs the same container on a throwaway server
-(`infra/build/remote-build.sh`): a cx33 in fsn1 (x86_64 like the backend, so
-no cross linker) named `lunaway-builder-1`, labelled
+(`infra/build/remote-build.sh`): a ccx23 in fsn1 (x86_64 like the backend, so
+no cross linker; dedicated vCPU, which count apart from the project's 18
+shared ones, of which the backend's cx53 takes 16) named `lunaway-builder-1`, labelled
 `project=lunaway,purpose=build`, behind the backend's firewall, created by
 `hcloud` in the `lunaway` context and deleted when the build ends, failed or
-not. The build of 0708e91 on 2026-10-06 took about 5 minutes of server time
-(3 min 32 s of compilation), under a cent at 0.0136 EUR excl. VAT an hour.
+not. A ccx23 costs 0.1378 EUR excl. VAT an hour in fsn1 (2026-10-07), so
+about two cents a build; the build of 7565bb6 took 5 min 20 s on it. The
+build of 0708e91 on 2026-10-06, on the cx33 used then, took about 5 minutes
+of server time (3 min 32 s of compilation).
 Third-party build code (crates' build scripts) runs there, never on a
 production server. The binaries it returns go to production, so the builder
 is authenticated: an ed25519 host key generated here for each build goes in
@@ -384,10 +520,10 @@ together) or `shared core limit exceeded`, both met on 2026-10-07.
 `LUNAWAY_BUILDER_IPV6=1` creates it without an IPv4 address (Docker Hub,
 Debian and crates.io answer over IPv6; this machine must too, and the build
 container then uses the builder's network, Podman's bridge having no
-IPv6), and `LUNAWAY_BUILDER_TYPE=ccx23` takes dedicated vCPUs, which count
-apart (0.1378 EUR excl. VAT an hour in fsn1; the build of 7565bb6 took 5 min 20 s on
-it). An address is still needed: when all ten are taken, a server must go
-first.
+IPv6). `LUNAWAY_BUILDER_TYPE=cx33` takes 4 shared vCPU instead (0.0136 EUR
+excl. VAT an hour), which the limit refuses beside the cx53 until it is
+raised in the Hetzner Console (Limits). An address is still needed: when
+all ten are taken, a server must go first.
 
 ## Photos
 
@@ -443,12 +579,9 @@ under `/media/` with a year of cache.
   under `/media/`.
 - Measured on 2026-10-06 with a 1600 by 1200 test JPEG: 0.9 to 1 second
   per upload, 517 to 529 KB for the large WebP and 104 KB for the thumbnail.
-  At about 0.63 MB a photo, 10,000 photos take 6.3 GB in each of four
-  places: `/srv/data/media`, its encrypted copy on the backend, the ops
-  server's replica, the Mac. The ops server's volume is the first to fill:
-  60 GB, 31 GB of them for 14 dumps of 2.2 GB, so about 20,000 photos
-  before its 80% (computed, 2026-10-10); grow it with `hcloud volume resize
-  lunaway-sync-data --size <GB>` and `resize2fs`.
+  At about 0.63 MB a photo, 10,000 photos take 6.3 GB in each of three
+  places: `/srv/data/media` and its encrypted copy, both on the data volume
+  (12.6 GB there, computed), and the Mac ("The data volume").
 
 ## Data pipeline
 
@@ -691,12 +824,12 @@ sudo lunaway-admin packs build --region <code> --takedown                       
   (`/etc/lunaway/takedown.env`); without the secret it holds nothing and
   logs a warning, and `conflate --take-down` refuses to run.
 - **Backups.** The copies taken before the takedown still hold the place
-  until they age out (see "Backups and restore"): the encrypted dumps (7 on
-  the backend, 14 days on the ops server, 29 days on the Mac), the photos
-  of deleted entries (26 days in `media-deleted/` on the backend and on
-  the Mac), and the daily images of the backend's root disk. A restore of
-  an older dump brings the place back: the takedown journal, copied off
-  the server every hour, takes it down again after the restore
+  until they age out (see "Backups and restore"): the dumps (3 nights on
+  the server, 29 days on the Mac) and the photos of deleted entries (26
+  days in `media-deleted/` on the Mac). A restore of
+  an older dump brings the place back: the takedown journal, encrypted
+  every hour and pulled every night by the Mac, takes it down again after
+  the restore
   (`lunaway-admin replay-takedowns`, see "Backups and restore").
 
 ### Points of interest
@@ -1348,17 +1481,19 @@ PostgreSQL, 16 MB of packs. No resize: the status page turns red at 80%.
 The source `extcom` (`docs/feeds.md`): a partner's community spots,
 reviews and photos under a written agreement, shown as "Source
 communautaire externe". Its producer, a crawler kept in a private
-repository, runs on the ops server; the backend receives the feed, checks
-it, imports it and serves it. The partner is named nowhere in this
-repository, its photo host included (`/etc/lunaway/extcom.env`, see
-"Private settings").
+repository, runs on the same server since 2026-10-10, under its own user,
+its state on the data volume; it reaches the server's accounts over SSH on
+the loopback, like any client from outside, and the server receives the
+feed, checks it, imports it and serves it. The partner is named nowhere in
+this repository, its photo host included (`/etc/lunaway/extcom.env`, see
+"Private settings"), nor are the crawler's user and directory.
 
-**Drop.** The producer pushes each feed over the private network as
-`extcom-drop`, a backend account with a locked password and one key,
-accepted from 10.42.0.3 only and forced to `rrsync -wo
-/srv/data/extcom-inbox` (`restrict`, and `AllowUsers
-extcom-drop@10.42.0.3` in `/etc/ssh/sshd_config.d/13-extcom-drop.conf`):
-write only, no read, no shell. The account owns the inbox, so what lands
+**Drop.** The producer pushes each feed over SSH to 127.0.0.1 as
+`extcom-drop`, an account with a locked password and one key, accepted
+from 127.0.0.1 only and forced to `rrsync -wo /srv/data/extcom-inbox`
+(`restrict`, and an `AllowUsers` line in
+`/etc/ssh/sshd_config.d/13-extcom-drop.conf`): write only, no read, no
+shell. The account owns the inbox, so what lands
 there is the producer's to shape; the import trusts none of it (names,
 links and checksums are checked, below). A replacement of a file was
 refused when the producer's deployment tried it on 2026-10-07 (rsync
@@ -1482,7 +1617,7 @@ how long: the feeds in the inbox until tmpfiles removes them (4 days; `sudo
 rm` of every feed of the inbox, by literal names, shortens it: removing the
 last one imported alone, while older ones stay, makes the import's
 condition fail every hour until they expire), the dumps (29 days at most),
-and the producer's working copy on the ops server until it reads the list
+and the producer's working copy on the data volume until it reads the list
 of erased authors (below): before its next feed, so within 3 hours while it
 reads pages, at its next daily run otherwise.
 A dump restored from before the erasure brings the reviews back and holds
@@ -1498,16 +1633,16 @@ id, one per line and nothing else, into
 import role, loopback only, the file replaced in one rename). The
 directory is the imports' user's, setgid `lunaway-pull`, the file 0640: the
 only reader is `lunaway-pull`, through a key of the producer's own, accepted
-from 10.42.0.3 only and forced to `/usr/local/sbin/lunaway-extcom-erasures`,
-which prints the file whatever the client asks (no shell, no forwarding:
-`restrict`). The producer's private deployment makes that key on the ops
-server and leaves its public half in
-`/etc/lunaway-ops/extcom-erasures_ed25519.pub`, which `infra/configure.sh
-backend` reads; the `ops-access` step installs it. The producer reads the
+from the loopback only (127.0.0.1 and ::1) and forced to
+`/usr/local/sbin/lunaway-extcom-erasures`, which prints the file whatever
+the client asks (no shell, no forwarding: `restrict`). The producer's
+private deployment makes that key and leaves its public half in
+`/etc/lunaway-ops/extcom-erasures_ed25519.pub`, where the `ops-access` step
+reads it and installs it. The producer reads the
 list when a run starts and before each feed, keeps every hash, deletes
 those authors' reviews from its working copy, drops them from every page
 it reads later, and removes the feeds it kept on disk; its feeds never
-carry them again. The backend still never connects to the ops server.
+carry them again.
 
 **First import** (2026-10-07, plan/research/67-extcom-production.md): the
 producer's regional test feed (`test-ardeche-extcom.jsonl.gz`: 3 287 spots,
@@ -1533,10 +1668,17 @@ downloads whole at its first launch.
 
 ## Status page
 
-Gatus on the ops server checks the backend from another server in another
-datacenter, every one to fifteen minutes, and serves the result at
-`https://status.lunaway.net/`, through Caddy with automatic TLS. Its API, `/api/v1/endpoints/statuses`, is what the
-Mac's nightly job reads.
+Gatus on the server checks the public endpoints as a client meets them and
+the server's own facts through its health probe, every one to fifteen
+minutes, and serves the result at `https://status.lunaway.net/`, through
+Caddy (`infra/caddy/status.caddy`) with automatic TLS. Its API,
+`/api/v1/endpoints/statuses`, is what the Mac's nightly job reads.
+
+The page runs on the server it watches: an outage of the server takes the
+page down with it. The views from outside are the external probe on
+GitHub's machines, every 15 minutes with GitHub's own scheduling delays
+("The external probe"), and the Mac's nightly job. Until 2026-10-10 Gatus
+ran on a server of its own in another datacenter (nbg1).
 
 | group | check | how |
 |---|---|---|
@@ -1555,61 +1697,55 @@ Mac's nightly job reads.
 | public | Road events (DIR feed read) | `roadEventSources`: the DIR, first in the list, read less than 15 minutes ago |
 | public | Road events (DiaLog read) | DiaLog, second, read less than 45 minutes ago |
 | public | Road events feed | `roadEvents(first: 1)` answers a cursor within 3 s |
-| public | Addresses (France) | every 10 minutes, `searchAll` of "20 avenue de segur 75007 paris" (a ministry): complete, the first address "20 Avenue de Ségur", within 2 s (the Géoplateforme through the backend's Caddy) |
-| public | Addresses (Europe) | the same for "unter den linden berlin" near Berlin: complete, the first address in Germany (photon@europe) |
-| public | Addresses (Morocco) | the same for "rue de fes rabat" near Rabat: complete, the first address in Morocco (photon@morocco) |
+| public | Addresses (France) | every 10 minutes, `searchAll` of "20 avenue de segur 75007 paris" (a ministry): complete, the first address "20 Avenue de Ségur", within 2 s (the Géoplateforme through Caddy on the loopback) |
+| public | Addresses (Europe) | the same for "unter den linden berlin" near Berlin: complete, the first address in Germany (`photon@europe`) |
+| public | Addresses (Morocco) | the same for "rue de fes rabat" near Rabat: complete, the first address in Morocco (`photon@morocco`) |
 | backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
 | backend | Photo backup | the probe: the encrypted copy of the photos brought up to date less than 26 hours ago |
 | backend | Account deletion journal backup | the probe: the encrypted copy of the account deletion journal written less than 3 hours ago (hourly) |
 | backend | Takedown journal backup | the probe: the encrypted copy of the takedown journal written less than 3 hours ago (hourly) |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
-| backend | Data volume | mounted, under 80% full; root disk under 80% (it holds the database and the routing graphs) |
-| backend | Tile volume | mounted, under 80% full once the planet builds not served are counted as free (the refresh removes them first; after a refresh the volume itself is about 90% full, by design) |
+| backend | Data volume | mounted, under 80% full; root disk under 80% (it holds the database, the routing graphs, Photon's databases, the translation models and the basemap extract: "The root disk") |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
-| backend | Basemap build | the tile volume is mounted and the planet served is less than 35 days old (a refresh failed otherwise) |
-| backend | Offline packs | the probe: the packs' manifest names one pack per outline, its build is less than 35 days old and is the planet served (or the planet switched less than a day ago) |
+| backend | Basemap build | the probe: a build served from `/srv/basemap`, less than 35 days old (a refresh failed otherwise) |
+| backend | Offline packs | the probe: the packs' manifest names one pack per outline, its build is less than 35 days old and is the build served (or the build switched less than a day ago) |
 | backend | Fuel prices | the probe: the fuel price feed was stored less than 2 hours ago (eight runs of `lunaway-ingest-fuel` in a row failed otherwise) |
-| backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 10 days ago (weekly build, daily refresh) |
+| backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 17 days ago (a build every two weeks, a daily refresh) |
 | backend | Places imports (France and Europe) | the probe: France's OpenStreetMap places read less than 30 hours ago, every other country's less than 8 days ago (`imports.json`), and no failed unit among the places and points imports, `lunaway-packs`, `lunaway-cameras*` and `lunaway-enforcement*` (a truncation guard that refuses a country fails its import) |
 | backend | Regional packs of places | the probe: no sync region has waited more than two days for a pack with its changes, and at least one pack exists |
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the seven official lists each checked less than 30 hours ago (each downloaded at its own pace, its cached copy read in between) |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
 | backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` nor `lunaway-extcom-erasures` (the list of erased authors its producer reads) is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
-| ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
+| backend | Translation | the probe: the translation server answers its health check through Caddy on the loopback (a short text through a model), with 28 pairs at least ("Translation") |
 
-The ops check reads the ops server's own disks the same way: Gatus can
-only check what answers over the network, so its probe key is also accepted
-by the ops server's `lunaway-pull` account, from 127.0.0.1 and ::1 only,
-forced to `/usr/local/sbin/lunaway-ops-health` (`infra/server/ops-replica.sh`).
-
-The backend checks run the probe over SSH on the private network: Gatus
-logs in as `lunaway-pull` with its probe key, which the backend forces to
+The backend checks run the probe over SSH on the loopback: Gatus logs in
+to 127.0.0.1 as `lunaway-pull` with its probe key, made by the
+`ops-status` step in `/etc/lunaway-ops/probe_ed25519`, which the
+`ops-access` step accepts from 127.0.0.1 and ::1 only and forces to
 `/usr/local/sbin/lunaway-health` (one JSON object, computed at each call,
 nothing secret). PostgreSQL keeps listening on localhost only. Gatus does
-not verify SSH host keys (its client accepts any). A host posing as the
-backend gets nothing it can reuse, since the key's signature is bound to that
-one session; it could only answer a false green, from inside the private
-network. The replica pull, which uses OpenSSH, pins the backend's host key. The
-backend's fail2ban exempts the ops server's private address, since a ban
-would turn every backend check red and stop the replica.
+not verify SSH host keys (its client accepts any); on the loopback no other
+host can answer.
+
+Every backend check opens one SSH connection, and the hourly ones start
+with the others: 15 connections within about 20 seconds. nftables accepts
+the loopback before its limit of 10 new SSH connections a minute per
+source, and fail2ban exempts 127.0.0.1/8 and ::1: a ban would turn every
+backend check red. Until 2026-10-07, when the checks came from the ops
+server's private address, that limit dropped the last two every hour.
 
 What the page checks are the public names of `infra/lib.sh` (each can be
-overridden in the private settings), rendered by `infra/configure.sh ops
+overridden in the private settings), rendered by `infra/configure.sh backend
 ops-status`:
 
 - `LUNAWAY_API_HOST`: the API's name, `api.lunaway.net`.
 - `LUNAWAY_WEB_URL`: the website and web app, `https://lunaway.net`.
 - `LUNAWAY_TILES_URL`: the basemap's base URL, `https://tiles.lunaway.net`.
-- `LUNAWAY_STATUS_DOMAIN`: the page's own name, `status.lunaway.net`, the
-  only name Caddy serves on the ops server.
 
-Every backend check opens one SSH connection to the backend, and the
-hourly ones start with the others: 15 connections within about 20 seconds.
-The backend's limit of 10 new SSH connections a minute per source dropped
-the last two every hour until 2026-10-07, when the ops server's private
-address, arriving on the private interface, was exempted from it
-(`infra/files/etc/nftables.conf`), as it is from fail2ban.
+`LUNAWAY_STATUS_DOMAIN`, the page's own name, `status.lunaway.net`, is the
+name `infra/enable-domain.sh` checks in DNS and the Mac's job reads;
+`infra/caddy/status.caddy` writes it as is.
 
 Gatus is pinned in `infra/ops/gatus/version.sh`: the official image by the
 digest of its multi-architecture index, and the SHA-256 of the binary for
@@ -1617,17 +1753,59 @@ each architecture. Gatus publishes no binary; `infra/deploy-gatus.sh` pulls
 the image by digest, copies `/gatus` out of a container it never starts,
 checks the hash here, and the server checks it again before installing.
 
+### Moving the status page's name
+
+On 2026-10-10 the record `status.lunaway.net` could not be moved from the
+session that merged the servers (no access to the Cloudflare zone). Until
+it points at the backend, the old ops server, `lunaway-sync-1` (cx23, nbg1,
+with its volume `lunaway-sync-data`), keeps serving the page with the same
+checks as the backend's Gatus; it reaches the backend's health probe
+through a temporary key line and an sshd drop-in on the backend,
+`/etc/ssh/sshd_config.d/15-transition-ops-probe.conf`. The `ops-access`
+step writes `lunaway-pull`'s keys from the repository alone, which drops
+that line: until the move, a run of it leaves the old page's backend checks
+without their probe.
+
+Then, in order:
+
+1. Point `status.lunaway.net` (A and AAAA, DNS only) at the backend's
+   addresses.
+2. `infra/enable-domain.sh`: it checks the record from 1.1.1.1 and 8.8.8.8,
+   links `status.caddy`, waits for the certificate and counts the page's
+   checks.
+3. Open `https://status.lunaway.net` and see the backend's checks.
+4. Delete the ops server, its IPv4 and its volume, each under delete
+   protection:
+
+   ```bash
+   hcloud --context lunaway server disable-protection lunaway-sync-1 delete rebuild
+   hcloud --context lunaway server delete lunaway-sync-1
+   hcloud --context lunaway primary-ip disable-protection lunaway-sync-ipv4 delete
+   hcloud --context lunaway primary-ip delete lunaway-sync-ipv4
+   hcloud --context lunaway volume disable-protection lunaway-sync-data delete
+   hcloud --context lunaway volume delete lunaway-sync-data
+   ```
+
+5. On the backend, remove the drop-in and reload sshd:
+   `sudo rm /etc/ssh/sshd_config.d/15-transition-ops-probe.conf && sudo sshd -t && sudo systemctl reload ssh`.
+6. `infra/configure.sh backend harden ops-access`: the key list and the
+   sshd rules from the repository again.
+
 ## The nightly job on the Mac
 
-The Mac Studio this repository lives on is the only machine outside
-Hetzner, and the only holder of the age identity. Every night at 04:30
-local time, launchd runs `infra/ops/mac/lunaway-ops.sh` (label
-`legal.p2p.lunaway.ops`, a missed run happens at wake-up):
+The Mac Studio this repository lives on is the only machine of the
+project outside Hetzner, the only holder of the age identity, and the only
+copy of the backups away from the server. Every night at 04:30 local time,
+launchd runs `infra/ops/mac/lunaway-ops.sh` (label `legal.p2p.lunaway.ops`,
+a missed run happens at wake-up):
 
-1. pulls the ops server's replica into `~/Backups/lunaway/` with the pull
-   key, which the ops server forces to `rrsync -ro` on the replica and
-   accepts only from the admin sources; three attempts two minutes apart
-   (the ops server may be rebooting for an update at 02:30 UTC). The
+1. pulls the server's off-site directory (`/srv/data/backups/offsite`) into
+   `~/Backups/lunaway/` with the pull key
+   (`~/.config/lunaway/backup-pull_ed25519`, the ssh_config host
+   `lunaway-backup-pull`), which the server forces to `rrsync -ro
+   /srv/data/backups/offsite` and accepts only from the admin sources;
+   three attempts two minutes apart (the server may be rebooting for an
+   update at 02:30 UTC, 04:30 in Paris in summer). The
    encrypted photos go to `~/Backups/lunaway/media/`. macOS's rsync
    (openrsync) sends `--delete` to the server even on a pull, which
    `rrsync -ro` refuses, so the job pulls without it: a copy the server's
@@ -1636,8 +1814,10 @@ local time, launchd runs `infra/ops/mac/lunaway-ops.sh` (label
    dropped 26 days after it, or at once when the list of the last 30 days
    does not name it. A run that would set aside more than 50 copies and
    more than 5% of them sets none aside and fails. It decrypts the newest
-   photo copy (it must be a WebP file) and fails when the copy is more than
-   36 hours old;
+   photo copy, which must be a WebP file (`RIFF`, four bytes of size,
+   `WEBP`), and fails when the copy is more than 36 hours old. Until
+   2026-10-10 a size byte that reads as a capital letter failed that test
+   on a valid photo (issue #4 on GitHub);
 2. checks the newest dump: decrypts and lists it with `pg_restore --list`,
    without writing the plaintext; created less than 36 hours ago according
    to the archive itself (age authenticates it, so a renamed old dump fails);
@@ -1646,12 +1826,13 @@ local time, launchd runs `infra/ops/mac/lunaway-ops.sh` (label
    it, so no dump outlives an account deleted after it by more than 30
    days even on a night the pull fails; the job also runs at the start of
    the session (`RunAtLoad`), after the Mac was off. What comes from the
-   ops server (markers, names) reaches the issue only when it has the
+   server (markers, names) reaches the issue only when it has the
    expected form;
 3. reads every check of the status page;
 4. checks the Mac itself: at least 50 GB free on its disk, and, once the
-   weekly routing build is installed (`infra/ops/mac-routing/`), that its
-   last run did not fail, that one succeeded less than 8 days ago, and that
+   routing build is installed (`infra/ops/mac-routing/`), that its last run
+   did not fail, that one succeeded less than 16 days ago (a build every
+   two weeks, and two days for a Sunday the Mac slept through), and that
    the hourly sweep did not have to delete a leftover build server in the
    last 24 hours;
 5. when anything failed, opens the GitHub issue `ops: alerte` on
@@ -1677,31 +1858,75 @@ decompress zstd, so it lists the archive without reading its data; the
 decryption, which age authenticates over the whole file, and the listing are
 the nightly check.
 
-If the Mac is off for days, nothing alerts: the status page stays the place
-to look.
+If the Mac is off for days, no backup leaves the server, and the backend's
+own checks alert nobody: the status page stays the place to look. The
+public endpoints are still watched by the external probe.
+
+## The external probe
+
+The status page runs on the server it watches: when that server is down,
+so is the page. Every 15 minutes, GitHub Actions runs
+`infra/ops/probe/external-probe.py` (`.github/workflows/external-probe.yml`)
+on GitHub's machines against what a client meets:
+
+| check | how |
+|---|---|
+| site | `GET https://lunaway.net/` answers 200 |
+| api | `GET https://api.lunaway.net/health` answers 200 and `ok` |
+| tiles | `planet.json` is TileJSON 3.0.0, and the z14 tile over Paris comes back with more than 1000 bytes as received with `Accept-Encoding: gzip` (117 971 on 2026-10-10) |
+| search | the query of the status page's "Addresses (Europe)": complete, the first address in Germany |
+| route | the status page's "Witness route": status OK, longer than 1000 m |
+
+A check fails when three attempts, 20 seconds apart, all fail. The probe
+then opens the issue `ops: alerte` as `github-actions[bot]`; when its issue
+is already open, it rewrites the body and comments only when the set of
+failing checks changed (the body records it in a `<!-- failing: ... -->`
+marker): an outage that keeps the same checks red adds no comment while it
+lasts. The first run where every
+check passes comments and closes it. The Mac's job writes an issue of the
+same title as `poka-IT`; each job only touches the issue its own account
+opened, so both can be open at once. The issue and the run's log are
+public: they name the checks and a short reason built by the script (an
+HTTP status, a timeout, a failed condition), and no address beyond the
+public hostnames. `infra/tests/external-probe.py` checks the decisions and
+that the two GraphQL queries are still those of the status page.
+
+On a green day the probe sends one route and one search every 15 minutes,
+against quotas of 30 routes and 300 searches every ten minutes per client.
+
+```bash
+python3 infra/ops/probe/external-probe.py --dry-run             # real checks, prints what the issue would get
+python3 infra/ops/probe/external-probe.py --dry-run --fail api  # the failing path, nothing written
+gh workflow run external-probe.yml -R poka-IT/lunaway           # one run now
+gh workflow run external-probe.yml -R poka-IT/lunaway -f drill=api   # opens the issue for real; the next green run closes it
+```
+
+GitHub runs a schedule from the default branch only, so the probe starts
+once the workflow is on `main`; it may start a run late when its machines
+are busy, and disables a schedule in a public repository after 60 days
+without activity; `gh workflow enable external-probe.yml -R
+poka-IT/lunaway` turns it back on.
 
 ## Day to day
 
 ```bash
-ssh -F ~/.config/lunaway/ssh_config lunaway        # backend
-ssh -F ~/.config/lunaway/ssh_config lunaway-ops    # ops server
+ssh -F ~/.config/lunaway/ssh_config lunaway        # the server
 sudo journalctl -u lunaway-api -f            # API logs
 sudo tail -f /var/log/caddy/access.log       # access log, truncated addresses
 sudo -u postgres psql lunaway                # database shell
 sudo fail2ban-client status sshd             # bans
-systemctl list-timers 'lunaway*'             # dump, imports, conflation, retention, basemap refresh and packs (backend), replica (ops)
+systemctl list-timers 'lunaway*'             # dump, imports, conflation, retention, basemap refresh, prune and packs, Photon and routing refreshes
 infra/configure.sh backend harden            # re-apply one step after editing infra/files
 ```
 
 ### SSH access from a new place
 
-SSH (22/tcp) is open in the host firewalls but filtered by the Hetzner Cloud
-Firewalls to the admin sources. From a new network:
+SSH (22/tcp) is open in the host firewall but filtered by the Hetzner Cloud
+Firewall to the admin sources. From a new network:
 
 ```bash
-infra/ssh-access.sh add-current     # adds this machine's public IPv4 and IPv6 /64, on both firewalls
-infra/configure.sh backend harden   # refreshes fail2ban's ignore list
-infra/configure.sh ops harden ops-replica   # the same, and the sources the Mac's pull key is accepted from
+infra/ssh-access.sh add-current     # adds this machine's public IPv4 and IPv6 /64 to the firewall
+infra/configure.sh backend harden ops-access   # fail2ban's ignore list, and the sources the Mac's pull key is accepted from
 infra/ssh-access.sh show
 infra/ssh-access.sh set 203.0.113.7/32 2001:db8:1::/64   # replace the list
 infra/ssh-access.sh open            # any address; keys and fail2ban still apply
@@ -1709,23 +1934,27 @@ infra/ssh-access.sh open            # any address; keys and fail2ban still apply
 
 Only the Hetzner API token is needed, so a changed home address never locks
 anyone out. fail2ban exempts the admin sources, except ranges wider than /16
-(IPv4) or /48 (IPv6), such as the 0.0.0.0/0 of `open`. Lost key or broken
+(IPv4) or /48 (IPv6), such as the 0.0.0.0/0 of `open`. The Mac's pull key
+is accepted from the same sources with the same floor: with no narrower
+source left, the `ops-access` step stops with an error while the Mac's key
+exists. Until the status page's name moves, `ops-access` also drops the
+old ops server's temporary key ("Moving the status page's name"). Lost key or broken
 SSH: the Hetzner rescue system mounts the disk; the admin account has no
 password, so the web console alone cannot log in.
 
 ### Upgrading Caddy
 
-Caddy, on the backend and on the ops server, comes from the `.deb` of its
+Caddy comes from the `.deb` of its
 official GitHub release (<https://github.com/caddyserver/caddy/releases>),
 at the version pinned in `infra/caddy/version.sh`, installed only when it
 hashes to the SHA-512 pinned there, the value the release's checksums file
-gives (`install_caddy_package`, `infra/server/common.sh`; the steps `caddy`
-on the backend and `ops-status` on the ops server). Until 2026-10-10 it came
+gives (`install_caddy_package`, `infra/server/common.sh`; the step
+`caddy`). Until 2026-10-10 it came
 from the project's apt repository on Cloudsmith, which has answered
 `402 Payment Required` since 2026-10-09
 (<https://github.com/caddyserver/dist/issues/142>, and
 <https://github.com/caddyserver/caddy/issues/8184> closed as its
-duplicate): every `apt-get update` of both servers failed, so
+duplicate): every `apt-get update` of the backend and the ops server failed, so
 `infra/configure.sh` stopped at the first step that refreshes the package
 lists, and Caddy's automatic updates stopped. That source, its key and its
 origin in the unattended upgrades are gone; `harden` removes them too, ahead
@@ -1736,7 +1965,7 @@ of its own `apt-get update`. An apt preference
 The package is the official build, with the standard modules only, which
 is all the Caddyfiles of `infra/caddy/` use: the `/usr/bin/caddy` of the
 2.11.7 `.deb` is the very binary the Cloudsmith package had installed on
-both servers (same SHA-256, compared on 2026-10-10).
+the backend and the ops server (same SHA-256, compared on 2026-10-10).
 
 Caddy no longer updates itself. The workflow
 `.github/workflows/caddy-release.yml` goes red every morning (06:23 UTC)
@@ -1747,8 +1976,7 @@ to it, after reading its release notes:
 infra/caddy/pin.sh 2.11.8          # checks the signature of the checksums file, writes the version and its SHA-512s
 infra/tests/caddy-layout.sh        # our sites in the new release
 infra/configure.sh backend caddy
-infra/configure.sh ops ops-status
-infra/verify.sh                    # "ok caddy 2.11.8, the pinned release" on both servers
+infra/verify.sh                    # "ok caddy 2.11.8, the pinned release"
 ```
 
 `pin.sh` needs cosign (`brew install cosign`; 3.1.3 on 2026-10-10, which
@@ -1767,8 +1995,11 @@ new binary. The Caddyfile is a conffile of the package and stays ours
 
 The `lunaway.net` sites are in `infra/caddy/lunaway.net.caddy`, enabled on
 2026-10-06 at about 20:08 UTC (`infra/enable-domain.sh`; A and AAAA records
-DNS only at Cloudflare, `status.lunaway.net` on the ops server; Let's
-Encrypt certificates for the five names, valid until 2027-01-04):
+DNS only at Cloudflare, `status.lunaway.net` then on the ops server; Let's
+Encrypt certificates for the five names, valid until 2027-01-04). The
+status page's site, `infra/caddy/status.caddy`, is the backend's since
+2026-10-10, linked by `infra/enable-domain.sh` once its record points there
+("Moving the status page's name"):
 
 | address | served from | notes |
 |---|---|---|
@@ -1778,7 +2009,8 @@ Encrypt certificates for the five names, valid until 2027-01-04):
 | `lunaway.net/` | `/srv/lunaway/site` | website, script-free except `/account/delete` (its own CSP); `/privacy`, `/account/delete`, `/about` map to `privacy.html` or `privacy/index.html`; hashed assets cached a year, the rest five minutes |
 | `lunaway.net/app/` | `/srv/lunaway/web` | Flutter web build; the app's routes (`/app/place/42`) fall back to `/app/index.html`, a missing file (under `assets/`, `fonts/`, `canvaskit/`, `icons/`, or any name with an extension) is an empty 404, so a fallback font Flutter asks for never gets HTML; revalidated on every load; its CSP allows `tiles.lunaway.net` as the only tile host |
 | `www.lunaway.net` | | permanent redirect to `https://lunaway.net` |
-| `tiles.lunaway.net` | pmtiles serve, `/srv/tiles` | the basemap (see "Basemap") |
+| `tiles.lunaway.net` | pmtiles serve, `/srv/basemap`; the offline packs from `/srv/data/basemap/packs` | the basemap (see "Basemap") |
+| `status.lunaway.net` | Gatus, 127.0.0.1:8080 | the status page (see "Status page"): GET and HEAD only, 16 KB of body at most, a CSP that allows the inline script and styles of Gatus's page; the same access log as the other sites |
 
 `infra/tests/caddy-layout.sh` runs this configuration in the
 Caddy release the servers run (`infra/caddy/version.sh`: native binaries
@@ -1793,8 +2025,14 @@ only, not proxied, so the HTTP-01 challenge reaches Caddy):
 
 ```bash
 infra/enable-domain.sh              # checks DNS from 1.1.1.1 and 8.8.8.8, enables, waits for the certificates
-infra/enable-domain.sh --disable
+infra/enable-domain.sh --disable    # unlinks the lunaway.net sites and the status page
 ```
+
+`status.lunaway.net` is checked apart: the script links `status.caddy` only
+when that record points at the server too, and otherwise unlinks it and
+enables the other sites alone, so Caddy never asks Let's Encrypt for a name
+that resolves elsewhere. With the status page linked, it waits for its
+certificate as well and counts the checks its API returns.
 
 Caddy uses Let's Encrypt only (no fallback CA), so a CAA record
 `0 issue "letsencrypt.org"` on `lunaway.net` matches it. The API answers
@@ -1886,34 +2124,36 @@ address only (`ImageFetcher.accepts`).
 
 ## Backups and restore
 
-Each nightly dump in four places; the plaintext stays on the backend's
-data volume, every other copy is encrypted:
+Each nightly dump in three places on the server, three nights each, and on
+the Mac for 29 days; the plaintext stays on the server's data volume, every
+other copy is encrypted. The Mac is the only copy away from the server:
+since 2026-10-10 no replica runs in another datacenter and the server has
+no Hetzner backup images.
 
 | copy | where | kept |
 |---|---|---|
-| plaintext dump and roles | backend data volume, `/srv/data/backups/postgresql/` (postgres, 0700) | 7 |
-| age-encrypted, on the root disk | backend, `/var/backups/lunaway/postgresql/`, captured by Hetzner's daily server backup (7 images, taken between 06:00 and 10:00 UTC); until 2026-10-07 these were plaintext copies, and the images taken before then hold them for 7 more days | 3 |
-| the database itself | backend root disk (`/var/lib/postgresql/18/main`, since 2026-10-10), so in the same 7 daily images; taken while it runs, so no restore path of its own | 7 images |
-| age-encrypted | backend `/srv/data/backups/offsite/` (7), pulled at 01:15 UTC into the ops server's volume in nbg1 (14 days), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (29 days); both prune before they pull, so a failed pull leaves no copy past its days | |
-| photos, age-encrypted | backend `/srv/data/backups/offsite/media/`, the ops server's `/srv/data/backups/postgresql/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date |
-| account deletion journal | backend `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps at 01:15 UTC into the ops server's and then the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the ops server and the Mac, until their next pull |
-| the F-Droid keys, age-encrypted | backend `/srv/data/backups/offsite/fdroid-keys-<stamp>.tar.age`, the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned (see "F-Droid repository") |
-| takedown journal | backend `/srv/data/place-takedowns/` (outside the dumps: one file per UTC day, places' ids, date, reason code and the keyed hashes of the cells only; `lunaway-ingest:lunaway-takedowns` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/place-takedowns/place-takedowns.jsonl.age` (`lunaway-takedowns-offsite.timer`), written again at each run; pulled with the dumps into the ops server's and then the Mac's `place-takedowns/` | for ever on the server (a few lines a year; the cells must outlive every restore); each pull replaces the copies |
-| the takedown secret, age-encrypted | backend `/srv/data/backups/offsite/takedown-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), the ops server's replica, the Mac's `~/Backups/lunaway/` | never pruned |
-| the routing graph's signing key, age-encrypted | backend `/srv/data/backups/offsite/routing-signing-key-<stamp>.age` (written by `infra/ops/mac-routing/install.sh backup`), the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned |
-| the danger zones' secret, age-encrypted | backend `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | never pruned (the pulls prune dumps by name) |
-| the external community source's settings, age-encrypted | backend `/srv/data/backups/offsite/extcom-env.age` (root:lunaway-pull 0640, written again by the `pipeline` step whenever `/etc/lunaway/extcom.env` is newer), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | the latest, replaced at each pull |
+| plaintext dump and roles | data volume, `/srv/data/backups/postgresql/` (postgres, 0700) | 3 |
+| age-encrypted, on the root disk | `/var/backups/lunaway/postgresql/`, so that a lost data volume still leaves recent dumps on the server; until 2026-10-07 these were plaintext copies | 3 |
+| age-encrypted | `/srv/data/backups/offsite/` (3), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (29 days); the Mac prunes before it pulls, so a failed pull leaves no copy past its days | |
+| photos, age-encrypted | `/srv/data/backups/offsite/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date on the Mac |
+| account deletion journal | `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps into the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the Mac, until its next pull |
+| the F-Droid keys, age-encrypted | `/srv/data/backups/offsite/fdroid-keys-<stamp>.tar.age`, the Mac's `~/Backups/lunaway/` | every copy, never pruned (see "F-Droid repository") |
+| takedown journal | `/srv/data/place-takedowns/` (outside the dumps: one file per UTC day, places' ids, date, reason code and the keyed hashes of the cells only; `lunaway-ingest:lunaway-takedowns` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/place-takedowns/place-takedowns.jsonl.age` (`lunaway-takedowns-offsite.timer`), written again at each run; pulled with the dumps into the Mac's `place-takedowns/` | for ever on the server (a few lines a year; the cells must outlive every restore); each pull replaces the copy |
+| the takedown secret, age-encrypted | `/srv/data/backups/offsite/takedown-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), the Mac's `~/Backups/lunaway/` | never pruned |
+| the routing graph's signing key, age-encrypted | `/srv/data/backups/offsite/routing-signing-key-<stamp>.age` (written by `infra/ops/mac-routing/install.sh backup`), the Mac's `~/Backups/lunaway/` | every copy, never pruned |
+| the danger zones' secret, age-encrypted | `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the Mac's `~/Backups/lunaway/` | never pruned (the Mac prunes dumps by name) |
+| the external community source's settings, age-encrypted | `/srv/data/backups/offsite/extcom-env.age` (root:lunaway-pull 0640, written again by the `pipeline` step whenever `/etc/lunaway/extcom.env` is newer), pulled with the dumps into the Mac's `~/Backups/lunaway/` | the latest, replaced at each pull |
 
 Sizes: a dump of the database with Europe and its establishments takes
 2,203,954,532 bytes (`pg_dump --format=custom --compress=zstd:6`, 5 min 57 s
 for the whole unit, 2026-10-10 08:58 UTC), for a database of 18.5 GB on
 disk; it took 351 MB on 2026-10-07 and 1.36 GB at 00:18 UTC on 2026-10-10,
-before the establishments of the rest of Europe. The ops server's volume
-(60 GB since 2026-10-10, 50 GB free then) holds 14 of them, 15 during a
-pull, about 33 GB: its 80% comes when a dump reaches about 3.2 GB. The Mac
-holds 29 (30 during a pull), about 66 GB at 2.2 GB a dump, with 381 GiB
-free on 2026-10-10. The status page watches the ops volume (Ops replica
-volume, red at 80%); the nightly job fails under 50 GB free on the Mac.
+before the establishments of the rest of Europe. On the server, three
+plaintext dumps and three encrypted copies take about 13 GB of the data
+volume, and three encrypted copies about 7 GB of the root disk (computed).
+The Mac holds 29 (30 during a pull), about 66 GB at 2.2 GB a dump, with
+381 GiB free on 2026-10-10; the nightly job fails under 50 GB free on the
+Mac.
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
   (`pg_dump --format=custom`, zstd) and the roles (without password hashes),
@@ -1938,17 +2178,15 @@ volume, red at 80%); the nightly job fails under 50 GB free on the Mac.
   of them, or that finds `/srv/data/media/photos` missing, removes nothing
   and fails (the Photo backup check turns red);
   `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1` in the unit's environment lets a
-  deliberate one through. The ops server pulls the copy at 01:15 UTC with
-  `--delete`, setting what disappeared aside in
-  `/srv/data/backups/media-deleted/<deletion date>/`; the Mac does the same
-  in `~/Backups/lunaway/media-deleted/<deletion date>/` (see "The nightly
-  job on the Mac"). Both drop a deleted photo's copy 26 days after the
-  backend's deletion date, however late they run, and at once when the
-  last 30 days of the list do not name it: a photo deleted on the backend
-  (an account deleted, a moderation) leaves every copy within 29 days,
-  inside the 30 days the privacy page announces, and a mistaken deletion
-  can be restored meanwhile. The status page checks the copy (Photo
-  backup).
+  deliberate one through. The Mac pulls the copy at 04:30 local and sets
+  what disappeared aside in `~/Backups/lunaway/media-deleted/<deletion
+  date>/` (see "The nightly job on the Mac"). It drops a deleted photo's
+  copy 26 days after the backend's deletion date, however late it runs, and
+  at once when the last 30 days of the list do not name it: a photo deleted
+  on the server (an account deleted, a moderation) leaves every copy within
+  29 days, inside the 30 days the privacy page announces, and a mistaken
+  deletion can be restored meanwhile. The status page checks the copy
+  (Photo backup).
 - A dump restored would bring back the accounts deleted after it was
   taken. Every deletion (`deleteAccount`, the recovery-code page,
   `lunaway accounts delete`) is first written and synced to the deletion
@@ -1960,12 +2198,9 @@ volume, red at 80%); the nightly job fails under 50 GB free on the Mac.
   account the journal names that the restored database holds. The journal
   on the data volume covers every restore that keeps the volume (a bad
   migration, a corrupted database); when the volume itself is lost, the
-  off-site copy holds the deletions up to its last pull by the ops server
-  (01:15 UTC): a deletion made after it comes back with the dump, as
-  everything written after the dump is lost.
-- The ops server has no Hetzner backup: everything on it but its volume is
-  rebuilt by `provision.sh` and `configure.sh ops`, and its volume holds
-  ciphertext only.
+  Mac's copy holds the deletions up to its last pull (04:30 local, later
+  when the Mac was off): a deletion made after it comes back with the dump,
+  as everything written after the dump is lost.
 
 Restore test on the Mac (also what the nightly job does):
 
@@ -2068,8 +2303,8 @@ rm restore-takedowns.jsonl
 Until the journal is back, the hourly copy writes nothing: a journal that
 names no deletion never makes a first copy, and one that lost a day younger
 than 30 days stops the run (the days of the last copy are kept on the root
-disk, `/var/lib/lunaway-deletions-offsite/days`), so the copies on the ops
-server and the Mac are not replaced by an empty or partial one. When the
+disk, `/var/lib/lunaway-deletions-offsite/days`), so the Mac's copy is not
+replaced by an empty or partial one. When the
 copy put back is older than the journal that was lost (deletions made
 between the last pull and the loss), the run keeps stopping on those days;
 once the journal is back, let it through once, deliberately:
@@ -2088,31 +2323,11 @@ covers a restore over the same database (a volume snapshot) and costs one
 statement, so run it every time. Without either, a device would silently
 skip every change made between the backup and its last sync.
 
-Restoring an image of the backend (one of Hetzner's daily backups, through
-the Console or `hcloud server rebuild --image <id>`) brings back the root
-disk and, since 2026-10-10, the database with it, as it stood when the
-image was taken. The server starts its units at boot, the API among them,
-which would serve that day's database: accounts deleted since would come
-back, and devices would skip the changes made since, the database keeping
-its identity. The image also brings back systemd's record of the last
-nightly dump, so `lunaway-pgdump.timer` (`Persistent=true`) sees a missed
-run and dumps the rolled-back database within minutes of the boot. Treat it
-as a restore, as soon as the server answers SSH:
-
-1. `sudo systemctl stop 'lunaway-*.timer' 'lunaway-*.path' lunaway-api
-   lunaway-conflate-worker`;
-2. if a dump ran since the boot (`ls -l /srv/data/backups/postgresql/`),
-   remove its files by name, the dump and the roles in
-   `/srv/data/backups/postgresql/` and their `.age` copies in
-   `/srv/data/backups/offsite/`, before the ops server's pull at 01:15 UTC;
-3. give the database a new sync epoch, replay the deletions and the
-   takedowns as above, and apply again the external source's author
-   erasures received since the image;
-4. start the API, the worker, the timers and the path again (or reboot),
-   then take a dump (`sudo systemctl start lunaway-pgdump`).
-
-A dump stays the path for the database alone; an image serves when the
-system itself is broken.
+The server has no Hetzner backup images: an image of a root disk that
+holds the database keeps it unencrypted beyond the dumps' days. They were
+disabled on 2026-10-10 at 13:42:40 UTC, which deleted the 6 held then. A
+broken system is rebuilt ("Resizing and rebuilding"), and the database
+comes back from a dump as above.
 
 `globals-<stamp>.sql.age` holds the roles and their settings, without
 passwords; `infra/server/postgres.sh` sets the passwords again.
@@ -2171,48 +2386,64 @@ find photos -name '*.webp.age' | while read -r f; do
 done
 ```
 
-A photo deleted by mistake is in `media-deleted/<day>/` (Mac or ops server)
-for 26 days; its database row comes back with the dump of before the
+A photo deleted by mistake is in the Mac's `media-deleted/<day>/` for 26
+days; its database row comes back with the dump of before the
 deletion.
 
 ### How long things are kept
 
-What the privacy page states, as the servers apply it (2026-10-07):
+What the privacy page states, as the server applies it (2026-10-07,
+updated on 2026-10-10 for the merge):
 
 | what | where | kept at most | how |
 |---|---|---|---|
-| web access log | backend and ops server, `/var/log/caddy/access.log` | about 14 days a line, plus 7 days in the backend's server images | Caddy rolls the file every day (`roll_interval 24h`, and at 50 MiB within a busy day) and drops a rolled file 12 days after it was rolled (`roll_keep_for 288h`): a day or two in the current file (a restart of Caddy may start the day again), then 12 (`infra/caddy/Caddyfile`, `status.Caddyfile`). The file is on the root disk, which Hetzner's daily images of the backend capture |
-| system journal, the routing engine's lines included | both servers | six weeks at most, plus 7 days in the backend's server images | a new file every week (`MaxFileSec=1week`), removed once its last entry is a month old (`MaxRetentionSec=1month`) and journald next clears, 1 GB in all (`infra/files/etc/systemd/journald.conf.d/lunaway.conf`). The engine's lines carry the request's number, time, status and size, never a position; its long-request threshold is an hour in `infra/routing/valhalla.json`, so a slow request is never written out |
-| plaintext dumps | backend data volume | 7 nights | `lunaway-pgdump` |
-| the database as it stood each day | the backend's daily Hetzner images of its root disk, which holds the database since 2026-10-10 | 7 days | Hetzner's daily backup keeps 7 images, the oldest replaced each day |
-| the database as it stood on 2026-10-10 at 09:15 UTC | backend data volume, `/srv/data/postgresql/18/main.moved-20261010T091538Z` | until removed by hand, 2026-11-09 at the latest | left by `postgres-move.sh`; `infra/verify.sh` fails while it is 7 days old or more |
-| encrypted dumps | backend off-site directory (7), root disk (3) and its Hetzner images (7 days), ops server (15 days: a dump dated D goes at the 01:15 UTC run of D+15), Mac (30 days: at the 04:30 run of D+30) | 30 days on the Mac | the ops server prunes before and after each pull (`lunaway-replica`, 01:15 UTC); the Mac prunes at each run of its nightly job, before the pull: at 04:30, at wake when it slept through, at the start of the session when it was off (`RunAtLoad`) |
-| copies of deleted photos | ops server and Mac, `media-deleted/<day>/` | 26 days after the deletion day | the same two prunings |
-| account deletion journal | backend | 45 days | the API (`LUNAWAY_DELETION_JOURNAL_DAYS`); copies replaced at each pull |
-| takedown journal | backend and copies | no limit | a few lines a year, ids, codes and keyed hashes only; the cells must outlive every restore |
+| web access log, the status page's included | the server, `/var/log/caddy/access.log` | about 14 days a line | Caddy rolls the file every day (`roll_interval 24h`, and at 50 MiB within a busy day) and drops a rolled file 12 days after it was rolled (`roll_keep_for 288h`): a day or two in the current file (a restart of Caddy may start the day again), then 12 (`infra/caddy/Caddyfile`, the `access_log` snippet every site imports) |
+| system journal, the routing engine's lines included | the server | six weeks at most | a new file every week (`MaxFileSec=1week`), removed once its last entry is a month old (`MaxRetentionSec=1month`) and journald next clears, 1 GB in all (`infra/files/etc/systemd/journald.conf.d/lunaway.conf`). The engine's lines carry the request's number, time, status and size, never a position; its long-request threshold is an hour in `infra/routing/valhalla.json`, so a slow request is never written out |
+| plaintext dumps | data volume | 3 nights | `lunaway-pgdump` |
+| the database as it stood on 2026-10-10 at 09:15 UTC | data volume, `/srv/data/postgresql/18/main.moved-20261010T091538Z` | until removed by hand, 2026-11-09 at the latest | left by `postgres-move.sh`; `infra/verify.sh` fails while it is 7 days old or more |
+| encrypted dumps | the server's off-site directory (3) and root disk (3), the Mac (30 days: a dump dated D goes at the 04:30 run of D+30) | 30 days on the Mac | `lunaway-pgdump` keeps 3 at each run; the Mac prunes at each run of its nightly job, before and after the pull: at 04:30, at wake when it slept through, at the start of the session when it was off (`RunAtLoad`) |
+| copies of deleted photos | the Mac, `media-deleted/<day>/` | 26 days after the deletion day | the same pruning |
+| account deletion journal | the server | 45 days | the API (`LUNAWAY_DELETION_JOURNAL_DAYS`); the Mac's copy replaced at each pull |
+| takedown journal | the server and the Mac's copy | no limit | a few lines a year, ids, codes and keyed hashes only; the cells must outlive every restore |
 | contributions: issue reports, resolved content reports and moderation entries, "still there?" answers, refused or withdrawn submissions, a banned account's key hash | PostgreSQL | 90 days, a year after the decision, two years, 30 days, two years after the deletion | `lunaway retention`, daily at 03:40 UTC as the API's role (`lunaway-retention.timer`, installed by the `api` step once the release has the command); the durations are constants of `backend/crates/lunaway-db/src/retention.rs`. After a restore, the next run brings the restored rows back within them |
 | machine translations of reviews and descriptions | PostgreSQL, `translations` | as long as the original, unchanged | a review's translations are deleted with it, or when its text changes or empties (a withdrawal, a ban), by triggers of the migration `20261009090000_translations.sql`, whoever writes; `lunaway retention` deletes what a race left and the translations of descriptions a refresh changed. The translation server keeps nothing (see "Translation") |
 
 ## Resizing and rebuilding
 
-The volumes hold what must survive besides the database, which the dumps
-carry, so the servers can change.
+The data volume holds what must survive besides the database, which the
+dumps carry; the rest of the root disk is downloaded or cut again.
 
 - **Another type, same architecture**: `hcloud server change-type [--keep-disk]
-  <server> <type>` (the server stops for a minute; with `--keep-disk` it can
-  come back down), then `infra/configure.sh backend postgres` to retune
-  PostgreSQL for the new memory. The project's shared vCPU limit can refuse
-  a larger type (`shared core limit exceeded`, 2026-10-10): raise it in the
-  Hetzner Console first.
-- **Another architecture or a fresh system**: the servers have rebuild and
-  delete protection, and their primary IPs survive a deletion (auto-delete
+  <server> <type>` (the server stops for a few minutes: 4 min 46 s from cx43
+  to cx53 on 2026-10-10; with `--keep-disk` it can come back down, without
+  it the disk grows for good, and the cx53's 320 GB rule out every type
+  with a smaller disk), then `infra/configure.sh backend postgres` to retune
+  PostgreSQL for the new memory. The project's limit of 18 shared vCPU can
+  refuse a larger type (`shared core limit exceeded`, 2026-10-10): the cx53
+  takes 16, so any larger shared type needs a raise in the Hetzner Console
+  (Limits) first.
+- **Another architecture or a fresh system**: the server has rebuild and
+  delete protection, and its primary IPs survive a deletion (auto-delete
   off), so the DNS records stay valid. Create the new server with
-  `provision.sh`, attach the volumes, run `configure.sh`: `postgres.sh`
-  creates an empty cluster on the new root disk, and the database comes
-  back from the latest dump ("Backups and restore"), between x86 and ARM
-  too. This path has not been exercised yet.
-- A volume stays in its location: moving the backend to another site means
-  copying the data.
+  `provision.sh`, attach the data volume, run `configure.sh backend` and
+  the rest of "First installation": `postgres.sh` creates an empty cluster
+  on the new root disk, and the database comes back from the latest dump
+  ("Backups and restore"). The translation server's packages are pinned
+  for x86_64 (`infra/translate/requirements.in`): an ARM server needs them
+  compiled again. This path has not been exercised yet.
+- **Losing the server**: everything stops, the status page included; the
+  external probe opens its issue within about 15 minutes, GitHub's
+  scheduling delays aside. The rebuild is `provision.sh` and
+  `configure.sh backend` as above, the database from the Mac's latest dump
+  (and, with the data volume lost, the secrets and the journals from the
+  Mac's copies first, "Backups and restore"), Photon downloaded again
+  (about an hour), the translation models (minutes, by the `translate`
+  step), the basemap cut again (517 s on 2026-10-10) and its packs, the
+  routing graph from its GitHub release (`sudo systemctl start
+  lunaway-routing-refresh`), the external feed's crawler from its private
+  repository.
+- The data volume stays in its location (fsn1): moving the server to
+  another site means copying the data.
 
 ## Basemap
 
@@ -2222,7 +2453,12 @@ Protomaps basemap, built daily by Protomaps from OpenStreetMap (ODbL) and
 Natural Earth, in the schema of
 [github.com/protomaps/basemaps](https://github.com/protomaps/basemaps)
 (schema 4), as one PMTiles archive of the whole planet, zoom 0 to 15
-(138,605,245,404 bytes for the build of 2026-10-05).
+(138,605,245,404 bytes for the build of 2026-10-05). The server serves a
+`pmtiles extract` of it over Lunaway's zone, the outlines of the offline
+packs (Europe's countries of the routing graph, Morocco, the French
+overseas regions; "Offline packs"), zoom 0 to 15: 35,656,103,392 bytes for
+the build of 2026-10-10. Outside the zone the map is empty from zoom 1.
+The public names keep "planet".
 
 | URL, on `tiles.lunaway.net` | what | cache |
 |---|---|---|
@@ -2262,13 +2498,15 @@ host. The TileJSON works the same way.
 
 ### On the backend
 
-- The volume `lunaway-tiles` (300 GB, fsn1) is mounted at `/srv/tiles`,
-  `nodev,nosuid,noexec`, no blocks reserved for root. Nothing on it needs a
-  backup: a lost volume is a new download.
-- `lunaway-tiles.service` runs `pmtiles serve /srv/tiles/serve` on
+- The basemap lives on the root disk (local NVMe) under `/srv/basemap`:
+  the tiles are read at random. The offline packs, read whole or by long
+  ranges, live on the data volume under `/srv/data/basemap/packs`. Nothing
+  there needs a backup: a lost build is cut again, a lost set of packs
+  built again.
+- `lunaway-tiles.service` runs `pmtiles serve /srv/basemap/serve` on
   127.0.0.1:8485 (go-pmtiles 1.31.2, pinned by the SHA-256 of its release
   tarball in `infra/tiles/version.sh`), as a dynamic user that sees
-  `/srv/tiles` read-only and nothing else under `/srv`. pmtiles logs every
+  `/srv/basemap` read-only and nothing else under `/srv`. pmtiles logs every
   tile path; `LogFilterPatterns=` keeps those lines out of the journal.
 - `infra/server/tiles.sh` installs the fonts and sprites from
   `protomaps/basemaps-assets` at a pinned commit, accepted only when the
@@ -2283,13 +2521,14 @@ host. The TileJSON works the same way.
   pack is logged as `/packs/[pack].pmtiles`.
 
 ```
-/srv/tiles/
-  builds/<YYYYMMDD>.pmtiles      planet archives: the current one and the previous
+/srv/basemap/                    root disk
+  builds/<YYYYMMDD>.pmtiles      the extracts: the one served, and for a day after a switch the previous one
   serve/planet-<YYYYMMDD>.pmtiles, serve/planet.pmtiles   symlinks into builds/
   tilejson/planet.json           written by the refresh, a template Caddy fills in per host
   assets/fonts/ assets/sprites/ assets/styles/
-  packs/manifest.json, packs/<region>-<YYYYMMDD>-<digest>.pmtiles   offline packs, two sets
-  packs/.work/<YYYYMMDD>/        the set being built, never served
+/srv/data/basemap/packs/         data volume
+  manifest.json, <region>-<YYYYMMDD>-<digest>.pmtiles   offline packs: one set, two for a week after a switch
+  .work/<YYYYMMDD>/              the set being built, never served
 ```
 
 ### Monthly refresh
@@ -2298,35 +2537,50 @@ host. The TileJSON works the same way.
 `/usr/local/sbin/lunaway-tiles-refresh` as `lunaway-tiles`:
 
 1. reads Protomaps' build list (`https://build-metadata.protomaps.dev/builds.json`:
-   name, size and BLAKE3 hash of each daily build) and picks the newest of
-   schema 4;
-2. makes room: removes a stale partial download, then the previous build
-   (never the one served) when two planets and 2 GB would not fit;
-3. downloads `https://build.protomaps.com/<YYYYMMDD>.pmtiles` over HTTP/1.1,
-   each attempt resuming at the size of the partial file (65.6 MB/s on
-   average from fsn1 on 2026-10-06, so about 35 minutes; the host cut the
-   transfer three times, after 9 to 15 minutes). curl's own `--retry` is not
-   used: it restarted a broken transfer from byte 0 and truncated the file;
-4. checks the size, the BLAKE3 hash against the list (9 minutes), `pmtiles
-   verify` (1 minute) and the header (MVT, gzip, zoom 0 to at least 14);
-5. links `serve/planet-<YYYYMMDD>.pmtiles`, fetches its z0 tile through the
+   name, size and version of each daily build) and picks the newest of
+   schema 4; a build already cut and checked on the disk is switched to as
+   it is;
+2. checks that `https://build.protomaps.com/<YYYYMMDD>.pmtiles` has the size
+   the list gives;
+3. asks `pmtiles extract --dry-run` for the size of the cut over the zone
+   (`/usr/local/share/lunaway/pack-regions.geojson`, the packs' outlines),
+   adds a tenth, and makes room: the builds neither served nor wanted go,
+   never the one served. The cut is refused when it would take the root
+   disk past 80%: the database, the routing graphs and Photon share it;
+4. cuts the build with `pmtiles extract --region`, four download threads,
+   reading only the zone's tiles from Protomaps' host by HTTP range
+   requests; no planet is stored. On 2026-10-10: 517 s, 35,656,103,392
+   bytes, a memory peak of 3.0 GB in the unit's cgroup (`MemoryHigh` 3 GB,
+   `MemoryMax` 4 GB). A cut that breaks starts again from nothing (`pmtiles
+   extract` does not resume), three attempts;
+5. checks it with `pmtiles verify` (2 s on 2026-10-10) and its header (MVT,
+   gzip, zoom 0 to at least 14);
+6. links `serve/planet-<YYYYMMDD>.pmtiles`, fetches its z0 tile through the
    running pmtiles, writes the new TileJSON, then moves `serve/planet.pmtiles`
    by an atomic rename. pmtiles notices the change by itself (it compares the
    file's size and time on each read).
 
-The previous build stays on the volume and stays served under its own name
-until the next refresh needs its room, so a client that read the TileJSON
-before the switch keeps its tiles for the hour of its cache. A failed run
-changes nothing that is served; it leaves its partial download, which the
-next run resumes. Protomaps keeps every daily build for a week and the last
+The BLAKE3 hash in Protomaps' list covers the whole planet, which the
+server never downloads, so it is not checked: the tiles come over HTTPS
+from Protomaps' host, and the remote file must have the size the list
+gives.
+
+The previous build stays served under its own name for a day, so a client
+that read the TileJSON before the switch keeps its tiles for the hour of
+its cache. `lunaway-tiles-prune.timer` (daily, 06:15 UTC) runs the same
+script with `--prune`: once the build served has served a day (the time of
+`serve/planet.pmtiles`, renamed into place at each switch), the others go
+and give their 36 GB back to the root disk. A failed run changes nothing
+that is served. Protomaps keeps every daily build for a week and the last
 build of each version after that, and asks users to copy the file rather
-than link to it (https://docs.protomaps.com/basemaps/downloads), which is
-what this does.
+than link to it (https://docs.protomaps.com/basemaps/downloads): the server
+reads a build once a month and serves its own copy.
 
 ```bash
 sudo systemctl start lunaway-tiles-refresh               # refresh now
 sudo journalctl -u lunaway-tiles-refresh -f
-sudo -u lunaway-tiles /usr/local/sbin/lunaway-tiles-refresh 20261005   # back to a build still on the volume
+sudo -u lunaway-tiles /usr/local/sbin/lunaway-tiles-refresh 20261010   # back to a build still on the disk, or cut it again while Protomaps keeps it
+sudo systemctl start lunaway-tiles-prune                 # the builds not served go, once the current one has served a day
 ```
 
 A new tile schema (5) needs new styles in the app first: the refresh stays
@@ -2344,25 +2598,23 @@ Measured on the build of 2026-10-05 with `pmtiles extract --dry-run`
 | planet, zoom 0 to 13 / 12 / 11 / 10 / 8 | 36 / 18 / 8.0 / 3.8 / 0.56 GB |
 | Europe (-25 to 45 E, 27 to 72 N), zoom 0 to 15 | 50 GB |
 | France (-5.5 to 9.8 E, 41.2 to 51.2 N), zoom 0 to 15 / 0 to 14 | 9.9 / 4.7 GB |
+| Lunaway's zone, the outlines of the offline packs, zoom 0 to 15 (the cut of the build of 2026-10-10, on the server) | 35.66 GB |
 
-The whole planet was chosen over Europe at full zoom with the world at low
-zoom: the latter is about 54 GB, but needs two extracts and a merge of
-disjoint archives at each refresh, so about 160 GB at the peak (a 9.15 EUR
-volume instead of 17.16) and no published hash to check the result against.
-The planet grew by about 0.6 GB a month in 2026 (Protomaps' build list);
-two copies leave about 38 GB of the 300 GB volume (316 GB formatted) free.
-The offline packs take about 19 GB a set and two sets stay, so the volume
-went to 350 GB on 2026-10-06 (369 GB formatted, `df -B1`), online
-(`hcloud volume resize lunaway-tiles --size 350`, then `sudo resize2fs
-/dev/disk/by-id/scsi-0HC_Volume_<id>` on the backend): two planets and two
-sets of packs take about 318 GB at the peak of the December 2026 refresh,
-which leaves about 50 GB, three years of growth at the 2026 rate.
+From 2026-10-06 to 2026-10-10 the server held the whole planet on a volume
+of its own, `lunaway-tiles` (350 GB, 20.02 EUR a month): two planets at the
+peak of a refresh and two sets of offline packs. The planet had been chosen
+over Europe at full zoom with the world at low zoom, which needed two
+extracts and a merge of disjoint archives at each refresh and had no
+published hash to check the result against. The merge of 2026-10-10
+replaced it by one extract of the zone, read from Protomaps' host by range
+requests and kept on the root disk; the volume was deleted that day. The
+planet grew by about 0.6 GB a month in 2026 (Protomaps' build list).
 
 ### Offline packs
 
 The app works without network, the map included: before a trip it
 downloads the basemap of a region as one PMTiles file, a `pmtiles extract`
-of the planet served, zoom 0 to 14. 40 regions: the 13 regions of
+of the build served, zoom 0 to 14. 40 regions: the 13 regions of
 metropolitan France and the 5 overseas regions, and 22 countries (Spain,
 Portugal, Italy, Germany, Austria, Switzerland, Belgium, the Netherlands,
 Luxembourg, the United Kingdom, Ireland, Denmark, Norway, Sweden, Finland,
@@ -2386,10 +2638,17 @@ out; the Canary Islands, Madeira and the Azores stay. Natural Earth's
 Morocco reaches 21.4 degrees north (Dakhla is in it). Adding a region is a
 line in the script (`COUNTRY_LIST` or `FR`), a run, a commit, then
 `infra/configure.sh backend tiles` and `sudo systemctl start
-lunaway-tiles-packs` on the backend: the script leaves the other outlines
+lunaway-tiles-packs` on the server: the script leaves the other outlines
 byte for byte as they were, so their packs keep their names and are
 reused, and only the new pack is built (Morocco on 2026-10-06: 39 reused,
 one built in 2 s, 3 s in all).
+
+The outlines are also the zone the monthly refresh cuts. A build already
+on the disk is never cut again, so a region outside the zone of the build
+served gets its map with the next build the refresh cuts: the 2nd of the
+month, or `sudo systemctl start lunaway-tiles-refresh` once Protomaps lists
+a build newer than the one served (they are daily). A pack built before
+holds only the tiles that build already had.
 
 **Zoom 14.** Measured on the build of 2026-10-05 (`pmtiles extract
 --dry-run` for every region, real extracts of three):
@@ -2407,15 +2666,16 @@ tiles 134 (`minor_road` features: 5, 144, 195). Zoom 15 adds the buildings
 (7 at zoom 14, 2,123 at zoom 15 there; 60 and 15,191 over Annecy) and most
 shops and amenities as basemap icons, for twice the size; the map renders a
 zoom 14 tile at any closer zoom (overzoom). Germany at zoom 15 also needs
-4217 MiB of memory to extract (1995 MiB at zoom 14), more than the backend
-can spare. Hence zoom 14: every street, half the size of zoom 15.
+4217 MiB of memory to extract (1995 MiB at zoom 14), more than the packs'
+unit allows (3 GB). Hence zoom 14: every street, half the size of zoom 15.
 
 **The job.** `lunaway-tiles-packs.service` runs
 `/usr/local/sbin/lunaway-tiles-packs` as `lunaway-tiles`, with no network
-at all, after each successful planet refresh (`OnSuccess=` of
-`lunaway-tiles-refresh.service`) and daily at 07:15 UTC
-(`lunaway-tiles-packs.timer`), which finds nothing to do when the manifest
-already names the served build:
+at all, seeing of `/srv` only `/srv/basemap` (read-only) and
+`/srv/data/basemap/packs`, after each successful basemap refresh
+(`OnSuccess=` of `lunaway-tiles-refresh.service`) and daily at 07:15 UTC
+(`lunaway-tiles-packs.timer`), which finds nothing to build when the
+manifest already names the served build:
 
 1. one GeoJSON per outline of `/usr/local/share/lunaway/pack-regions.geojson`
    (installed from the repository by the `tiles` step); each pack's name
@@ -2433,14 +2693,16 @@ already names the served build:
    verify` and its header (MVT, gzip, zoom 0 to 14), hashed (SHA-256); an
    interrupted run keeps the packs it finished;
 5. the packs renamed into `packs/`, then `manifest.json` replaced by an
-   atomic rename; the set before the previous one goes. `packs/.work` sits
+   atomic rename; the set before the previous one goes, and a daily run a
+   week after the switch (the manifest's own time) removes the previous
+   set, the files the manifest does not name. `packs/.work` sits
    inside `packs/` because the unit's sandbox makes each writable path its
    own mount, and a move between two mounts is a copy: the first run, with
    two paths, spent 123 s copying 19 GB.
 
 First run, 2026-10-06: 215 s for the 39 extracts (Germany 29 s), 2.5 GB
 memory peak with the page cache (`MemoryHigh` 2.5 GB, `MemoryMax` 3 GB).
-`LUNAWAY_PACKS_DIR=/srv/tiles/packs-test` and `LUNAWAY_PACKS_REGIONS` run
+`LUNAWAY_PACKS_DIR=/srv/data/basemap/packs-test` and `LUNAWAY_PACKS_REGIONS` run
 the job on a test directory (a transient unit with that directory writable);
 that is how the rotation of sets was checked.
 
@@ -2495,7 +2757,7 @@ sudo journalctl -u lunaway-tiles-packs -f
 - `build`: the planet build (the date of its OpenStreetMap data), the same
   for every pack of a set, also in the TileJSON's tile URLs online. An
   installed pack is out of date when the manifest's `build` is newer; the
-  previous set stays served for a month after a new one is published.
+  previous set stays served for a week after a new one is published.
 - `max_zoom`: the pack's last zoom; the style's source must say so
   (`maxzoom`), so the map scales zoom 14 tiles up beyond it.
 
@@ -2539,7 +2801,7 @@ replaced the France-only graph on 2026-10-07
 (plan/research/35-routage-europe-prod.md).
 
 ```
- maintainer's Mac, Sundays 03:00 local (infra/ops/mac-routing/, launchd)
+ maintainer's Mac, Sundays 03:00 local (infra/ops/mac-routing/, launchd), a build every other week
    waits for Geofabrik's 25 extracts of one day, then hcloud creates
      lunaway-routing-build-<stamp> (ccx33, purpose=routing-build, own firewall)
        25 dated extracts ─ osmium merge ─ IGN BD TOPO sections (WFS)
@@ -2601,11 +2863,17 @@ stopping the build on failure:
 6. the bundle, the graph in gzip parts under 1.9 GB (a release asset may not
    exceed 2 GiB).
 
-The weekly run is `infra/ops/mac-routing/lunaway-routing-build.sh run`,
-started by launchd on the Mac (`legal.p2p.lunaway.routing-build`, Sundays
-at 03:00 local time):
+The run is `infra/ops/mac-routing/lunaway-routing-build.sh run`, started
+by launchd on the Mac (`legal.p2p.lunaway.routing-build`) every Sunday at
+03:00 local time; it builds every other week, since launchd's
+`StartCalendarInterval` cannot say "every other Sunday":
 
-1. it waits, before creating anything, until Geofabrik's `state.txt` gives
+1. it stops before anything else while the published graph was built less
+   than 10 days ago: the Sunday after a build finds it about 7 days old,
+   the next one about 14. A missing `build.json`, another area's graph or
+   an unreadable build time means a build is due; `--force` builds
+   whatever the graph's age;
+2. it waits, before creating anything, until Geofabrik's `state.txt` gives
    one date for all 25 extracts and the dated file of that day
    (`<name>-YYMMDD.osm.pbf`) exists for each, 12 hours at most. The dated
    files, not `-latest`: Geofabrik sends `-latest` of Germany to a mirror
@@ -2614,28 +2882,30 @@ at 03:00 local time):
    2026-10-05; merging two days leaves two versions of the objects changed
    in between. Nothing is built when the published graph already has that
    date (`--force` builds anyway);
-2. it creates a firewall and a server named `lunaway-routing-build-<stamp>`,
+3. it creates a firewall and a server named `lunaway-routing-build-<stamp>`,
    labelled `purpose=routing-build`: a ccx33 in fsn1 (8 dedicated vCPU,
-   32 GB, 240 GB, 0.2219 EUR an hour excl. VAT), else in nbg1, else a cx53.
+   32 GB, 240 GB, 0.2219 EUR an hour excl. VAT), else in nbg1, else a cx53
+   in fsn1 or nbg1, which the project's limit of 18 shared vCPU refuses
+   while the backend is a cx53 ("Sizing").
    The firewall lets SSH in from the admin sources only, and lets out DNS,
    NTP, HTTP and HTTPS only (packages, crates, the images, Geofabrik, IGN);
    the server is on no private network. Its ed25519 host key is generated
    on the Mac, handed over by cloud-init and pinned before the first
    connection, as for `infra/build/remote-build.sh`;
-3. the server fetches the commit at the head of `main` of the public
+4. the server fetches the commit at the head of `main` of the public
    repository and runs `infra/routing/europe-build.sh <YYMMDD>` under
    `systemd-run` (killed by systemd after 6 hours): the 25 dated extracts,
    three at a time, each checked against its MD5, their replication
    timestamps compared (equal, or the build stops), `osmium merge`, then
    `build-graph.sh --area eu --threads 8 --refresh-ign`;
-4. the Mac reads the run's state every 5 minutes; after 7 hours of the
+5. the Mac reads the run's state every 5 minutes; after 7 hours of the
    server's life, or 30 minutes without an answer, it gives up. Whatever
    happens, the server and its firewall are deleted (an exit trap, a
    signal included). If the Mac itself dies mid-run, the hourly sweep
    (`legal.p2p.lunaway.routing-sweep`) deletes any server or firewall
    labelled `purpose=routing-build` older than 8 hours, and the nightly job
    reports it;
-5. it copies the bundle back over SSH, deletes the server at once, checks
+6. it copies the bundle back over SSH, deletes the server at once, checks
    the copy against the server's sums, then repeats the checks of the old
    publish job: `build.json` is the CLI's flat object, its id ends in `-eu`
    and its build time falls within the server's life, its data date is the
@@ -2646,8 +2916,9 @@ at 03:00 local time):
    `build.json` to the release `routing-graph` as the gh account
    `poka-IT`; stale assets go. The 8 GB copy is removed; the metadata and
    the logs stay in `~/Library/Logs/lunaway-routing/<stamp>/`;
-6. it writes `~/Library/Application Support/Lunaway/routing/state`
-   (`last_success`, `last_run`, `swept`), which the nightly job reads.
+7. it writes `~/Library/Application Support/Lunaway/routing/state`
+   (`last_success`, `last_run`, `swept`), which the nightly job reads; it
+   alerts when no build succeeded for 16 days.
 
 The build server receives no Hetzner token, no GitHub token and no signing
 key: everything that needs one happens on the Mac.
@@ -2656,10 +2927,11 @@ key: everything that needs one happens on the Mac.
 infra/ops/mac-routing/install.sh keys     # the signing key, once
 infra/ops/mac-routing/install.sh backup   # its age-encrypted copy into the backup chain
 infra/ops/mac-routing/install.sh          # the script and both launchd agents
-infra/ops/mac-routing/install.sh run      # one build now (launchctl kickstart)
+infra/ops/mac-routing/install.sh run      # one run now (launchctl kickstart): stops while the graph is under 10 days old
+"$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --force   # a build now, whatever its age
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --dry-run
-                                          # what a run would do now: leftovers, the extracts' date, the
-                                          # published graph; creates nothing, never waits, records nothing
+                                          # what a run would do now: leftovers, the published graph's age,
+                                          # the extracts' date; creates nothing, never waits, records nothing
 tail -f ~/Library/Logs/lunaway-routing-build.log
 launchctl print gui/$(id -u)/legal.p2p.lunaway.routing-build | grep -E 'state|last exit'
 hcloud --context lunaway server list -l purpose=routing-build   # nothing, outside a run
@@ -2687,8 +2959,9 @@ first Europe graph served. The Mac does not build: one filled its disk on
 When a run fails, `~/Library/Logs/lunaway-routing-build.log` says where,
 and the server's own log is in `~/Library/Logs/lunaway-routing/<stamp>/`
 when it got that far. A run can be started again at once
-(`install.sh run`); the backend keeps serving the previous graph, and the
-status page turns red only when the graph served is 10 days old.
+(`install.sh run`: the published graph is still the old one, so the run
+builds); the backend keeps serving the previous graph, and the status page
+turns red only when the graph served is 17 days old.
 
 - The IGN read is tried three times, five minutes apart: the WFS once cut
   a page off after 102 s (an HTTP/2 stream reset) that it served in 18 s
@@ -2707,8 +2980,8 @@ namespace `lunaway-routing-graph`); the backend accepts a graph only when
 (launchd runs the build unattended), 0600 in the 0700 directory of the
 other keys. Its copy is age-encrypted to the backup recipient
 (`install.sh backup`): `routing-signing-key-<stamp>.age` at the top of the
-backend's off-site directory, pulled with the dumps by the ops server and
-the Mac, never pruned. Restoring it:
+backend's off-site directory, pulled with the dumps by the Mac, never
+pruned. Restoring it:
 
 ```bash
 age --decrypt --identity ~/.config/lunaway/backup-age.key \
@@ -2784,18 +3057,16 @@ serving meanwhile.
   failed runs cannot pile up there.
 - Disk: the root disk (local NVMe), not the data volume: the tiles are
   memory-mapped and read at random, and can be rebuilt. A Europe graph
-  takes 20.4 GB unpacked and 8.3 GB to download; two graphs, a download and
-  the graph being unpacked take about 70 GB at the peak of a refresh, of the
-  root disk's 150 GB, which also holds the database since 2026-10-10 (21
-  GB, 22 GB after that day's Overture import): 62% of the disk used then,
-  about 81% at the peak of a refresh (computed as `df` counts it), so the
-  root disk check may turn red while a graph installs, until the disk
-  grows to 320 GB with cx53 ("Sizing").
-  The refresh stops before downloading when the root
-  disk has less free than 3.5 times the parts' 2 GiB plus 20 GB (55 GB for
-  five parts; 15 of them for PostgreSQL since it shares the disk, its
-  journal up to 4 GB and its sorts and index builds). The status page
-  turns red when the root disk is 80% full.
+  takes 20.4 GB unpacked and 8.3 GB to download; the two graphs kept took
+  about 39 GB on 2026-10-10, and a refresh adds about 29 GB (the download
+  and the graph being unpacked) for about an hour. The root disk, 320 GB
+  since 2026-10-10 (301 GB formatted), also holds the database, Photon's
+  databases, the translation models and the basemap extract: 172 GB used
+  (60%) after the merge ("The root disk"). The refresh stops before
+  downloading when the root disk has less free than 3.5 times the parts'
+  2 GiB plus 20 GB (55 GB for five parts; 15 of them for PostgreSQL since
+  it shares the disk, its journal up to 4 GB and its sorts and index
+  builds). The status page turns red when the root disk is 80% full.
 - The engine's unit reaches nothing outside loopback: from inside the
   container, HTTPS to 1.1.1.1 and to github.com fail, while the same image
   started outside the unit reaches 1.1.1.1 (checked 2026-10-06). Its
@@ -2892,8 +3163,8 @@ the host:
 ```
  app ── searchAll ──► lunaway-api ── 127.0.0.1:8486 (Caddy, no access log)
                                      /ban/...            ─► https://data.geopf.fr/geocodage/...   France
-                                     /photon/europe/...  ─► 10.42.0.4:2322  photon@europe         Europe
-                                     /photon/morocco/... ─► 10.42.0.4:2323  photon@morocco        Morocco
+                                     /photon/europe/...  ─► 127.0.0.1:2322  photon@europe         Europe
+                                     /photon/morocco/... ─► 127.0.0.1:2323  photon@morocco        Morocco
 ```
 
 The API's unit names the three (`LUNAWAY_GEOCODE_BAN_URL`,
@@ -2905,36 +3176,61 @@ A geocoder late or down leaves the places on time, without its addresses
 (`addressesComplete: false`). Neither the API nor Caddy nor Photon logs the
 text searched.
 
-### The geocoding server
+### Photon on the server
 
-`lunaway-geocode-1` (cx43, 8 vCPU, 16 GB, 160 GB local NVMe, fsn1, private
-address 10.42.0.4), role `geocode` of `infra/lib.sh`, without a volume:
-everything on it is downloaded again in an hour. Its Hetzner firewall opens
-SSH to the admin sources only; nftables opens Photon's two ports to the
-backend's private address only (`infra/files/roles/geocode/nftables.nft`).
+Photon runs on the server since 2026-10-10; it ran on a server of its own,
+`lunaway-geocode-1`, before ("The merge of 2026-10-10"). It listens on the
+loopback only: `photon@europe` on 127.0.0.1:2322, `photon@morocco` on
+127.0.0.1:2323. Its databases sit under `/srv/photon` on the root disk
+(local NVMe, for the index's random reads). Nothing there needs a backup:
+everything is downloaded again in about an hour.
 
 ```bash
-infra/provision.sh geocode       # the server, on lunaway-net as 10.42.0.4
-infra/configure.sh geocode       # harden, then geocode: Java 21, Photon, units, refresh
-infra/configure.sh backend caddy api   # the backend's way to it, and the API's settings
-infra/deploy-gatus.sh            # the three address checks of the status page
+infra/configure.sh backend geocode       # Java 21, Photon, units, refresh
+ssh -F ~/.config/lunaway/ssh_config lunaway sudo systemctl start lunaway-photon-refresh   # the first databases, about an hour
+infra/configure.sh backend geocode       # again: enables the instances and the timer
+infra/configure.sh backend caddy api ops-status   # Caddy's way to it, the API's settings, the status page's checks
 ```
 
 The step `geocode` (`infra/server/geocode.sh`) installs the Photon jar
 pinned in `infra/geocode/version.sh` (checked by its SHA-256), the units
 `photon@europe` and `photon@morocco` (`infra/geocode/photon@.service`,
-sandboxed, listening on 10.42.0.4 only), and `lunaway-photon-refresh` with
-its monthly timer (first Sunday, 02:30 UTC). The first databases come from
-`sudo systemctl start lunaway-photon-refresh` (about an hour), then the step
-again, which enables the instances and the timer.
+sandboxed, listening on 127.0.0.1 only, connecting to nothing), and
+`lunaway-photon-refresh` with its monthly timer (the third Sunday, 09:00
+UTC). The first databases come from `sudo systemctl start
+lunaway-photon-refresh` (about an hour), then the step again, which enables
+the instances and the timer.
 
-The refresh keeps two slots per instance under `/srv/photon/<instance>/`
-(`a`, `b`, and `current` pointing at the one served), fills the other one,
-switches, restarts the instance and checks searches in Germany, Spain and
-Italy (Morocco: Chefchaouen and Rabat); when they fail, the previous slot
-serves again. Europe is GraphHopper's ready-made Photon database (checked
-against its published MD5); Morocco, which it does not hold, is imported on
-the server from GraphHopper's Africa dump with `-country-codes ma`.
+**Memory.** Europe's heap is 2 GB (`PHOTON_HEAP`, written by the step;
+3,905 MB on the geocoding server, a quarter of its 16 GB), Morocco's 512 MB.
+The heap holds OpenSearch's own structures; the index is read through the
+page cache, which the database and the routing engine share. Each instance
+runs under `MemoryHigh` 6 GB and `MemoryMax` 7 GB: the kernel takes back
+that cgroup's pages first when it reaches `MemoryHigh`, so the index's
+48 GB of pages do not push the database's out. Europe answered as fast
+under a 7 GB cap with a 2 GB heap as under 15 GB with 4 GB (the table
+below). At 13:37 UTC on 2026-10-10: `photon@europe` 3.1 GB in its cgroup
+(2.68 GB resident), `photon@morocco` 0.8 GB.
+
+**Refresh.** The refresh keeps two slots per instance under
+`/srv/photon/<instance>/` (`a`, `b`, and `current` pointing at the one
+served) and fills the other one as the dump streams in: downloaded,
+hashed on the way (MD5), unpacked (`lbzip2 -n 4`, then `tar`), with no copy
+of the dump on disk. A hash that differs from the MD5 GraphHopper publishes
+removes the new slot before anything switches. Then it switches, restarts
+the instance and checks searches in Germany, Spain and Italy (Morocco:
+Chefchaouen and Rabat); when they fail, the previous slot serves again,
+and when they pass, the previous slot is removed, so the root disk holds
+one Europe database outside a refresh and two during it (48 GB more; the
+Europe refresh needs 60 GB free). Europe is GraphHopper's ready-made Photon
+database; Morocco, which it does not hold, is imported on the server from
+GraphHopper's Africa dump with `-country-codes ma`. The unit runs at `Nice`
+10, `CPUWeight` 20 and the idle I/O class, behind the API, PostgreSQL and
+the routing engine; it reaches the dump's host over HTTPS and Photon on the
+loopback, and `/srv/data`, `/var/lib/postgresql`, `/etc/lunaway` and
+`/var/backups` are hidden from it. The third Sunday keeps its second
+database away from the basemap's (the 2nd and 3rd of the month) on the root
+disk they share.
 
 Measured on 2026-10-07 on a test server (ccx33) under memory caps standing
 for the server types (plan/research/58-recherche-adresses.md):
@@ -2946,10 +3242,6 @@ for the server types (plan/research/58-recherche-adresses.md):
 | start | Photon answers 4.5 s after its start |
 | memory | under a 7 GB cap (heap 2 GB) as under 15 GB (heap 4 GB): 400 varied searches, four at a time, median 40 ms, p95 218 ms from a cold cache, p95 77 ms warm |
 | precision | 26 of 30 European addresses found at once (the misses: two typos, a Greek street typed in Latin letters, "Grand Rue Luxembourg") |
-
-A cx33 (8 GB, 80 GB) would serve as fast at this load, but holds one copy
-of the Europe database, not two: its refresh would stop the European
-addresses for an hour each month.
 
 ### Addresses of the places
 
@@ -2977,12 +3269,12 @@ journalctl -u lunaway-addresses         # "addresses: N places asked, ..."
 `Query.translate` translates a review or a description into the reader's
 language on Lunaway's own server, with open models: no third-party service
 sees a text (`docs/architecture.md`, "Translation"). The API asks the
-translation server through Caddy on the backend's loopback, as it asks
-Photon:
+translation server through Caddy on the loopback, as it asks Photon; both
+run on the server since 2026-10-10:
 
 ```
  app ── translate(kind, id) ──► lunaway-api ── 127.0.0.1:8486/translator/translate (Caddy, no access log)
-                                     │            ─► 10.42.0.4:2324  lunaway-translate (geocoding server)
+                                     │            ─► 127.0.0.1:2324  lunaway-translate
                                      └── translations (PostgreSQL): kept while the original stands
 ```
 
@@ -3022,15 +3314,18 @@ Photon:
   (`LUNAWAY_TRANSLATE_TIMEOUT_MS`), 14 s on the server, which then stops
   between two batches of sentences.
 - **Sandbox.** `lunaway-translate.service` runs as `translate`, reads its
-  models only, listens on 10.42.0.4:2324, connects to nothing; nftables
-  opens the port to the backend's private address only
-  (`infra/files/roles/geocode/nftables.nft`). CPU weight 20 against
-  Photon's 100, four cores at most, 4.5 GB of memory at most.
+  models only (`/srv/translate`, on the root disk), listens on
+  127.0.0.1:2324 for Caddy and the health probe, connects to nothing. CPU
+  weight 20 against the default 100 of the API, PostgreSQL, the routing
+  engine and Photon, four of the sixteen cores at most (`CPUQuota=400%`),
+  4.5 GB of memory at most (`MemoryHigh` 4 GB, `MemoryMax` 4.5 GB). The
+  models' installer hides `/srv/data`, `/var/lib/postgresql`,
+  `/etc/lunaway` and `/var/backups`.
 
 ```bash
-infra/configure.sh geocode translate    # Python packages by hash, models by SHA-256, the unit
-infra/configure.sh backend caddy api    # the backend's way to it, and LUNAWAY_TRANSLATE_URL
-infra/configure.sh ops ops-status       # the status page's "Translation" check
+infra/configure.sh backend translate    # Python packages by hash, models by SHA-256, the unit
+infra/configure.sh backend caddy api    # Caddy's way to it, and LUNAWAY_TRANSLATE_URL
+infra/configure.sh backend ops-status   # the status page's "Translation" check
 ```
 
 The step `translate` (`infra/server/translate.sh`) installs Python's
@@ -3042,8 +3337,9 @@ The step `translate` (`infra/server/translate.sh`) installs Python's
 `/srv/translate/models/<pair>/current` to it; a pair already installed is
 left alone. A new model is a line of `models.txt` and the step again.
 
-Measured on 2026-10-08 on `lunaway-geocode-1`, with the first ten models
-(commands in `plan/research/77-traduction.md`):
+Measured on 2026-10-08 on the geocoding server of the time,
+`lunaway-geocode-1` (cx43, 16 GB), with the first ten models (commands in
+`plan/research/77-traduction.md`):
 
 | | measure |
 |---|---|
@@ -3068,10 +3364,10 @@ Spanish, Italian and Dutch:
 The unit's cap went from 3 to 4.5 GB rather than loading the rarely asked
 models on first use. The ten models between German, Spanish, Italian and
 Dutch hold about 0.9 GB, a saving gone once each has been asked unless
-idle models are unloaded again. At the worst of Photon's monthly refresh
-(its unit capped at 3 GB) beside this server at its `MemoryHigh`,
-`photon@europe` keeps about 7.4 GB, more than the 7 GB it answered as fast
-under ("Geocoding").
+idle models are unloaded again. On the server since 2026-10-10, the
+translation server and `photon@europe` each have a cap of their own (4.5
+and 7 GB); at 13:37 UTC that day their cgroups held 3.2 and 3.1 GB
+("Memory").
 
 The status page checks the server through the backend's probe
 (`translate.ok`, `translate.pairs` of `lunaway-health`): a public check of
@@ -3118,13 +3414,13 @@ official F-Droid (below).
 `LUNAWAY_BACKUP_RECIPIENT` on the Mac, checks that the copy opens with
 `~/.config/lunaway/backup-age.key` and lists the three files, and writes it
 as `fdroid-keys-<stamp>.tar.age` at the top of the backend's
-`/srv/data/backups/offsite/`. The ops server pulls it at 01:15 UTC, the Mac
-at 04:30, and neither prunes it (they prune the dumps by name). Not in a
-subdirectory: the ops server's pull cannot copy a setgid directory
-(`RestrictSUIDSGID` of `lunaway-replica.service`; a `keys/` directory made
-it fail on 2026-10-06 until removed). The first copy,
-`fdroid-keys-20261006T123732Z.tar.age`, is on the backend and the ops
-server with the same SHA-256, and the Mac's pull key lists it. The age
+`/srv/data/backups/offsite/`. The Mac pulls it at 04:30 with the dumps and
+does not prune it (it prunes the dumps by name). It sits at the top of the
+directory: on 2026-10-06 a `keys/` subdirectory, setgid like its parent,
+made the ops server's pull of the time fail (`RestrictSUIDSGID` of its
+unit) until removed. The first copy, `fdroid-keys-20261006T123732Z.tar.age`,
+was on the backend and the ops server with the same SHA-256 that day, and
+the Mac's pull key listed it. The age
 identity must have its offline copy (see "Private settings"): without it,
 no copy opens. Restore:
 
@@ -3327,24 +3623,27 @@ sudo lunaway-admin road-events poll --force --only dir
 | layer | measure |
 |---|---|
 | account | a Hetzner project of its own, sharing nothing with other projects |
-| network | Hetzner Cloud Firewalls: SSH from the admin sources only on both servers; 80, 443 tcp and udp, ICMP from anywhere; nothing else in |
-| network | nftables on both: default drop in and forward, per-source limits on new SSH connections (the ops server's private address exempt, for its status checks) and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network |
-| ops access | the ops server reaches the backend through two accounts, from one private address: `lunaway-pull`, with three keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps, and the list of the external community source's erased authors for its producer), and `extcom-drop`, one key forced to `rrsync -wo` into the external community feed's inbox (write new files only); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
-| backups | off-site copies encrypted with age to a key that exists only on the Mac; the ops server and the replica hold ciphertext |
-| SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server, and `extcom-drop`, from 10.42.0.3 only on the backend), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
-| SSH | fail2ban `sshd` jail (aggressive mode, systemd backend, nftables action, increasing ban time); the admin sources (no range wider than /16 or /48) and, on the backend, the ops server's private address are exempt |
+| network | Hetzner Cloud Firewall: SSH from the admin sources only; 80, 443 tcp and udp, ICMP from anywhere; nothing else in |
+| network | nftables (one role, `infra/files/roles/backend/`): default drop in and forward, the loopback accepted first, per-source limits on new SSH connections and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network, which no service uses |
+| SSH accounts | `lunaway-pull`, with three keys each forced to one read-only command: the status page's health probe and the external feed crawler's list of erased authors, both from the loopback only (127.0.0.1, ::1), and the Mac's `rrsync -ro /srv/data/backups/offsite`, from the admin sources only (no range wider than /16 or /48); `extcom-drop`, one key forced to `rrsync -wo` into the external community feed's inbox (write new files only), from 127.0.0.1 only; sshd's `AllowUsers` repeats each account's sources |
+| backups | encrypted with age to a key that exists only on the Mac, which holds the only copy away from the server; no Hetzner image of the server |
+| SSH | admin `ops` only (plus `lunaway-pull` and `extcom-drop` above), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
+| SSH | fail2ban `sshd` jail (aggressive mode, systemd backend, nftables action, increasing ban time); the admin sources (no range wider than /16 or /48) and the loopback (127.0.0.1/8, ::1: Gatus's probe and the crawler) are exempt |
 | system | unattended upgrades from Debian security and PGDG; Caddy pinned to a release and upgraded by hand, a daily workflow (`caddy-release.yml`) red while a newer one is out; reboot at 02:30 UTC when needed; needrestart restarts services; the upgrade waits for a running dump |
 | system | sysctl hardening (rp_filter, no redirects or source routing, syncookies, kptr and dmesg restriction, BPF and ptrace limits, protected links), unused protocols and filesystems blacklisted, no core dumps, AppArmor, chrony, persistent journal capped at 1 GB and six weeks at most (weekly files, removed a month after a file's last entry), swap on zram (compressed memory, never on a disk) |
 | packages | Caddy from the `.deb` of its GitHub release, installed only when it hashes to the SHA-512 pinned in `infra/caddy/version.sh` (the release's checksums file, whose cosign signature `infra/caddy/pin.sh` checks), Debian's own `caddy` package refused by an apt preference; Gatus and the Rust build image pinned by digest |
-| data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
+| data | the data volume mounted `nodev,nosuid,noexec`, its mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
 | web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]` and `/external-photos/[photo]`, no redirect target (`Location`), regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
 | API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges, and limited by nftables to HTTPS and DNS for its user (for the external community source's photo proxy, which the code holds to the agreement's hosts, resolved to public addresses only, 5000 a day at most; the geocoders are reached through Caddy on the loopback, by configuration), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
-| photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
+| photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the Mac runs; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
 | imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the external community feed imported under the same user with loopback only, seeing of `/srv` its inbox (read-only) and the import cache, its SHA-256 checked first, its settings (`/etc/lunaway/extcom.env`, root 0600) loaded by that unit alone; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |
-| status page | Gatus under its own user with the same sandbox, listening on loopback; Caddy in front refuses anything but GET and HEAD |
+| status page | Gatus under its own user with the same sandbox, listening on loopback (127.0.0.1:8080), memory capped at 512 MB; Caddy in front refuses anything but GET and HEAD |
 | routing | Valhalla under Podman, loopback only (8002, 8003 for a graph under test), read-only, no capability, an IP filter to loopback, only the route, trace_attributes, sources_to_targets (60 km at most between a matrix's points) and status actions, its configuration from the repository; the API refuses an engine URL that is not loopback, and calls it with no proxy and no redirect, bounded in time, answer size, calls in flight and routes per client; the graph is built off the server, pulled over HTTPS, accepted only with a signature of the build key, newer than the one served and less than 30 days old, unpacked by fixed names, and tested before and after the switch |
-| basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), the tile volume read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges; the offline packs built as `lunaway-tiles` with no network at all, writing only `/srv/tiles/packs`; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates, byte ranges and pack names never logged |
+| basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), `/srv/basemap` read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges, the data volume and the database hidden; the daily prune with no network at all; the offline packs built as `lunaway-tiles` with no network at all, seeing of `/srv` only `/srv/basemap` (read-only) and `/srv/data/basemap/packs`; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates, byte ranges and pack names never logged |
+| geocoders | Photon under its own user, listening on the loopback only (2322, 2323), connecting to nothing, each instance capped at 7 GB; its refresh reaches the dump's host over HTTPS and the loopback, never the private network, with `/srv/data`, `/var/lib/postgresql`, `/etc/lunaway` and `/var/backups` hidden; the text searched never logged |
+| translation | `lunaway-translate` under its own user, listening on 127.0.0.1:2324, connecting to nothing, four cores and 4.5 GB at most; its models' installer with the same paths hidden; no text logged |
+| external feed's crawler | installed and sandboxed by its private repository; reaches the server's accounts over SSH on the loopback only, each key forced to one command |
 | F-Droid repository | the index signed by a key, and the APK by another, that exist only on the Mac (age-encrypted copies in the backup chain); fdroidserver pinned with hashes; served as static files, GET and HEAD only, sandbox CSP; fdroidserver's run reports never published |
