@@ -113,10 +113,15 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     final panel = _Panel(target: target, preview: preview, units: units);
     // A failed recalculation keeps the previous route as its value: only a
     // route of the current vehicle and options may start.
+    final computing = preview is! AsyncData<RoutePreview> || preview.isLoading;
+    // The request to describe the vehicle, from the build before, never
+    // shows while a route is computed: the vehicle was described since (the
+    // position perhaps still awaited), or that computation failed.
+    final stale = computing && preview.value?.vehicle.ready == false;
     final action = _ActionBar(
       target: target,
-      preview: preview.value,
-      computing: preview is! AsyncData<RoutePreview> || preview.isLoading,
+      preview: stale ? null : preview.value,
+      computing: computing,
     );
     if (size == WindowSize.compact) {
       return Scaffold(
@@ -329,6 +334,10 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     final p = preview;
     final plan = p?.plan;
     final selected = p?.route;
+    // While the vehicle is asked for, the preview does not wait for the
+    // start: the map shows it once known.
+    final origin =
+        p?.origin ?? (p?.vehicle.ready == false ? ref.watch(previewOriginProvider).value : null);
     final lines = [
       for (final r in plan?.routes ?? const <RouteOption>[])
         RouteMapLine(index: r.index, points: r.line, selected: r.index == p?.selected),
@@ -356,7 +365,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
       destination: plan?.movedTo(stops.length + 1) ?? target.destination,
       destinationLabel: target.label,
       points: points.markers(t),
-      origin: plan?.movedTo(0) ?? p?.origin,
+      origin: plan?.movedTo(0) ?? origin,
       route: selected,
       plan: plan,
       noRouteReasons: p?.noRouteReasons ?? const [],
@@ -381,7 +390,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         ? GeoBounds.around(routeBounds)
         : GeoBounds.around([
             target.destination,
-            ?p?.origin,
+            ?origin,
             for (final b in plan?.blockers ?? const <RouteWarning>[]) b.position,
             ...blockingPositions(p?.noRouteReasons ?? const []),
           ]);
