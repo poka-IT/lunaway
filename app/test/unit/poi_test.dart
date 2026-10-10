@@ -496,16 +496,22 @@ void main() {
     });
 
     test('installed again, the layers go back where the style first drew them', () {
-      final tiles = poiReinstallAnchors(placeTilesInstalled: true, firstLabel: 'roads_label');
+      final tiles = poiReinstallAnchors(
+        placeTilesInstalled: true,
+        firstLabel: 'roads_label',
+        townNames: PlaceTiles.basemapTownNames,
+      );
       expect(tiles.below, PlaceTiles.glowLayer, reason: "the dots under the places' glow");
       expect(
         tiles.pinsBelow,
-        MapStyle.clustersLayer,
-        reason: "the pins of a category chosen over the places' pins (audit 94, m2)",
+        PlaceTiles.basemapTownNames,
+        reason:
+            "the pins of a category chosen over the places' pins (audit 94, m2), under the "
+            "towns' names",
       );
       final device = poiReinstallAnchors(placeTilesInstalled: false, firstLabel: 'roads_label');
       expect(device.below, 'roads_label');
-      expect(device.pinsBelow, MapStyle.clustersLayer);
+      expect(device.pinsBelow, MapStyle.clustersLayer, reason: 'a style without the names');
     });
 
     test('"Open now" keeps the viewpoints and the sites, open whenever one gets there', () {

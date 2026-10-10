@@ -668,15 +668,20 @@ List<Map<String, Object?>> _layers({
     ])
       layer['id']! as String: layer,
   };
-  final townNames = RouteLayerOrder.townNamesOf(style);
+  final (:placeNames, :townNames) = RouteLayerOrder.namesOf(style);
   return [
     for (final id in RouteLayerOrder.layers)
       if (byId[id] case final layer?)
         {
           ...layer,
-          // In order, each goes on top of those before it: a line only
-          // goes under the names of towns.
-          'before': ?RouteLayerOrder.below(id, present: (_) => false, townNames: townNames),
+          // In order, each goes on top of those before it: a line goes
+          // under the names of places, a pin under the towns' names.
+          'before': ?RouteLayerOrder.below(
+            id,
+            present: (_) => false,
+            placeNames: placeNames,
+            townNames: townNames,
+          ),
         },
   ];
 }

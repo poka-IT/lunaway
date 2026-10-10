@@ -62,12 +62,13 @@ abstract final class PlaceTiles {
   static const basemapFirstLabel = 'address_label';
 
   /// The basemaps' layer of the names of towns and villages, and the layers
-  /// after it (countries' names): the places' pins go under it. MapLibre
-  /// places the upper layers first, so a pin that would cover a town's
-  /// name gives way and its dot stays, rather than the name be left out
-  /// (Viviers at zoom 13, audit 94, m3). The quarters' and the regions'
-  /// names, before it, stay under the pins. Held to both styles by
-  /// `test/unit/place_tile_layers_test.dart`.
+  /// after it (countries' names): the places' pins go under it, and so do
+  /// the pins of a category chosen and those of the route maps (the PO's
+  /// rule of 2026-10-10). MapLibre places the upper layers first, so a pin
+  /// that would cover a town's name gives way and its dot stays, rather
+  /// than the name be left out (Viviers at zoom 13, audit 94, m3). The
+  /// quarters' and the regions' names, before it, stay under the pins.
+  /// Held to both styles by `test/unit/place_tile_layers_test.dart`.
   static const basemapTownNames = 'places_locality';
 
   /// The properties of a tile feature (the contract of the API).

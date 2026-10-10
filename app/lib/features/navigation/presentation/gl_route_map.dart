@@ -322,22 +322,29 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// The route's own layers the style holds, for [RouteLayerOrder.below].
   final Set<String> _drawn = {};
 
-  /// The basemap's first layer of names of towns, read once per style: the
-  /// routes' lines go under it.
-  String? get _townNames {
-    if (!identical(_townNamesOf, _props.style)) {
-      _townNamesOf = _props.style;
-      _townNamesId = RouteLayerOrder.townNamesOf(_props.style);
+  /// The basemap's names the route's layers go under, read once per style:
+  /// the lines under every name of places, the pins under the towns'.
+  ({String? placeNames, String? townNames}) get _names {
+    if (!identical(_namesOf, _props.style)) {
+      _namesOf = _props.style;
+      _namesIds = RouteLayerOrder.namesOf(_props.style);
     }
-    return _townNamesId;
+    return _namesIds;
   }
 
-  String? _townNamesOf;
-  String? _townNamesId;
+  String? _namesOf;
+  ({String? placeNames, String? townNames}) _namesIds = (placeNames: null, townNames: null);
 
   /// Where [id] goes in the style, by [RouteLayerOrder].
-  String? _belowOf(String id) =>
-      RouteLayerOrder.below(id, present: _drawn.contains, townNames: _townNames);
+  String? _belowOf(String id) {
+    final (:placeNames, :townNames) = _names;
+    return RouteLayerOrder.below(
+      id,
+      present: _drawn.contains,
+      placeNames: placeNames,
+      townNames: townNames,
+    );
+  }
 
   /// Adds the layer [id] of the route, its look by its id, in its place.
   Future<void> _addRouteLayer(gl.MapLibreMapController c, String id) async {

@@ -37,9 +37,9 @@ final class GlPoiLayers {
   /// points and the category's gathering dots go so street and place names
   /// keep their room. The pins of the category chosen, and their prices,
   /// go on top, or under [pinsBelow]: over the places' pins, which give
-  /// way to them (audit 94, m2). On a style whose places are already
-  /// there, [below] and [pinsBelow] are those of the first install
-  /// ([poiReinstallAnchors]).
+  /// way to them (audit 94, m2), under the towns' names, to which they give
+  /// way. On a style whose places are already there, [below] and
+  /// [pinsBelow] are those of the first install ([poiReinstallAnchors]).
   Future<void> installBelowPlaces(
     gl.MapLibreMapController c,
     PoiLayerView view, {
@@ -299,14 +299,15 @@ final class GlPoiLayers {
 /// category read on demand): where the first install left them. The dots
 /// and the quiet points under the lowest of the places' tiles' layers (the
 /// glow), or under the basemap's first label without them; the prices and
-/// the pins over the places' pins, under the clusters of the device's
-/// places, which come next.
+/// the pins over the places' pins, under the towns' names ([townNames]),
+/// or under the clusters of the device's places on a style without them.
 ({String? below, String? pinsBelow}) poiReinstallAnchors({
   required bool placeTilesInstalled,
   String? firstLabel,
+  String? townNames,
 }) => (
   below: placeTilesInstalled ? PlaceTiles.glowLayer : firstLabel,
-  pinsBelow: MapStyle.clustersLayer,
+  pinsBelow: townNames ?? MapStyle.clustersLayer,
 );
 
 /// The points of a `querySourceFeatures` answer, each once (a point on the

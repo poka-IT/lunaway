@@ -105,11 +105,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   String? _namesOf;
   String? _names;
 
-  /// What the places' pins and their dots go under: the towns' names; on a
-  /// style without them, the prices and pins of the points ([pois]: they
-  /// are installed), which stay over the places' pins, else [top].
+  /// What the places' pins and their dots go under: the prices and pins of
+  /// the points ([pois]: they are installed), which stay over the places'
+  /// pins under the towns' names; without them the towns' names, else
+  /// [top].
   String? _pinsBelow({required bool pois, String? top}) =>
-      _townNames ?? (pois ? PoiMapStyle.fuelLayerId : top);
+      pois ? PoiMapStyle.fuelLayerId : _townNames ?? top;
 
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
@@ -367,7 +368,8 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
       // The points of interest's dots go under the places' dots: the night
       // spots keep the map. The pins of a category chosen go over the
-      // places' pins (audit 94, m2), which go under the towns' names (m3).
+      // places' pins (audit 94, m2), both under the towns' names, which no
+      // pin covers (m3, the PO's rule of 2026-10-10).
       if (_props.pois case final pois?) {
         await _poi.installBelowPlaces(
           c,
@@ -376,6 +378,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           current: current,
           dark: dark,
           below: _firstLabel,
+          pinsBelow: _townNames,
         );
       }
       if (_props.placeTiles case final tiles?) {
@@ -623,6 +626,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         final (:below, :pinsBelow) = poiReinstallAnchors(
           placeTilesInstalled: _tiles.installed,
           firstLabel: _firstLabel,
+          townNames: _townNames,
         );
         await _poi.installBelowPlaces(
           c,

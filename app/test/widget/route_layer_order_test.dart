@@ -21,10 +21,12 @@ final String _minuit = File('assets/map/styles/minuit.json').readAsStringSync();
 /// What every route map draws, bottom to top, whatever its engine: the
 /// basemap's roads and their names; the danger zones' band, under the
 /// other routes, under the chosen route (casing, then line); the names of
-/// towns, over the lines; the pins of the shops, then of the places, which
-/// the route never hides; the route's marks (minor ones, the others, the
-/// numbered stops); the places drawn large; the start and the arrival; the
-/// vehicle, on top. Each id must come after the one before it.
+/// places, over the lines, from the quarters'; the pins of the shops, then
+/// of the places, which the route never hides; the towns' names, to which
+/// a pin gives way (the PO's rule of 2026-10-10); the route's marks (minor
+/// ones, the others, the numbered stops); the places drawn large; the start
+/// and the arrival; the vehicle, on top. Each id must come after the one
+/// before it.
 const _expected = [
   'roads_labels_major',
   'lw-route-zones-line',
@@ -33,11 +35,11 @@ const _expected = [
   'lw-route-casing',
   'lw-route-line',
   'places_subplace',
-  'places_locality',
-  'places_country',
   'lw-route-poi-pins',
   'lw-route-poi-pins-more',
   'lw-route-place-pins',
+  'places_locality',
+  'places_country',
   'lw-route-minor-badges',
   'lw-route-marks-badges',
   'lw-route-stops-badges',
@@ -186,31 +188,53 @@ void main() {
     await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: BlankAssets());
   });
 
-  test('the order is one list with each layer once, the lines under the names of towns', () {
+  test('the order is one list with each layer once, the lines under the names of places', () {
     expect(RouteLayerOrder.layers.toSet(), hasLength(RouteLayerOrder.layers.length));
     for (final (name, style) in [('aube', _aube), ('minuit', _minuit)]) {
       final layers = styleLayers(style);
-      final names = RouteLayerOrder.townNamesOf(style);
-      expect(names, 'places_subplace', reason: name);
-      // What stays over the route's lines: names of places only, no road's.
-      final over = layers.skipWhile((l) => l['id'] != names);
+      final (:placeNames, :townNames) = RouteLayerOrder.namesOf(style);
+      expect(placeNames, 'places_subplace', reason: name);
+      expect(townNames, 'places_locality', reason: name);
+      // What stays over the route's lines: names of places only, no road's;
+      // the towns' among them, over the pins.
+      final over = layers.skipWhile((l) => l['id'] != placeNames).toList();
+      expect(over.map((l) => l['id']), contains(townNames), reason: name);
       for (final l in over) {
         expect(l['type'], 'symbol', reason: '$name: ${l['id']}');
         expect(l['source-layer'], RouteLayerOrder.basemapPlaceNames, reason: '$name: ${l['id']}');
       }
     }
-    expect(RouteLayerOrder.townNamesOf('https://tiles.example/style.json'), isNull);
+    expect(RouteLayerOrder.placeNamesOf('https://tiles.example/style.json'), isNull);
   });
 
-  test('a layer added late goes in its place: a pin under the marks, a line under the towns', () {
+  test('a layer added late goes in its place: a pin under the towns, a line under the places', () {
     final all = RouteLayerOrder.layers.toSet();
     final pinsLate = all.difference(RouteLayerOrder.pins.toSet());
     expect(
       RouteLayerOrder.below('lw-route-place-pins', present: pinsLate.contains),
       'lw-route-minor-halo',
+      reason: "a basemap without the towns' names: under the marks",
     );
     expect(
-      RouteLayerOrder.below('lw-route-line', present: (_) => false, townNames: 'places_subplace'),
+      RouteLayerOrder.below(
+        'lw-route-place-pins',
+        present: pinsLate.contains,
+        placeNames: 'places_subplace',
+        townNames: 'places_locality',
+      ),
+      'places_locality',
+    );
+    expect(
+      RouteLayerOrder.below(
+        'lw-route-poi-pins',
+        present: all.contains,
+        townNames: 'places_locality',
+      ),
+      'lw-route-poi-pins-more',
+      reason: 'under the pins above it',
+    );
+    expect(
+      RouteLayerOrder.below('lw-route-line', present: (_) => false, placeNames: 'places_subplace'),
       'places_subplace',
     );
     final lineLate = all.difference({'lw-route-line'});
@@ -218,13 +242,14 @@ void main() {
       RouteLayerOrder.below(
         'lw-route-line',
         present: lineLate.contains,
-        townNames: 'places_subplace',
+        placeNames: 'places_subplace',
+        townNames: 'places_locality',
       ),
       'places_subplace',
-      reason: 'over the other lines, under the names of towns',
+      reason: 'over the other lines, under the names of places',
     );
     expect(
-      RouteLayerOrder.below('lw-route-casing', present: all.contains, townNames: 'x'),
+      RouteLayerOrder.below('lw-route-casing', present: all.contains, placeNames: 'x'),
       'lw-route-line',
     );
     expect(

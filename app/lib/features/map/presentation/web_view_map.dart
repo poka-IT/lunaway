@@ -232,19 +232,20 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'layers': [
       // The quiet points and the gathering dots under the basemap's labels
       // and the places' dots; the pins of a category chosen over the
-      // places' pins, the user's choice of the moment (audit 94, m2).
-      if (pois != null) ..._poiLayers(pois, style, dark: dark),
+      // places' pins, the user's choice of the moment (audit 94, m2), both
+      // under the towns' names, which no pin covers (m3). A layer goes only
+      // before one of the basemap (a change of theme places it again by
+      // that one), the later over the earlier: a style without the towns'
+      // names draws the pins on top, in the same order.
+      if (pois != null) ..._poiLayers(pois, style),
       if (tiles != null)
         ...placeTileStyleLayers(
           tiles,
           dark: dark,
           labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
-          // Under the towns' names, so under the points of a category
-          // chosen, which come first. A layer goes only before one of the
-          // basemap (a change of theme places it again by that one): a
-          // style without the towns' names draws the pins on top.
           names: townNamesLayer(style),
         ),
+      if (pois != null) ..._poiPinLayers(pois, style, dark: dark),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -329,11 +330,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
 
   /// The points' layers as [PoiMapStyle] draws them on maplibre_gl, in the
   /// GL JS syntax.
-  static List<Map<String, Object?>> _poiLayers(
-    PoiLayerView view,
-    String? style, {
-    required bool dark,
-  }) => [
+  static List<Map<String, Object?>> _poiLayers(PoiLayerView view, String? style) => [
     {
       'id': PoiMapStyle.dotsLayerId,
       'type': 'symbol',
@@ -370,6 +367,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
         'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
       },
+  ];
+
+  /// The prices and the pins of the category chosen, over the places'
+  /// pins, under the towns' names.
+  static List<Map<String, Object?>> _poiPinLayers(
+    PoiLayerView view,
+    String? style, {
+    required bool dark,
+  }) => [
     {
       'id': PoiMapStyle.fuelLayerId,
       'type': 'symbol',
@@ -388,6 +394,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'text-halo-color': PoiMapStyle.fuelHalo(dark: dark),
         'text-halo-width': 2,
       },
+      'before': townNamesLayer(style),
     },
     for (final (id, layer) in [
       (PoiMapStyle.pinsLayerId, PoiMapStyle.pointsLayer),
@@ -402,6 +409,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'filter': PoiMapStyle.pinsFilter(view),
         'layout': _poiPinsLayout(view),
         'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+        'before': townNamesLayer(style),
       },
   ];
 

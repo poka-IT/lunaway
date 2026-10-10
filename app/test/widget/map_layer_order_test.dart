@@ -22,10 +22,11 @@ final String _aube = File('assets/map/styles/aube.json').readAsStringSync();
 /// What the main map draws, bottom to top, the places' tiles and a
 /// category of points chosen: the points' gathering dots under the places'
 /// glow and dots, under every name of the basemap; the roads' names; the
-/// places' dots and pins, which give way to a town's name (audit 94, m3);
-/// the towns' names; the pins of the category chosen, over the places'
-/// (m2); the device's places, the saved points, the selection, the open
-/// point. Each id must come after the one before it.
+/// places' dots and pins; the prices and the pins of the category chosen,
+/// over the places' (audit 94, m2); the towns' names, to which every one
+/// of those pins gives way (m3, the PO's rule of 2026-10-10); the device's
+/// places, the saved points, the selection, the open point, which never
+/// give way. Each id must come after the one before it.
 const List<String> _expected = [
   PoiMapStyle.dotsLayerId,
   PlaceTiles.glowLayer,
@@ -34,11 +35,11 @@ const List<String> _expected = [
   'roads_labels_major',
   PlaceTiles.pinDotsLayer,
   PlaceTiles.pinsLayer,
-  PlaceTiles.basemapTownNames,
-  'places_country',
   PoiMapStyle.fuelLayerId,
   PoiMapStyle.pinsLayerId,
   PoiMapStyle.morePinsLayerId,
+  PlaceTiles.basemapTownNames,
+  'places_country',
   MapStyle.clustersLayer,
   MapStyle.placesLayer,
   MapStyle.savedLayer,
