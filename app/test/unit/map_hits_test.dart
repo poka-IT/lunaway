@@ -197,6 +197,17 @@ final List<_Case> _cases = [
     expected: (1, 0),
   ),
   (
+    name: "the dot of a point whose pin gave way to a town's name: a target, over a place's pin",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
+      _c(PoiMapStyle.pinDotsLayerId, [_here], {'kind': 'museum', 'id': 'm'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
     name: "offline, a device's place over a point of the category chosen: the place, drawn on top",
     at: _here,
     zoom: 13,
@@ -503,11 +514,12 @@ void main() {
     });
 
     test('every layer a tap queries has a shape', () {
-      for (final layer in [...pinHitLayers, ...otherHitLayers, ...MapStyle.tappableLayers]) {
+      final queried = [...pinHitLayers, ...pinDotHitLayers, ...otherHitLayers];
+      for (final layer in [...queried, ...MapStyle.tappableLayers]) {
         expect(mapHitShapes, contains(layer), reason: layer);
       }
       for (final layer in [...PlaceTiles.tappable, ...PoiMapStyle.tappable]) {
-        expect([...pinHitLayers, ...otherHitLayers], contains(layer), reason: layer);
+        expect(queried, contains(layer), reason: layer);
       }
     });
   });

@@ -22,9 +22,10 @@ final String _aube = File('assets/map/styles/aube.json').readAsStringSync();
 /// What the main map draws, bottom to top, the places' tiles and a
 /// category of points chosen: the points' gathering dots under the places'
 /// glow and dots, under every name of the basemap; the roads' names; the
-/// places' dots and pins; the prices and the pins of the category chosen,
-/// over the places' (audit 94, m2); the towns' names, to which every one
-/// of those pins gives way (m3, the PO's rule of 2026-10-10); the device's
+/// places' dots and pins; the dots under the pins of the category chosen,
+/// their prices and the pins, over the places' (audit 94, m2); the towns'
+/// names, to which every one of those pins gives way, its dot staying (m3,
+/// the PO's rules of 2026-10-10); the device's
 /// places, the saved points, the selection, the open point, which never
 /// give way. Each id must come after the one before it.
 const List<String> _expected = [
@@ -35,6 +36,8 @@ const List<String> _expected = [
   'roads_labels_major',
   PlaceTiles.pinDotsLayer,
   PlaceTiles.pinsLayer,
+  PoiMapStyle.pinDotsLayerId,
+  PoiMapStyle.morePinDotsLayerId,
   PoiMapStyle.fuelLayerId,
   PoiMapStyle.pinsLayerId,
   PoiMapStyle.morePinsLayerId,
@@ -157,7 +160,7 @@ void main() {
     final engine = await _drawn(tester, _props());
     final before = engine.added;
     // A chip of a category read on demand reads the tiles of every
-    // category: the points' source and its seven layers go again.
+    // category: the points' source and its nine layers go again.
     await tester.pumpWidget(
       MaterialApp(
         home: GlLunaMap(
@@ -170,8 +173,8 @@ void main() {
         ),
       ),
     );
-    await until(tester, () => engine.added >= before + 7);
-    expect(engine.added, before + 7);
+    await until(tester, () => engine.added >= before + 9);
+    expect(engine.added, before + 9);
     expect(outOfOrder(engine.layers, _expected), isEmpty);
   });
 

@@ -89,16 +89,20 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
     ),
     PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
     PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    // The dot under a point's pin, all that shows of it where the pin gave
+    // way to a town's name.
+    PoiMapStyle.pinDotsLayerId: _poiPinDot,
+    PoiMapStyle.morePinDotsLayerId: _poiPinDot,
     PlaceTiles.pinsLayer: _pin(
       const PinGeometry(selected: false),
       dotUnder: true,
       dot: dot,
-      priority: 5,
+      priority: 6,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 6),
-    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 6),
-    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 7, dot: dot),
-    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 7, dot: dot),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 7),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 7),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 8, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 8, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -192,7 +196,13 @@ final HitShape _poiDot = HitShape(
   radius: StopsHit('count', [
     for (final (n, s) in _stops(PoiMapStyle.dotSize(1))) (n, poiDotSize.width / 2 * s),
   ]),
-  priority: 8,
+  priority: 9,
+);
+
+/// The dot under a pin of the chosen category, centred on its point.
+final HitShape _poiPinDot = HitShape(
+  radius: FixedHit(poiDotSize.width / 2 * PoiMapStyle.pinDotSize),
+  priority: 5,
 );
 
 /// The (input, output) pairs of a style `interpolate` expression.
@@ -225,6 +235,10 @@ const List<String> pinHitLayers = [
   // whose shape it shares.
   PoiMapStyle.morePinsLayerId,
 ];
+
+/// The dots under the points' pins, asked apart: their features are the
+/// pins' own.
+const List<String> pinDotHitLayers = [PoiMapStyle.pinDotsLayerId, PoiMapStyle.morePinDotsLayerId];
 
 /// Every other layer a pointer picks from.
 const List<String> otherHitLayers = [

@@ -35,7 +35,16 @@ int _minute(DateTime t) => t.millisecondsSinceEpoch ~/ 60000;
 /// each layer of points of the tiles with [features].
 final class _Engine implements gl.MapLibreMapController {
   final sources = <String>[];
-  final layers = <({String id, String? sourceLayer, String? below, Object? filter})>[];
+  final layers =
+      <
+        ({
+          String id,
+          String? sourceLayer,
+          String? below,
+          Object? filter,
+          gl.SymbolLayerProperties properties,
+        })
+      >[];
   final queried = <String?>[];
   Map<String, List<Object?>> features = const {};
 
@@ -56,7 +65,13 @@ final class _Engine implements gl.MapLibreMapController {
     dynamic filter,
     bool enableInteraction = true,
   }) async {
-    layers.add((id: layerId, sourceLayer: sourceLayer, below: belowLayerId, filter: filter));
+    layers.add((
+      id: layerId,
+      sourceLayer: sourceLayer,
+      below: belowLayerId,
+      filter: filter,
+      properties: properties,
+    ));
   }
 
   @override
@@ -659,6 +674,36 @@ void main() {
       expect(engine.queried, ['pois', 'pois_more']);
       expect(seen!.map((f) => f.kind), [PoiKind.bakery, PoiKind.outdoorShop]);
     });
+
+    test(
+      "a pin of the chosen category leaves its dot when it gives way to a town's name",
+      () async {
+        final engine = _Engine();
+        const view = PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.sights);
+        await GlPoiLayers().installBelowPlaces(
+          engine,
+          view,
+          pinScale: 1,
+          current: () => true,
+          dark: false,
+          pinsBelow: PlaceTiles.basemapTownNames,
+        );
+        final ids = [for (final l in engine.layers) l.id];
+        for (final (id, layer) in PoiMapStyle.pinDotLayers) {
+          final dots = engine.layers.singleWhere((l) => l.id == id);
+          expect(dots.sourceLayer, layer);
+          expect(dots.filter, PoiMapStyle.pinsFilter(view), reason: 'under each pin shown');
+          expect(dots.below, PlaceTiles.basemapTownNames);
+          expect(dots.properties.iconAllowOverlap, isTrue, reason: 'drawn whatever its room');
+          expect(dots.properties.iconIgnorePlacement, isTrue, reason: 'it hides no name');
+          expect(
+            ids.indexOf(id),
+            lessThan(ids.indexOf(PoiMapStyle.fuelLayerId)),
+            reason: 'under the prices and the pins',
+          );
+        }
+      },
+    );
 
     test('installed again, the layers go back where the style first drew them', () {
       final tiles = poiReinstallAnchors(

@@ -105,12 +105,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   String? _namesOf;
   String? _names;
 
-  /// What the places' pins and their dots go under: the prices and pins of
-  /// the points ([pois]: they are installed), which stay over the places'
-  /// pins under the towns' names; without them the towns' names, else
-  /// [top].
+  /// What the places' pins and their dots go under: the pins of the points
+  /// ([pois]: they are installed), their dots and their prices, which stay
+  /// over the places' pins under the towns' names; without them the towns'
+  /// names, else [top].
   String? _pinsBelow({required bool pois, String? top}) =>
-      pois ? PoiMapStyle.fuelLayerId : _townNames ?? top;
+      pois ? PoiMapStyle.pinDotsLayerId : _townNames ?? top;
 
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
@@ -679,8 +679,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (_tiles.installed) ...PlaceTiles.tappable,
       if (_props.pois != null) ...PoiMapStyle.tappable,
     };
-    final (pins, others, camera) = await (
+    // The dots under the points' pins are asked apart: their features are
+    // the pins' own, which an engine answering no layer could not tell.
+    final dotLayers = [...pinDotHitLayers.where(layers.contains)];
+    final (pins, dots, others, camera) = await (
       c.queryRenderedFeaturesInRect(box, [...pinHitLayers.where(layers.contains)], null),
+      dotLayers.isEmpty
+          ? Future<List<Object?>>.value(const [])
+          : c.queryRenderedFeaturesInRect(box, dotLayers, null),
       c.queryRenderedFeaturesInRect(box, [...otherHitLayers.where(layers.contains)], null),
       c.queryCameraPosition(),
     ).wait;
@@ -690,9 +696,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final reference = LatLng(at.latitude, at.longitude);
     final positions = <List<LatLng>>[];
     final candidates = <HitCandidate>[];
-    for (final (raw, pin) in [
-      for (final f in pins) (f, true),
-      for (final f in others) (f, false),
+    for (final (raw, layer) in [
+      for (final f in pins) (f, null),
+      for (final f in dots) (f, PoiMapStyle.pinDotsLayerId),
+      for (final f in others) (f, ''),
     ]) {
       if (raw is! Map) continue;
       final properties = (raw['properties'] as Map<Object?, Object?>?) ?? const {};
@@ -700,7 +707,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       positions.add(points);
       candidates.add(
         HitCandidate(
-          layer: hitLayerOf(properties, pin: pin),
+          layer: switch (layer) {
+            null => hitLayerOf(properties, pin: true),
+            '' => hitLayerOf(properties, pin: false),
+            final dot => dot,
+          },
           properties: properties,
           points: [
             for (final p in points)

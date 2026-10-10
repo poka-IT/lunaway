@@ -369,13 +369,30 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       },
   ];
 
-  /// The prices and the pins of the category chosen, over the places'
-  /// pins, under the towns' names.
+  /// The dots under the pins of the category chosen, their prices and
+  /// the pins, over the places' pins, under the towns' names.
   static List<Map<String, Object?>> _poiPinLayers(
     PoiLayerView view,
     String? style, {
     required bool dark,
   }) => [
+    for (final (id, layer) in PoiMapStyle.pinDotLayers)
+      {
+        'id': id,
+        'type': 'symbol',
+        'source': PoiMapStyle.source,
+        'source-layer': layer,
+        'minzoom': PoiMapStyle.pointsMinZoom,
+        'filter': PoiMapStyle.pinsFilter(view),
+        'layout': {
+          'icon-image': PoiMapStyle.dotImage,
+          'icon-size': PoiMapStyle.pinDotSize,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+        'before': townNamesLayer(style),
+      },
     {
       'id': PoiMapStyle.fuelLayerId,
       'type': 'symbol',
@@ -437,6 +454,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.moreQuietLayerId: PoiMapStyle.quietFilter(view),
       PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
       PoiMapStyle.morePinsLayerId: PoiMapStyle.pinsFilter(view),
+      PoiMapStyle.pinDotsLayerId: PoiMapStyle.pinsFilter(view),
+      PoiMapStyle.morePinDotsLayerId: PoiMapStyle.pinsFilter(view),
     },
     'layout': {
       PoiMapStyle.quietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
@@ -449,6 +468,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.moreQuietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.pinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.morePinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.pinDotsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.morePinDotsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
     },
     'selection': PoiMapStyle.selectionCollection(view.selected),
     'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},

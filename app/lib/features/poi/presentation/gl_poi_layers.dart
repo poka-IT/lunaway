@@ -55,6 +55,8 @@ final class GlPoiLayers {
       PoiMapStyle.morePinsLayerId,
       PoiMapStyle.pinsLayerId,
       PoiMapStyle.fuelLayerId,
+      PoiMapStyle.morePinDotsLayerId,
+      PoiMapStyle.pinDotsLayerId,
       PoiMapStyle.moreQuietLayerId,
       PoiMapStyle.quietLayerId,
       PoiMapStyle.vendingDotsLayerId,
@@ -105,6 +107,21 @@ final class GlPoiLayers {
         minzoom: PoiMapStyle.quietMinZoom,
         filter: PoiMapStyle.quietFilter(view),
         belowLayerId: below ?? pinsBelow,
+        enableInteraction: false,
+      );
+    }
+    // The dots under the pins, lowest of them: a pin that gives way leaves
+    // its dot.
+    for (final (id, layer) in PoiMapStyle.pinDotLayers) {
+      if (!current()) return;
+      await c.addSymbolLayer(
+        PoiMapStyle.source,
+        id,
+        _pinDots(view, pinScale),
+        sourceLayer: layer,
+        minzoom: PoiMapStyle.pointsMinZoom,
+        filter: PoiMapStyle.pinsFilter(view),
+        belowLayerId: pinsBelow,
         enableInteraction: false,
       );
     }
@@ -201,6 +218,10 @@ final class GlPoiLayers {
         await c.setFilter(pins, PoiMapStyle.pinsFilter(view));
         await c.setLayerProperties(pins, _pins(view, pinScale));
       }
+      for (final (dots, _) in PoiMapStyle.pinDotLayers) {
+        await c.setFilter(dots, PoiMapStyle.pinsFilter(view));
+        await c.setLayerProperties(dots, _pinDots(view, pinScale));
+      }
       await c.setLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale));
     }
     if (!listEquals(sent?.fuelLabels, view.fuelLabels)) {
@@ -276,6 +297,15 @@ final class GlPoiLayers {
         iconSize: PoiMapStyle.dotSize(scale),
         symbolSortKey: PoiMapStyle.dotSortKey,
         iconPadding: 2,
+      );
+
+  static gl.SymbolLayerProperties _pinDots(PoiLayerView view, double scale) =>
+      gl.SymbolLayerProperties(
+        iconImage: PoiMapStyle.dotImage,
+        iconSize: PoiMapStyle.pinDotSize * scale,
+        iconOpacity: PoiMapStyle.opacity(view),
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
       );
 
   static gl.SymbolLayerProperties _vendingDots(double scale) => gl.SymbolLayerProperties(
