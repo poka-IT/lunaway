@@ -195,7 +195,7 @@ def run(lang_path):
 
 
 if __name__ == "__main__":
-    run("/account/delete")
-    run("/en/account/delete")
+    for prefix in ("/", "/en/", "/de/", "/es/", "/it/", "/nl/"):
+        run(prefix + "account/delete")
     print(f"{failures} failure(s)")
     sys.exit(1 if failures else 0)

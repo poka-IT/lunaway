@@ -9,6 +9,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
@@ -45,7 +46,9 @@ void main() {
         expect(find.text('Point sur la carte'), findsOneWidget);
         expect(find.text("Itinéraire jusqu'ici"), findsOneWidget);
         expect(find.text('Créer un lieu ici'), findsOneWidget);
-        expect(find.text('Copier les coordonnées'), findsOneWidget);
+        final bar = find.byType(PointActionBar);
+        expect(find.descendant(of: bar, matching: find.text('Enregistrer')), findsOneWidget);
+        expect(find.descendant(of: bar, matching: find.text('Copier')), findsOneWidget);
         expect(app.map.lastProps!.markedPoint, spot);
       });
 
@@ -307,7 +310,9 @@ void main() {
     expect(find.text('Here'), findsOneWidget);
     expect(find.text('Directions here'), findsOneWidget);
     expect(find.text('Create a place here'), findsOneWidget);
-    expect(find.text('Copy coordinates'), findsOneWidget);
+    final bar = find.byType(PointActionBar);
+    expect(find.descendant(of: bar, matching: find.text('Save')), findsOneWidget);
+    expect(find.descendant(of: bar, matching: find.text('Copy')), findsOneWidget);
   });
 
   group('a free point as a destination', () {
@@ -382,7 +387,9 @@ void main() {
       const point = LatLng(45.7623, 4.8338);
       const written = '45°45\'44.3"N 4°50\'01.7"E';
       await tapBare(app, tester, 15, at: point);
-      await tester.tap(find.text('Copier les coordonnées'));
+      await tester.tap(
+        find.descendant(of: find.byType(PointActionBar), matching: find.text('Copier')),
+      );
       await settleShort(tester);
       expect(copied, [written]);
       await tester.tap(find.text("Itinéraire jusqu'ici"));

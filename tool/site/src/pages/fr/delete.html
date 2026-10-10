@@ -46,12 +46,12 @@ description: Supprimer votre compte Lunaway et ses données, dans l'app ou avec 
 
 <div class="result result--ok" data-result="deleted" hidden>
 <h3>Votre compte est supprimé</h3>
-<p>Le compte lié à ce code n'existe plus, et les données listées ci-dessous ont été supprimées. Les sauvegardes chiffrées en gardent une copie 30&nbsp;jours environ.</p>
+<p>Le compte lié à ce code n'existe plus, et les données listées ci-dessous ont été supprimées. Les sauvegardes en gardent une copie 30&nbsp;jours environ.</p>
 <p>Un appareil qui utilisait ce compte n'y a plus accès&nbsp;: si vous contribuez de nouveau depuis lui, l'app créera un nouveau compte.</p>
 </div>
 <div class="result result--error" data-result="not-found" hidden>
 <h3>Aucun compte ne correspond à ce code</h3>
-<p>Le compte a peut-être déjà été supprimé, ou un code plus récent a remplacé celui-ci&nbsp;: créer un nouveau code de secours dans l'app annule le précédent. Vérifiez le code sur votre carte, ou supprimez le compte depuis l'app.</p>
+<p>Le compte a peut-être déjà été supprimé, ou un code plus récent a remplacé celui-ci&nbsp;: refaire la carte de secours dans l'app annule l'ancien code. Vérifiez le code sur votre carte, ou supprimez le compte depuis l'app.</p>
 </div>
 <div class="result result--error" data-result="limited" hidden>
 <h3>Trop d'essais pour le moment</h3>
@@ -73,15 +73,15 @@ description: Supprimer votre compte Lunaway et ses données, dans l'app ou avec 
 <h2 id="supprime">Ce qui est supprimé</h2>
 <p>Tout de suite, en une seule opération&nbsp;:</p>
 <ul>
-<li>le compte lui-même&nbsp;: pseudonyme, niveau de confiance, dates d'activité&nbsp;;</li>
+<li>le compte lui-même&nbsp;: pseudonyme, niveau de confiance, dates d'activité, et les parrainages donnés ou reçus&nbsp;;</li>
 <li>les clés de vos appareils, toutes vos sessions et votre code de secours&nbsp;;</li>
-<li>vos listes de favoris enregistrées sur le serveur&nbsp;;</li>
+<li>vos listes de favoris enregistrées sur le serveur, avec les adresses et les points que vous y aviez enregistrés&nbsp;;</li>
 <li>les auteurs que vous aviez masqués, et les masquages qui visaient votre compte&nbsp;;</li>
 <li>toutes vos photos, fichiers compris&nbsp;;</li>
 <li>vos notes sans texte, et ceux de vos avis qui n'étaient pas publiés&nbsp;;</li>
-<li>vos réponses «&nbsp;toujours là&nbsp;?&nbsp;» sur les commerces et services&nbsp;;</li>
-<li>vos signalements de problème sur un lieu, et vos signalements d'avis, de photos ou de lieux&nbsp;;</li>
-<li>vos propositions de lieu ou de modification qui attendaient un modérateur&nbsp;;</li>
+<li>vos réponses «&nbsp;Toujours là&nbsp;?&nbsp;» sur les commerces et services&nbsp;;</li>
+<li>vos signalements de problème sur un lieu, vos signalements sur la route, et vos signalements d'avis, de photos ou de lieux&nbsp;;</li>
+<li>le contenu et la position de vos propositions de lieu ou de modification qui n'ont pas été appliquées (en attente, refusées ou retirées)&nbsp;;</li>
 <li>les clés techniques de vos contributions.</li>
 </ul>
 <p>Sur l'appareil, vos favoris restent, détachés du compte, et la clé du compte est effacée.</p>
@@ -89,20 +89,23 @@ description: Supprimer votre compte Lunaway et ses données, dans l'app ou avec 
 <h2 id="anonymise">Ce qui reste, sans votre nom</h2>
 <p>Certaines contributions sont publiques sous licence ouverte et servent aux autres voyageurs. Elles restent, détachées de votre compte&nbsp;:</p>
 <ul>
-<li>vos avis publiés avec un texte (texte, note, date de visite, véhicule), affichés comme venant d'un «&nbsp;compte supprimé&nbsp;»&nbsp;;</li>
-<li>vos confirmations «&nbsp;toujours là&nbsp;?&nbsp;» des lieux, sans la note que vous y aviez jointe&nbsp;;</li>
-<li>vos ajouts de lieux ou de distributeurs et vos modifications déjà traités, avec leur contenu et leur position&nbsp;: appliqués, ils font partie de la base ouverte des lieux (ODbL)&nbsp;; refusés ou retirés, ils restent dans l'historique des révisions.</li>
+<li>vos avis publiés avec un texte (texte, note, date de visite, véhicule), affichés comme venant d'un «&nbsp;compte supprimé&nbsp;», avec leurs traductions&nbsp;;</li>
+<li>vos confirmations «&nbsp;Toujours là&nbsp;?&nbsp;» des lieux, sans la note que vous y aviez jointe, jusqu'à leur effacement au bout de deux ans&nbsp;;</li>
+<li>vos ajouts de lieux ou de distributeurs et vos modifications déjà appliqués, avec leur contenu et leur position&nbsp;: ils font partie de la base ouverte des lieux (ODbL)&nbsp;;</li>
+<li>les évènements routiers nés de vos signalements, qui ne portaient déjà aucun nom.</li>
 </ul>
 <p>Pour qu'un avis disparaisse aussi, supprimez-le dans l'app avant de supprimer votre compte.</p>
+<p>Un compte banni pour abus qui se supprime perd aussi ses confirmations&nbsp;; les empreintes de ses clés sont gardées deux ans, pour l'empêcher de revenir aussitôt.</p>
 
 <h2 id="delai">Délai</h2>
-<p>La suppression est immédiate dans notre base de données. Les sauvegardes chiffrées de la base et des photos en gardent une copie 30&nbsp;jours environ, puis l'effacent (le détail est dans la <a href="/privacy#sauvegardes">politique de confidentialité</a>)&nbsp;; elles ne servent qu'à remettre le service en marche après une panne, et une sauvegarde remise en service ne ramène pas un compte supprimé&nbsp;: la suppression, notée dans un journal à part (l'identifiant du compte et l'heure, 45&nbsp;jours au plus, copié chaque nuit avec les sauvegardes), est appliquée de nouveau. Seule la perte du disque de données du serveur lui-même ramènerait les suppressions faites après la dernière copie recueillie hors de ce serveur (jusqu'à 25&nbsp;heures environ).</p>
+<p>La suppression est immédiate dans notre base de données. Les sauvegardes de la base et des photos (en clair 7&nbsp;nuits sur le serveur principal, chiffrées ailleurs) en gardent une copie 30&nbsp;jours environ, puis l'effacent (le détail est dans la <a href="/privacy#sauvegardes">politique de confidentialité</a>). Elles ne servent qu'à remettre le service en marche après une panne, et une sauvegarde remise en service ne ramène pas un compte supprimé&nbsp;: la suppression, notée dans un journal à part (l'identifiant du compte et l'heure, 45&nbsp;jours au plus, copié chaque nuit avec les sauvegardes), est appliquée de nouveau. Seule la perte du disque de données du serveur lui-même ramènerait les comptes supprimés après la dernière copie recueillie hors de ce serveur (jusqu'à 25&nbsp;heures environ).</p>
 
 <h2 id="une-contribution">Supprimer une seule contribution</h2>
-<p>Sans supprimer votre compte, vous pouvez supprimer dans l'app, depuis <strong>Profil</strong>, <strong>Mes contributions</strong>, chacun de vos avis et notes, chacune de vos photos, de vos confirmations, de vos réponses sur les commerces et services, de vos signalements de problème, et chacune de vos propositions de lieu.</p>
+<p>Sans supprimer votre compte, vous pouvez supprimer dans l'app, depuis <strong>Profil</strong>, puis <strong>Mes contributions</strong>, chacune de vos contributions&nbsp;: avis, notes, photos, confirmations, réponses sur les commerces et services, signalements de problème sur un lieu et propositions de lieu.</p>
 <ul>
-<li>Un avis ou une photo est effacé pour de bon. S'il avait été signalé ou masqué par la modération, son texte ou ses fichiers sont effacés et il disparaît de l'affichage, mais une ligne reste pour la modération (la note, pour un avis), liée à votre compte jusqu'à sa suppression.</li>
-<li>Une proposition de lieu pas encore appliquée est retirée et ne sera jamais appliquée&nbsp;; elle reste dans l'historique des révisions, liée à votre compte jusqu'à la suppression de celui-ci. Un ajout ou une modification déjà appliqué reste dans la base des lieux, sans votre nom.</li>
+<li>Un avis ou une photo est effacé pour de bon, avec deux exceptions qui laissent une ligne pour la modération, liée à votre compte jusqu'à sa suppression&nbsp;: un avis signalé ou masqué par la modération perd son texte et ne compte plus, mais sa note reste dans cette ligne&nbsp;; une photo signalée, masquée ou qui attendait un modérateur perd ses fichiers et disparaît de l'affichage.</li>
+<li>Une proposition de lieu pas encore appliquée est retirée et ne sera jamais appliquée&nbsp;; son contenu est effacé 30&nbsp;jours plus tard, et une ligne vide reste dans l'historique des révisions, liée à votre compte jusqu'à la suppression de celui-ci. Un ajout ou une modification déjà appliqué reste dans la base des lieux, sans votre nom.</li>
+<li>Un signalement sur la route ne se supprime pas un à un&nbsp;: il s'efface tout seul au bout de 14&nbsp;jours.</li>
 </ul>
 
 <h2 id="contact">Une question</h2>

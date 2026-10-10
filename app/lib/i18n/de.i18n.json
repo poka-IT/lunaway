@@ -1027,7 +1027,7 @@
     "title": "Favoriten",
     "defaultList": "Meine Favoriten",
     "empty": "Hier ist noch nichts gespeichert",
-    "emptyHint": "Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.",
+    "emptyHint": "Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.",
     "newList": "Neue Liste",
     "listName": "Name der Liste",
     "renameList": "Liste umbenennen",
@@ -1040,10 +1040,30 @@
     "removed": "Aus der Liste entfernt",
     "count(param=n)": {
       "zero": "Leer",
-      "one": "$n Platz",
-      "other": "$n Plätze"
+      "one": "$n Favorit",
+      "other": "$n Favoriten"
     },
-    "error": "Ihre Favoriten konnten nicht geladen werden."
+    "error": "Ihre Favoriten konnten nicht geladen werden.",
+    "pointNamed": "Punkt vom $date",
+    "name": "Name",
+    "note": "Notiz (optional)",
+    "edit": "Bearbeiten",
+    "rename": "Umbenennen",
+    "removeEverywhere": "Aus den Favoriten entfernen",
+    "removedEverywhere": "Aus den Favoriten entfernt",
+    "inFavorites": "In Ihren Favoriten",
+    "inFavoritesAs": "In Ihren Favoriten als „$name“",
+    "pointActions": "Optionen für diesen Punkt",
+    "pointKind": {
+      "address": "Adresse",
+      "town": "Gemeinde",
+      "point": "Punkt auf der Karte",
+      "poi": "Geschäft oder Dienstleistung"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.",
+      "other": "Die $n in dieser Liste gespeicherten Punkte werden mit ihr gelöscht."
+    }
   },
   "vehicle": {
     "title": "Mein Fahrzeug",
@@ -1130,8 +1150,9 @@
     "attributions": "Quellen und Nachweise",
     "attributionOsm": "Plätze und Kartendaten © OpenStreetMap-Mitwirkende.",
     "attributionOdbl": "OpenStreetMap-Daten unter der Open Database License (ODbL).",
-    "attributionAtout": "Klassifizierte Campingplätze von Atout France, unter der Licence Ouverte 2.0 (Etalab).",
+    "attributionAtout": "Klassifizierte Campingplätze von Atout France, verortet über die Base Adresse Nationale und die BD TOPO des IGN, unter der Licence Ouverte 2.0 (Etalab).",
     "attributionCommunes": "Gemeinden der Plätze: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), unter der ODbL.",
+    "attributionCommunityPlaces": "Von den Reisenden von Lunaway hinzugefügte und geänderte Plätze, unter der ODbL, mit der Nennung „Lunaway contributors“.",
     "attributionTiles": "Grundkarte bereitgestellt von Lunaway, Stile abgeleitet von Protomaps (BSD-3-Clause), Daten © OpenStreetMap-Mitwirkende.",
     "attributionFonts": "Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.",
     "attributionIcons": "Phosphor-Symbole, MIT-Lizenz.",
@@ -1140,7 +1161,7 @@
     "attributionAddresses": "Adressen der Suche in Frankreich: Base Adresse Nationale, über die Géoplateforme des IGN, unter der Licence Ouverte 2.0.",
     "attributionAddressesOsm": "Adressen der Suche außerhalb Frankreichs: OpenStreetMap, über Photon, unter der ODbL.",
     "attributionPoiOdbl": "Geschäfte und Dienstleistungen: OpenStreetMap und die Öffnungszeiten der Postfilialen (La Poste), unter der ODbL.",
-    "attributionPoiLo": "Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS, unter der Licence Ouverte 2.0 (Etalab).",
+    "attributionPoiLo": "Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS (Agence du numérique en santé), unter der Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Umrisse der Offline-Karten: Contours administratifs, data.gouv.fr (ODbL), und Natural Earth (gemeinfrei).",
     "attributionOfflineLabels": "Beschriftungen und Symbole der Offline-Karten: Noto-Sans-Glyphen (SIL Open Font License 1.1) und Protomaps-Sprites, abgeleitet von tangrams/icons (MIT).",
     "attributionExtcom": "Plätze, Rezensionen, Bewertungen und Fotos, gemäß schriftlicher Vereinbarung mit dieser Quelle.",
@@ -1152,13 +1173,14 @@
     "creditsApp": "App",
     "attributionDatatourisme": "Plätze, Beschreibungen und Fotos der Touristeninformationen: DATAtourisme, unter der Licence Ouverte 2.0; jeder Text und jedes Foto nennt seine Touristeninformation, seinen Urheber und das Datum der letzten Aktualisierung.",
     "attributionCommunity": "Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.",
-    "attributionCommons": "Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.",
+    "attributionCommons": "Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.",
     "attributionPanoramax": "Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.",
     "attributionWikipedia": "Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.",
     "attributionMangrove": "Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.",
-    "attributionRoadEvents": "Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.",
+    "attributionTranslation": "Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.",
+    "attributionRoadEvents": "Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.",
     "attributionRoadEventsAbroad": "Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).",
+    "attributionDangerZones": "Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).",
     "attributionCameraSource": "Blitzer und Gefahrenzonen: $attribution"
   },
   "units": {
@@ -1207,7 +1229,7 @@
   "account": {
     "title": "Ihr Konto",
     "noneTitle": "Noch kein Konto",
-    "noneBody": "Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.",
+    "noneBody": "Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.",
     "recover": "Mein Konto wiederherstellen",
     "memberSince": "Mitglied seit $date",
     "editPseudonym": "Pseudonym ändern",
@@ -1265,7 +1287,7 @@
     "welcomeTitle": "Danke für Ihren ersten Beitrag",
     "welcomeBody": "Ihr Konto wurde unter dem Pseudonym „$name“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.",
     "welcomeCard": "Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.",
-    "welcomeFavorites": "Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert."
+    "welcomeFavorites": "Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert."
   },
   "recovery": {
     "title": "Sicherungskarte",
@@ -1332,7 +1354,7 @@
     "backups": "Die Sicherungen des Servers werden nach etwa 30 Tagen gelöscht.",
     "device": "Auf diesem Gerät bleiben Ihre Favoriten erhalten; der Schlüssel des Kontos wird gelöscht.",
     "web": "Sie können das Konto auch auf lunaway.net mit Ihrem Sicherungscode löschen.",
-    "webLink": "lunaway.net/account/delete",
+    "webLink": "lunaway.net/de/account/delete",
     "confirmTitle": "Endgültig löschen?",
     "confirmBody": "Das Konto „$name“ und alles oben Aufgeführte werden jetzt gelöscht. Niemand kann es wiederherstellen.",
     "confirmCheck": "Ich verstehe, dass dies endgültig ist",
@@ -1636,7 +1658,7 @@
     "synced": "Mit Ihrem Konto gespeichert, zuletzt synchronisiert $when",
     "failed": "Synchronisierung gerade nicht möglich",
     "title": "Ihre Favoriten synchronisieren?",
-    "body": "Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.",
+    "body": "Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.",
     "confirm": "Konto anlegen und synchronisieren"
   },
   "poi": {

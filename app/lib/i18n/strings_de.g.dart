@@ -691,7 +691,7 @@ class _Translations$favorites$de extends Translations$favorites$en {
 	@override String get title => 'Favoriten';
 	@override String get defaultList => 'Meine Favoriten';
 	@override String get empty => 'Hier ist noch nichts gespeichert';
-	@override String get emptyHint => 'Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.';
+	@override String get emptyHint => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.';
 	@override String get newList => 'Neue Liste';
 	@override String get listName => 'Name der Liste';
 	@override String get renameList => 'Liste umbenennen';
@@ -704,10 +704,25 @@ class _Translations$favorites$de extends Translations$favorites$en {
 	@override String get removed => 'Aus der Liste entfernt';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		zero: 'Leer',
-		one: '${n} Platz',
-		other: '${n} Plätze',
+		one: '${n} Favorit',
+		other: '${n} Favoriten',
 	);
 	@override String get error => 'Ihre Favoriten konnten nicht geladen werden.';
+	@override String pointNamed({required Object date}) => 'Punkt vom ${date}';
+	@override String get name => 'Name';
+	@override String get note => 'Notiz (optional)';
+	@override String get edit => 'Bearbeiten';
+	@override String get rename => 'Umbenennen';
+	@override String get removeEverywhere => 'Aus den Favoriten entfernen';
+	@override String get removedEverywhere => 'Aus den Favoriten entfernt';
+	@override String get inFavorites => 'In Ihren Favoriten';
+	@override String inFavoritesAs({required Object name}) => 'In Ihren Favoriten als „${name}“';
+	@override String get pointActions => 'Optionen für diesen Punkt';
+	@override late final _Translations$favorites$pointKind$de pointKind = _Translations$favorites$pointKind$de._(_root);
+	@override String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: 'Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.',
+		other: 'Die ${n} in dieser Liste gespeicherten Punkte werden mit ihr gelöscht.',
+	);
 }
 
 // Path: vehicle
@@ -805,8 +820,9 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributions => 'Quellen und Nachweise';
 	@override String get attributionOsm => 'Plätze und Kartendaten © OpenStreetMap-Mitwirkende.';
 	@override String get attributionOdbl => 'OpenStreetMap-Daten unter der Open Database License (ODbL).';
-	@override String get attributionAtout => 'Klassifizierte Campingplätze von Atout France, unter der Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionAtout => 'Klassifizierte Campingplätze von Atout France, verortet über die Base Adresse Nationale und die BD TOPO des IGN, unter der Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionCommunes => 'Gemeinden der Plätze: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), unter der ODbL.';
+	@override String get attributionCommunityPlaces => 'Von den Reisenden von Lunaway hinzugefügte und geänderte Plätze, unter der ODbL, mit der Nennung „Lunaway contributors“.';
 	@override String get attributionTiles => 'Grundkarte bereitgestellt von Lunaway, Stile abgeleitet von Protomaps (BSD-3-Clause), Daten © OpenStreetMap-Mitwirkende.';
 	@override String get attributionFonts => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Phosphor-Symbole, MIT-Lizenz.';
@@ -815,7 +831,7 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionAddresses => 'Adressen der Suche in Frankreich: Base Adresse Nationale, über die Géoplateforme des IGN, unter der Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Adressen der Suche außerhalb Frankreichs: OpenStreetMap, über Photon, unter der ODbL.';
 	@override String get attributionPoiOdbl => 'Geschäfte und Dienstleistungen: OpenStreetMap und die Öffnungszeiten der Postfilialen (La Poste), unter der ODbL.';
-	@override String get attributionPoiLo => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS, unter der Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPoiLo => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS (Agence du numérique en santé), unter der Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Umrisse der Offline-Karten: Contours administratifs, data.gouv.fr (ODbL), und Natural Earth (gemeinfrei).';
 	@override String get attributionOfflineLabels => 'Beschriftungen und Symbole der Offline-Karten: Noto-Sans-Glyphen (SIL Open Font License 1.1) und Protomaps-Sprites, abgeleitet von tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Plätze, Rezensionen, Bewertungen und Fotos, gemäß schriftlicher Vereinbarung mit dieser Quelle.';
@@ -827,13 +843,14 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get creditsApp => 'App';
 	@override String get attributionDatatourisme => 'Plätze, Beschreibungen und Fotos der Touristeninformationen: DATAtourisme, unter der Licence Ouverte 2.0; jeder Text und jedes Foto nennt seine Touristeninformation, seinen Urheber und das Datum der letzten Aktualisierung.';
 	@override String get attributionCommunity => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.';
-	@override String get attributionCommons => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.';
+	@override String get attributionCommons => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.';
 	@override String get attributionPanoramax => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.';
 	@override String get attributionWikipedia => 'Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.';
 	@override String get attributionMangrove => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.';
-	@override String get attributionRoadEvents => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.';
+	@override String get attributionTranslation => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.';
+	@override String get attributionRoadEvents => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}';
 }
 
@@ -909,7 +926,7 @@ class _Translations$account$de extends Translations$account$en {
 	// Translations
 	@override String get title => 'Ihr Konto';
 	@override String get noneTitle => 'Noch kein Konto';
-	@override String get noneBody => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.';
+	@override String get noneBody => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.';
 	@override String get recover => 'Mein Konto wiederherstellen';
 	@override String memberSince({required Object date}) => 'Mitglied seit ${date}';
 	@override String get editPseudonym => 'Pseudonym ändern';
@@ -952,7 +969,7 @@ class _Translations$account$de extends Translations$account$en {
 	@override String get welcomeTitle => 'Danke für Ihren ersten Beitrag';
 	@override String welcomeBody({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.';
 	@override String get welcomeCard => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.';
-	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.';
+	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.';
 }
 
 // Path: recovery
@@ -1034,7 +1051,7 @@ class _Translations$deletion$de extends Translations$deletion$en {
 	@override String get backups => 'Die Sicherungen des Servers werden nach etwa 30 Tagen gelöscht.';
 	@override String get device => 'Auf diesem Gerät bleiben Ihre Favoriten erhalten; der Schlüssel des Kontos wird gelöscht.';
 	@override String get web => 'Sie können das Konto auch auf lunaway.net mit Ihrem Sicherungscode löschen.';
-	@override String get webLink => 'lunaway.net/account/delete';
+	@override String get webLink => 'lunaway.net/de/account/delete';
 	@override String get confirmTitle => 'Endgültig löschen?';
 	@override String confirmBody({required Object name}) => 'Das Konto „${name}“ und alles oben Aufgeführte werden jetzt gelöscht. Niemand kann es wiederherstellen.';
 	@override String get confirmCheck => 'Ich verstehe, dass dies endgültig ist';
@@ -1372,7 +1389,7 @@ class _Translations$favoritesSync$de extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Mit Ihrem Konto gespeichert, zuletzt synchronisiert ${when}';
 	@override String get failed => 'Synchronisierung gerade nicht möglich';
 	@override String get title => 'Ihre Favoriten synchronisieren?';
-	@override String get body => 'Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.';
+	@override String get body => 'Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.';
 	@override String get confirm => 'Konto anlegen und synchronisieren';
 }
 
@@ -2292,6 +2309,19 @@ class _Translations$navigation$enforcement$de extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
 	@override String limit({required Object limit}) => 'Tempolimit ${limit}';
 	@override String averageLimit({required Object limit}) => 'Schnitt höchstens ${limit}';
+}
+
+// Path: favorites.pointKind
+class _Translations$favorites$pointKind$de extends Translations$favorites$pointKind$en {
+	_Translations$favorites$pointKind$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get address => 'Adresse';
+	@override String get town => 'Gemeinde';
+	@override String get point => 'Punkt auf der Karte';
+	@override String get poi => 'Geschäft oder Dienstleistung';
 }
 
 // Path: vehicle.types
@@ -3817,7 +3847,7 @@ extension on TranslationsDe {
 			'favorites.title' => 'Favoriten',
 			'favorites.defaultList' => 'Meine Favoriten',
 			'favorites.empty' => 'Hier ist noch nichts gespeichert',
-			'favorites.emptyHint' => 'Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.',
+			'favorites.emptyHint' => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.',
 			'favorites.newList' => 'Neue Liste',
 			'favorites.listName' => 'Name der Liste',
 			'favorites.renameList' => 'Liste umbenennen',
@@ -3828,8 +3858,23 @@ extension on TranslationsDe {
 			'favorites.openOnMap' => 'Auf der Karte ansehen',
 			'favorites.remove' => 'Aus der Liste entfernen',
 			'favorites.removed' => 'Aus der Liste entfernt',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, zero: 'Leer', one: '${n} Platz', other: '${n} Plätze', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, zero: 'Leer', one: '${n} Favorit', other: '${n} Favoriten', ), 
 			'favorites.error' => 'Ihre Favoriten konnten nicht geladen werden.',
+			'favorites.pointNamed' => ({required Object date}) => 'Punkt vom ${date}',
+			'favorites.name' => 'Name',
+			'favorites.note' => 'Notiz (optional)',
+			'favorites.edit' => 'Bearbeiten',
+			'favorites.rename' => 'Umbenennen',
+			'favorites.removeEverywhere' => 'Aus den Favoriten entfernen',
+			'favorites.removedEverywhere' => 'Aus den Favoriten entfernt',
+			'favorites.inFavorites' => 'In Ihren Favoriten',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In Ihren Favoriten als „${name}“',
+			'favorites.pointActions' => 'Optionen für diesen Punkt',
+			'favorites.pointKind.address' => 'Adresse',
+			'favorites.pointKind.town' => 'Gemeinde',
+			'favorites.pointKind.point' => 'Punkt auf der Karte',
+			'favorites.pointKind.poi' => 'Geschäft oder Dienstleistung',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.', other: 'Die ${n} in dieser Liste gespeicherten Punkte werden mit ihr gelöscht.', ), 
 			'vehicle.title' => 'Mein Fahrzeug',
 			'vehicle.why' => 'Anhand der Maße Ihres Fahrzeugs werden Plätze ausgeblendet, auf die es nicht passt. Die Maße werden mit jeder Routenanfrage gesendet und nicht gespeichert.',
 			'vehicle.none' => 'Beschreiben Sie Ihr Fahrzeug, um Plätze auszublenden, auf die es nicht passt.',
@@ -3903,8 +3948,9 @@ extension on TranslationsDe {
 			'profile.attributions' => 'Quellen und Nachweise',
 			'profile.attributionOsm' => 'Plätze und Kartendaten © OpenStreetMap-Mitwirkende.',
 			'profile.attributionOdbl' => 'OpenStreetMap-Daten unter der Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Klassifizierte Campingplätze von Atout France, unter der Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionAtout' => 'Klassifizierte Campingplätze von Atout France, verortet über die Base Adresse Nationale und die BD TOPO des IGN, unter der Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionCommunes' => 'Gemeinden der Plätze: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), unter der ODbL.',
+			'profile.attributionCommunityPlaces' => 'Von den Reisenden von Lunaway hinzugefügte und geänderte Plätze, unter der ODbL, mit der Nennung „Lunaway contributors“.',
 			'profile.attributionTiles' => 'Grundkarte bereitgestellt von Lunaway, Stile abgeleitet von Protomaps (BSD-3-Clause), Daten © OpenStreetMap-Mitwirkende.',
 			'profile.attributionFonts' => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor-Symbole, MIT-Lizenz.',
@@ -3913,7 +3959,7 @@ extension on TranslationsDe {
 			'profile.attributionAddresses' => 'Adressen der Suche in Frankreich: Base Adresse Nationale, über die Géoplateforme des IGN, unter der Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Adressen der Suche außerhalb Frankreichs: OpenStreetMap, über Photon, unter der ODbL.',
 			'profile.attributionPoiOdbl' => 'Geschäfte und Dienstleistungen: OpenStreetMap und die Öffnungszeiten der Postfilialen (La Poste), unter der ODbL.',
-			'profile.attributionPoiLo' => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS, unter der Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS (Agence du numérique en santé), unter der Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Umrisse der Offline-Karten: Contours administratifs, data.gouv.fr (ODbL), und Natural Earth (gemeinfrei).',
 			'profile.attributionOfflineLabels' => 'Beschriftungen und Symbole der Offline-Karten: Noto-Sans-Glyphen (SIL Open Font License 1.1) und Protomaps-Sprites, abgeleitet von tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Plätze, Rezensionen, Bewertungen und Fotos, gemäß schriftlicher Vereinbarung mit dieser Quelle.',
@@ -3925,13 +3971,14 @@ extension on TranslationsDe {
 			'profile.creditsApp' => 'App',
 			'profile.attributionDatatourisme' => 'Plätze, Beschreibungen und Fotos der Touristeninformationen: DATAtourisme, unter der Licence Ouverte 2.0; jeder Text und jedes Foto nennt seine Touristeninformation, seinen Urheber und das Datum der letzten Aktualisierung.',
 			'profile.attributionCommunity' => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.',
-			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
+			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
 			'profile.attributionPanoramax' => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.',
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
-			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
+			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
+			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
@@ -3968,7 +4015,7 @@ extension on TranslationsDe {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Ihr Konto',
 			'account.noneTitle' => 'Noch kein Konto',
-			'account.noneBody' => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.',
+			'account.noneBody' => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.',
 			'account.recover' => 'Mein Konto wiederherstellen',
 			'account.memberSince' => ({required Object date}) => 'Mitglied seit ${date}',
 			'account.editPseudonym' => 'Pseudonym ändern',
@@ -4001,6 +4048,8 @@ extension on TranslationsDe {
 			'account.recoveryRemake' => 'Neu erstellen',
 			'account.recoveryRemakeHint' => 'Neue Sicherungskarte erstellen',
 			'account.contributions' => 'Meine Beiträge',
+			_ => null,
+		} ?? switch (path) {
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Beitrag wartet auf Versand', other: '${n} Beiträge warten auf Versand', ), 
 			'account.mutedAuthors' => 'Ausgeblendete Autoren',
 			'account.devices' => 'Geräte',
@@ -4016,10 +4065,8 @@ extension on TranslationsDe {
 			'account.welcomeTitle' => 'Danke für Ihren ersten Beitrag',
 			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
-			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.',
+			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.',
 			'recovery.title' => 'Sicherungskarte',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
 			'recovery.replaces' => 'Eine neue Karte ersetzt die vorherige: Der alte Code funktioniert dann nicht mehr.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Karte vom ${date} ersetzen?',
@@ -4074,7 +4121,7 @@ extension on TranslationsDe {
 			'deletion.backups' => 'Die Sicherungen des Servers werden nach etwa 30 Tagen gelöscht.',
 			'deletion.device' => 'Auf diesem Gerät bleiben Ihre Favoriten erhalten; der Schlüssel des Kontos wird gelöscht.',
 			'deletion.web' => 'Sie können das Konto auch auf lunaway.net mit Ihrem Sicherungscode löschen.',
-			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.webLink' => 'lunaway.net/de/account/delete',
 			'deletion.confirmTitle' => 'Endgültig löschen?',
 			'deletion.confirmBody' => ({required Object name}) => 'Das Konto „${name}“ und alles oben Aufgeführte werden jetzt gelöscht. Niemand kann es wiederherstellen.',
 			'deletion.confirmCheck' => 'Ich verstehe, dass dies endgültig ist',
@@ -4324,7 +4371,7 @@ extension on TranslationsDe {
 			'favoritesSync.synced' => ({required Object when}) => 'Mit Ihrem Konto gespeichert, zuletzt synchronisiert ${when}',
 			'favoritesSync.failed' => 'Synchronisierung gerade nicht möglich',
 			'favoritesSync.title' => 'Ihre Favoriten synchronisieren?',
-			'favoritesSync.body' => 'Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.',
+			'favoritesSync.body' => 'Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.',
 			'favoritesSync.confirm' => 'Konto anlegen und synchronisieren',
 			'poi.category.groceries' => 'Einkaufen',
 			'poi.category.vending' => 'Lebensmittelautomaten',
@@ -4515,6 +4562,8 @@ extension on TranslationsDe {
 			'offlineMaps.cancel' => 'Download abbrechen und löschen',
 			'offlineMaps.waiting' => 'In der Warteschlange',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} von ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Pausiert bei ${done} von ${total}',
 			'offlineMaps.verifying' => 'Datei wird geprüft',
 			'offlineMaps.failedNetwork' => 'Unterbrochen: kein Netz. Der Download wird an derselben Stelle fortgesetzt, sobald das Netz wieder da ist.',
@@ -4532,8 +4581,6 @@ extension on TranslationsDe {
 			'offlineMaps.entryHint' => 'Zum Reisen ohne Netz',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Karten: ${n} Region, ${size}', other: 'Karten: ${n} Regionen, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: heruntergeladene Karte, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: Dieses Gebiet ist nicht heruntergeladen',
 			'offlineMaps.noticePlacesOnly' => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nicht heruntergeladen',
 			'offlineMaps.noticeNone' => 'Offline: Laden Sie für das nächste Mal eine Region herunter',

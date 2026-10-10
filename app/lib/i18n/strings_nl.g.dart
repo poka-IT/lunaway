@@ -691,7 +691,7 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get title => 'Favorieten';
 	@override String get defaultList => 'Mijn favorieten';
 	@override String get empty => 'Hier is nog niets opgeslagen';
-	@override String get emptyHint => 'Tik bij een plek op Opslaan om hem te bewaren, ook offline.';
+	@override String get emptyHint => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.';
 	@override String get newList => 'Nieuwe lijst';
 	@override String get listName => 'Naam van de lijst';
 	@override String get renameList => 'Lijst hernoemen';
@@ -704,10 +704,25 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get removed => 'Uit de lijst verwijderd';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		zero: 'Leeg',
-		one: '${n} plek',
-		other: '${n} plekken',
+		one: '${n} favoriet',
+		other: '${n} favorieten',
 	);
 	@override String get error => 'Je favorieten konden niet worden geladen.';
+	@override String pointNamed({required Object date}) => 'Punt van ${date}';
+	@override String get name => 'Naam';
+	@override String get note => 'Notitie (optioneel)';
+	@override String get edit => 'Bewerken';
+	@override String get rename => 'Naam wijzigen';
+	@override String get removeEverywhere => 'Uit favorieten verwijderen';
+	@override String get removedEverywhere => 'Uit favorieten verwijderd';
+	@override String get inFavorites => 'In je favorieten';
+	@override String inFavoritesAs({required Object name}) => 'In je favorieten als “${name}”';
+	@override String get pointActions => 'Opties voor dit punt';
+	@override late final _Translations$favorites$pointKind$nl pointKind = _Translations$favorites$pointKind$nl._(_root);
+	@override String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.',
+		other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.',
+	);
 }
 
 // Path: vehicle
@@ -805,8 +820,9 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get attributions => 'Bronnen en vermeldingen';
 	@override String get attributionOsm => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.';
 	@override String get attributionOdbl => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).';
-	@override String get attributionAtout => 'Geclassificeerde campings van Atout France, onder de Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionAtout => 'Geclassificeerde campings van Atout France, geplaatst met de Base Adresse Nationale en de BD TOPO van het IGN, onder de Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionCommunes => 'Gemeenten van de plekken: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), onder de ODbL.';
+	@override String get attributionCommunityPlaces => 'Plekken die reizigers van Lunaway hebben toegevoegd of gewijzigd, onder de ODbL, met de vermelding “Lunaway contributors”.';
 	@override String get attributionTiles => 'Basiskaart geleverd door Lunaway, stijlen afgeleid van Protomaps (BSD-3-Clause), gegevens © bijdragers van OpenStreetMap.';
 	@override String get attributionFonts => 'Lettertypen Fraunces en Atkinson Hyperlegible Next, SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Phosphor-pictogrammen, MIT-licentie.';
@@ -815,7 +831,7 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get attributionAddresses => 'Adressen bij het zoeken in Frankrijk: de Base Adresse Nationale, via de Géoplateforme van het IGN, onder de Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Adressen bij het zoeken elders: OpenStreetMap, via Photon, onder de ODbL.';
 	@override String get attributionPoiOdbl => 'Winkels en diensten: OpenStreetMap, en de openingskalender van La Poste, onder de ODbL.';
-	@override String get attributionPoiLo => 'Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS, onder de Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPoiLo => 'Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS (Agence du numérique en santé), onder de Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contouren van de offline kaarten: Contours administratifs, data.gouv.fr (ODbL), en Natural Earth (publiek domein).';
 	@override String get attributionOfflineLabels => 'Namen en pictogrammen van de offline kaarten: Noto Sans-glyphs (SIL Open Font License 1.1) en Protomaps-sprites afgeleid van tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Plekken, reviews, beoordelingen en foto\'s, onder een schriftelijke overeenkomst met deze bron.';
@@ -827,13 +843,14 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get creditsApp => 'App';
 	@override String get attributionDatatourisme => 'Plekken, beschrijvingen en foto\'s van de toeristenbureaus: DATAtourisme, onder de Licence Ouverte 2.0; bij elke tekst en elke foto staan het bureau, de auteur en de datum van de laatste update.';
 	@override String get attributionCommunity => 'Reviews, beoordelingen en foto\'s van de reizigers van Lunaway, onder CC BY 4.0, met het pseudoniem van de auteur.';
-	@override String get attributionCommons => 'Foto\'s van Wikimedia Commons, elk onder een eigen licentie (CC0, CC BY of CC BY-SA), met de auteur en een link naar de pagina.';
+	@override String get attributionCommons => 'Foto\'s van Wikimedia Commons, elk onder een eigen licentie (CC0, publiek domein, CC BY of CC BY-SA), met de auteur en een link naar de pagina.';
 	@override String get attributionPanoramax => 'Straatbeelden van Panoramax: de instantie van OpenStreetMap France onder CC BY-SA 4.0, die van het IGN onder de Licence Ouverte 2.0.';
 	@override String get attributionWikipedia => 'Fragmenten uit Wikipedia-artikelen, onder CC BY-SA 4.0, met een link naar het artikel.';
 	@override String get attributionMangrove => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.';
-	@override String get attributionRoadEvents => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.';
+	@override String get attributionTranslation => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.';
+	@override String get attributionRoadEvents => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Flitsers en gevarenzones: de officiële flitserlijsten (in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Licence Ouverte 2.0; Polen, Luxemburg en Brussel, CC0; Noorwegen, NLOD), de controlezones van de Ierse Garda (CC BY 4.0) en OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}';
 }
 
@@ -909,7 +926,7 @@ class _Translations$account$nl extends Translations$account$en {
 	// Translations
 	@override String get title => 'Je account';
 	@override String get noneTitle => 'Nog geen account';
-	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.';
+	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.';
 	@override String get recover => 'Mijn account herstellen';
 	@override String memberSince({required Object date}) => 'Lid sinds ${date}';
 	@override String get editPseudonym => 'Pseudoniem wijzigen';
@@ -952,7 +969,7 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String get welcomeTitle => 'Bedankt voor je eerste bijdrage';
 	@override String welcomeBody({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.';
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
-	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu bij je account bewaard.';
+	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
 }
 
 // Path: recovery
@@ -1034,7 +1051,7 @@ class _Translations$deletion$nl extends Translations$deletion$en {
 	@override String get backups => 'De back-ups van de server worden binnen ongeveer 30 dagen gewist.';
 	@override String get device => 'Op dit apparaat blijven je favorieten; de sleutel van het account wordt gewist.';
 	@override String get web => 'Je kunt het account ook verwijderen op lunaway.net met je herstelcode.';
-	@override String get webLink => 'lunaway.net/account/delete';
+	@override String get webLink => 'lunaway.net/nl/account/delete';
 	@override String get confirmTitle => 'Definitief verwijderen?';
 	@override String confirmBody({required Object name}) => 'Het account “${name}” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.';
 	@override String get confirmCheck => 'Ik begrijp dat dit definitief is';
@@ -1372,7 +1389,7 @@ class _Translations$favoritesSync$nl extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}';
 	@override String get failed => 'Synchroniseren lukt nu niet';
 	@override String get title => 'Je favorieten synchroniseren?';
-	@override String get body => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
+	@override String get body => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
 	@override String get confirm => 'Account maken en synchroniseren';
 }
 
@@ -2292,6 +2309,19 @@ class _Translations$navigation$enforcement$nl extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} over ${distance}';
 	@override String limit({required Object limit}) => 'maximaal ${limit}';
 	@override String averageLimit({required Object limit}) => 'gemiddeld maximaal ${limit}';
+}
+
+// Path: favorites.pointKind
+class _Translations$favorites$pointKind$nl extends Translations$favorites$pointKind$en {
+	_Translations$favorites$pointKind$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get address => 'Adres';
+	@override String get town => 'Gemeente';
+	@override String get point => 'Punt op de kaart';
+	@override String get poi => 'Winkel of voorziening';
 }
 
 // Path: vehicle.types
@@ -3817,7 +3847,7 @@ extension on TranslationsNl {
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
-			'favorites.emptyHint' => 'Tik bij een plek op Opslaan om hem te bewaren, ook offline.',
+			'favorites.emptyHint' => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.',
 			'favorites.newList' => 'Nieuwe lijst',
 			'favorites.listName' => 'Naam van de lijst',
 			'favorites.renameList' => 'Lijst hernoemen',
@@ -3828,8 +3858,23 @@ extension on TranslationsNl {
 			'favorites.openOnMap' => 'Bekijken op de kaart',
 			'favorites.remove' => 'Uit de lijst verwijderen',
 			'favorites.removed' => 'Uit de lijst verwijderd',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} plek', other: '${n} plekken', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} favoriet', other: '${n} favorieten', ), 
 			'favorites.error' => 'Je favorieten konden niet worden geladen.',
+			'favorites.pointNamed' => ({required Object date}) => 'Punt van ${date}',
+			'favorites.name' => 'Naam',
+			'favorites.note' => 'Notitie (optioneel)',
+			'favorites.edit' => 'Bewerken',
+			'favorites.rename' => 'Naam wijzigen',
+			'favorites.removeEverywhere' => 'Uit favorieten verwijderen',
+			'favorites.removedEverywhere' => 'Uit favorieten verwijderd',
+			'favorites.inFavorites' => 'In je favorieten',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In je favorieten als “${name}”',
+			'favorites.pointActions' => 'Opties voor dit punt',
+			'favorites.pointKind.address' => 'Adres',
+			'favorites.pointKind.town' => 'Gemeente',
+			'favorites.pointKind.point' => 'Punt op de kaart',
+			'favorites.pointKind.poi' => 'Winkel of voorziening',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.', other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.', ), 
 			'vehicle.title' => 'Mijn voertuig',
 			'vehicle.why' => 'Met de afmetingen worden plekken verborgen waar je voertuig niet past. Ze worden bij elke routeaanvraag meegestuurd en niet bewaard.',
 			'vehicle.none' => 'Beschrijf je voertuig om plekken te verbergen waar het niet past.',
@@ -3903,8 +3948,9 @@ extension on TranslationsNl {
 			'profile.attributions' => 'Bronnen en vermeldingen',
 			'profile.attributionOsm' => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.',
 			'profile.attributionOdbl' => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Geclassificeerde campings van Atout France, onder de Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionAtout' => 'Geclassificeerde campings van Atout France, geplaatst met de Base Adresse Nationale en de BD TOPO van het IGN, onder de Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionCommunes' => 'Gemeenten van de plekken: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), onder de ODbL.',
+			'profile.attributionCommunityPlaces' => 'Plekken die reizigers van Lunaway hebben toegevoegd of gewijzigd, onder de ODbL, met de vermelding “Lunaway contributors”.',
 			'profile.attributionTiles' => 'Basiskaart geleverd door Lunaway, stijlen afgeleid van Protomaps (BSD-3-Clause), gegevens © bijdragers van OpenStreetMap.',
 			'profile.attributionFonts' => 'Lettertypen Fraunces en Atkinson Hyperlegible Next, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor-pictogrammen, MIT-licentie.',
@@ -3913,7 +3959,7 @@ extension on TranslationsNl {
 			'profile.attributionAddresses' => 'Adressen bij het zoeken in Frankrijk: de Base Adresse Nationale, via de Géoplateforme van het IGN, onder de Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Adressen bij het zoeken elders: OpenStreetMap, via Photon, onder de ODbL.',
 			'profile.attributionPoiOdbl' => 'Winkels en diensten: OpenStreetMap, en de openingskalender van La Poste, onder de ODbL.',
-			'profile.attributionPoiLo' => 'Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS, onder de Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS (Agence du numérique en santé), onder de Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contouren van de offline kaarten: Contours administratifs, data.gouv.fr (ODbL), en Natural Earth (publiek domein).',
 			'profile.attributionOfflineLabels' => 'Namen en pictogrammen van de offline kaarten: Noto Sans-glyphs (SIL Open Font License 1.1) en Protomaps-sprites afgeleid van tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Plekken, reviews, beoordelingen en foto\'s, onder een schriftelijke overeenkomst met deze bron.',
@@ -3925,13 +3971,14 @@ extension on TranslationsNl {
 			'profile.creditsApp' => 'App',
 			'profile.attributionDatatourisme' => 'Plekken, beschrijvingen en foto\'s van de toeristenbureaus: DATAtourisme, onder de Licence Ouverte 2.0; bij elke tekst en elke foto staan het bureau, de auteur en de datum van de laatste update.',
 			'profile.attributionCommunity' => 'Reviews, beoordelingen en foto\'s van de reizigers van Lunaway, onder CC BY 4.0, met het pseudoniem van de auteur.',
-			'profile.attributionCommons' => 'Foto\'s van Wikimedia Commons, elk onder een eigen licentie (CC0, CC BY of CC BY-SA), met de auteur en een link naar de pagina.',
+			'profile.attributionCommons' => 'Foto\'s van Wikimedia Commons, elk onder een eigen licentie (CC0, publiek domein, CC BY of CC BY-SA), met de auteur en een link naar de pagina.',
 			'profile.attributionPanoramax' => 'Straatbeelden van Panoramax: de instantie van OpenStreetMap France onder CC BY-SA 4.0, die van het IGN onder de Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Fragmenten uit Wikipedia-artikelen, onder CC BY-SA 4.0, met een link naar het artikel.',
 			'profile.attributionMangrove' => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.',
-			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
+			'profile.attributionTranslation' => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.',
+			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: de officiële flitserlijsten (in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Licence Ouverte 2.0; Polen, Luxemburg en Brussel, CC0; Noorwegen, NLOD), de controlezones van de Ierse Garda (CC BY 4.0) en OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
@@ -3968,7 +4015,7 @@ extension on TranslationsNl {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
-			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.',
+			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.',
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
 			'account.editPseudonym' => 'Pseudoniem wijzigen',
@@ -4001,6 +4048,8 @@ extension on TranslationsNl {
 			'account.recoveryRemake' => 'Opnieuw maken',
 			'account.recoveryRemakeHint' => 'Een nieuwe herstelkaart maken',
 			'account.contributions' => 'Mijn bijdragen',
+			_ => null,
+		} ?? switch (path) {
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} bijdrage wacht op verzending', other: '${n} bijdragen wachten op verzending', ), 
 			'account.mutedAuthors' => 'Verborgen auteurs',
 			'account.devices' => 'Apparaten',
@@ -4016,10 +4065,8 @@ extension on TranslationsNl {
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
-			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
+			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
 			'recovery.replaceTitle' => ({required Object date}) => 'De kaart van ${date} vervangen?',
@@ -4074,7 +4121,7 @@ extension on TranslationsNl {
 			'deletion.backups' => 'De back-ups van de server worden binnen ongeveer 30 dagen gewist.',
 			'deletion.device' => 'Op dit apparaat blijven je favorieten; de sleutel van het account wordt gewist.',
 			'deletion.web' => 'Je kunt het account ook verwijderen op lunaway.net met je herstelcode.',
-			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.webLink' => 'lunaway.net/nl/account/delete',
 			'deletion.confirmTitle' => 'Definitief verwijderen?',
 			'deletion.confirmBody' => ({required Object name}) => 'Het account “${name}” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.',
 			'deletion.confirmCheck' => 'Ik begrijp dat dit definitief is',
@@ -4324,7 +4371,7 @@ extension on TranslationsNl {
 			'favoritesSync.synced' => ({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}',
 			'favoritesSync.failed' => 'Synchroniseren lukt nu niet',
 			'favoritesSync.title' => 'Je favorieten synchroniseren?',
-			'favoritesSync.body' => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
+			'favoritesSync.body' => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
 			'favoritesSync.confirm' => 'Account maken en synchroniseren',
 			'poi.category.groceries' => 'Boodschappen',
 			'poi.category.vending' => 'Voedselautomaten',
@@ -4515,6 +4562,8 @@ extension on TranslationsNl {
 			'offlineMaps.cancel' => 'Stoppen en download verwijderen',
 			'offlineMaps.waiting' => 'Wacht op zijn beurt',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} van ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Gepauzeerd bij ${done} van ${total}',
 			'offlineMaps.verifying' => 'Bestand wordt gecontroleerd',
 			'offlineMaps.failedNetwork' => 'Gestopt: geen verbinding. Het downloaden gaat verder waar het stopte zodra er weer verbinding is.',
@@ -4532,8 +4581,6 @@ extension on TranslationsNl {
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
 			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',

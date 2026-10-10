@@ -37,8 +37,17 @@ final class AppConfig {
   static const publicBasemap = 'https://tiles.lunaway.net';
 
   static const website = 'https://lunaway.net';
-  static const privacyPolicy = 'https://lunaway.net/privacy';
   static const sourceCode = 'https://github.com/poka-IT/lunaway';
+
+  /// The languages the site serves under their own code; French, its
+  /// default, is at the root (`tool/site/build.py`, `LANGS`).
+  static const _siteLanguages = {'en', 'de', 'es', 'it', 'nl'};
+
+  /// A page of the site ([path] without a leading slash: `privacy`,
+  /// `account/delete`, or empty for the home page) in the app's [language],
+  /// so the site opens in the language the user reads.
+  static Uri sitePage(String language, String path) =>
+      Uri.parse(_siteLanguages.contains(language) ? '$website/$language/$path' : '$website/$path');
 
   final String apiBaseUrl;
   final bool demo;

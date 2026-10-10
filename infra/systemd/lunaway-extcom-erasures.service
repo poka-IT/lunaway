@@ -1,0 +1,72 @@
+# Writes the list of the external community source's erased authors (the
+# SHA-256 of each id, nothing else) into /srv/data/extcom-erasures, where
+# the feed's producer reads it through the backend's lunaway-pull account
+# (/usr/local/sbin/lunaway-extcom-erasures) to purge them from its own copy
+# (docs/deploy.md, "The external community feed"). Started by
+# `lunaway-admin extcom erase-author` after an erasure, and hourly by
+# lunaway-extcom-erasures.timer, so a list written before a restore or a
+# change made otherwise catches up. Installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway: list of the external community source's erased authors
+After=postgresql.service
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+ConditionPathIsDirectory=/srv/data/extcom-erasures
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+# The directory is setgid lunaway-pull: the 0640 file the CLI writes takes
+# that group, the only reader.
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway extcom erasures --out /srv/data/extcom-erasures/erased-authors
+# How the run ended, for the health probe (lunaway-unit-result): a list
+# that stops being written leaves the producer unaware of new erasures.
+ExecStopPost=-+/usr/local/sbin/lunaway-unit-result extcom-erasures
+TimeoutStartSec=5min
+Nice=10
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# Of /srv it sees the list's directory only, and may write there only.
+TemporaryFileSystem=/srv:ro
+BindPaths=/srv/data/extcom-erasures
+ReadWritePaths=/srv/data/extcom-erasures
+# PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryHigh=192M
+MemoryMax=256M

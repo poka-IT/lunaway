@@ -260,6 +260,18 @@ final class EnforcementSource {
   /// The date the list gives of its own last update; [fetchedAt] stands for
   /// it when the list gives none.
   final DateTime? listUpdatedAt;
+
+  /// What the route preview's foot cites the list by, where there is room:
+  /// its [attribution], the licensor's own wording, else its [name]. An
+  /// attribution written as a sentence (Norway's NLOD one) does not fit
+  /// in front of the list's date: the name stands for it there, and the
+  /// credits page quotes the sentence. Where room is short (the guidance
+  /// banner, a camera's callout) the [name] is cited, and every list's name
+  /// names its licensor.
+  String get credit {
+    final text = attribution.trim();
+    return text.isEmpty || text.endsWith('.') ? name : text;
+  }
 }
 
 /// The rule the vehicle drives under, from the countries around each fix:

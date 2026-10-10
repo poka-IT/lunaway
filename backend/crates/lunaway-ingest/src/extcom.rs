@@ -907,11 +907,14 @@ fn overnight(o: Option<&FeedOvernight>, kind: &str, notes: &mut LineNotes) -> Ov
     }
 }
 
-/// The partner's id of an author, as kept for erasures: one token of at
-/// most 128 bytes, or nothing.
+/// The partner's id of an author, as kept for erasures: at most 128 bytes
+/// without a control character, trimmed, or nothing. A space inside stays:
+/// a partner whose pseudonym is the author's id has pseudonyms with
+/// spaces, and an erasure (`erase_author`, which deletes by this column)
+/// must find them.
 fn author_id_of(raw: Option<&str>) -> Option<String> {
     raw.map(str::trim)
-        .filter(|id| valid_id(id))
+        .filter(|id| (1..=MAX_ID_BYTES).contains(&id.len()) && !id.chars().any(char::is_control))
         .map(str::to_owned)
 }
 
@@ -2267,6 +2270,26 @@ mod tests {
             "a duplicate, a malformed one and one over the bound"
         );
         assert!(notes.unmapped.keys().all(|u| u == "vehicle:hovercraft"));
+    }
+
+    #[test]
+    fn an_author_id_keeps_its_spaces_and_refuses_controls_and_length() {
+        assert_eq!(
+            author_id_of(Some(" Marie Curie ")).as_deref(),
+            Some("Marie Curie")
+        );
+        assert_eq!(author_id_of(Some("a\u{7}b")), None, "a control character");
+        assert_eq!(author_id_of(Some("a\nb")), None, "a line break");
+        assert_eq!(
+            author_id_of(Some(&"é".repeat(64))).map(|s| s.len()),
+            Some(128)
+        );
+        assert_eq!(
+            author_id_of(Some(&"é".repeat(65))),
+            None,
+            "past 128 bytes, the most an erasure takes"
+        );
+        assert_eq!(author_id_of(Some("   ")), None);
     }
 
     #[test]

@@ -5,13 +5,26 @@ abstract final class MapStyle {
   static const placesSource = 'lw-places';
   static const selectionSource = 'lw-selection';
 
+  /// The points saved in the list the favourites show.
+  static const savedSource = 'lw-saved';
+
   static const clustersLayer = 'lw-clusters';
   static const clusterCountLayer = 'lw-cluster-count';
   static const placesLayer = 'lw-places';
+  static const savedLayer = 'lw-saved-pins';
   static const selectionPinLayer = 'lw-selection-pin';
 
+  /// How large a saved point's marker is drawn: the long-press marker's
+  /// drop, a size down, so the point being looked at stands out.
+  static const savedSize = 0.8;
+
   /// Topmost first: a tap picks the first layer that has a feature there.
-  static const List<String> tappableLayers = [selectionPinLayer, placesLayer, clustersLayer];
+  static const List<String> tappableLayers = [
+    selectionPinLayer,
+    savedLayer,
+    placesLayer,
+    clustersLayer,
+  ];
 
   /// Pins merge into clusters below this zoom; past it every pin shows.
   static const clusterMaxZoom = 12.0;

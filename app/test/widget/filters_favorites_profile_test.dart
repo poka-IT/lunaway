@@ -710,7 +710,7 @@ void main() {
       await app.favorites.addToDefault(lakeArea.summary);
       await openTab(tester, 'Favoris');
       expect(find.text('Mes favoris'), findsWidgets);
-      expect(find.text('1 lieu'), findsOneWidget);
+      expect(find.text('1 favori'), findsOneWidget);
       expect(find.text('Aire du Lac Bleu (démo)'), findsOneWidget);
     });
   });
@@ -872,9 +872,30 @@ void main() {
         await settleShort(tester);
       }
       expect(app.external.opened.map((u) => u.toString()), [
-        'https://lunaway.net',
+        'https://lunaway.net/',
         'https://lunaway.net/privacy',
         'https://github.com/poka-IT/lunaway',
+      ]);
+    });
+
+    testWidgets('the site and the privacy policy open in the language of the app', (tester) async {
+      final app = await pumpLunaway(tester, size: tallPhone, locale: AppLocale.de);
+      await openTab(tester, 'Profil');
+      for (final label in ['Website', 'Datenschutzerklärung']) {
+        await tester.scrollUntilVisible(
+          find.text(label),
+          200,
+          scrollable: find
+              .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pump();
+        await tester.tap(find.text(label));
+        await settleShort(tester);
+      }
+      expect(app.external.opened.map((u) => u.toString()), [
+        'https://lunaway.net/de/',
+        'https://lunaway.net/de/privacy',
       ]);
     });
 
@@ -919,12 +940,18 @@ void main() {
         'Wikipedia articles, under CC BY-SA 4.0',
         'Mangrove Reviews, under CC BY 4.0',
         "Lunaway's travellers, under CC BY 4.0",
+        'credited as "Lunaway contributors"',
+        'OPUS-MT models of the University of Helsinki, under CC BY 4.0',
         'DIR and Bison Futé, DiaLog traffic orders (DGITM)',
+        'Ville de Paris, Rennes Métropole',
         'NDW, Nationaal Dataportaal Wegverkeer',
         'DGT, Dirección General de Tráfico (CC BY)',
-        'Speed cameras and danger zones: the official speed camera lists',
+        'Speed cameras and danger zones: in France, the Sécurité routière map',
+        'Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0',
+        'Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort',
+        'An Garda Síochána, Irish Public Sector Information, CC BY',
         'Height, width, length and weight limits of the roads',
-        'Base Adresse Nationale',
+        'the Base Adresse Nationale, through',
         'OpenStreetMap, through Photon',
       ]) {
         expect(find.textContaining(source), findsOneWidget, reason: source);

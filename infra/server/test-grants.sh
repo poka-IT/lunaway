@@ -66,7 +66,7 @@ spatial_ref_sys SELECT"
 # keeps it.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
-  favorite_items place_submissions"
+  favorite_items favorite_points place_submissions"
 expected_app="$(sort <<EOF
 $postgis
 place_sources SELECT

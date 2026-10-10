@@ -37,7 +37,7 @@ signature, upload and deploy below is made by hand, on the maintainer's Mac.
 | `N` | Android `versionCode` (`flutter.versionCode`), iOS `CFBundleVersion` | one more than any build ever uploaded anywhere (Play, App Store, F-Droid); never reused, also across betas |
 
 Each `N` uploaded to Play has its notes in
-`fastlane/metadata/android/<fr-FR|en-US>/changelogs/<N>.txt` (500
+`fastlane/metadata/android/<locale>/changelogs/<N>.txt` (six locales, 500
 characters), and each App Store version its
 `fastlane/metadata/ios/<locale>/release_notes.txt`. On 2026-10-06 the
 F-Droid repository already carries versionCode 1 (`docs/deploy.md`): the
@@ -185,8 +185,12 @@ DNS comes last among the infrastructure steps, and before any store
 submission: reviewers open the privacy URL and the app talks to
 api.lunaway.net.
 
-1. Site placeholders filled: legal notice (maintainer: publication
-   director, postal address, phone, legal form); the `/fdroid/` page shows
+1. Site placeholders filled, in the six languages: legal notice
+   (maintainer: publication director, postal address, phone, legal form);
+   the privacy page's row on the working copy of the external community
+   source's collector is written from the collector's code (its private
+   repository's README, "Erasures and what the state keeps"): check it
+   again when the collector changes; the `/fdroid/` page shows
    the repository address, fingerprint and QR code of `docs/deploy.md`,
    "F-Droid repository"; real screenshots in `infra/web/site/img/screens/`.
    `grep -rl 'data-placeholder' infra/web/site` lists what is left.
@@ -232,7 +236,7 @@ api.lunaway.net.
    ```bash
    curl -s https://api.lunaway.net/health                       # ok
    curl -s https://api.lunaway.net/graphql -H 'content-type: application/json' -d '{"query":"{ apiVersion }"}'
-   for p in / /en/ /privacy /en/privacy /account/delete /en/account/delete /app/; do curl -s -o /dev/null -w "%{http_code} $p\n" "https://lunaway.net$p"; done   # 200 each
+   for p in / /en/ /de/ /es/ /it/ /nl/ /privacy /en/privacy /de/privacy /es/privacy /it/privacy /nl/privacy /account/delete /en/account/delete /de/account/delete /es/account/delete /it/account/delete /nl/account/delete /app/; do curl -s -o /dev/null -w "%{http_code} $p\n" "https://lunaway.net$p"; done   # 200 each
    ```
 
    And a test mail to contact@lunaway.net, read in the mailbox (Play
@@ -264,8 +268,8 @@ Track: production (internal for a beta tag)
    App access field only, never written to a file).
 6. Content rating inputs: docs/play-store.md "App content answers" at <sha>.
 7. Listing: fastlane/metadata/android at <sha>: <n> phone, <n> 7-inch,
-   <n> 10-inch screenshots, changelogs/N.txt in fr-FR and en-US.
-8. Store preconditions: unchanged since 2026-10-06 (name, open data only).
+   <n> 10-inch screenshots, changelogs/N.txt in the six locales.
+8. Store preconditions: docs/play-store.md "Ready to publish", item 8 (name; open data plus the external community source under its written agreement).
 ```
 
 The Play session then follows "Release procedure" of `docs/play-store.md`.

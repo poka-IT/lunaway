@@ -1027,7 +1027,7 @@
     "title": "Favorieten",
     "defaultList": "Mijn favorieten",
     "empty": "Hier is nog niets opgeslagen",
-    "emptyHint": "Tik bij een plek op Opslaan om hem te bewaren, ook offline.",
+    "emptyHint": "Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.",
     "newList": "Nieuwe lijst",
     "listName": "Naam van de lijst",
     "renameList": "Lijst hernoemen",
@@ -1040,10 +1040,30 @@
     "removed": "Uit de lijst verwijderd",
     "count(param=n)": {
       "zero": "Leeg",
-      "one": "$n plek",
-      "other": "$n plekken"
+      "one": "$n favoriet",
+      "other": "$n favorieten"
     },
-    "error": "Je favorieten konden niet worden geladen."
+    "error": "Je favorieten konden niet worden geladen.",
+    "pointNamed": "Punt van $date",
+    "name": "Naam",
+    "note": "Notitie (optioneel)",
+    "edit": "Bewerken",
+    "rename": "Naam wijzigen",
+    "removeEverywhere": "Uit favorieten verwijderen",
+    "removedEverywhere": "Uit favorieten verwijderd",
+    "inFavorites": "In je favorieten",
+    "inFavoritesAs": "In je favorieten als “$name”",
+    "pointActions": "Opties voor dit punt",
+    "pointKind": {
+      "address": "Adres",
+      "town": "Gemeente",
+      "point": "Punt op de kaart",
+      "poi": "Winkel of voorziening"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.",
+      "other": "De $n punten die in deze lijst zijn opgeslagen, worden mee verwijderd."
+    }
   },
   "vehicle": {
     "title": "Mijn voertuig",
@@ -1130,8 +1150,9 @@
     "attributions": "Bronnen en vermeldingen",
     "attributionOsm": "Plekken en kaartgegevens © bijdragers van OpenStreetMap.",
     "attributionOdbl": "Gegevens van OpenStreetMap onder de Open Database License (ODbL).",
-    "attributionAtout": "Geclassificeerde campings van Atout France, onder de Licence Ouverte 2.0 (Etalab).",
+    "attributionAtout": "Geclassificeerde campings van Atout France, geplaatst met de Base Adresse Nationale en de BD TOPO van het IGN, onder de Licence Ouverte 2.0 (Etalab).",
     "attributionCommunes": "Gemeenten van de plekken: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), onder de ODbL.",
+    "attributionCommunityPlaces": "Plekken die reizigers van Lunaway hebben toegevoegd of gewijzigd, onder de ODbL, met de vermelding “Lunaway contributors”.",
     "attributionTiles": "Basiskaart geleverd door Lunaway, stijlen afgeleid van Protomaps (BSD-3-Clause), gegevens © bijdragers van OpenStreetMap.",
     "attributionFonts": "Lettertypen Fraunces en Atkinson Hyperlegible Next, SIL Open Font License 1.1.",
     "attributionIcons": "Phosphor-pictogrammen, MIT-licentie.",
@@ -1140,7 +1161,7 @@
     "attributionAddresses": "Adressen bij het zoeken in Frankrijk: de Base Adresse Nationale, via de Géoplateforme van het IGN, onder de Licence Ouverte 2.0.",
     "attributionAddressesOsm": "Adressen bij het zoeken elders: OpenStreetMap, via Photon, onder de ODbL.",
     "attributionPoiOdbl": "Winkels en diensten: OpenStreetMap, en de openingskalender van La Poste, onder de ODbL.",
-    "attributionPoiLo": "Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS, onder de Licence Ouverte 2.0 (Etalab).",
+    "attributionPoiLo": "Brandstofprijzen (Frans ministerie van Economie) en de zorginstellingen van FINESS (Agence du numérique en santé), onder de Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contouren van de offline kaarten: Contours administratifs, data.gouv.fr (ODbL), en Natural Earth (publiek domein).",
     "attributionOfflineLabels": "Namen en pictogrammen van de offline kaarten: Noto Sans-glyphs (SIL Open Font License 1.1) en Protomaps-sprites afgeleid van tangrams/icons (MIT).",
     "attributionExtcom": "Plekken, reviews, beoordelingen en foto's, onder een schriftelijke overeenkomst met deze bron.",
@@ -1152,13 +1173,14 @@
     "creditsApp": "App",
     "attributionDatatourisme": "Plekken, beschrijvingen en foto's van de toeristenbureaus: DATAtourisme, onder de Licence Ouverte 2.0; bij elke tekst en elke foto staan het bureau, de auteur en de datum van de laatste update.",
     "attributionCommunity": "Reviews, beoordelingen en foto's van de reizigers van Lunaway, onder CC BY 4.0, met het pseudoniem van de auteur.",
-    "attributionCommons": "Foto's van Wikimedia Commons, elk onder een eigen licentie (CC0, CC BY of CC BY-SA), met de auteur en een link naar de pagina.",
+    "attributionCommons": "Foto's van Wikimedia Commons, elk onder een eigen licentie (CC0, publiek domein, CC BY of CC BY-SA), met de auteur en een link naar de pagina.",
     "attributionPanoramax": "Straatbeelden van Panoramax: de instantie van OpenStreetMap France onder CC BY-SA 4.0, die van het IGN onder de Licence Ouverte 2.0.",
     "attributionWikipedia": "Fragmenten uit Wikipedia-artikelen, onder CC BY-SA 4.0, met een link naar het artikel.",
     "attributionMangrove": "Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.",
-    "attributionRoadEvents": "Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.",
+    "attributionTranslation": "Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.",
+    "attributionRoadEvents": "Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.",
     "attributionRoadEventsAbroad": "Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Flitsers en gevarenzones: de officiële flitserlijsten (in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Licence Ouverte 2.0; Polen, Luxemburg en Brussel, CC0; Noorwegen, NLOD), de controlezones van de Ierse Garda (CC BY 4.0) en OpenStreetMap (ODbL).",
+    "attributionDangerZones": "Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).",
     "attributionCameraSource": "Flitsers en gevarenzones: $attribution"
   },
   "units": {
@@ -1207,7 +1229,7 @@
   "account": {
     "title": "Je account",
     "noneTitle": "Nog geen account",
-    "noneBody": "De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.",
+    "noneBody": "De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.",
     "recover": "Mijn account herstellen",
     "memberSince": "Lid sinds $date",
     "editPseudonym": "Pseudoniem wijzigen",
@@ -1265,7 +1287,7 @@
     "welcomeTitle": "Bedankt voor je eerste bijdrage",
     "welcomeBody": "Je account is aangemaakt, met het pseudoniem “$name”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.",
     "welcomeCard": "Maak je herstelkaart om dit account op een ander apparaat terug te vinden.",
-    "welcomeFavorites": "Je favorietenlijsten worden nu bij je account bewaard."
+    "welcomeFavorites": "Je favorietenlijsten worden nu met adressen en notities bij je account bewaard."
   },
   "recovery": {
     "title": "Herstelkaart",
@@ -1332,7 +1354,7 @@
     "backups": "De back-ups van de server worden binnen ongeveer 30 dagen gewist.",
     "device": "Op dit apparaat blijven je favorieten; de sleutel van het account wordt gewist.",
     "web": "Je kunt het account ook verwijderen op lunaway.net met je herstelcode.",
-    "webLink": "lunaway.net/account/delete",
+    "webLink": "lunaway.net/nl/account/delete",
     "confirmTitle": "Definitief verwijderen?",
     "confirmBody": "Het account “$name” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.",
     "confirmCheck": "Ik begrijp dat dit definitief is",
@@ -1636,7 +1658,7 @@
     "synced": "Bewaard bij je account, gesynchroniseerd $when",
     "failed": "Synchroniseren lukt nu niet",
     "title": "Je favorieten synchroniseren?",
-    "body": "Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.",
+    "body": "Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.",
     "confirm": "Account maken en synchroniseren"
   },
   "poi": {

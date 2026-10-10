@@ -16,6 +16,9 @@ import 'package:lunaway/core/router/popup_routes.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_history.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -39,7 +42,6 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
-import 'package:lunaway/features/places/presentation/address_labels.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -47,7 +49,6 @@ import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/cheapest_fuel.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
-import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -540,6 +541,9 @@ class _MapState extends ConsumerState<_Map> {
         ? const <PlaceSummary>[]
         : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
     final selection = ref.watch(selectionProvider);
+    // The points saved in the list the favourites show: an address saved
+    // has no pin of its own on the map.
+    final saved = ref.watch(shownListPointsProvider).value ?? const <FavoritePointEntry>[];
     final poiChoice = ref.watch(poiLayerProvider);
     final pois = PoiLayerView(
       // The tiles of every category only while a chip shows one read on
@@ -573,6 +577,15 @@ class _MapState extends ConsumerState<_Map> {
         onMarkerTap: () {
           _gate.cancel();
           widget.onMarkerTapped?.call();
+        },
+        savedPoints: [for (final e in saved) SavedMark(e.point.id, e.point.position)],
+        onSavedPointTap: (id) {
+          _gate.cancel();
+          final point = saved.where((e) => e.point.id == id).firstOrNull?.point;
+          if (point == null) return;
+          if (!_flow.select(selectionOfSaved(point), since: _pressed)) return;
+          // As for a long press: the sheet that opens may cover the point.
+          unawaited(ref.read(mapControllerProvider)?.moveTo(point.position));
         },
         onPlaceTap: (id, {hint}) {
           _gate.cancel();
@@ -768,14 +781,14 @@ class _SelectionActions extends ConsumerWidget {
     },
     PointSelection(:final position, :final address) => PointActionBar(
       position: position,
+      address: address,
       floating: true,
       here: true,
-      label: address == null ? null : addressRouteLabel(address),
     ),
     PoiSelection(:final feature) => PointActionBar(
       position: feature.position,
+      poi: feature,
       floating: true,
-      label: context.t.poiTitle(feature.name, feature.kind),
     ),
   };
 }

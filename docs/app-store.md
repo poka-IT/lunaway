@@ -4,7 +4,7 @@ Who reads this: whoever ships the iOS app. The listing lives in
 `fastlane/metadata/ios/` (`docs/store-listing.md`), the screenshots plan in
 `docs/screenshots.md`, the release order in `docs/release.md`.
 
-State on 2026-10-07 (`main` at 93ba876): the project builds unsigned in CI
+State on 2026-10-10 (`main` at 0c656d30): the project builds unsigned in CI
 (`.github/workflows/ci.yml`, job `ios`, `flutter build ios --release
 --no-codesign`); no Apple Developer team is set (`DEVELOPMENT_TEAM` absent
 from `app/ios/Runner.xcodeproj/project.pbxproj`) and this Mac has no
@@ -18,10 +18,10 @@ maintainer's Apple account, gathered in "What only the maintainer does".
 | Version, build | `CFBundleShortVersionString` = pubspec name (`0.1.0`), `CFBundleVersion` = pubspec build number (`2`) | `Info.plist`, `app/pubspec.yaml` (`version: 0.1.0+2`) |
 | Minimum iOS | 15.0 | `IPHONEOS_DEPLOYMENT_TARGET` |
 | Devices | iPhone and iPad | `TARGETED_DEVICE_FAMILY = "1,2"` |
-| Languages | French (primary), English | `CFBundleLocalizations`, `app/lib/i18n/` |
+| Languages | French (primary), English, German, Spanish, Italian, Dutch | `CFBundleLocalizations`, `app/lib/i18n/`; listing in `fastlane/metadata/ios/<fr-FR,en-US,de-DE,es-ES,it,nl-NL>/` |
 | Category | Travel, then Navigation | `fastlane/metadata/ios/*_category.txt` |
 | Price | free, no in-app purchase | |
-| URLs | support https://lunaway.net/about, marketing https://lunaway.net/, privacy https://lunaway.net/privacy (English pages under `/en/`) | `fastlane/metadata/ios/<locale>/*_url.txt` |
+| URLs | support https://lunaway.net/about, marketing https://lunaway.net/, privacy https://lunaway.net/privacy (the other languages under `/en/`, `/de/`, `/es/`, `/it/`, `/nl/`) | `fastlane/metadata/ios/<locale>/*_url.txt` |
 
 ## Review guidelines that bind the app
 
@@ -45,11 +45,13 @@ maintainer's Apple account, gathered in "What only the maintainer does".
   (contact@lunaway.net). Moderators act from the command line
   (`docs/deploy.md`, "lunaway-admin").
 - **Privacy policy, 5.1.1(i).** In App Store Connect and inside the app:
-  Profile, About, "Privacy policy" opens https://lunaway.net/privacy
-  (`app/lib/features/profile/presentation/profile_screen.dart`).
+  Profile, About, "Privacy policy" opens https://lunaway.net/privacy in
+  French, or the page of the app's language under `/en/`, `/de/`, `/es/`,
+  `/it/` or `/nl/` (`app/lib/features/profile/presentation/profile_screen.dart`,
+  `AppConfig.sitePage`).
 - **Purpose strings.** Location when in use, camera, photo library and
-  photo library additions, in English in `Info.plist` and in
-  `en.lproj`/`fr.lproj/InfoPlist.strings` (texts in "App Privacy" below).
+  photo library additions, in English in `Info.plist` and in the six
+  `<language>.lproj/InfoPlist.strings` (texts in "App Privacy" below).
 - **Background modes, 2.5.4.** `location` and `audio`, for the in-app
   guidance only (`Info.plist`, `UIBackgroundModes`): it starts in the
   foreground with "When In Use", shows the blue indicator while it runs
@@ -64,77 +66,89 @@ maintainer's Apple account, gathered in "What only the maintainer does".
 Derived from the Data safety inventory in `docs/play-store.md`, with
 Apple's definitions (developer.apple.com/app-store/app-privacy-details,
 read 2026-10-06): data is "collected" when it leaves the device and stays
-accessible longer than needed to serve the request in real time. Checked
-against `main` at 93ba876 on 2026-10-07.
+accessible, to the developer or to a third party it goes to, longer than
+needed to serve the request in real time. Checked against `main` at
+0c656d30 on 2026-10-10.
 
 | Answer | Data types | Purpose |
 |---|---|---|
 | Data used to track you | none | |
 | Data linked to you | Identifiers: User ID (account id and pseudonym, a "screen name"), Device ID (the public key generated per device) | App Functionality |
-| | User Content: Photos or Videos; Other User Content (ratings, reviews, "Still there?" confirmations of places and answers about shops and services, problem and content reports, new places, vending machines and edits, favourite lists, mutes) | App Functionality |
+| | User Content: Photos or Videos; Other User Content (ratings, reviews, "Still there?" confirmations of places, answers about shops and services and about road events, problem, road and content reports, new places, vending machines and edits, favourite lists, mutes) | App Functionality |
 | | Usage Data: Product Interaction (days of use, last-use dates of sessions and devices, which feed the trust level) | App Functionality (Apple's definition includes fraud prevention and security) |
-| | Location: Precise Location (the position of a new place or vending machine, kept with the account; after "locate me", or when the map opens on the user, the map centre is the device's own position: `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`) | App Functionality |
-| Data not linked to you | none | |
+| | Location: Precise Location (the position of a new place or vending machine, kept with the account; the coordinates of the points saved in the favourite lists, kept with the account once there is one: `app/lib/features/favorites/data/favorites_sync.dart`; after "Show my position", or when the map opens on the user, the map centre is the device's own position: `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`; the position and heading of a road report, kept 14 days with the account: `app/lib/features/navigation/presentation/road_report_sheet.dart`, `backend/crates/lunaway-db/src/road_events.rs`) | App Functionality |
+| Data not linked to you | Search History (the text of an address search) and Coarse Location (the map centre rounded to 0.05 degree sent with it, which is the device position rounded when the map follows the user): our server passes both to IGN's Géoplateforme geocoder, without the client's address or any identifier (`backend/crates/lunaway-api/src/geocode.rs`). Declared because IGN answers under its own terms and its log retention is not known to us; our servers keep nothing of them | App Functionality |
 
-Not collected, with the reason:
+Not collected, apart from the address search above, with the reason:
 
-- Coarse Location: processed for the request only. The cheapest fuel
+- Coarse Location on our servers: processed for the request only. The cheapest fuel
   list sends the position or the map centre rounded to 0.05 degree
   (`app/lib/features/poi/application/fuel_feed_providers.dart`), the fuel
   layer the visible area widened to a 0.05 degree grid
   (`poi_providers.dart`), and so do the list of places beside the map
-  below zoom 12 (from 12 on, for the ratings and excerpts of its rows:
-  `app/lib/features/map/application/listed_places.dart`), the count of
+  (`app/lib/features/map/application/listed_places.dart`), the count of
   the filters and the places along a route on a device without places
-  (`app/lib/features/places/data/online_places.dart`);
-  nothing is stored, the access log keeps no query content
+  (`app/lib/features/places/data/online_places.dart`); the first region
+  synced is chosen from the position, at region scale
+  (`app/lib/features/regions/`), and the guidance asks the photos of the
+  places drawn near the vehicle by their ids
+  (`app/lib/features/navigation/data/place_thumbs.dart`). Nothing is
+  stored, the access log keeps no query content and masks pack names
   (`infra/caddy/Caddyfile`, `access_log`).
 - Precise Location for routes: the start of each route, the reroutes of a
-  guidance and the route line sent for its fuel stations reach the server
-  and are used for that request only; nothing is stored, the API logs no
-  position (`backend/crates/lunaway-api/src/lib.rs`, request span) and the
-  routing engine's journal holds none (14 days of `journalctl -u valhalla`
-  read on 2026-10-07: no coordinate, no request body). Under Apple's
-  definition this adds no type.
-- Search History: the search of places runs on the device when it holds
-  places, otherwise it sends the text and the map centre rounded to 0.05
-  degree, as the search of shops and services always does; neither is
-  stored nor logged.
+  guidance and the route line sent for "On the way" (from 2 km past the
+  start or ahead of the vehicle, the server dropping 2 km more at each
+  end) reach the server and are used for that request only; nothing is
+  stored, the API logs per route its timings and outcome, never a
+  coordinate (`backend/crates/lunaway-api/src/routing_query.rs`), and the
+  routing engine's journal holds none (14 days of `journalctl -u
+  valhalla` read on 2026-10-07: no coordinate, no request body). Under
+  Apple's definition this adds no type.
+- Search History, apart from addresses: the search of places runs on the
+  device when it holds places, otherwise it sends the text and the map
+  centre rounded to 0.05 degree, as the search of shops and services
+  always does; neither is stored nor logged, and neither leaves our
+  servers.
+- Translations: the request names a published review or description and
+  the target language, never the text nor a session
+  (`app/lib/features/translation/`); the translation kept belongs to the
+  item and serves every reader.
 - Contact Info (no e-mail, phone or real name is asked), Diagnostics and
-  crash data (none), Browsing History (none).
+  crash data (none), Browsing History (none), Audio (no microphone).
 - Speed cameras and road events: asked by country and by cursor, without
   any position; with the setting of exact positions in France on, the
   request also names France (`exactIn`), which the server neither logs
   nor keeps.
 
-The optional-disclosure exemption is not used: reviews, photos and new
-places are part of the app's main use. Road event reports
-(`reportRoadEvent`) exist in the API but no screen of the app sends one at
-93ba876; when the app sends them, they fall under Precise Location,
-already declared, kept 14 days.
+The optional-disclosure exemption is not used: reviews, photos, new
+places and road reports are part of the app's main use.
 
-Location purpose strings (`app/ios/Runner/Info.plist`,
-`app/ios/Runner/en.lproj/InfoPlist.strings`, `fr.lproj/InfoPlist.strings`;
-the same two keys, `NSLocationWhenInUseUsageDescription` and
-`NSLocationUsageDescription`):
+Location purpose strings (`app/ios/Runner/Info.plist` and the six
+`app/ios/Runner/<language>.lproj/InfoPlist.strings`; the same two keys,
+`NSLocationWhenInUseUsageDescription` and `NSLocationUsageDescription`):
 
 - en: "Lunaway shows your position on the map, sorts the places around
   you and guides you along a route you start, also with the screen off
   while it guides. Your position goes to Lunaway's server to compute a
   route, which keeps nothing of it; rounded to about 5 km, to look for the
-  cheapest fuel around you; and when you add a place where you stand."
+  cheapest fuel around you or, when the map follows you, to rank a search;
+  and when you add a place where you stand or report a problem on the
+  road."
 - fr : « Lunaway affiche votre position sur la carte, trie les lieux
   autour de vous et vous guide sur l'itinéraire que vous lancez, écran
   éteint compris pendant le guidage. Votre position part vers le serveur
   de Lunaway pour calculer un itinéraire, qui n'en garde rien ; arrondie à
-  environ 5 km, pour chercher le carburant le moins cher autour de vous ;
-  et quand vous ajoutez un lieu là où vous êtes. »
+  environ 5 km, pour chercher le carburant le moins cher autour de vous
+  ou, quand la carte vous suit, classer une recherche ; et quand vous
+  ajoutez un lieu là où vous êtes ou signalez un problème sur la route. »
+- de, es, it, nl: the same sentence in each language, in its
+  `InfoPlist.strings`.
 
-macOS (`app/macos/Runner/Info.plist` and its two `InfoPlist.strings`)
+macOS (`app/macos/Runner/Info.plist` and its six `InfoPlist.strings`)
 guides too, with the window open (no background mode on the Mac): "guides
 you along a route you start" / « vous guide sur l'itinéraire que vous
 lancez », without the clause about the screen off, the rest the same. The
-other strings:
+other strings (iOS only; the Mac app offers no camera):
 
 - camera: "Lunaway uses the camera when you take a photo of a place, or
   of your recovery card to read its code."
@@ -148,19 +162,25 @@ other strings:
 
 `app/ios/Runner/PrivacyInfo.xcprivacy`, added to the Runner target's
 resources in `project.pbxproj` (four lines: file reference, group, build
-file, resources phase). `plutil -lint` passes on both files and
-`xcodebuild -list` reads the project.
+file, resources phase), and its macOS twin
+`app/macos/Runner/PrivacyInfo.xcprivacy`, in the macOS Runner target's
+resources. `plutil -lint` passes on both.
 
 - `NSPrivacyTracking` false, no tracking domain.
-- `NSPrivacyCollectedDataTypes`: the six types of the label above, linked,
-  not tracking, App Functionality.
+- `NSPrivacyCollectedDataTypes`: the eight types of the label above, not
+  tracking, App Functionality; six linked, Search History and Coarse
+  Location not linked. If the API stops sending the point to IGN
+  (`geocode.rs`, `ask_ban`), Coarse Location leaves the label and the
+  manifests; if the address search of France stops leaving our servers,
+  Search History leaves them too.
 - `NSPrivacyAccessedAPITypes`, what the app's binaries reach without a
-  manifest that declares it:
+  manifest that declares it (iOS; the macOS manifest declares the first
+  two rows, no plugin of the macOS build using the user defaults):
 
 | Category, reason | Who calls it | Evidence |
 |---|---|---|
-| File timestamp, C617.1 (files inside the app container) | `sqlite3.framework`, built by package:sqlite3 from `app/third_party/sqlite/sqlite3.c`, ships no manifest; `package_info_plus` 10.2.2 reads the creation and modification dates of the app's bundle and ships an empty manifest | `nm -u` on the framework lists `_stat`, `_fstat`, `_lstat`; `FPPPackageInfoPlusPlugin.m` (`NSFileCreationDate`, `fileModificationDate`) |
-| Disk space, E174.1 | the same framework: `statfs` and `fstatfs` read whether the volume is read-only and its file system type before SQLite writes a database (`sqlite3.c`, the locking style probe and `unixOpen`, always compiled on Apple platforms) | `nm -u` lists `_statfs`, `_fstatfs` |
+| File timestamp, C617.1 (files inside the app container) | `sqlite3.framework`, built by package:sqlite3 from `app/third_party/sqlite/sqlite3.c`, ships no manifest; `package_info_plus` 10.2.2 reads the creation and modification dates of the app's bundle and ships an empty manifest; the guidance engine of `lunaway_nav` (Rust) links `fstat` (assumption: called on files inside the container only; read in the symbols of a build, not in its code) | `nm -u` on the framework lists `_stat`, `_fstat`, `_lstat`; `FPPPackageInfoPlusPlugin.m` (`NSFileCreationDate`, `fileModificationDate`) |
+| Disk space, E174.1 | the same framework: `statfs` and `fstatfs` read whether the volume is read-only and its file system type before SQLite writes a database (`sqlite3.c`, the locking style probe and `unixOpen`, always compiled on Apple platforms); the app reads the free space before an offline download (`AppDelegate.swift`, `volumeAvailableCapacityForImportantUsageKey`) | `nm -u` lists `_statfs`, `_fstatfs` |
 | User defaults, CA92.1 | `permission_handler_apple` keeps one flag (`LocationPermissionStrategy.m`; its manifest declares 1C8F.1, the App Group reason); the maplibre_gl plugin, which ships no manifest, keeps a map setting (`MapLibreMapController.swift`) | both linked into the app binary |
 
 E174.1 ("check whether there is sufficient disk space to write files") is
@@ -170,7 +190,8 @@ a new reason through Apple's form, since SQLite calls `fstatfs` on every
 Apple build whatever its compile options.
 
 Manifests already shipped by the components (read in the pub cache and the
-build on 2026-10-06, versions of `app/pubspec.lock`):
+build on 2026-10-06, versions of `app/pubspec.lock`; no hosted iOS or
+macOS plugin changed between 93ba876 and 0c656d30):
 
 | Component | Accessed APIs declared |
 |---|---|
@@ -178,7 +199,7 @@ build on 2026-10-06, versions of `app/pubspec.lock`):
 | MapLibre 6.28.0 (the framework, a Swift package pulled by maplibre_gl) | file timestamp C617.1, system boot time 35F9.1, user defaults CA92.1 |
 | maplibre_gl 0.27.1 (the Flutter plugin) | no manifest |
 | permission_handler_apple 9.6.2 | user defaults 1C8F.1 |
-| flutter_secure_storage_darwin 0.4.3, geolocator_apple 2.3.14, image_picker_ios 0.8.13+9, package_info_plus 10.2.2, pointer_interceptor_ios 0.10.1+1, share_plus 13.3.1, url_launcher_ios 6.4.2 | none (empty manifests) |
+| flutter_secure_storage_darwin 0.4.3, geolocator_apple 2.3.14, image_picker_ios 0.8.13+9, package_info_plus 10.2.2, pointer_interceptor_ios 0.10.1+1, share_plus 13.3.1, url_launcher_ios 6.4.2, lunaway_nav (local) | none (empty manifests) |
 | `objective_c.framework` (package:objective_c 9.6.2) | no manifest; `nm -u` shows no required-reason symbol |
 
 None of them declares collected data or tracking. After any plugin or
@@ -256,18 +277,24 @@ page says "Lunaway is meant for adults" and Play declares an audience of
 two do not conflict. Made for Kids: no.
 
 Content rights: the app shows third-party content (open data under ODbL,
-Licence Ouverte, CC0, CC BY, NLOD and the Generalitat's open licence, the
-French speed camera list reused under the CRPA, `docs/data-sources.md`;
-user content under ODbL and CC BY 4.0) and has the rights to it: answer
-yes to "contains third-party content" and confirm the rights.
+Licence Ouverte, CC0, CC BY, NLOD, the French speed camera map reused under
+the CRPA; open content under each item's licence: Wikimedia Commons,
+Wikipedia under CC BY-SA 4.0, Panoramax, DATAtourisme, Mangrove Reviews;
+the external community source's places, reviews and photos under its
+written agreement; `docs/data-sources.md`; user content under ODbL and
+CC BY 4.0) and has the rights to it: answer yes to "contains third-party
+content" and confirm the rights. The agreement's text is kept outside the
+repository; whether it covers the translations of its reviews is for the
+maintainer to confirm (`docs/data-sources.md`, "Machine translation").
 
 ## Review notes and demo account
 
 `fastlane/metadata/ios/review_information/notes.txt` (English, under
-4000 characters): what the app is, account creation, trust levels, the
-demo account steps, deletion path, moderation, location (routes, guidance
-in the background, the rounded fuel search, new places), speed cameras
-and limits, camera and photos, production servers.
+4000 characters, measured on 2026-10-10 in `plan/research/95-textes-publication.md`): what the app is, account creation,
+trust levels, the demo account steps, deletion path, moderation, location
+(routes, guidance in the background, the rounded fuel search, new places,
+road reports), speed cameras and limits, voice modes, search and
+translation, camera and photos, production servers.
 
 The demo account:
 
@@ -290,9 +317,10 @@ and stay out of the repository except `email_address.txt`
 ## Guidance
 
 In-app guidance ships in 0.1.0+2 (`app/lib/features/navigation/`), on
-iPhone and iPad only (`ferrostar_engine.dart`).
+every platform: iPhone, iPad, macOS, Windows and the web
+(`ferrostar_engine.dart`); only iPhone and iPad guide in the background.
 
-- `Info.plist`, `UIBackgroundModes`: `location` and `audio`.
+- `Info.plist` (iOS), `UIBackgroundModes`: `location` and `audio`.
 - No "Always" authorization and no
   `NSLocationAlwaysAndWhenInUseUsageDescription`: guidance starts in the
   foreground with "When In Use", the location settings ask for
@@ -306,7 +334,9 @@ iPhone and iPad only (`ferrostar_engine.dart`).
   speed: the excess shows as a warning only, no feature ranks speeds, and
   the spoken reminder of the limit is off by default
   (`app/lib/features/navigation/domain/driving_aids.dart`); a danger zone
-  coming is a safety alert, said unless the voice is muted.
+  coming is a safety alert, said unless the voice is off. The voice has
+  three modes, full, alerts only and off
+  (`app/lib/features/navigation/domain/route_settings.dart`, `VoiceMode`).
 - What the app shows of speed cameras, on the map of a route and during
   guidance, never on the main map: the countries that allow camera
   positions, the camera with its limit; the zone countries, danger zones
@@ -317,7 +347,11 @@ iPhone and iPad only (`ferrostar_engine.dart`).
   legal reading in `docs/speed-cameras.md`); nothing in Switzerland,
   Germany, Morocco, Liechtenstein, Monaco, San Marino, the Vatican or a
   country the table does not name. No police check is ever reported.
-- Data safety and privacy label: covered above (no new type).
+- Road reports, from the guidance or a point of the map (France, Spain,
+  the Netherlands): a
+  precise position and heading, kept 14 days with the account, under
+  Precise Location and Other User Content in the label above; no police
+  check can be reported (`roadReport.intro`).
 
 ## What only the maintainer does
 

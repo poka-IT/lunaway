@@ -1,0 +1,47 @@
+Lunaway is een kaart van plekken waar je met een camper of busje kunt stoppen: camperplaatsen, camperservicepunten, parkeerplaatsen, campings, camperplaatsen bij de boer, plekken in de natuur, in Frankrijk en twintig andere Europese landen.
+
+Gratis, zonder advertenties en zonder trackers: alle functies zijn gratis, ook offline. De code is vrije software (AGPL) en de database met plekken is open (ODbL).
+
+EEN PLEK VOOR DE NACHT
+• Op elke detailpagina staat of je er mag overnachten: toegestaan, gedoogd, alleen overdag of verboden
+• Filters: soort plek, overnachten mogelijk, gratis, voorzieningen, minimale beoordeling, het hele jaar open of open op jouw data
+• “Mijn voertuig past”: verbergt plekken met een hoogtelimiet onder de hoogte van je voertuig
+• Zoeken naar een plek, een gemeente of een adres
+• Prijs per nacht en van de voorzieningen, seizoen, openingstijden, foto's, reviews en bronnen op elke detailpagina
+
+ROUTE EN NAVIGATIE OP MAAT VAN JE VOERTUIG
+• Route berekend op basis van de hoogte, breedte, lengte en het gewicht van je voertuig en aanhanger: te lage bruggen en wegen die verboden zijn voor je voertuig worden vermeden
+• Stapsgewijze navigatie in de app, een nieuwe route als je van de route afwijkt, tot vijf tussenstops
+• Stem met drie standen: volledige stem, alleen waarschuwingen, of stem uit
+• Flitsers en gevarenzones volgens de wet van elk land, maximumsnelheid voor je voertuig
+• Werkzaamheden en afsluitingen bijgewerkt tijdens de rit; de route gaat om afsluitingen heen
+• Tol, snelwegen, veerboten of onverharde wegen vermijden
+
+ONDERWEG
+Brandstof, overnachtingsplekken, water en lozen, boodschappen, bakkers, toiletten en douches, gezondheid, laadpalen, garages: wat er langs je route ligt, met de omweg en of het open is als je langskomt. Met één tik voeg je het toe als tussenstop.
+
+IN DE BUURT
+Winkels, water en lozen, brandstof, gezondheid, diensten, restaurants, bezienswaardigheden, met hun openingstijden. Brandstofprijzen van Franse tankstations en een lijst van de goedkoopste in je buurt.
+
+OFFLINE, GRATIS
+Kies de regio's die je wilt bewaren: hun plekken blijven op het apparaat en worden bijgewerkt, standaard via wifi. De lijst, het zoeken, de filters, de detailpagina's en je favorieten werken zonder verbinding. De basiskaart is ook per regio te downloaden.
+
+REVIEWS IN JE EIGEN TAAL
+Een review in een andere taal wordt met één tik vertaald, of automatisch als je dat inschakelt. De vertaling gebeurt op de servers van Lunaway: de tekst gaat naar geen enkele externe dienst.
+
+MEEDOEN
+• Beoordelingen, reviews en foto's; “Is het er nog?” om te laten weten of een plek nog overeenkomt met de detailpagina
+• Een probleem melden, een wijziging voorstellen, een plek toevoegen
+• Tijdens het navigeren een afgesloten weg, werkzaamheden, een versmalling of een lage doorrijhoogte melden (Frankrijk, Spanje, Nederland)
+
+EEN ACCOUNT ZONDER E-MAIL
+Voor de kaart en de routes heb je geen account nodig. Het account wordt aangemaakt bij je eerste bijdrage, zonder e-mailadres of wachtwoord, met een pseudoniem dat je kunt wijzigen. Met een herstelkaart haal je het terug op een ander apparaat. Elke bijdrage, en ook het hele account, kun je verwijderen vanuit de app.
+
+FAVORIETEN EN VOERTUIG
+Favorieten in lijsten, op het apparaat en bij je account als je er een hebt. Voertuigprofiel: type, aanhanger, afmetingen, gewicht, brandstof, verbruik.
+
+ZES TALEN
+Frans, Engels, Duits, Spaans, Italiaans en Nederlands, gesproken navigatie inbegrepen. Licht of donker thema volgens de zon. Indeling voor iPhone en iPad.
+
+BRONNEN
+Open data, bijdragen van de Lunaway-community en een externe communitybron op grond van een schriftelijke overeenkomst. Elke detailpagina toont de bronnen en hun licentie.

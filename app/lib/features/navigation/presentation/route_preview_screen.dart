@@ -466,7 +466,7 @@ PreviewEnforcement _enforcementOf(WidgetRef ref, RouteOption? route) {
 }
 
 /// The lists the danger zones and the cameras on the map come from, each
-/// once with its date: the French list asks to be cited with its date
+/// once, by its licensor and with its date, as the French lists ask
 /// (docs/speed-cameras.md).
 class _EnforcementNote extends ConsumerWidget {
   const new({required this.route});
@@ -493,15 +493,15 @@ class _EnforcementNote extends ConsumerWidget {
         for (final s in cited.values)
           Text(switch ((zones.containsKey(s.id), cameras.containsKey(s.id))) {
             (true, true) => t.navigation.marks.bothFrom(
-              source: s.name,
+              source: s.credit,
               date: t.listDate(s, now: now),
             ),
             (true, false) => t.navigation.marks.zonesFrom(
-              source: s.name,
+              source: s.credit,
               date: t.listDate(s, now: now),
             ),
             _ => t.navigation.marks.camerasFrom(
-              source: s.name,
+              source: s.credit,
               date: t.listDate(s, now: now),
             ),
           }, style: muted),
