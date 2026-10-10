@@ -32,9 +32,9 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 8 (the seasons), the user store at 5 (saved points)', () {
+  test('the cache is at version 8 (the seasons), the user store at 6 (saved streets)', () {
     expect(db.schemaVersion, 8);
-    expect(user.schemaVersion, 5);
+    expect(user.schemaVersion, 6);
   });
 
   group('settings', () {
