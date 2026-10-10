@@ -7,7 +7,7 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 
 | source | content | licence | attribution | status |
 |---|---|---|---|---|
-| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services, restaurants, cafés and fast food, and what is worth a stop (named viewpoints, attractions, museums, tourist offices) (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`; what is left out below); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
+| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services, restaurants, cafés and fast food, and what is worth a stop (named viewpoints, attractions, museums, tourist offices) (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`; what is left out below); the establishments the map's search finds, every named shop, service, health practice, place to stay and leisure venue, which the map tiles never carry ("Establishments" below); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
 | DATAtourisme (ADN Tourisme, `api.datatourisme.fr/v1`) | the motorhome areas (`CamperVanArea`), service areas (`RVServiceArea`) and campsites (`CampingAndCaravanning` and its subclasses) the French tourist offices publish, 9 389 objects on 2026-10-07, as records the conflation merges (mapping table `datatourisme::CLASSES`); their descriptions and photos stay in the record's raw payload and reach the card through the content worker ("Open content" below) | Licence Ouverte 2.0: "L'usage est soumis aux termes de la Licence Ouverte d'Etalab ainsi qu'aux Conditions Générales d'Utilisation. L'utilisateur doit toujours mentionner la paternité du jeu de données (identifiée sous l'appellation « HasBeenCreatedBy » au sein de chaque jeu de données) utilisé dans le cadre de sa réutilisation et la date de dernière mise à jour du jeu de données réutilisé." (https://www.datatourisme.fr/utiliser-les-donnees/, read 2026-10-07); CGU v2.0 art. 62: "Tous les Jeux de données publiés sur l'Interface diffuseurs sont régis par la Licence Ouverte / Open Licence publiée par Etalab" | the producing office (`hasBeenCreatedBy`) and its last update (`lastUpdate`), "via DATAtourisme" | ingested weekly (`lunaway ingest datatourisme`, a free key in `LUNAWAY_DATATOURISME_KEY`) |
 | Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte | "Atout France" | ingested |
 | Base Adresse Nationale (Géoplateforme geocoder, `data.geopf.fr/geocodage`) | coordinates of the Atout France campsites, geocoded from their address; for the campsites that fails on, a second pass with the address stripped of what the BAN cannot read (a "lieu-dit" marker, a road number, a post box), then the campsite's name among the Géoplateforme's points of interest (`index=poi`, IGN BD TOPO toponyms of category `camping`), then the municipality alone, the record then flagged approximate: such a record enriches the place it merges with, and makes no place of its own (195 of the 225 that would have stood alone had a campsite of a close name mapped in OSM in the same commune on 2026-10-06, `docs/conflation.md` section 3) | Licence Ouverte 2.0 (BAN and BD TOPO alike, the BD TOPO row below) | "Base Adresse Nationale, IGN BD TOPO" (part of the `atout-france` attribution) | used by the Atout France adapter |
@@ -57,6 +57,40 @@ Measured on Geofabrik's taginfo of France and of Europe (data of
   in Europe): too few for a map without one to tell anything. The bathing
   waters the health authorities sample under the European directive would
   be the source for such a layer.
+
+### Establishments: every named shop, service and venue, for the search
+
+The map's search finds every named establishment of OpenStreetMap in the
+countries the extracts cover (`lunaway ingest pois`, after the points of
+interest, mapping table `TAGS` in `lunaway-ingest/src/establishments_osm.rs`,
+`plan/research/98-recherche-commerces.md`): shops (`shop=*`, any value but
+an empty shop), food and drink (bars, pubs, ice cream), banks, health
+practices (`healthcare=*`, dentists, clinics), places to stay
+(`tourism=hotel|guest_house|hostel|apartment|chalet`, mountain huts),
+leisure venues (cinemas, pools, sports centres, marinas, parks), town
+halls, libraries and police, and the craftsmen whose workshop sells to the
+public (a winery, a brewery, a shoemaker, a potter). They are points of
+interest with `in_tiles` false: the map tiles never carry them, so the
+tiles and their weight are those of the points of interest alone; the
+search, a point's card and the favourites read them.
+
+Left out: an unnamed element (the search finds an establishment by its
+name or by its kind near the map, and an unnamed one would read "Shop"),
+`access=no|private|customers`, `opening_hours=closed|off`, an empty shop
+(`vacant`, `disused`), every `office=*` but the ones with a shop window
+(estate agents, insurers, travel agents, coworking spaces), the trades that
+come to a home and whose address is often the craftsman's own (builders,
+plumbers, electricians, painters, gardeners), schools, places of worship,
+pitches and playgrounds. An element the points of interest read stays one
+of them (a restaurant, a bakery).
+
+On the France extract of 2026-10-06, read on 2026-10-10: 513,808
+establishments beside the 471,764 points of interest; services 171,756,
+shops 150,868, leisure 64,859, places to stay 37,535, health 31,919,
+groceries 29,575, food and drink 24,292, sights 3,004. 199,851 give their
+hours, 211,070 a phone number, 183,781 a website, 19,364 a Wikidata item,
+a Commons file or a Panoramax picture (`SELECT ... FROM pois WHERE NOT
+in_tiles` on the local copy).
 
 ### Licences of the places database
 
@@ -513,6 +547,26 @@ Nominatim's public instance ("an absolute maximum of 1 request per second",
 not implement such a service on the client side using the API",
 https://operations.osmfoundation.org/policies/nominatim/, read 2026-10-07).
 
+## Points and establishments of the map's search
+
+`Query.searchAll(pois: n)` and `Query.searchPois` find the points of
+interest and the establishments (above) in Lunaway's own database, never
+through a third party: by their name or brand, by their kind in one of the
+app's six languages ("coiffeur", "Friseur", "pizzeria", the vocabulary of
+`lunaway-domain/src/poi_words.rs`), and around the town a text ends on
+when the towns of the search know it (`lunaway-db/src/poi_search.rs`,
+`plan/research/98-recherche-commerces.md`). An establishment of another
+source that names the same shop as an OpenStreetMap point within 150 m is
+left out of an answer. Nothing of a search is stored or logged: the text
+and the map's centre, rounded to 0.05 degree, live for the request.
+
+Ratings and reviews of other sites than Lunaway and Mangrove are not
+read: Google Maps, TripAdvisor, Yelp and TheFork forbid it in their terms,
+and the reviews belong to their authors ("Never ingested" below). A point's
+card links instead to the search of that point on Google Maps (its name and
+position in the link), which the app opens at the user's tap; neither the
+app nor the server sends Google any request.
+
 ## Machine translation
 
 A review or a description shown in another language than the reader's
@@ -543,5 +597,6 @@ Proprietary databases of spots, reviews and photos are not ingested, whoever
 publishes them: their terms forbid reuse, and their reviews and photos belong
 to the people who wrote and took them. Campercontact, iOverlander, WikiCamps,
 Freecampsites, Searchforsites, France Passion and Camping-Car Park are among
-them. A producer can still offer its data under a written licence; it then
+them, and so are the ratings and reviews of shops and restaurants on Google
+Maps, TripAdvisor, Yelp and TheFork. A producer can still offer its data under a written licence; it then
 goes through the `data-source` skill like any other source.
