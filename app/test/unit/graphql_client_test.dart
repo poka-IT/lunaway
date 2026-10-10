@@ -128,6 +128,29 @@ void main() {
     expect((back.first as Map)['authorVehicle'], 'CAMPERVAN');
   });
 
+  test('a large answer, read in another isolate, reads as a small one', () async {
+    final page = fixture('changes_page.json');
+    final small = await GraphQLChangesSource(client((_) => json(page)))
+        .changes(bbox: GeoBounds.metropolitanFrance, first: 1000);
+    // The same page padded past the size read apart, by a field the client
+    // ignores.
+    final padded = page.replaceFirst('{', '{"padding":"${'x' * decodeApartBytes}",');
+    expect(utf8.encode(padded).length, greaterThan(decodeApartBytes));
+    final large = await GraphQLChangesSource(client((_) => json(padded)))
+        .changes(bbox: GeoBounds.metropolitanFrance, first: 1000);
+    expect(large.cursor, small.cursor);
+    expect(large.places.length, small.places.length);
+    expect(large.places.first.name, small.places.first.name);
+    expect(large.deleted, small.deleted);
+    // An error the server writes in a large answer is still read.
+    final refused = '{"padding":"${'x' * decodeApartBytes}","errors":[{"message":"too much"}]}';
+    await expectLater(
+      GraphQLChangesSource(client((_) => json(refused)))
+          .changes(bbox: GeoBounds.metropolitanFrance, first: 10),
+      throwsA(isA<GraphQLResponseException>()),
+    );
+  });
+
   test('GraphQL errors become a response exception', () async {
     final c = client((_) => json('{"errors":[{"message":"bbox too large"}],"data":null}'));
     await expectLater(

@@ -145,7 +145,7 @@ final class GraphQLClient {
     };
     for (var limited = 0; ;) {
       final response = await _post(sent, body(), abort);
-      final decoded = _decode(response);
+      final decoded = await _decode(response);
       if (!withDocument) {
         if (_hashUnknown(decoded)) {
           withDocument = true;
@@ -225,14 +225,17 @@ final class GraphQLClient {
   }
 
   /// The JSON object of the body, or null when the body is something else
-  /// (a proxy's error page).
-  static Map<String, dynamic>? _decode(http.Response response) {
-    try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      return decoded is Map<String, dynamic> ? decoded : null;
-    } on FormatException {
-      return null;
+  /// (a proxy's error page). A large body is read in another isolate: the
+  /// guidance's road events come as pages of up to 700 KB, a route with
+  /// its alternatives as 1.3 MB, each 30 to 60 ms of the thread that draws
+  /// the app on an emulator, more on a phone (`plan/research/112-perf-android.md`).
+  /// A browser has one thread, where an isolate would only add a copy.
+  static Future<Map<String, dynamic>?> _decode(http.Response response) async {
+    final bytes = response.bodyBytes;
+    if (!kIsWeb && bytes.length >= decodeApartBytes) {
+      return await compute(decodeJsonObject, bytes, debugLabel: 'graphql response');
     }
+    return decodeJsonObject(bytes);
   }
 
   /// How long the server asks to wait, when it refused the request for its
@@ -253,6 +256,21 @@ final class GraphQLClient {
     }
     final seconds = limited?.retryAfterSeconds ?? header ?? 1;
     return Duration(seconds: seconds < 1 ? 1 : seconds);
+  }
+}
+
+/// From this size on, a response's body is read in another isolate
+/// ([GraphQLClient]).
+const int decodeApartBytes = 64 * 1024;
+
+/// The JSON object [bytes] hold, or null when they hold something else.
+@visibleForTesting
+Map<String, dynamic>? decodeJsonObject(Uint8List bytes) {
+  try {
+    final decoded = jsonDecode(utf8.decode(bytes));
+    return decoded is Map<String, dynamic> ? decoded : null;
+  } on FormatException {
+    return null;
   }
 }
 
