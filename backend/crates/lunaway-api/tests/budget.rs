@@ -7,7 +7,7 @@
 //!
 //! The documents are read, never copied: a copy of the fragment kept here
 //! went stale while the app's grew, and every update of a downloaded region
-//! was refused as too complex (audit of 2026-10-10, B1).
+//! was refused as too complex (2026-10-10).
 
 #![allow(
     clippy::unwrap_used,

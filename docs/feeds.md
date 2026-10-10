@@ -380,10 +380,9 @@ feed each review whose author's hash is listed.
   its files were made without (`external_photos.cut_rows`); `purge-media`
   forgets the files of the live photos made with another one, or before
   the cut existed, and the proxy makes them again at their next view. A
-  source that moves its mark is caught by the check of
-  `plan/research/101-audit2-donnees.md` (20 photos fetched through the
-  proxy, their mark's place measured), and the band changes with the
-  constant.
+  source that moves its mark is caught by fetching some twenty photos
+  through the proxy and measuring where their mark stands, and the band
+  changes with the constant.
 
 ## Switches
 

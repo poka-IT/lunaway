@@ -11,8 +11,8 @@
 //! review or of its author; the reviews of the places merged into it).
 //! Their mean weighted by how many ratings each counts, rounded to one
 //! decimal, as a rating reads; null when nobody rated it. A single user's
-//! 4 beside 246 ratings of 3.3 elsewhere reads 3.3, not 4.0 (UX audit of
-//! 2026-10-10, M7). The SQL function `lunaway_filter_rating` holds the
+//! 4 beside 246 ratings of 3.3 elsewhere reads 3.3, not 4.0 (Camping-car
+//! Park Viviers, 2026-10-10). The SQL function `lunaway_filter_rating` holds the
 //! rule (migration `20261010140500`); both writers apply it.
 //!
 //! The other sources' ratings change with their imports, which do not

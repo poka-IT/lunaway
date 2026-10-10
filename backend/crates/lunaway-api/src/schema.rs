@@ -85,7 +85,7 @@ pub(crate) struct TranslateOnce(pub(crate) std::sync::atomic::AtomicBool);
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
 /// Most places a page of `changes` holds, whatever `first` asks above it:
 /// a page of 1000 with every field the app keeps cost more than
-/// [`MAX_COMPLEXITY`] once the feed grew (audit of 2026-10-10, B1), and
+/// [`MAX_COMPLEXITY`] once the feed grew (2026-10-10), and
 /// every update of a region the apps had downloaded was refused. The cost
 /// of the field is counted on this page, so a released app asking 1000
 /// gets 500 and `hasMore`; `tests/budget.rs` holds the app's own documents

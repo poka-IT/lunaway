@@ -351,8 +351,8 @@ pub fn photo_url_allowed(url: &str, hosts: &[String]) -> bool {
 /// 2026-10-10, sizes 665 x 1182 to 1374 x 572: the mark is a line of plain
 /// white letters, without outline, at the same place in every one, its
 /// letters 51 to 62 rows above the bottom edge and 52 to 176 columns from
-/// the right edge, in pixels of the picture as the source serves it
-/// (`plan/research/101-audit2-donnees.md`). The band keeps six rows above
+/// the right edge, in pixels of the upright picture as the source serves
+/// it, portraits included. The band keeps six rows above
 /// the letters for the encoder's ringing around them.
 pub const MARK_BAND_ROWS: u16 = 68;
 const _: () = assert!(

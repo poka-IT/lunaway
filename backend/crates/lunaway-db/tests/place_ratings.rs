@@ -171,7 +171,7 @@ async fn a_refresh_of_more_places_than_a_batch_writes_them_all(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn every_rating_weighs_the_same_whatever_its_source(pool: PgPool) {
-    // Camping-car Park Viviers on 2026-10-10 (UX audit 2, M7): 246 ratings
+    // Camping-car Park Viviers on 2026-10-10: 246 ratings
     // of 3.3 at the partner, then one Lunaway user's 4.
     let viviers = place(&pool).await;
     partner_rating(&pool, viviers, 3.3, 246).await;

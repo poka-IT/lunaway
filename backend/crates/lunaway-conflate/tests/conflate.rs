@@ -1489,7 +1489,7 @@ async fn the_watching_worker_rates_the_places_before_it_publishes_them(pool: PgP
 #[sqlx::test(migrations = "../../migrations")]
 async fn one_user_s_rating_weighs_as_one_of_the_partner_s_many(pool: PgPool) {
     // Camping-car Park Viviers on 2026-10-10: 246 ratings of 3.3 at the
-    // partner, then one Lunaway user's 4 (UX audit 2, M7).
+    // partner, then one Lunaway user's 4.
     let place = Uuid::now_v7();
     let record = Uuid::now_v7();
     sqlx::query(
