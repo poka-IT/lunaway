@@ -1,8 +1,8 @@
 #!/bin/bash
 # Keeps an age-encrypted copy of the account deletion journal,
 # /srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age,
-# which the ops server pulls with the dumps and the Mac pulls from the ops
-# server. Runs hourly from lunaway-deletions-offsite.timer; installed by
+# which the maintainer's Mac pulls with the dumps.
+# Runs hourly from lunaway-deletions-offsite.timer; installed by
 # infra/server/backups.sh.
 #
 # The journal (/srv/data/account-deletions, one file per UTC day, written by
@@ -11,7 +11,7 @@
 # accounts deleted since the dump (docs/deploy.md, "Backups and restore").
 # The copy is a single file, every day of the journal in order, written
 # again at each run. The pulls (rsync without --delete) replace it, so a day
-# the API pruned leaves the ops server and the Mac at their next pull; one
+# the API pruned leaves the Mac at its next pull; one
 # file per day would pile up there for ever.
 #
 # Since each pull replaces the copy, a journal that lost days must not

@@ -3,16 +3,17 @@
 # (legal.p2p.lunaway.ops, 04:30 local time) and installed by
 # infra/ops/mac/install.sh. It is the only piece outside Hetzner:
 #
-#   1. pulls the encrypted dump replica from the ops server (a key forced to
-#      a read-only rsync), into ~/Backups/lunaway, 29 days kept, and the
+#   1. pulls the encrypted dumps from the backend's off-site directory (a
+#      key forced to a read-only rsync, accepted from the admin sources
+#      only), into ~/Backups/lunaway, 29 days kept, and the
 #      encrypted photos into ~/Backups/lunaway/media; a photo the server's
 #      list (media/manifest) no longer names goes to media-deleted/<day> here,
 #      <day> being when the backend deleted it, and is dropped 26 days later
 #   2. checks the newest dump: recent, no failure recorded after the last
 #      success, decrypts (the age key exists only here) and lists with
 #      pg_restore, without writing the plaintext anywhere
-#   3. checks the Mac's own disk (50 GB free at least) and the weekly
-#      routing graph build it runs (infra/ops/mac-routing/), then reads the
+#   3. checks the Mac's own disk (50 GB free at least) and the routing
+#      graph build it runs (infra/ops/mac-routing/), then reads the
 #      state of every check of the status page (Gatus)
 #   4. opens or updates one GitHub issue "ops: alerte" when something fails,
 #      and closes it when everything is green again. The issue names the
@@ -49,7 +50,7 @@ fail() {
 	failures="${failures}- $1
 "
 }
-# Everything below comes from the ops server, which this job does not trust
+# Everything below comes from the server, which this job does not trust
 # with the issue's text: a stamp is kept only when it is exactly one, a name
 # only when it is plain.
 # A dump stamp (20261006T001502Z) read from FILE, empty when it is not one.
@@ -65,7 +66,7 @@ stamp_seconds() {
 
 # The copies past their durations: the photos held 26 days after their
 # deletion day, and the dumps whose date is more than keep_days days old.
-# Run before the pull, so the durations hold on a night the ops server
+# Run before the pull, so the durations hold on a night the server
 # cannot be reached, and after it.
 prune() {
 	held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
@@ -101,12 +102,12 @@ say "start"
 mkdir -p "$dest"
 prune
 
-# 1. The pull. The ops server reboots at 02:30 UTC when an update asks for
+# 1. The pull. The backend reboots at 02:30 UTC when an update asks for
 # it, which is 04:30 in Paris in summer: three attempts, two minutes apart.
 pulled=no
 for attempt in 1 2 3; do
-	if rsync -rt --timeout=300 --exclude=/media/ -e "ssh -F $conf/ssh_config" lunaway-ops-pull: "$dest/" \
-		&& rsync -rt --timeout=600 -e "ssh -F $conf/ssh_config" lunaway-ops-pull:media/ "$dest/media/"; then
+	if rsync -rt --timeout=300 --exclude=/media/ -e "ssh -F $conf/ssh_config" lunaway-backup-pull: "$dest/" \
+		&& rsync -rt --timeout=600 -e "ssh -F $conf/ssh_config" lunaway-backup-pull:media/ "$dest/media/"; then
 		pulled=yes
 		say "pulled: $(find "$dest" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l | tr -d ' ') dumps, $(find "$dest/media" -type f -name '*.webp.age' 2>/dev/null | wc -l | tr -d ' ') photos on the Mac"
 		break
@@ -114,7 +115,7 @@ for attempt in 1 2 3; do
 	say "pull attempt $attempt failed"
 	[ "$attempt" = 3 ] || sleep 120
 done
-[ "$pulled" = yes ] || fail "copie des sauvegardes depuis le serveur ops vers le Mac"
+[ "$pulled" = yes ] || fail "copie des sauvegardes depuis le serveur vers le Mac"
 
 # 2. The newest dump, by name; its age is the one the archive records
 # inside, which age authenticates, so a renamed old dump does not pass.
@@ -150,13 +151,15 @@ if [ -n "$last_failure" ]; then
 	fi
 fi
 
-# The photos: the newest copy must decrypt to a WebP file (RIFF....WEBP),
-# and the server must have brought the copy up to date in the last 36 hours.
+# The photos: the newest copy must decrypt to a WebP file ("RIFF", the size
+# on four bytes, "WEBP"), and the server must have brought the copy up to
+# date in the last 36 hours. The size bytes may read as capital letters (a
+# 0x58 byte is an X), so any character passes there.
 newest_photo=$(find "$dest/media" -type f -name '*.webp.age' -exec stat -f '%m %N' {} + 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)
 if [ -n "$newest_photo" ]; then
 	head12=$(age --decrypt --identity "$conf/backup-age.key" "$newest_photo" 2>/dev/null | head -c 12 | LC_ALL=C tr -c 'A-Z' '.')
 	case "$head12" in
-	RIFF....WEBP) say "verified the newest photo copy: decrypted, WebP" ;;
+	RIFF????WEBP) say "verified the newest photo copy: decrypted, WebP" ;;
 	*) fail "la copie la plus récente d'une photo ne se déchiffre pas en WebP" ;;
 	esac
 fi
@@ -191,12 +194,12 @@ if [ -z "$takedowns_at" ] || [ $(( (now - takedowns_at) / 3600 )) -ge 36 ]; then
 	fail "la copie du journal des retraits de lieux n'a pas été faite depuis 36 heures (${takedowns_success:-jamais})"
 fi
 # Photos deleted on the server. macOS's rsync (openrsync) sends --delete to
-# the server even on a pull, and the ops server's read-only rrsync refuses
+# the server even on a pull, and the backend's read-only rrsync refuses
 # it: a copy the server's list (media/manifest) no longer names is filed
 # under the day the backend deleted its photo (media/deletions) in
 # media-deleted/<day>, and dropped 26 days after that day, however long this
 # Mac was off; a copy the deletions do not name goes now. Both lists come
-# from the ops server: they are used only when every line has the form the
+# from the server: they are used only when every line has the form the
 # backend writes, and a run that would remove more than 50 copies and more
 # than 5% of them removes nothing and fails.
 manifest="$dest/media/manifest"
@@ -227,7 +230,7 @@ if [ "$pulled" = yes ] && [ -f "$manifest" ]; then
 		fi
 	fi
 elif [ "$pulled" = yes ]; then
-	fail "aucune liste des photos sur le serveur ops"
+	fail "aucune liste des photos sur le serveur"
 fi
 # The pruning again, for the copies the pull just set aside.
 prune
@@ -242,19 +245,20 @@ else
 	say "Mac disk: $free_gb GB free"
 fi
 
-# The weekly routing graph build (infra/ops/mac-routing/): its last run, and
-# its last success less than 8 days ago (weekly). Digits and plain words
-# only are read from its state file.
+# The routing graph build (infra/ops/mac-routing/): its last run, and its
+# last success less than 16 days ago (a build every two weeks, two days of
+# slack for a Sunday the Mac slept through). Digits and plain words only are
+# read from its state file.
 routing_state="$HOME/Library/Application Support/Lunaway/routing/state"
 if [ -f "$HOME/Library/LaunchAgents/legal.p2p.lunaway.routing-build.plist" ]; then
 	last_success=$(sed -nE 's/^last_success=([0-9]{9,11})$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
 	last_run=$(sed -nE 's/^last_run=[0-9]{9,11} (ok|nothing|failed)$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
 	swept=$(sed -nE 's/^swept=([0-9]{9,11}) [0-9]+$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
 	if [ "$last_run" = failed ]; then
-		fail "la dernière construction hebdomadaire du graphe de routage a échoué (~/Library/Logs/lunaway-routing-build.log)"
+		fail "la dernière construction du graphe de routage a échoué (~/Library/Logs/lunaway-routing-build.log)"
 	fi
-	if [ -z "$last_success" ] || [ $(( (now - last_success) / 86400 )) -ge 8 ]; then
-		fail "aucune construction du graphe de routage n'a abouti depuis 8 jours"
+	if [ -z "$last_success" ] || [ $(( (now - last_success) / 86400 )) -ge 16 ]; then
+		fail "aucune construction du graphe de routage n'a abouti depuis 16 jours"
 	fi
 	if [ -n "$swept" ] && [ $(( (now - swept) / 3600 )) -lt 24 ]; then
 		fail "un serveur de construction du graphe de routage restait et a été supprimé par le balayage"
@@ -264,7 +268,7 @@ fi
 # 3. The status page.
 if statuses=$(curl -fsS -m 30 "$status_url/api/v1/endpoints/statuses"); then
 	failing=$(printf '%s' "$statuses" | jq -r '.[] | select((.results | last | .success) != true) | "\(.group) / \(.name)"' \
-		| sed -E 's#^.*[^A-Za-z0-9 ./-].*$#(un contrôle au nom inattendu)#')
+		| sed -E 's#^.*[^A-Za-z0-9 ()./-].*$#(un contrôle au nom inattendu)#')
 	if [ -n "$failing" ]; then
 		echo "$failing" | while IFS= read -r check; do say "FAIL check: $check"; done
 		failures="${failures}$(echo "$failing" | sed 's/^/- contrôle en échec : /')

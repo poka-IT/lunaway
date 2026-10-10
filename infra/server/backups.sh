@@ -3,10 +3,10 @@
 # sandboxed unit, its failure marker and timer, the ordering that keeps the
 # upgrade run from restarting PostgreSQL under a dump, and the directories:
 #
-#   /srv/data/backups/postgresql   plaintext dumps, 7 kept (postgres, 0700)
+#   /srv/data/backups/postgresql   plaintext dumps, 3 kept (postgres, 0700)
 #   /var/backups/lunaway/...       the newest 3 encrypted copies on the root
-#                                  disk (0700), which Hetzner's images capture
-#   /srv/data/backups/offsite      age-encrypted copies, 7 kept, and the
+#                                  disk (0700), off the data volume
+#   /srv/data/backups/offsite      age-encrypted copies, 3 kept, and the
 #                                  last-success / last-failure markers; group
 #                                  lunaway-pull reads it (infra/server/ops-access.sh)
 #   /srv/data/backups/offsite/media   the photos, one age-encrypted file per

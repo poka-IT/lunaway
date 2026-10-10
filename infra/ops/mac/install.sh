@@ -16,8 +16,10 @@
 #       dumps; the only copy, so keep an offline copy of it (a password
 #       manager): without it every backup is unreadable. Its public half is
 #       recorded as LUNAWAY_BACKUP_RECIPIENT and goes to the backend.
-#   ~/.config/lunaway/ops-pull_ed25519     the pull key; the ops server
-#       forces it to a read-only rsync of its replica.
+#   ~/.config/lunaway/backup-pull_ed25519  the pull key; the backend forces
+#       it to a read-only rsync of its off-site directory
+#       (/srv/data/backups/offsite) and accepts it from the admin sources
+#       only (infra/server/ops-access.sh).
 set -euo pipefail
 . "$(dirname "$0")/../../lib.sh"
 label=legal.p2p.lunaway.ops
@@ -35,7 +37,7 @@ status_url() {
 }
 
 make_keys() {
-  local key="$LUNAWAY_CONFIG_DIR/backup-age.key" pull="$LUNAWAY_CONFIG_DIR/ops-pull_ed25519" recipient
+  local key="$LUNAWAY_CONFIG_DIR/backup-age.key" pull="$LUNAWAY_CONFIG_DIR/backup-pull_ed25519" recipient
   command -v age-keygen >/dev/null || die "age is needed (brew install age)"
   install -d -m 0700 "$LUNAWAY_CONFIG_DIR"
   if [ ! -f "$key" ]; then
@@ -46,12 +48,12 @@ make_keys() {
   recipient="$(age-keygen -y "$key")"
   [ "${LUNAWAY_BACKUP_RECIPIENT:-}" = "$recipient" ] || env_set LUNAWAY_BACKUP_RECIPIENT "$recipient"
   if [ ! -f "$pull" ]; then
-    ssh-keygen -q -t ed25519 -N '' -C "lunaway mac pull" -f "$pull"
+    ssh-keygen -q -t ed25519 -N '' -C "lunaway mac backup pull" -f "$pull"
     log "created $pull"
   fi
   chmod 0600 "$pull"
   write_ssh_config
-  log "keys ready; the backend takes the recipient (configure.sh backend backups), the ops server the pull key (configure.sh ops ops-replica)"
+  log "keys ready; the backend takes the recipient (configure.sh backend backups) and the pull key (configure.sh backend ops-access)"
 }
 
 install_agent() {

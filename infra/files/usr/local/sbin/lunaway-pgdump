@@ -1,20 +1,17 @@
 #!/bin/sh
 # Dumps the lunaway database and the cluster's roles, keeps the last
 # LUNAWAY_DUMP_KEEP dumps on the data volume, writes an age-encrypted copy
-# of each into the off-site directory, which the ops server pulls, and
-# keeps the newest LUNAWAY_MIRROR_KEEP encrypted copies on the root disk.
+# of each into the off-site directory, which the maintainer's Mac pulls
+# every night, and keeps the newest LUNAWAY_MIRROR_KEEP encrypted copies on
+# the root disk, so that a lost data volume still leaves recent dumps on
+# the server.
 #
-# The root disk is what Hetzner's daily server backup captures (volumes are
-# not part of it), so a lost volume still leaves a recent dump in the backup
-# images. The copies there are encrypted, and the plaintext dumps stay on
-# the data volume; since 2026-10-10 the root disk also holds the database
-# itself, which those images therefore keep as it stood each day for their
-# 7 days (docs/deploy.md, "How long things are kept"). The encrypted copies
-# are encrypted to a recipient whose private key exists only on the
-# maintainer's Mac: the ops server and the Mac hold ciphertext they cannot
-# read. A run that succeeds writes the time of its
-# dump to last-success there; lunaway-pgdump-failed.service writes
-# last-failure when one fails.
+# Three nights on the server: the Mac keeps 30 days, and the server holds
+# no Hetzner backup image (docs/deploy.md, "Backups and restore"). The
+# encrypted copies are encrypted to a recipient whose private key exists
+# only on the Mac. A run that succeeds writes the time of its dump to
+# last-success in the off-site directory; lunaway-pgdump-failed.service
+# writes last-failure when one fails.
 #
 # Runs as postgres (peer authentication over the unix socket) from
 # lunaway-pgdump.service, which passes the recipient as a credential.
@@ -33,7 +30,7 @@ if [ "${1:-}" = --failed ]; then
 	echo "recorded a failed dump in $offsite/last-failure"
 	exit 0
 fi
-keep="${LUNAWAY_DUMP_KEEP:-7}"
+keep="${LUNAWAY_DUMP_KEEP:-3}"
 mirror_keep="${LUNAWAY_MIRROR_KEEP:-3}"
 # A count that is not a number would make every pruning test fail quietly,
 # and the dumps would pile up: refuse it before dumping.
