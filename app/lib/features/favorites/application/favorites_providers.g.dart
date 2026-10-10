@@ -259,6 +259,63 @@ final class FavoriteItemsFamily extends $Family
   String toString() => r'favoriteItemsProvider';
 }
 
+/// Gives the places saved before the app kept their street the street of
+/// the copy of the place on the device, once a run, so that a place
+/// without a name is titled by it in the lists as everywhere else (an
+/// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+/// "Car park · Viviers"). Returns how many got one; a failure leaves them
+/// titled by their town.
+// keepAlive: once a run; a place saved since carries its street.
+
+@ProviderFor(favoriteStreetsFilled)
+final favoriteStreetsFilledProvider = FavoriteStreetsFilledProvider._();
+
+/// Gives the places saved before the app kept their street the street of
+/// the copy of the place on the device, once a run, so that a place
+/// without a name is titled by it in the lists as everywhere else (an
+/// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+/// "Car park · Viviers"). Returns how many got one; a failure leaves them
+/// titled by their town.
+// keepAlive: once a run; a place saved since carries its street.
+
+final class FavoriteStreetsFilledProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+    with $FutureModifier<int>, $FutureProvider<int> {
+  /// Gives the places saved before the app kept their street the street of
+  /// the copy of the place on the device, once a run, so that a place
+  /// without a name is titled by it in the lists as everywhere else (an
+  /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+  /// "Car park · Viviers"). Returns how many got one; a failure leaves them
+  /// titled by their town.
+  // keepAlive: once a run; a place saved since carries its street.
+  FavoriteStreetsFilledProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'favoriteStreetsFilledProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoriteStreetsFilledHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<int> create(Ref ref) {
+    return favoriteStreetsFilled(ref);
+  }
+}
+
+String _$favoriteStreetsFilledHash() =>
+    r'89603767dc4436e776330f83d83a7ec6f57ea8f7';
+
 /// The id of the default list, which the save button toggles.
 
 @ProviderFor(defaultFavoriteList)

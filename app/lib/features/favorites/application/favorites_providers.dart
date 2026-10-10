@@ -33,6 +33,27 @@ Stream<List<FavoriteEntry>> favoriteEntries(Ref ref, int listId) =>
 Stream<List<Favorite>> favoriteItems(Ref ref, int listId) =>
     ref.watch(favoritesRepositoryProvider).watchFavorites(listId);
 
+/// Gives the places saved before the app kept their street the street of
+/// the copy of the place on the device, once a run, so that a place
+/// without a name is titled by it in the lists as everywhere else (an
+/// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+/// "Car park · Viviers"). Returns how many got one; a failure leaves them
+/// titled by their town.
+// keepAlive: once a run; a place saved since carries its street.
+@Riverpod(keepAlive: true)
+Future<int> favoriteStreetsFilled(Ref ref) async {
+  try {
+    return await ref
+        .read(favoritesRepositoryProvider)
+        .fillStreets(
+          (id) async => (await ref.read(placesRepositoryProvider).watchPlace(id).first)?.summary,
+        );
+  } on Object catch (e, st) {
+    _log.warning('the streets of the saved places were not filled', e, st);
+    return 0;
+  }
+}
+
 /// The id of the default list, which the save button toggles.
 @riverpod
 Future<int> defaultFavoriteList(Ref ref) => ref.watch(favoritesRepositoryProvider).defaultListId();
