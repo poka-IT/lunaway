@@ -50,7 +50,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <ul>
 <li><strong>The places</strong> of the regions you keep on the device (the regions of France and the European countries the app offers), on phones, tablets and computers, so that the map, the search and the place pages work without a network; the pages of the places you opened that the device does not keep otherwise (in the web app, every place you open), erased after 90&nbsp;days without being opened again; the photos, the first page of reviews and the shops and services around the places you opened.</li>
 <li><strong>The offline maps</strong> you download, on phones and tablets.</li>
-<li><strong>Your own data</strong>: your favourite lists, your settings (language, filters, theme, preferred navigation app, route options, guidance settings), your vehicle profile (type, trailer, height, width, length, weight, fuel, consumption), the regions you keep, and the contributions waiting for a connection to be sent (ratings, reviews, prepared photos, new places).</li>
+<li><strong>Your own data</strong>: your favourite lists (places, and addresses or points of the map saved with their name, your note and their coordinates), your settings (language, filters, theme, preferred navigation app, route options, guidance settings), your vehicle profile (type, trailer, height, width, length, weight, fuel, consumption), the regions you keep, and the contributions waiting for a connection to be sent (ratings, reviews, prepared photos, new places).</li>
 <li><strong>An approximate position</strong> and the centre of the map's last view, rounded to a tenth of a degree (about ten kilometres), so that the light or dark theme follows sunset, the map opens again where you left it, and the app can suggest your first region. The web app keeps that view, its theme and your filters in the browser's storage, to draw the map as soon as the page opens.</li>
 <li><strong>The danger zones and speed cameras</strong> of the countries your routes cross, with the list of those countries, so that a guidance started without a network has them.</li>
 <li><strong>Your account's private key</strong>, if you have an account, encrypted by the system's protected storage: a Keystore key on Android, the keychain on iPhone, iPad and Mac, Windows data protection on a PC; in the web app, a key the browser does not let out. It never leaves the device.</li>
@@ -98,7 +98,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <li>your <strong>sessions</strong>: a random token of which we keep only a fingerprint (SHA-256), valid for 60&nbsp;days after its last use, erased within the hour after it expires;</li>
 <li>the fingerprint of your <strong>recovery code</strong> (argon2id), if you created one. The code is shown only once, on your device, and we cannot recover it;</li>
 <li>your <strong>trust level</strong>, from 0 to 4, computed from the account's age, the number of days it was used and the last of those days, its published contributions and the removals decided by moderators;</li>
-<li>your <strong>favourite lists</strong> (their names and the places in them) and the authors you chose to mute;</li>
+<li>your <strong>favourite lists</strong> (their names, the places in them, and the points you saved in them outside our places: an address, a town, a point of the map or a shop, with the name you give it, your note if any, its address when known and its coordinates, seen by your account alone) and the authors you chose to mute;</li>
 <li>for each contribution sent, a <strong>technical key</strong> that keeps it from being stored twice if the app sends it again: the key, the kind of operation and a fingerprint of its content, kept 30&nbsp;days, or until the contribution is deleted.</li>
 </ul>
 <p>If an account is banned for abuse, the reason for the ban is recorded with it.</p>
@@ -209,6 +209,6 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <h2 id="changes">Audience and changes</h2>
 <p>Lunaway is meant for adults.</p>
 <p>When this policy changes, the new version appears on this page with its date. The page's history is public in the <a href="https://github.com/poka-IT/lunaway">code repository</a>, at <code>infra/web/site/en/privacy.html</code>.</p>
-<p class="meta">Version of 7&nbsp;October&nbsp;2026.</p>
+<p class="meta">Version of 10&nbsp;October&nbsp;2026.</p>
 </article>
 </div>
