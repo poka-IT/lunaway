@@ -95,7 +95,7 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
   Widget build(BuildContext context) {
     final selection = ref.watch(selectionProvider);
     final searching = ref.watch(searchQueryProvider).isNotEmpty;
-    final history = ref.watch(searchHistoryOpenProvider);
+    final history = ref.watch(searchHistoryShownProvider);
     // The system back closes what lies over the map (the search's history,
     // the details, then the search) before it may leave the app, as
     // everywhere on Android.

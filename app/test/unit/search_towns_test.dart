@@ -176,7 +176,7 @@ void main() {
         ),
         home: 'FR',
       ),
-      'Commune · Allemagne · 1 lieu',
+      'Commune · 67433 · Allemagne · 1 lieu',
     );
   });
 

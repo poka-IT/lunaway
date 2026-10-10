@@ -59,12 +59,16 @@ String _$searchHistoryStoreHash() =>
 
 /// The search's history, the most recent first ([recentSearchLimit] at
 /// most).
+// keepAlive: the system back (MapFlow, kept) asks whether it shows, at any
+// time; fifteen rows of the device's database.
 
 @ProviderFor(recentSearches)
 final recentSearchesProvider = RecentSearchesProvider._();
 
 /// The search's history, the most recent first ([recentSearchLimit] at
 /// most).
+// keepAlive: the system back (MapFlow, kept) asks whether it shows, at any
+// time; fifteen rows of the device's database.
 
 final class RecentSearchesProvider
     extends
@@ -78,13 +82,15 @@ final class RecentSearchesProvider
         $StreamProvider<List<RecentSearch>> {
   /// The search's history, the most recent first ([recentSearchLimit] at
   /// most).
+  // keepAlive: the system back (MapFlow, kept) asks whether it shows, at any
+  // time; fifteen rows of the device's database.
   RecentSearchesProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
         name: r'recentSearchesProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -104,7 +110,7 @@ final class RecentSearchesProvider
   }
 }
 
-String _$recentSearchesHash() => r'593cee1fdfe0dc35644148efdd83091df8bef5d2';
+String _$recentSearchesHash() => r'3ccc62a8c345877b3c5954c903d291954a3f0b6d';
 
 /// Whether the history shows under the map's search field: the field has
 /// the focus and holds no text. The system back and Escape close it before
@@ -183,6 +189,7 @@ abstract class _$SearchHistoryOpen extends $Notifier<bool> {
 /// Whether the history lies under the search field now, open and not
 /// empty: what the map shows under the field (the chips, the notices, the
 /// list of a pane) gives way to it, as to the results.
+// keepAlive: the system back (MapFlow, kept) reads it.
 
 @ProviderFor(searchHistoryShown)
 final searchHistoryShownProvider = SearchHistoryShownProvider._();
@@ -190,6 +197,7 @@ final searchHistoryShownProvider = SearchHistoryShownProvider._();
 /// Whether the history lies under the search field now, open and not
 /// empty: what the map shows under the field (the chips, the notices, the
 /// list of a pane) gives way to it, as to the results.
+// keepAlive: the system back (MapFlow, kept) reads it.
 
 final class SearchHistoryShownProvider
     extends $FunctionalProvider<bool, bool, bool>
@@ -197,13 +205,14 @@ final class SearchHistoryShownProvider
   /// Whether the history lies under the search field now, open and not
   /// empty: what the map shows under the field (the chips, the notices, the
   /// list of a pane) gives way to it, as to the results.
+  // keepAlive: the system back (MapFlow, kept) reads it.
   SearchHistoryShownProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
         name: r'searchHistoryShownProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -231,4 +240,4 @@ final class SearchHistoryShownProvider
 }
 
 String _$searchHistoryShownHash() =>
-    r'f127f572d5b5845952ca95e53184d38c6834e8a7';
+    r'2c09c9a51d176c66a18d6f25aadbd6d82b4f9af1';

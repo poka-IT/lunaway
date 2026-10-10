@@ -1,6 +1,7 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -209,9 +210,14 @@ final class RecentTown extends RecentSearch {
     );
   }
 
+  /// One town by its name, its area (the department in France, however it
+  /// came: by the API, or by the postcode the device's places carry) and
+  /// its country.
   @override
-  String get key =>
-      'town:${townKey(town.name)}:${town.department ?? town.postcode ?? ''}:${town.countryCode ?? ''}';
+  String get key {
+    final area = town.department ?? departmentOfPostcode(town.postcode) ?? town.postcode ?? '';
+    return 'town:${townKey(town.name)}:$area:${town.countryCode ?? ''}';
+  }
 
   @override
   String get kind => wire;

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
@@ -46,4 +47,21 @@ String? localityLine(Translations t, Locality? locality, {required String home})
   }
   final parts = [if (here != null && here.isNotEmpty) here, if (abroad) t.countryName(country)];
   return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// Where a town of the search lies, after what it is: its department in
+/// France ("Commune · Drôme"), its postcode elsewhere, which tells two
+/// homonyms of one country apart, and its country when it is not the
+/// user's own ([home]): "Commune · 67433 · Allemagne".
+String townWhere(Translations t, Municipality town, {required String home}) {
+  final country = town.countryCode;
+  final french = country == null || country == 'FR';
+  final department = french
+      ? frenchDepartments[town.department ?? departmentOfPostcode(town.postcode)]
+      : null;
+  return [
+    t.search.addressKind.town,
+    department ?? town.postcode,
+    if (country != null && country != home.toUpperCase()) t.countryName(country),
+  ].nonNulls.join(' · ');
 }

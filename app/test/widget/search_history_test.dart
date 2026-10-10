@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -311,6 +313,89 @@ void main() {
       await settleShort(tester);
       expect(find.text(t.search.recent), findsNothing);
       expect(app.container(tester).read(searchHistoryOpenProvider), isFalse);
+    });
+
+    testWidgets('Escape closes the history, the map left as it was', (tester) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final app = await _app(tester, online, size: desktop);
+      await _record(app, tester, [const RecentText('pizzeria annecy')]);
+      await _focus(tester);
+      expect(find.text(t.search.recent), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settleShort(tester);
+      expect(find.text(t.search.recent), findsNothing);
+      expect(app.container(tester).read(selectionProvider), isNull);
+    });
+
+    testWidgets('a reopen that comes after the user opened something else opens nothing', (
+      tester,
+    ) async {
+      // A place the device does not keep: its reopening waits for the API.
+      final far = Place(
+        id: 'test-far',
+        name: 'Aire du Bout du Monde',
+        kind: PlaceKind.motorhomeArea,
+        lat: 48.4,
+        lon: -4.8,
+        overnight: OvernightStatus.allowed,
+        updatedAt: DateTime.utc(2026, 10),
+      );
+      final online = FakeOnlinePlaces([...samplePlaces, far])..hold = Completer<void>();
+      final app = await _app(tester, online);
+      await _record(app, tester, [RecentPlace(far.summary)]);
+      await _focus(tester);
+      await tester.tap(_inHistory(find.text(far.name!)));
+      await settleShort(tester);
+      // Meanwhile the user taps a pin.
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
+      online.hold!.complete();
+      await settleShort(tester);
+      expect(
+        app.container(tester).read(selectionProvider),
+        PlaceSelection(lakeArea.id),
+        reason: 'the late answer never undoes the newer choice',
+      );
+    });
+
+    testWidgets('a text validated before another search stays in the history', (tester) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final app = await _app(tester, online);
+      await tester.enterText(_field, 'pizzeria');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.map.clearSearch));
+      await settleShort(tester);
+      await tester.enterText(_field, 'Lac Bleu');
+      await settleShort(tester);
+      await tester.tap(
+        find.descendant(of: _inSearch(find.byType(PlaceTile)), matching: find.text(lakeArea.name!)),
+      );
+      await settleShort(tester);
+      final kept = await _kept(app, tester);
+      expect(kept.map((e) => e.key), [
+        'place:${lakeArea.id}',
+        const RecentText('pizzeria').key,
+      ], reason: 'the place answered another text: "pizzeria" was searched without an opening');
+    });
+
+    testWidgets('offline, an entry the device does not hold opens and stays', (tester) async {
+      final app = await pumpLunaway(tester);
+      const away = PlaceSummary(
+        id: 'test-away',
+        name: 'Aire hors région',
+        kind: PlaceKind.motorhomeArea,
+        lat: 48.4,
+        lon: -4.8,
+        overnight: OvernightStatus.allowed,
+      );
+      await _record(app, tester, [const RecentPlace(away)]);
+      await _focus(tester);
+      await tester.tap(_inHistory(find.text(away.name!)));
+      await settleShort(tester);
+      expect(app.container(tester).read(selectionProvider), PlaceSelection(away.id));
+      expect((await _kept(app, tester)).map((e) => e.key), [
+        'place:test-away',
+      ], reason: 'not known offline is not gone');
     });
   });
 

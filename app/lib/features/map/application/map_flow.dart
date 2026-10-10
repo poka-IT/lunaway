@@ -122,7 +122,7 @@ class MapFlow extends _$MapFlow {
   /// with nothing open, the search closes. False when there is nothing to
   /// close: the back may then leave.
   bool back() {
-    if (ref.read(searchHistoryOpenProvider)) {
+    if (ref.read(searchHistoryShownProvider)) {
       ref.read(searchHistoryOpenProvider.notifier).set(open: false);
       return true;
     }

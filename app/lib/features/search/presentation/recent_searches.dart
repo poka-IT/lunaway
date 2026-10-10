@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
@@ -32,12 +31,7 @@ String recentLine(Translations t, RecentSearch entry, {required String home}) =>
     t.poiKind(poiKind),
     ?localityLine(t, locality, home: home),
   ].join(' · '),
-  RecentTown(:final town) => [
-    t.search.addressKind.town,
-    if (town.countryCode == null || town.countryCode == 'FR')
-      ?frenchDepartments[town.department ?? departmentOfPostcode(town.postcode)],
-    if (town.countryCode case final country? when country != home) t.countryName(country),
-  ].join(' · '),
+  RecentTown(:final town) => townWhere(t, town, home: home),
   RecentAddress(:final address) => addressLine(t, address, home: home),
   RecentText() => t.search.recentText,
 };
@@ -69,7 +63,11 @@ class RecentSearchTile extends ConsumerWidget {
         child: Semantics(label: t.search.recentMark, child: const Icon(AppIcons.recent)),
       ),
       title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Text(recentLine(t, entry, home: homeCountry(ref)), maxLines: 2),
+      subtitle: Text(
+        recentLine(t, entry, home: homeCountry(ref)),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       onTap: onTap,
       trailing: remove == null
           ? null
@@ -106,6 +104,12 @@ class RecentSearchesList extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
+    // The geocoders of the addresses listed, credited as under the results.
+    final sources = {
+      for (final e in entries)
+        if (e case RecentAddress(:final address) when address.attribution.isNotEmpty)
+          address.attribution,
+    };
     return ListView(
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(vertical: Space.s),
@@ -128,6 +132,14 @@ class RecentSearchesList extends StatelessWidget {
             entry: entry,
             onTap: () => onOpen(entry),
             onRemove: () => onRemove(entry),
+          ),
+        if (sources.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.xl, Space.xxs, Space.xl, Space.xxs),
+            child: Text(
+              t.search.addressSources(sources: sources.join(' · ')),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.xs),

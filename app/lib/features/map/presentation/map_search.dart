@@ -12,7 +12,6 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
-import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/locality_line.dart';
@@ -26,7 +25,6 @@ import 'package:lunaway/features/search/data/search_history_store.dart';
 import 'package:lunaway/features/search/domain/recent_search.dart';
 import 'package:lunaway/features/search/presentation/recent_searches.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -142,13 +140,15 @@ class _MapSearchState extends ConsumerState<MapSearch> {
   SearchHistoryStore get _history => ref.read(searchHistoryStoreProvider);
 
   /// [entry] opened: it heads the history, and the text validated before
-  /// it, which this result answered, leaves.
+  /// it leaves when this result answers that same text; a text validated
+  /// before another search stays.
   void _remember(RecentSearch entry) {
     final history = _history;
     final validated = _validated;
     _validated = null;
+    final answered = validated != null && validated.key == RecentText(_controller.text.trim()).key;
     unawaited(() async {
-      if (validated != null) await history.remove(validated.key);
+      if (answered) await history.remove(validated.key);
       await history.record(entry);
     }());
   }
@@ -208,10 +208,14 @@ class _MapSearchState extends ConsumerState<MapSearch> {
   /// An entry of the history touched: its result opens again without a
   /// search (a place or a point read by its id, a town or an address at
   /// its position), its text is searched again. A place or a point the
-  /// map no longer holds leaves the history, and a message says so.
+  /// map no longer holds leaves the history, and a message says so. The
+  /// read by id comes late on a slow network: when the user opened
+  /// something else meanwhile, the entry opens nothing ([MapFlow.stands]).
   Future<void> _reopen(RecentSearch entry) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final gone = context.t.search.recentGone(name: recentTitle(context.t, entry));
+    final goneText = context.t.search.recentGone(name: recentTitle(context.t, entry));
+    final history = _history;
+    final flow = _flow;
     switch (entry) {
       case RecentText(:final text):
         _controller.value = TextEditingValue(
@@ -221,27 +225,33 @@ class _MapSearchState extends ConsumerState<MapSearch> {
         ref.read(searchQueryProvider.notifier).change(text);
         _validated = entry;
         _historyOpen.set(open: false);
-        unawaited(_history.record(entry));
+        unawaited(history.record(entry));
       case RecentTown(:final town):
         await _goToTown(town);
       case RecentAddress(:final address):
         await _goToAddress(address);
       case RecentPlace(:final place):
-        if (await _gone(() => ref.read(placeReaderProvider).read(place.id))) {
-          await _forget(entry, messenger, gone);
+        final asked = ref.read(mapFlowProvider).revision;
+        final reader = ref.read(placeReaderProvider);
+        _letGo();
+        if (await _gone(() => reader.read(place.id))) {
+          await history.remove(entry.key);
+          showMessage(messenger, goneText);
           return;
         }
-        if (!mounted) return;
+        if (!mounted || !flow.stands(asked)) return;
         _remember(entry);
         await _showPlace(place);
       case RecentPoi(:final id, :final feature):
-        if (await _gone(
-          () async => (await ref.read(poiRepositoryProvider).watchPage(id).first).value,
-        )) {
-          await _forget(entry, messenger, gone);
+        final asked = ref.read(mapFlowProvider).revision;
+        final points = ref.read(poiRepositoryProvider);
+        _letGo();
+        if (await _gone(() async => (await points.watchPage(id).first).value)) {
+          await history.remove(entry.key);
+          showMessage(messenger, goneText);
           return;
         }
-        if (!mounted) return;
+        if (!mounted || !flow.stands(asked)) return;
         _remember(entry);
         await _showPoi(feature);
     }
@@ -260,18 +270,28 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     }
   }
 
-  Future<void> _forget(RecentSearch entry, ScaffoldMessengerState? messenger, String text) async {
-    await _history.remove(entry.key);
-    showMessage(messenger, text);
-  }
-
+  /// Empties the history; the message that says so takes it back.
   Future<void> _clearHistory() async {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final cleared = context.t.search.historyCleared;
-    await _history.clear();
-    showMessage(messenger, cleared);
+    final t = context.t;
+    final history = _history;
+    final removed = ref.read(recentSearchesProvider).value ?? const <RecentSearch>[];
+    await history.clear();
+    showMessage(
+      messenger,
+      t.search.historyCleared,
+      action: SnackBarAction(
+        label: t.common.undo,
+        // The oldest first, so the most recent heads it again.
+        onPressed: () => unawaited(() async {
+          for (final entry in removed.reversed) {
+            await history.record(entry);
+          }
+        }()),
+      ),
+    );
     // The field keeps the focus, for a search typed next.
-    _focus.requestFocus();
+    if (mounted) _focus.requestFocus();
   }
 
   /// A touch outside the field and its lists: the history closes, on a
@@ -729,17 +749,7 @@ bool _foundNothing(AsyncValue<OnlineMatches> online) => switch (online) {
   _ => false,
 };
 
-/// The line under a town: what it is, its department in France (the
-/// homonyms of two departments read apart), its country when it is not the
-/// user's own ([home]), then how many places it holds ("Commune · Drôme ·
-/// 12 lieux").
-String townDetail(Translations t, Municipality town, {required String home}) {
-  final department = frenchDepartments[town.department ?? departmentOfPostcode(town.postcode)];
-  final country = town.countryCode;
-  return [
-    t.search.addressKind.town,
-    if (country == null || country == 'FR') ?department,
-    if (country != null && country != home.toUpperCase()) t.countryName(country),
-    t.search.townPlaces(n: town.placeCount),
-  ].join(' · ');
-}
+/// The line under a town: where it lies ([townWhere]: "Commune · Drôme"),
+/// then how many places it holds.
+String townDetail(Translations t, Municipality town, {required String home}) =>
+    [townWhere(t, town, home: home), t.search.townPlaces(n: town.placeCount)].join(' · ');

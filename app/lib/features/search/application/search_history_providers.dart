@@ -12,7 +12,9 @@ SearchHistoryStore searchHistoryStore(Ref ref) =>
 
 /// The search's history, the most recent first ([recentSearchLimit] at
 /// most).
-@riverpod
+// keepAlive: the system back (MapFlow, kept) asks whether it shows, at any
+// time; fifteen rows of the device's database.
+@Riverpod(keepAlive: true)
 Stream<List<RecentSearch>> recentSearches(Ref ref) => ref.watch(searchHistoryStoreProvider).watch();
 
 /// Whether the history shows under the map's search field: the field has
@@ -35,7 +37,8 @@ class SearchHistoryOpen extends _$SearchHistoryOpen {
 /// Whether the history lies under the search field now, open and not
 /// empty: what the map shows under the field (the chips, the notices, the
 /// list of a pane) gives way to it, as to the results.
-@riverpod
+// keepAlive: the system back (MapFlow, kept) reads it.
+@Riverpod(keepAlive: true)
 bool searchHistoryShown(Ref ref) =>
     ref.watch(searchHistoryOpenProvider) &&
     (ref.watch(recentSearchesProvider).value?.isNotEmpty ?? false);
