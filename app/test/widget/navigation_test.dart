@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -228,12 +229,13 @@ void main() {
       ) async {
         const here = LatLng(45.84719, 1.28476);
         final plan = routeFixture('utrillo_motorhome');
+        final feed = FakeLocationFeed(position: here);
         final (_, routes) = await openPreview(
           tester,
           answers: [plan],
           size: size,
           engine: LineEngine([plan]),
-          feed: FakeLocationFeed(position: here),
+          feed: feed,
         );
         expect(find.text('Départ : ma position'), findsOneWidget);
         expect(routes.requests.last.origin, here);
@@ -249,10 +251,20 @@ void main() {
         );
         // A trip prepared: the guidance leaves from where the vehicle is.
         expect(find.text("C'est parti !"), findsNothing);
+        // The vehicle drove on while the trip was prepared: the start is
+        // where it is now, not where the preview found it.
+        const later = LatLng(45.9, 1.35);
+        feed.position = later;
+        final requests = routes.requests.length;
         await tester.tap(find.text('Partir de ma position'));
         await settleShort(tester);
         expect(find.text('Départ : ma position'), findsOneWidget);
-        expect(routes.requests.last.origin, here);
+        expect(routes.requests.last.origin, later);
+        expect(
+          routes.requests.skip(requests).map((r) => r.origin),
+          everyElement(later),
+          reason: 'no route asked from the old position on the way',
+        );
         expect(find.text("C'est parti !"), findsOneWidget);
       });
     }
@@ -620,7 +632,7 @@ void main() {
       final session = app.container(tester).read(guidanceControllerProvider);
       expect(session, isNotNull);
       expect(session!.target, utrillo);
-      expect(find.byTooltip('Terminer'), findsOneWidget, reason: 'the guidance screen');
+      expect(find.byTooltip('Arrêter le guidage'), findsOneWidget, reason: 'the guidance screen');
       expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
     });
 
@@ -753,6 +765,37 @@ void main() {
       expect(routes.requests.single.vehicle.cruiseSpeedKph, isNull);
       expect(find.textContaining('km/h max'), findsNothing);
       expect(find.text('Recommandé'), findsOneWidget);
+    });
+
+    testWidgets('a long time for its distance says the very slow road it spends it on', (
+      tester,
+    ) async {
+      // The last step before the arrival as the router timed a track to Le
+      // Teil: 1 527 m in 2 756 s, 2 km/h.
+      final track = routeFixture(
+        'utrillo_motorhome',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          final routes = osrm['routes'] as List<dynamic>;
+          final legs = (routes.first as Map<String, dynamic>)['legs'] as List<dynamic>;
+          final steps = (legs.last as Map<String, dynamic>)['steps'] as List<dynamic>;
+          final last = steps[steps.length - 2] as Map<String, dynamic>;
+          last['distance'] = 1527.0;
+          last['duration'] = 2756.0;
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      );
+      await openPreview(tester, answers: [track]);
+      expect(find.text('Dont 46 min pour 1,5 km de chemin très lent'), findsOneWidget);
+      // The other route keeps its own times: nothing for it.
+      await tester.tap(find.text('Variante 1'));
+      await settleShort(tester);
+      expect(find.textContaining('chemin très lent'), findsNothing);
+    });
+
+    testWidgets('a route at road speeds says no slow road', (tester) async {
+      await openPreview(tester);
+      expect(find.textContaining('chemin très lent'), findsNothing);
     });
   });
 
@@ -1404,6 +1447,55 @@ void main() {
       }
     });
 
+    testWidgets('a speed with no position for five seconds goes, and comes back with the next', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      var now = testNow;
+      feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      voice = RecordingVoice();
+      final app = await pumpLunaway(
+        tester,
+        clock: () => now,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          voice: voice,
+        ),
+      );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await settleShort(tester);
+      final fixes = driveFixes(plan.routes.first, toM: 100);
+      for (final f in fixes) {
+        // 47 km/h, as a browser gives it while it moves.
+        feed.send(Fix(position: f.position, accuracyM: 5, at: now, speedMps: 47 / 3.6));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(find.text('47').hitTestable(), findsOneWidget);
+      // Stopped: a browser gives no new position.
+      now = now.add(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('47').hitTestable(), findsOneWidget, reason: 'four seconds: still fresh');
+      now = now.add(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('47').hitTestable(), findsNothing, reason: 'no position for six seconds');
+      expect(find.text('km/h').hitTestable(), findsNothing);
+      feed.send(Fix(position: fixes.last.position, accuracyM: 5, at: now, speedMps: 31 / 3.6));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.text('31').hitTestable(), findsOneWidget, reason: 'the next position');
+    });
+
     testWidgets('a speed the position does not give shows no unit alone', (tester) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
@@ -1471,43 +1563,46 @@ void main() {
       expect(wake.on, isFalse);
     });
 
-    testWidgets('"Terminer" holds the ring of its own ink on the bar, from the keyboard', (
+    testWidgets(
+      '"Arrêter le guidage" holds the ring of its own ink on the bar, from the keyboard',
+      (tester) async {
+        await guide(tester, routeFixture('limoges_drive'));
+        bool holdsIt() =>
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<Tooltip>()
+                ?.message ==
+            'Arrêter le guidage';
+        for (var i = 0; i < 30 && !holdsIt(); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(holdsIt(), isTrue);
+        // The button's own Material, then the bar's, the first with a fill.
+        final materials = <Material>[];
+        FocusManager.instance.primaryFocus!.context!.visitAncestorElements((e) {
+          if (e.widget case final Material m) materials.add(m);
+          return materials.length < 2 || (materials.last.color?.a ?? 0) < 1;
+        });
+        final side = (materials.first.shape! as OutlinedBorder).side;
+        final bar = materials.last;
+        expect(side.width, 3);
+        expect(contrast(side.color, bar.color!), greaterThanOrEqualTo(graphic));
+      },
+    );
+
+    testWidgets('ending asks first, in the words a back asks with, then leaves the guidance', (
       tester,
     ) async {
-      await guide(tester, routeFixture('limoges_drive'));
-      bool holdsIt() =>
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorWidgetOfExactType<Tooltip>()
-              ?.message ==
-          'Terminer';
-      for (var i = 0; i < 30 && !holdsIt(); i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-      }
-      expect(holdsIt(), isTrue);
-      // The button's own Material, then the bar's, the first with a fill.
-      final materials = <Material>[];
-      FocusManager.instance.primaryFocus!.context!.visitAncestorElements((e) {
-        if (e.widget case final Material m) materials.add(m);
-        return materials.length < 2 || (materials.last.color?.a ?? 0) < 1;
-      });
-      final side = (materials.first.shape! as OutlinedBorder).side;
-      final bar = materials.last;
-      expect(side.width, 3);
-      expect(contrast(side.color, bar.color!), greaterThanOrEqualTo(graphic));
-    });
-
-    testWidgets('ending asks first, then leaves the guidance', (tester) async {
       final app = await guide(tester, routeFixture('limoges_drive'));
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      expect(find.text('Terminer le guidage ?'), findsOneWidget);
+      expect(find.text('Arrêter le guidage ?'), findsOneWidget);
       await tester.tap(find.text('Continuer'));
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider), isNull);
     });
@@ -1525,7 +1620,9 @@ void main() {
         reason: 'the vehicle and the route right of the panel',
       );
       final bar = tester.getRect(
-        find.ancestor(of: find.byTooltip('Terminer'), matching: find.byType(Material)).first,
+        find
+            .ancestor(of: find.byTooltip('Arrêter le guidage'), matching: find.byType(Material))
+            .first,
       );
       // Between the maneuver and the bar: the map, which takes the touch.
       final between = Offset(190, (banner.bottom + bar.top) / 2);
@@ -2057,30 +2154,33 @@ void main() {
         expect(find.byType(MarkTip), findsNothing, reason: 'a moved map closes it');
       });
 
-      testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
-        final settings = MemoryRouteSettings();
-        await openPreview(
-          tester,
-          answers: [routeFixture('utrillo_van')],
-          size: size,
-          settings: settings,
-        );
-        final legend = find.byType(MarkLegend);
-        Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
-        expect(inLegend('Départ'), findsOneWidget);
-        expect(inLegend('Arrivée'), findsOneWidget);
-        expect(inLegend('Hauteur limitée'), findsOneWidget);
-        expect(inLegend('Route fermée'), findsNothing, reason: 'none on this route');
-        expect(inLegend('Travaux'), findsNothing);
-        await settleShort(tester);
-        expect(settings.value.legendSeen, isTrue);
-        await tester.tap(find.byTooltip('Replier la légende'));
-        await settleShort(tester);
-        expect(inLegend('Hauteur limitée'), findsNothing);
-        await tester.tap(inLegend('Légende'));
-        await settleShort(tester);
-        expect(inLegend('Hauteur limitée'), findsOneWidget);
-      });
+      // A phone keeps it folded: its own test below.
+      if (size != tallPhone) {
+        testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
+          final settings = MemoryRouteSettings();
+          await openPreview(
+            tester,
+            answers: [routeFixture('utrillo_van')],
+            size: size,
+            settings: settings,
+          );
+          final legend = find.byType(MarkLegend);
+          Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+          expect(inLegend('Départ'), findsOneWidget);
+          expect(inLegend('Arrivée'), findsOneWidget);
+          expect(inLegend('Hauteur limitée'), findsOneWidget);
+          expect(inLegend('Route fermée'), findsNothing, reason: 'none on this route');
+          expect(inLegend('Travaux'), findsNothing);
+          await settleShort(tester);
+          expect(settings.value.legendSeen, isTrue);
+          await tester.tap(find.byTooltip('Replier la légende'));
+          await settleShort(tester);
+          expect(inLegend('Hauteur limitée'), findsNothing);
+          await tester.tap(inLegend('Légende'));
+          await settleShort(tester);
+          expect(inLegend('Hauteur limitée'), findsOneWidget);
+        });
+      }
 
       testWidgets("on $name the map's credit stands at its foot, clear of the panels", (
         tester,
@@ -2107,7 +2207,7 @@ void main() {
         // Offline here: the places drawn large show no photo, the credit
         // names none.
         expect(SchematicRouteMap.last!.rich!.style.photos, isFalse);
-        expect(find.text('Photos : Lunaway, Source communautaire externe'), findsNothing);
+        expect(find.text('Photos : Source communautaire externe'), findsNothing);
         expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
         expect(
           SchematicRouteMap.last!.rich!.clear.bottom,
@@ -2123,9 +2223,16 @@ void main() {
           size: size,
           settings: MemoryRouteSettings(),
         );
+        // A phone keeps it folded until its chip is tapped.
+        if (find.byTooltip('Replier la légende').evaluate().isEmpty) {
+          await tester.tap(
+            find.descendant(of: find.byType(MarkLegend), matching: find.text('Légende')),
+          );
+          await settleShort(tester);
+        }
         final legend = tester.getRect(find.byType(MarkLegend));
         final map = tester.getRect(find.byType(SchematicRouteMap));
-        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'open by itself');
+        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'open');
         // Opened once for its height, then at a mark just low enough for
         // the callout to stand above it, over the legend's top corner.
         final x = legend.center.dx - map.left;
@@ -2148,6 +2255,33 @@ void main() {
         expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'the legend did not');
       });
     }
+
+    testWidgets("on a phone the legend stays folded, a chip, and the route has the map's width", (
+      tester,
+    ) async {
+      final settings = MemoryRouteSettings();
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: const Size(360, 700),
+        settings: settings,
+      );
+      final legend = find.byType(MarkLegend);
+      Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+      expect(inLegend('Hauteur limitée'), findsNothing, reason: 'not open by itself');
+      expect(find.descendant(of: legend, matching: find.byType(ActionChip)), findsOneWidget);
+      await settleShort(tester);
+      expect(settings.value.legendSeen, isFalse, reason: 'never shown, so never seen');
+      final camera = SchematicRouteMap.last!.camera as FitCamera;
+      expect(
+        camera.room,
+        const EdgeInsets.only(top: 24),
+        reason: 'below the back button and the chip, no column kept on the right',
+      );
+      await tester.tap(inLegend('Légende'));
+      await settleShort(tester);
+      expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'the chip opens it');
+    });
 
     testWidgets('what keeps the vehicle out of the destination leads to its reason', (
       tester,
@@ -2233,7 +2367,7 @@ void main() {
       expect(SchematicRouteMap.last!.highlighted, isEmpty);
     });
 
-    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name the legend open by itself covers neither end of the route, and closing '
           'it moves no camera', (tester) async {
         await openPreview(
@@ -2288,7 +2422,7 @@ void main() {
       final (app, _) = await openPreview(
         tester,
         answers: [plan],
-        size: const Size(360, 700),
+        size: tablet,
         settings: MemoryRouteSettings(),
         countries: FakeCountries((_) => 'FR'),
         enforcement: zones,
@@ -2369,12 +2503,12 @@ void main() {
       });
     }
 
-    testWidgets('on a small phone, a route that comes after the legend opened is framed clear of '
+    testWidgets('on a tablet, a route that comes after the legend opened is framed clear of '
         'the legend its marks make', (tester) async {
       final routes = FakeRouteService([routeFixture('utrillo_van')])..gate = Completer<void>();
       final app = await pumpLunaway(
         tester,
-        size: const Size(360, 700),
+        size: tablet,
         overrides: navigationOverrides(routes: routes, settings: MemoryRouteSettings()),
       );
       unawaited(
@@ -2404,7 +2538,7 @@ void main() {
       }
     });
 
-    for (final (name, size) in [('a phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name the legend open by itself stays open when a mark shows its words', (
         tester,
       ) async {
@@ -2429,7 +2563,7 @@ void main() {
       });
     }
 
-    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name a legend seen before keeps the route clear of its chip', (
         tester,
       ) async {
@@ -2458,6 +2592,29 @@ void main() {
         }
       });
     }
+
+    testWidgets('on a small phone the route starts below the back button and the chip', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: const Size(360, 700),
+        settings: legendSeen(),
+      );
+      final props = SchematicRouteMap.last!;
+      final chip = tester.getRect(
+        find.descendant(of: find.byType(MarkLegend), matching: find.byType(ActionChip)),
+      );
+      final back = tester.getRect(find.byTooltip('Retour'));
+      final map = tester.getRect(find.byType(SchematicRouteMap));
+      final project = schematicProjection(props, map.size)!;
+      for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+        final at = map.topLeft + project(end.position);
+        expect(chip.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+        expect(back.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+      }
+    });
 
     test('the room goes beside the legend or below it, whichever frames the route larger', () {
       const map = Size(1000, 800);

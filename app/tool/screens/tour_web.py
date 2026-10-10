@@ -2,7 +2,8 @@
 device: the web build of the tour, served on 127.0.0.1 with the API's paths
 forwarded to the API on the same origin (the production API answers the
 pages of lunaway.net only, a page of 127.0.0.1 gets no CORS headers), opened
-in Playwright's Chromium at a viewport, a screenshot at each `SHOT <name>`
+in Playwright's Chromium (or its WebKit, `--browser webkit`, a phone's
+Safari with `--phone`) at a viewport, a screenshot at each `SHOT <name>`
 line of the console, a `WRITE <name>.txt <text>` line appended to that file.
 
     python3 tool/screens/tour_web.py --test integration_test/radars_real_tour_test.dart \
@@ -92,6 +93,9 @@ def main():
     p.add_argument("--no-build", action="store_true")
     p.add_argument("--headed", action="store_true", help="a visible browser, which has the system's voices")
     p.add_argument("--minutes", type=float, default=45)
+    p.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
+    p.add_argument("--phone", action="store_true",
+                   help="touch and a phone's user agent, as a phone's browser")
     args = p.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
@@ -116,16 +120,25 @@ def main():
     written = set()
     code = 1
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=not args.headed,
-            args=["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader",
-                  "--enable-unsafe-swiftshader"],
-        )
+        if args.browser == "webkit":
+            browser = pw.webkit.launch(headless=not args.headed)
+        else:
+            browser = pw.chromium.launch(
+                headless=not args.headed,
+                args=["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader",
+                      "--enable-unsafe-swiftshader"],
+            )
+        phone = {}
+        if args.phone:
+            phone = {"has_touch": True, "is_mobile": True, "user_agent": (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 "
+                "(KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1")}
         context = browser.new_context(
             viewport={"width": width, "height": height},
             device_scale_factor=args.scale,
             locale=args.locale,
             color_scheme=args.theme,
+            **phone,
         )
         page = context.new_page()
         page.on("console", lambda m: lines.put(m.text))

@@ -608,7 +608,7 @@ void main() {
           'Sur le trajet',
           'Tout le trajet',
           'Signaler un problème sur la route',
-          'Terminer',
+          'Arrêter le guidage',
         ]) {
           if (find.byTooltip(tip).evaluate().isEmpty) continue;
           final other = tester.getRect(find.byTooltip(tip));
@@ -656,7 +656,10 @@ void main() {
           // road ahead (audit 94, m9, captures).
           expect(bar.inflate(0.5).contains(rect.topLeft), isTrue, reason: '$rect in $bar');
           expect(bar.inflate(0.5).contains(rect.bottomRight), isTrue);
-          expect(rect.top, greaterThanOrEqualTo(tester.getRect(find.byTooltip('Terminer')).bottom));
+          expect(
+            rect.top,
+            greaterThanOrEqualTo(tester.getRect(find.byTooltip('Arrêter le guidage')).bottom),
+          );
         } else {
           // On its side, over the map beside the panel: clear of the panel,
           // the buttons and "Recentrer", no place drawn large under it.
@@ -876,8 +879,9 @@ void main() {
             ),
             findsOneWidget,
           );
-          // Open by itself at a first preview, the legend leaves it clear.
-          expect(find.byTooltip('Replier la légende'), findsOneWidget);
+          // Open by itself at a first preview (a chip on a phone), the
+          // legend leaves it clear.
+          expect(find.byType(MarkLegend), findsOneWidget);
           final rect = tester.getRect(credit);
           expect(rect.overlaps(tester.getRect(find.byType(MarkLegend))), isFalse);
           expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');

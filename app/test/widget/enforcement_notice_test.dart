@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/plural_rules.dart';
@@ -16,8 +17,8 @@ import 'package:lunaway/shared/theme/app_theme.dart';
 import '../helpers/fonts.dart';
 
 // The French lists as the API serves them: the banner cites a list by its
-// name, which names its licensor, and leaves the longer attribution to the
-// route preview.
+// licensor, in the app's language, and leaves the longer attribution to
+// the route preview.
 final _list = EnforcementSource(
   id: 'fr-dsr',
   name: 'Délégation à la sécurité routière, radars fixes',
@@ -132,15 +133,44 @@ void main() {
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
+  testWidgets('three lists of a French zone take one line, cut short', (tester) async {
+    EnforcementSource list(String id, String name) => EnforcementSource(
+      id: id,
+      name: name,
+      attribution: name,
+      fetchedAt: DateTime.utc(2026, 10, 9, 5),
+      listUpdatedAt: DateTime.utc(2025, 12, 30),
+    );
+    final zone = EnforcementAlert(
+      id: 'z',
+      kind: EnforcementKind.zone,
+      aheadM: 0,
+      remainingM: 1800,
+      sources: [
+        list('securite-routiere', 'Sécurité routière, radars'),
+        list('fr-dsr', 'Liste des radars fixes en France'),
+        list('osm', 'OpenStreetMap'),
+      ],
+    );
+    await _pump(tester, zone, width: 364);
+    final cited = tester.renderObject<RenderParagraph>(
+      find.descendant(of: find.textContaining(' · '), matching: find.byType(RichText)),
+    );
+    final line = cited.getFullHeightForCaret(const TextPosition(offset: 0));
+    expect(cited.size.height, lessThan(line * 1.5), reason: 'one line, at text 2x');
+    expect(find.textContaining('Liste des radars'), findsNothing, reason: 'named in German');
+  });
+
   testWidgets('the lists are cited in one run of text, not a line each', (tester) async {
     await _pump(tester, _banners['a camera ahead']!, width: 364);
     final cited = find.textContaining(' · ');
     expect(cited, findsOneWidget, reason: 'two lists, one text');
     expect(
-      find.textContaining('Délégation à la sécurité routière, radars fixes'),
+      find.textContaining('Délégation à la sécurité routière'),
       findsOneWidget,
-      reason: 'the Licence Ouverte asks for the licensor, which the name gives',
+      reason: 'the Licence Ouverte asks for the licensor',
     );
+    expect(find.textContaining('radars fixes'), findsNothing, reason: 'the API names it in French');
     expect(
       find.textContaining('data.gouv.fr'),
       findsNothing,
@@ -149,16 +179,14 @@ void main() {
   });
 
   // The banner sits over the top of the map while driving: the lists it
-  // cites take three lines at most on a phone, measured with the app's own
-  // typefaces (the test font draws every glyph as a square).
+  // cites take one line on a phone, measured with the app's own typefaces
+  // (the test font draws every glyph as a square).
   for (final locale in [AppLocale.fr, AppLocale.de]) {
     for (final (name, sources) in [
       ('both French lists', [_map, _list]),
       ("Norway's list", [_norway]),
     ]) {
-      testWidgets('$name take three lines at most at 360 dp in ${locale.languageCode}', (
-        tester,
-      ) async {
+      testWidgets('$name take one line at 360 dp in ${locale.languageCode}', (tester) async {
         await loadRealFonts();
         await LocaleSettings.setLocale(locale);
         final zone = EnforcementAlert(
@@ -189,16 +217,16 @@ void main() {
             ),
           ),
         );
-        final cited = find.textContaining(sources.first.name);
+        final cited = find.textContaining(locale.buildSync().listName(sources.first));
         expect(cited, findsOneWidget);
         final style = tester.widget<Text>(cited).style!;
-        // A line's box is the font's own metrics, rounded: a fourth line
-        // adds a whole one, so half a line of slack tells three from four.
+        // A line's box is the font's own metrics, rounded: a second line
+        // adds a whole one, so half a line of slack tells one from two.
         final line = style.fontSize! * (style.height ?? 1.2);
         expect(
           tester.getSize(cited).height,
-          lessThan(3.5 * line),
-          reason: "three lines of lists pushed the map's top third out of sight",
+          lessThan(1.5 * line),
+          reason: "three lines of lists took a fifth of a phone's screen",
         );
       });
     }
@@ -249,6 +277,19 @@ void main() {
       enforcementText(de, passed, DistanceUnits.metric),
       isNot(contains(de.navigation.enforcement.remaining(distance: ''))),
     );
+  });
+
+  testWidgets('a zone held past its end, or just ahead, shows no "0 m" figure', (tester) async {
+    const held = EnforcementAlert(id: 'z', kind: EnforcementKind.zone, aheadM: 0, remainingM: 0);
+    const near = EnforcementAlert(id: 'z', kind: EnforcementKind.zone, aheadM: 6, remainingM: 0);
+    for (final alert in [held, near]) {
+      await _pump(tester, alert, width: 360);
+      expect(find.textContaining(RegExp(r'\b0 m\b')), findsNothing, reason: '$alert');
+      expect(find.textContaining('Gefahrenzone'), findsWidgets, reason: 'the kind alone');
+    }
+    final fr = AppLocale.fr.buildSync();
+    expect(enforcementText(fr, held, DistanceUnits.metric), 'Zone de danger.');
+    expect(enforcementText(fr, near, DistanceUnits.metric), 'Zone de danger.');
   });
 
   test('the end of a zone or a section and a rule come as passing notices, calm', () {

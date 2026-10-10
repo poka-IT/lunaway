@@ -600,8 +600,10 @@ EdgeInsets legendRoom({
 }
 
 /// The legend: a chip "Légende" above the map that opens the kinds of marks
-/// present on this route, each with its badge. Open the first time, folded
-/// afterwards: the route settings remember it was seen.
+/// present on this route, each with its badge. On a tablet or a computer,
+/// open the first time, folded afterwards: the route settings remember it
+/// was seen. On a phone, folded: open, it covered the little map the sheet
+/// leaves, and the route was framed beside it in a corner.
 class MarkLegend extends ConsumerStatefulWidget {
   const new({
     required this.rows,
@@ -648,7 +650,8 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
   Widget build(BuildContext context) {
     final settings = ref.watch(routeSettingsControllerProvider).value;
     if ((widget.rows.isEmpty && !widget.zones) || settings == null) return const SizedBox.shrink();
-    final open = _open ??= _byItself = !settings.legendSeen;
+    final phone = WindowSize.of(context) == WindowSize.compact;
+    final open = _open ??= _byItself = !settings.legendSeen && !phone;
     if (open && !settings.legendSeen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -729,7 +732,9 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
               ),
             )
           : ReportsRect(
-              onRect: (rect) => widget.onShownByItself?.call(rect.size),
+              // On a phone the chip sits in the row of the back button,
+              // which the preview's fit keeps clear already.
+              onRect: (rect) => widget.onShownByItself?.call(phone ? null : rect.size),
               child: KeyedSubtree(
                 key: widget.cardKey,
                 child: ActionChip(

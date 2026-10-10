@@ -3851,6 +3851,9 @@ class Translations$navigation$preview$en {
 	/// en: 'Timed at $speed max'
 	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
+	/// en: 'Including $duration for $distance of very slow road'
+	String slowStretch({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road';
+
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
 
@@ -4713,14 +4716,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Recenter'
 	String get recenter => 'Recenter';
 
-	/// en: 'End'
-	String get end => 'End';
-
-	/// en: 'End the guidance?'
-	String get endTitle => 'End the guidance?';
-
-	/// en: 'End'
-	String get endConfirm => 'End';
+	/// en: 'Stop the guidance'
+	String get end => 'Stop the guidance';
 
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
@@ -5035,6 +5032,30 @@ class Translations$navigation$enforcement$en {
 
 	/// en: 'average limit $limit'
 	String averageLimit({required Object limit}) => 'average limit ${limit}';
+
+	/// en: 'Sécurité routière'
+	String get listSecuriteRoutiere => 'Sécurité routière';
+
+	/// en: 'Délégation à la sécurité routière'
+	String get listDsr => 'Délégation à la sécurité routière';
+
+	/// en: 'GITD'
+	String get listGitd => 'GITD';
+
+	/// en: 'Ponts et chaussées'
+	String get listPontsEtChaussees => 'Ponts et chaussées';
+
+	/// en: 'Bruxelles Mobilité'
+	String get listBrusselsMobility => 'Bruxelles Mobilité';
+
+	/// en: 'Statens vegvesen'
+	String get listStatensVegvesen => 'Statens vegvesen';
+
+	/// en: 'An Garda Síochána'
+	String get listGarda => 'An Garda Síochána';
+
+	/// en: 'OpenStreetMap'
+	String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -6768,6 +6789,7 @@ extension on Translations {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -6901,9 +6923,9 @@ extension on Translations {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
@@ -7067,9 +7089,7 @@ extension on Translations {
 			'navigation.guidance.voiceMode.saysMuted' => 'Voice off: everything shows on screen, with no sound.',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Recenter',
-			'navigation.guidance.end' => 'End',
-			'navigation.guidance.endTitle' => 'End the guidance?',
-			'navigation.guidance.endConfirm' => 'End',
+			'navigation.guidance.end' => 'Stop the guidance',
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.stopTitle' => 'Stop the guidance?',
 			'navigation.guidance.stopConfirm' => 'Stop',
@@ -7198,6 +7218,14 @@ extension on Translations {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'limit ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'average limit ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Places nearby',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -7409,6 +7437,8 @@ extension on Translations {
 			'account.requirement.noRemoval' => 'No contribution removed by moderation',
 			'account.requirement.sponsor' => 'A sponsor at level 2',
 			'account.requirement.nomination' => 'A nomination by a moderator',
+			_ => null,
+		} ?? switch (path) {
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
@@ -7416,8 +7446,6 @@ extension on Translations {
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Make a new recovery card',
 			'account.contributions' => 'My contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
@@ -7923,6 +7951,8 @@ extension on Translations {
 			'offlineMaps.suggested' => 'Suggested',
 			'offlineMaps.here' => 'Where you are',
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} favourite here', other: '${n} favourites here', ), 
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.france' => 'France',
 			'offlineMaps.overseas' => 'Overseas France',
 			'offlineMaps.countries' => 'Countries',
@@ -7930,8 +7960,6 @@ extension on Translations {
 			'offlineMaps.pause' => 'Pause',
 			'offlineMaps.resume' => 'Resume',
 			'offlineMaps.cancel' => 'Stop and remove the download',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.waiting' => 'Waiting for its turn',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} of ${total}',
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',

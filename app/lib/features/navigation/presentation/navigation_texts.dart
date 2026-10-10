@@ -305,19 +305,34 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
-  /// "Délégation à la sécurité routière, radars fixes, liste du 6 oct.": a
-  /// list of speed cameras by its name, which names its licensor, with the
-  /// date it gives of its last update, else of its last read (the
-  /// Licence Ouverte of the French list asks for both); its year as well
-  /// when it is not this year's ("liste du 30 déc. 2025"). For the guidance
-  /// banner and a camera's callout: the full attributions
-  /// ([EnforcementSource.credit]) took 4 lines of lists at 360 dp where
-  /// the names take 3, so they stay in the route preview.
+  /// "Délégation à la sécurité routière, liste du 6 oct.": a list of speed
+  /// cameras by its licensor ([listName]), with the date it gives of its
+  /// last update, else of its last read (the Licence Ouverte of the French
+  /// list asks for both); its year as well when it is not this year's
+  /// ("liste du 30 déc. 2025"). For the guidance banner and a camera's
+  /// callout, where the lists hold one line: the full attributions
+  /// ([EnforcementSource.credit]) stay in the route preview.
   String enforcementSource(EnforcementSource s, {required DateTime now}) =>
       _t.navigation.guidance.enforcementSource(
-        source: s.name,
+        source: listName(s),
         date: listDate(s, now: now),
       );
+
+  /// The name of a list of speed cameras in the app's language: its
+  /// licensor, named as in the credits (a proper name stays as written);
+  /// the name the API gives (in French) for a list this app does not know
+  /// yet.
+  String listName(EnforcementSource s) => switch (s.id) {
+    'securite-routiere' => _t.navigation.enforcement.listSecuriteRoutiere,
+    'fr-dsr' => _t.navigation.enforcement.listDsr,
+    'pl-canard' => _t.navigation.enforcement.listGitd,
+    'lu-pch-radars' => _t.navigation.enforcement.listPontsEtChaussees,
+    'be-bru-radars' => _t.navigation.enforcement.listBrusselsMobility,
+    'no-nvdb-atk' => _t.navigation.enforcement.listStatensVegvesen,
+    'ie-garda' => _t.navigation.enforcement.listGarda,
+    'osm' => _t.navigation.enforcement.listOsm,
+    _ => s.name,
+  };
 
   /// The date a list of speed cameras gives of its last update, else of
   /// its last read: "6 oct.", with its year when it is not [now]'s ("30
@@ -631,8 +646,9 @@ final class TranslatedWording implements GuidanceWording {
     };
     return switch (call.word) {
       AidWord.overSpeed => t.navigation.voice.overSpeed(limit: limit ?? ''),
+      // Entered, or about to be: "Zone de danger.", never "in 0 metres".
       AidWord.zone =>
-        alert.inside
+        alert.inside || alert.aheadM < atHandM
             ? t.navigation.voice.inDangerZone
             : t.navigation.voice.dangerZone(distance: distance),
       AidWord.section when alert.inside => t.navigation.voice.camera.inSection,

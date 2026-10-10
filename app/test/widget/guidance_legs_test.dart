@@ -8,6 +8,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -40,6 +41,7 @@ void main() {
     double textScale = 1,
     FakeViewPadding? viewPadding,
     List<RouteStop>? withStops,
+    VoiceOutput? voice,
   }) async {
     routes = FakeRouteService(answers ?? [plan]);
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
@@ -52,6 +54,7 @@ void main() {
         routes: routes,
         feed: feed,
         engine: LineEngine([plan, ...more]),
+        voice: voice,
       ),
     );
     await app
@@ -175,6 +178,43 @@ void main() {
     await tester.tap(find.text('Annuler'));
     await settleShort(tester);
     expect(stops(app, tester), [pause, fontaine, pause]);
+  });
+
+  testWidgets('the whole route is framed below the banner and the notices under it', (
+    tester,
+  ) async {
+    // No voice for French on the device: a standing notice under the
+    // banner, as a zone's would be.
+    await guide(tester, voice: RecordingVoice(readiness: VoiceReadiness.none));
+    await overview(tester);
+    final notice = tester.getRect(find.textContaining('Aucune voix'));
+    final top = tester.getRect(find.byType(SchematicRouteMap)).top;
+    final camera = map().camera as FitCamera;
+    expect(
+      map().padding.top + camera.room.top,
+      greaterThanOrEqualTo(notice.bottom - top),
+      reason: 'the route framed under the notice, not behind it',
+    );
+  });
+
+  testWidgets('the whole route framed below a passing notice stays there once it goes', (
+    tester,
+  ) async {
+    await guide(tester);
+    await overview(tester);
+    await touch(tester, cross('Pause'));
+    await settleShort(tester);
+    expect(find.text('Étape retirée'), findsOneWidget);
+    final under = (map().camera as FitCamera).room.top;
+    final notice = tester.getRect(find.text('Étape retirée'));
+    final top = tester.getRect(find.byType(SchematicRouteMap)).top;
+    expect(map().padding.top + under, greaterThanOrEqualTo(notice.bottom - top));
+    // The message gone, the route does not move back up: a frame that
+    // followed each message would jump twice for each.
+    await tester.pump(const Duration(seconds: 8));
+    await settleShort(tester);
+    expect(find.text('Étape retirée'), findsNothing);
+    expect((map().camera as FitCamera).room.top, under);
   });
 
   testWidgets('the overview lists the stops ahead, then the arrival, "Tout" first', (tester) async {
@@ -704,7 +744,7 @@ void main() {
         'Sur le trajet',
         'Signaler un problème sur la route',
         'Recentrer',
-        'Terminer',
+        'Arrêter le guidage',
       ]) {
         expect(strip.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
       }

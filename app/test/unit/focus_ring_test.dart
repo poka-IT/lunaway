@@ -60,7 +60,7 @@ void main() {
         focused,
         scheme.surface,
       ),
-      // The guidance's bar (`_panelColors`): its "Terminer" sets its own ink.
+      // The guidance's bar (`_panelColors`): its cross sets its own ink.
       (
         'guidance bar button',
         (s) =>

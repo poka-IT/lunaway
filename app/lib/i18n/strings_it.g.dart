@@ -1797,6 +1797,7 @@ class _Translations$navigation$preview$it extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, con traino';
 	@override String get editVehicle => 'Modifica';
 	@override String cruise({required Object speed}) => 'Tempi calcolati a ${speed} max';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Di cui ${duration} per ${distance} di strada molto lenta';
 	@override String get avoid => 'Evita';
 	@override String get avoidTolls => 'Pedaggi';
 	@override String get avoidMotorways => 'Autostrade';
@@ -2165,9 +2166,7 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$it voiceMode = _Translations$navigation$guidance$voiceMode$it._(_root);
 	@override String get overview => 'Tutto il percorso';
 	@override String get recenter => 'Ricentra';
-	@override String get end => 'Termina';
-	@override String get endTitle => 'Terminare la navigazione?';
-	@override String get endConfirm => 'Termina';
+	@override String get end => 'Interrompi la navigazione';
 	@override String get endKeep => 'Continua';
 	@override String get stopTitle => 'Interrompere la navigazione?';
 	@override String get stopConfirm => 'Interrompi';
@@ -2311,6 +2310,14 @@ class _Translations$navigation$enforcement$it extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} tra ${distance}';
 	@override String limit({required Object limit}) => 'limite ${limit}';
 	@override String averageLimit({required Object limit}) => 'media massima ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listDsr => 'Délégation à la sécurité routière';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Bruxelles Mobilité';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -3402,6 +3409,7 @@ extension on TranslationsIt {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, con traino',
 			'navigation.preview.editVehicle' => 'Modifica',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Tempi calcolati a ${speed} max',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Di cui ${duration} per ${distance} di strada molto lenta',
 			'navigation.preview.avoid' => 'Evita',
 			'navigation.preview.avoidTolls' => 'Pedaggi',
 			'navigation.preview.avoidMotorways' => 'Autostrade',
@@ -3535,9 +3543,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tappa ${n} irraggiungibile per il tuo veicolo: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Nessun passaggio per il tuo veicolo tra le tappe',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Nessun passaggio per il tuo veicolo tra le tappe: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
 			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
@@ -3701,9 +3709,7 @@ extension on TranslationsIt {
 			'navigation.guidance.voiceMode.saysMuted' => 'Voce disattivata: tutto appare sullo schermo, senza alcun suono.',
 			'navigation.guidance.overview' => 'Tutto il percorso',
 			'navigation.guidance.recenter' => 'Ricentra',
-			'navigation.guidance.end' => 'Termina',
-			'navigation.guidance.endTitle' => 'Terminare la navigazione?',
-			'navigation.guidance.endConfirm' => 'Termina',
+			'navigation.guidance.end' => 'Interrompi la navigazione',
 			'navigation.guidance.endKeep' => 'Continua',
 			'navigation.guidance.stopTitle' => 'Interrompere la navigazione?',
 			'navigation.guidance.stopConfirm' => 'Interrompi',
@@ -3832,6 +3838,14 @@ extension on TranslationsIt {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} tra ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'limite ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'media massima ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Luoghi nelle vicinanze',
 			'list.empty' => 'Nessun luogo qui intorno con questi filtri',
 			'list.emptyHint' => 'Sposta la mappa, riduci lo zoom o allenta i filtri.',
@@ -4043,6 +4057,8 @@ extension on TranslationsIt {
 			'account.requirement.noRemoval' => 'Nessun contributo rimosso dalla moderazione',
 			'account.requirement.sponsor' => 'La garanzia di un membro di livello 2',
 			'account.requirement.nomination' => 'Una nomina da parte della moderazione',
+			_ => null,
+		} ?? switch (path) {
 			'account.requirement.administration' => 'Una designazione da parte del team di Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Oppure ${requirement}',
 			'account.recoveryNone' => 'Nessuna scheda di recupero creata su questo dispositivo. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
@@ -4050,8 +4066,6 @@ extension on TranslationsIt {
 			'account.recoveryCreate' => 'Crea la mia scheda di recupero',
 			'account.recoveryMade' => ({required Object date}) => 'Creata il ${date}',
 			'account.recoveryRemake' => 'Ricrea',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Crea una nuova scheda di recupero',
 			'account.contributions' => 'I miei contributi',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} contributo in attesa di invio', other: '${n} contributi in attesa di invio', ), 
@@ -4557,6 +4571,8 @@ extension on TranslationsIt {
 			'offlineMaps.suggested' => 'Suggerite',
 			'offlineMaps.here' => 'Dove ti trovi',
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} preferito in questa regione', other: '${n} preferiti in questa regione', ), 
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.france' => 'Francia',
 			'offlineMaps.overseas' => 'Francia d\'oltremare',
 			'offlineMaps.countries' => 'Paesi',
@@ -4564,8 +4580,6 @@ extension on TranslationsIt {
 			'offlineMaps.pause' => 'Metti in pausa',
 			'offlineMaps.resume' => 'Riprendi',
 			'offlineMaps.cancel' => 'Interrompi ed elimina il download',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.waiting' => 'In attesa del suo turno',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} di ${total}',
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'In pausa: ${done} di ${total}',
