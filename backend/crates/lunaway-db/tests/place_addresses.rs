@@ -150,7 +150,11 @@ async fn a_place_without_a_street_takes_the_geocoded_address_once(pool: PgPool) 
     let before = places::feed_head(&pool).await.unwrap();
     assert!(apply(&pool, car_park, &answer(LAT, LON)).await);
     let p = shown(&pool, car_park).await;
-    assert_eq!(p.address.street.as_deref(), Some("4 Rue de la Gare"));
+    assert_eq!(
+        p.address.street.as_deref(),
+        Some("Rue de la Gare"),
+        "a car park takes the street, not the number of the house beside it"
+    );
     assert_eq!(p.address.city.as_deref(), Some("Viviers"));
     let credit = p.provenance.iter().find(|f| f.field == "address").unwrap();
     assert_eq!(
@@ -190,7 +194,7 @@ async fn the_conflation_keeps_the_geocoded_address_until_the_place_moves(pool: P
     // A source changed something else: the place is written again.
     write(&pool, id, &c).await;
     let p = shown(&pool, id).await;
-    assert_eq!(p.address.street.as_deref(), Some("4 Rue de la Gare"));
+    assert_eq!(p.address.street.as_deref(), Some("Rue de la Gare"));
     assert_eq!(
         p.provenance
             .iter()
@@ -249,6 +253,39 @@ async fn a_private_host_never_gets_a_street(pool: PgPool) {
             .await
             .unwrap();
     assert_eq!(kept, (None, None), "nor kept aside, in the geocodes");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_farm_that_becomes_a_private_host_forgets_its_street(pool: PgPool) {
+    let id = Uuid::now_v7();
+    write(&pool, id, &content(PlaceKind::Farm, LAT, LON, town_only())).await;
+    assert!(apply(&pool, id, &answer(LAT, LON)).await);
+    assert_eq!(
+        shown(&pool, id).await.address.street.as_deref(),
+        Some("4 Rue de la Gare"),
+        "a farm keeps its number"
+    );
+
+    write(
+        &pool,
+        id,
+        &content(PlaceKind::Homestay, LAT, LON, town_only()),
+    )
+    .await;
+    let p = shown(&pool, id).await;
+    assert_eq!(p.address.street, None);
+    assert_eq!(p.address.city.as_deref(), Some("Viviers"));
+    let kept: (Option<String>, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT house_number, street, city FROM place_geocodes WHERE place_id = $1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        kept,
+        (None, None, Some("Viviers".into())),
+        "the street it had as a farm is not kept aside for a home"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

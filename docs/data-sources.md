@@ -757,8 +757,10 @@ position on Lunaway's own Photon, OpenStreetMap's data under the ODbL, and
 never from a third party (`lunaway addresses`,
 `lunaway-domain/src/place_address.rs`): the street within 50 m of the
 place (the point Photon gives for a street is the middle of its way), the
-house number of a house within 20 m, the town and postcode of the nearest
-features within a kilometre. The geocoded address replaces the sources'
+house number of a house within 20 m for a place an operator runs (a
+campsite, a motorhome or service area, a farm, a service: its address is
+the building's; a car park beside a house is not that house), the town
+and postcode of the nearest features within a kilometre. The geocoded address replaces the sources'
 whole, never a part of it; it is kept with the position asked
 (`place_geocodes`) and asked again once the place moves by more than
 25 m. Its provenance names `osm`, the sources' own address among the
@@ -767,8 +769,9 @@ private host (`homestay`) never shows a street nor a house number, from
 any source, in the API, the tiles or the packs: its town only
 (plan/research/69-extcom-suites.md, section 9). Measured on 1 000 places
 without a street on 2026-10-10, one request every 50 ms: 50 s, median
-10 ms, p95 15 ms; a street for 496, a house number for 45, a town for
-941, a postcode for 855, nothing within a kilometre for 42.
+10 ms, p95 15 ms; a street for 496, a house number for 45 (counted
+before the number was kept only for the places an operator runs), a town
+for 941, a postcode for 855, nothing within a kilometre for 42.
 
 A place without a name is titled by its kind and its street without the
 house number (`Parking · Rue de la Gare`), else its kind and its town; a

@@ -234,9 +234,16 @@ pub fn complete(
             .or_else(|| g.and_then(|g| g.country_code.clone()))
     };
     if let Some(g) = g {
+        // A number kept when the place was another kind (a campsite since
+        // tagged a car park) is not this one's.
+        let street_line = if keeps_house_number(kind) {
+            g.street_line()
+        } else {
+            g.street.clone()
+        };
         if !host
             && source.street.is_none()
-            && let Some(street) = g.street_line()
+            && let Some(street) = street_line
         {
             return Some(Completed {
                 address: Address {
@@ -485,7 +492,7 @@ mod tests {
             country_code: Some("FR".into()),
             ..Address::default()
         };
-        let shown = complete(PlaceKind::Parking, p, &source, Some(&geocoded(p))).unwrap();
+        let shown = complete(PlaceKind::MotorhomeArea, p, &source, Some(&geocoded(p))).unwrap();
         assert!(shown.geocoded);
         let shown = shown.address;
         assert_eq!(shown.street.as_deref(), Some("4 Rue de la Gare"));
@@ -493,6 +500,12 @@ mod tests {
             (shown.postcode.as_deref(), shown.city.as_deref()),
             (Some("07220"), Some("Viviers")),
             "never one source's town beside another's street"
+        );
+        let parking = complete(PlaceKind::Parking, p, &source, Some(&geocoded(p))).unwrap();
+        assert_eq!(
+            parking.address.street.as_deref(),
+            Some("Rue de la Gare"),
+            "a number kept when the place was another kind is not a car park's"
         );
     }
 

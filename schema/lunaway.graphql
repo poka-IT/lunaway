@@ -2867,7 +2867,9 @@ type Place {
 	"""
 	sources: [PlaceSource!]!
 	"""
-	For each field with a value, the source that supplied it.
+	For each field with a value, the source that supplied it. A private
+	host's address carries no alternative: another source's address of
+	it would name its street.
 	"""
 	provenance: [FieldProvenance!]!
 	"""

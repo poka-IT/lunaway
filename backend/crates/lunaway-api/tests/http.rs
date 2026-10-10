@@ -468,9 +468,12 @@ async fn a_private_host_is_served_with_its_town_and_never_a_street(pool: PgPool)
     let id = uuid::Uuid::now_v7();
     sqlx::query!(
         r#"
-        INSERT INTO places (id, kind, geom, overnight, street, postcode, city, content_hash)
+        INSERT INTO places (id, kind, geom, overnight, street, postcode, city, content_hash,
+                            provenance)
         VALUES ($1, 'homestay', ST_SetSRID(ST_MakePoint(4.6896, 44.4818), 4326)::geography,
-                'allowed', '3 Impasse des Lilas', '07220', 'Viviers', 'x')
+                'allowed', '3 Impasse des Lilas', '07220', 'Viviers', 'x',
+                '[{"field": "address", "source_id": "extcom", "alternatives":
+                   [{"source_id": "osm", "value": "3 Impasse des Lilas, 07220 Viviers"}]}]')
         "#,
         id,
     )
@@ -483,6 +486,11 @@ async fn a_private_host_is_served_with_its_town_and_never_a_street(pool: PgPool)
     assert_eq!(address["street"], Value::Null);
     assert_eq!(address["city"], "Viviers");
     assert_eq!(address["postcode"], "07220");
+    let provenance = body["data"]["place"]["provenance"].to_string();
+    assert!(
+        provenance.contains("address") && !provenance.contains("Lilas"),
+        "nor through another source's address in the provenance: {provenance}"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
