@@ -321,6 +321,51 @@ abstract final class RichLayers {
   );
 }
 
+/// The part of a map of [size] where a place may carry a mark: a mark
+/// stands over its place and wholly inside the part [clear] leaves
+/// ([RichFrame.open]), so a place outside it never does. What the engine
+/// is asked for the places of the tiles in view.
+Rect richQueryRect(Size size, EdgeInsets clear) =>
+    Rect.fromLTRB(clear.left, clear.top, size.width - clear.right, size.height - clear.bottom);
+
+/// Where a camera looks, as the rich marks compare two of them.
+typedef RichCamera = ({LatLng target, double zoom, double bearing, double tilt});
+
+/// How long the places of the tiles asked of a native map stand for those
+/// in view, while the camera stays near ([tilePlacesStillHold]).
+const tilePlacesKept = Duration(seconds: 4);
+
+/// Whether the places of the tiles asked [age] ago under the camera [then]
+/// still stand for those under [now], on a view of [size] logical pixels.
+///
+/// A native map answers that question on the thread that draws the app,
+/// and only once its renderer has finished the frame it is drawing: 40 ms
+/// in the median, up to 200 ms, on the emulator while the guidance's
+/// camera follows the vehicle, whatever the number of places found
+/// (`plan/research/112-perf-android.md`). Asked at every pass of the
+/// marks, 0.7 s apart, that froze the guidance. The places stay put while
+/// the vehicle moves on: the marks take them again, projected anew, until
+/// the camera has moved a fifth of the view, zoomed, turned or tilted, or
+/// [tilePlacesKept] has passed, which brings in the places that came into
+/// view meanwhile.
+bool tilePlacesStillHold({
+  required RichCamera then,
+  required RichCamera now,
+  required Duration age,
+  required Size size,
+}) {
+  if (age > tilePlacesKept) return false;
+  if ((now.zoom - then.zoom).abs() > 0.5) return false;
+  if ((now.tilt - then.tilt).abs() > 10) return false;
+  final turn = (now.bearing - then.bearing).abs() % 360;
+  if (math.min(turn, 360 - turn) > 20) return false;
+  // Metres a logical pixel covers at the target (512 pixel tiles).
+  final metresPerPixel =
+      40075016.686 * math.cos(now.target.lat * math.pi / 180) / (512 * math.pow(2, now.zoom));
+  final reach = size.shortestSide * metresPerPixel / 5;
+  return now.target.distanceTo(then.target) <= reach;
+}
+
 /// What an engine does for the rich marks.
 abstract interface class RichMarkEngine {
   /// The places of the tiles drawn in view ([RichLayers.probe]).
