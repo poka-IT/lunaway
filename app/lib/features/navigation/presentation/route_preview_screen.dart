@@ -433,7 +433,9 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         // press: the point as a stop, or as the destination. A callout open
         // over the map takes the tap for itself (RouteMarksMap).
         onEmptyTap: (at, zoom) => _gate.tap(window: freeTapWindow(), () {
-          if (!mounted || bareTapAt(zoom: zoom, open: false) != BareTap.freePoint) return;
+          if (!mounted || bareTapAt(zoom: zoom, open: OpenOnMap.nothing) != BareTap.freePoint) {
+            return;
+          }
           unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
         }),
       ),

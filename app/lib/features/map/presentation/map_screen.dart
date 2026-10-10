@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_credit_fold.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
@@ -402,10 +404,19 @@ class _Map extends ConsumerStatefulWidget {
     this.attributionInset = EdgeInsets.zero,
     this.onPlaceTapped,
     this.onMarkerTapped,
+    this.onChoiceKept,
+    this.sheetMoving,
   });
 
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
+
+  /// A tap on bare map while the user's choice is open, which it keeps: on
+  /// a phone its sheet goes down to its lowest.
+  final VoidCallback? onChoiceKept;
+
+  /// Whether a sheet over the map moves now: a press then is no tap.
+  final bool Function()? sheetMoving;
 
   /// The marker of the bare point tapped: its card comes back up where a
   /// sheet holds it.
@@ -424,6 +435,10 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
   final _gate = DoubleTapGate();
 
+  /// Tells the taps the user meant from the touches that stop a fling or
+  /// follow a drag (the PO's rule of 2026-10-10).
+  final _guard = MapTapGuard();
+
   /// What the map screen showed ([MapFlowState.revision]) when the last
   /// press on the map went down, as the app's hit test sees it; null before
   /// any. The map reports a tap a moment after its press (it waits to know
@@ -436,18 +451,41 @@ class _MapState extends ConsumerState<_Map> {
   @override
   void dispose() {
     _gate.cancel();
+    _guard.dispose();
     super.dispose();
   }
 
-  /// A tap where nothing can be opened: closes what is open, or, at street
-  /// level, marks the point and opens its card.
+  /// What a tap on bare map finds open: a point the map dropped, which the
+  /// tap takes away, or what the user chose, which it keeps. A dropped point
+  /// the user saved is chosen.
+  OpenOnMap _open() => switch (ref.read(selectionProvider)) {
+    null => OpenOnMap.nothing,
+    PointSelection(:final position, address: null, saved: null)
+        when ref.read(savedPointProvider(savedPointIdAt(position))).value == null =>
+      OpenOnMap.freePoint,
+    _ => OpenOnMap.chosen,
+  };
+
+  /// A tap where nothing can be opened: keeps what the user chose (a phone
+  /// lowers its sheet), takes a free point away, or, at street level with
+  /// nothing open, marks the point and opens its card. A touch that stopped
+  /// a fling or came just after a drag does nothing ([MapTapGuard]).
   void _onBareTap(LatLng at, double zoom) {
     final since = _pressed;
+    if (!_guard.stands) {
+      // Still counted by the double click's gate: a click refused just
+      // before a rest's wait ends and the one that follows it are a double
+      // click, which zooms, and must not drop a point with its second.
+      _gate.tap(window: freeTapWindow(), () {});
+      return;
+    }
     _gate.tap(window: freeTapWindow(), () {
       if (!mounted) return;
-      switch (bareTapAt(zoom: zoom, open: ref.read(selectionProvider) != null)) {
+      switch (bareTapAt(zoom: zoom, open: _open())) {
         case BareTap.close:
           _flow.select(null, since: since);
+        case BareTap.keep:
+          if (since == null || _flow.stands(since)) widget.onChoiceKept?.call();
         case BareTap.freePoint:
           if (_flow.select(PointSelection(at), since: since)) widget.onPlaceTapped?.call();
         case BareTap.nothing:
@@ -605,6 +643,7 @@ class _MapState extends ConsumerState<_Map> {
           unawaited(ref.read(mapControllerProvider)?.moveTo(p));
         },
         onViewportChanged: (v) {
+          _guard.rested(v.center, v.zoom);
           ref.read(viewportProvider.notifier).update(v);
           _hintFreeTap(v);
           remember(v);
@@ -644,10 +683,18 @@ class _MapState extends ConsumerState<_Map> {
     // map, nothing drawn over it at that point. A press on the map is the
     // interaction after which its credit may fold (MapCredit).
     final map = Listener(
-      onPointerDown: (_) {
+      onPointerDown: (e) {
         _pressed = ref.read(mapFlowProvider).revision;
+        _guard.down(e, sheetMoving: widget.sheetMoving?.call() ?? false);
         ref.read(mapCreditFoldedProvider.notifier).fold();
       },
+      onPointerMove: _guard.move,
+      onPointerUp: _guard.up,
+      onPointerCancel: _guard.up,
+      onPointerSignal: (e) {
+        if (e is PointerScrollEvent) _guard.scrolled();
+      },
+      onPointerPanZoomEnd: (_) => _guard.scrolled(),
       child: engine,
     );
     final window = MediaQuery.sizeOf(context);
@@ -967,6 +1014,18 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     _reveal();
   }
 
+  /// A tap on bare map with a choice open: its sheet goes down to its
+  /// header, the choice stays, and the map shows more around it. Such a
+  /// tap is most often a pin missed or a look at the map; the card closes
+  /// by its cross, the back, a swipe down or Escape.
+  void _lowerDetails() {
+    if (widget.selection == null) return;
+    final low = _detailsPeek(MediaQuery.of(context));
+    if (_sheet.isAttached && _sheet.extent <= low + 1) return;
+    setState(() => _rest = low);
+    unawaited(_sheet.animateTo(low));
+  }
+
   @override
   void dispose() {
     _sheet.dispose();
@@ -1037,6 +1096,8 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
               onPlaceTapped: _reveal,
               onMarkerTapped: _raiseDetails,
+              onChoiceKept: _lowerDetails,
+              sheetMoving: () => _sheet.moving,
             ),
           ),
         ),

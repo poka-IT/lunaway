@@ -22,6 +22,8 @@ import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/widgets/over_map.dart';
+import 'package:lunaway/shared/widgets/spring_sheet.dart';
 
 import '../helpers/fake_browser.dart';
 import '../helpers/fakes.dart';
@@ -404,10 +406,15 @@ void main() {
       final (app, _) = await _pump(tester, _layouts.first.$2);
       await _search(tester, 'Régiment');
       await _pick(tester, _address.name);
+      final sheet = find
+          .descendant(of: find.byType(SpringSheet), matching: find.byType(OverMap))
+          .first;
+      final opened = tester.getSize(sheet).height;
       await _pressMap(tester);
       app.map.lastProps!.onEmptyTap!(_address.position, 17);
       await settleShort(tester);
-      expect(_open(app, tester), isNull, reason: 'a tap elsewhere closes the card');
+      expect(_open(app, tester), isA<PointSelection>(), reason: 'a tap beside the card keeps it');
+      expect(tester.getSize(sheet).height, lessThan(opened), reason: 'and lowers it: it acted');
     });
   });
 

@@ -18,10 +18,11 @@ journey fails; writes a screenshot at each step and a report.json under
 The journeys: a town found and touched (the map goes there); an address
 found (its card stays), its route, "C'est parti !" (the guidance), a back
 during it ("Arrêter le guidage ?", then the card), a second guidance (the
-vehicle described for the first not asked for again) and its end, the
-close; a place found and guided to, its map dragged during
-the guidance with a mouse ("Recentrer" comes); a point of the map ("Ici")
-and its route; on a phone, the browser's back over the filters and over the
+vehicle described for the first not asked for again) and its end, a tap on
+the map that keeps the card, the close; a place found and guided to, its
+map dragged during the guidance with a mouse ("Recentrer" comes); a point
+of the map ("Ici"), its route, and the next tap on the map that takes it
+away; on a phone, the browser's back over the filters and over the
 photo viewer; on a computer, the button of a message over the map, and
 Escape on a card the search opened.
 
@@ -397,6 +398,16 @@ class Run:
         self.expect_soon(lambda: self.find(END) is None, "the guidance ended")
 
 
+def bare_spot(run, other=False):
+    """Above the middle of the map: clear of the list, the sheet and the
+    panes. [other]: a second spot, away from a point dropped at the first,
+    whose marker would take the tap."""
+    width, height, _ = DEVICES[run.device]
+    if other:
+        return width * (0.2 if run.device == "phone" else 0.85), height * (0.45 if run.device == "phone" else 0.65)
+    return width * (0.5 if run.device == "phone" else 0.7), height * 0.35
+
+
 def journey_town(run):
     """A town found and touched: the map goes there, nothing opens."""
     run.open()
@@ -432,6 +443,14 @@ def journey_address(run):
     run.start_guidance(vehicle_known=True)
     run.end_guidance()
     run.expect_soon(lambda: run.find("Itinéraire jusqu'ici") is not None, "the card after the second guidance")
+    # A tap on the map beside the card keeps it: a choice is not lost to a
+    # tap a little off a pin (a phone lowers the sheet).
+    time.sleep(1)
+    run.tap_at(*bare_spot(run))
+    time.sleep(1.5)
+    run.step("map-tapped")
+    run.expect(run.hash() == "#/map?point" and run.find("Itinéraire jusqu'ici") is not None,
+               f"the address's card kept by a tap on the map, not {run.hash()}")
     run.tap("Fermer", exact=True, name="close")
     run.expect_soon(lambda: run.hash() == "#/map", "the bare map after the close")
 
@@ -473,10 +492,7 @@ def journey_point(run):
     run.expect_soon(lambda: run.camera_near(PARIS, 5000, 15), "the map at the street")
     run.tap("Fermer", exact=True, name="close")
     time.sleep(1.5)
-    width, height, _ = DEVICES[run.device]
-    # Above the middle of the map: clear of the list and of the panes.
-    x = width * (0.5 if run.device == "phone" else 0.7)
-    run.tap_at(x, height * 0.35)
+    run.tap_at(*bare_spot(run))
     time.sleep(1.5)
     run.step("point")
     run.expect_soon(lambda: run.hash() == "#/map?point", "the card of the point touched")
@@ -485,6 +501,13 @@ def journey_point(run):
     run.tap("Retour", exact=True, name="preview-back")
     run.expect_soon(lambda: run.hash() == "#/map?point" and run.find("Itinéraire jusqu'ici"),
                     "the point's card after the preview")
+    # A point dropped by mistake goes at the next tap on the map, away
+    # from its marker (which brings its card back up).
+    time.sleep(1)
+    run.tap_at(*bare_spot(run, other=True))
+    time.sleep(1.5)
+    run.step("point-gone")
+    run.expect_soon(lambda: run.hash() == "#/map", "the point taken away by a tap on the map")
 
 
 def journey_filters(run):
