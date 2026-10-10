@@ -11,11 +11,11 @@
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
 //! lunaway ingest datatourisme [--refresh]
-//! lunaway content refresh [--source commons,...] [--max-places N] [--area S,W,N,E] [--stale-days 7]
+//! lunaway content refresh [--source commons,...] [--max-places N] [--max-pois N] [--area S,W,N,E] [--stale-days 7]
 //! lunaway content coverage [--area S,W,N,E] [--source NAME]
 //! lunaway content gc
 //! lunaway content hide photo|review <id> [--author] [--show]
-//! lunaway content hide-place <place> <source> [--show]
+//! lunaway content hide-place <place-or-point> <source> [--show]
 //! lunaway content hide-source <source> [--show]
 //! lunaway ingest extcom --file <path|url> [--refresh]
 //! lunaway extcom status|hide|show [--note TEXT]

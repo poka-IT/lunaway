@@ -213,6 +213,19 @@ impl ExternalReviewConnection {
             total_count: i32::try_from(partner.total_count + open.total_count).unwrap_or(i32::MAX),
         }
     }
+
+    /// One page of the open sources' reviews alone (a point of interest,
+    /// which the partner's feed does not describe), as [`Self::merge`]
+    /// makes it: call this off the request's thread.
+    #[must_use]
+    pub fn open_only(open: Page<ContentReviewRow>, first: usize) -> Self {
+        let none = Page {
+            nodes: Vec::new(),
+            has_next_page: false,
+            total_count: 0,
+        };
+        Self::merge(none, open, first)
+    }
 }
 
 /// What a photo of another source shows of a place.

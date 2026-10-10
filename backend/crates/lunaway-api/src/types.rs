@@ -402,7 +402,7 @@ pub const MAX_EXTERNAL_PHOTOS: i64 = 50;
 /// Largest page of `Place.reviews`.
 pub const MAX_REVIEWS_PAGE: i32 = 50;
 /// Reviews per page when the client does not say.
-const DEFAULT_REVIEWS_PAGE: i32 = 20;
+pub(crate) const DEFAULT_REVIEWS_PAGE: i32 = 20;
 
 /// A place to stop: one real spot, merged from every source that lists it.
 pub struct Place(pub PlaceRow);

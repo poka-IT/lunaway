@@ -1,21 +1,10 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT DISTINCT ON (c.place_id) c.place_id AS \"place_id!\", c.id, c.source_id,\n               s.name AS source_label, c.relation, c.distance_m, c.page_url, c.title, c.author,\n               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.taken_at, c.path,\n               c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')\n          AND c.source_id = ANY($2)\n          AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = c.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY c.place_id, CASE c.relation WHEN 'linked' THEN 0 ELSE 1 END, c.rank, c.id\n        ",
+  "query": "\n        SELECT c.id, c.source_id, s.name AS source_label, c.relation, c.distance_m, c.page_url,\n               c.title, c.author, c.publisher, c.source_updated_on, c.licence, c.licence_url,\n               c.taken_at, c.path, c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.poi_id = $1 AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ORDER BY CASE c.relation WHEN 'linked' THEN 0 WHEN 'facing' THEN 1 ELSE 2 END,\n                 c.rank, c.id\n        LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "place_id!",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "content_photos",
-            "name": "place_id"
-          }
-        }
-      },
-      {
-        "ordinal": 1,
         "name": "id",
         "type_info": "Uuid",
         "origin": {
@@ -26,7 +15,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 1,
         "name": "source_id",
         "type_info": "Text",
         "origin": {
@@ -37,7 +26,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 2,
         "name": "source_label",
         "type_info": "Text",
         "origin": {
@@ -48,7 +37,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "relation",
         "type_info": "Text",
         "origin": {
@@ -59,7 +48,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "distance_m",
         "type_info": "Float4",
         "origin": {
@@ -70,7 +59,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "page_url",
         "type_info": "Text",
         "origin": {
@@ -81,7 +70,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "title",
         "type_info": "Text",
         "origin": {
@@ -92,7 +81,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "author",
         "type_info": "Text",
         "origin": {
@@ -103,7 +92,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "publisher",
         "type_info": "Text",
         "origin": {
@@ -114,7 +103,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "source_updated_on",
         "type_info": "Date",
         "origin": {
@@ -125,7 +114,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 10,
         "name": "licence",
         "type_info": "Text",
         "origin": {
@@ -136,7 +125,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "licence_url",
         "type_info": "Text",
         "origin": {
@@ -147,7 +136,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 12,
         "name": "taken_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -158,7 +147,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 13,
         "name": "path",
         "type_info": "Text",
         "origin": {
@@ -169,7 +158,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 14,
         "name": "thumb_path",
         "type_info": "Text",
         "origin": {
@@ -180,7 +169,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 15,
         "name": "width",
         "type_info": "Int4",
         "origin": {
@@ -191,7 +180,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 16,
         "name": "height",
         "type_info": "Int4",
         "origin": {
@@ -202,7 +191,7 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 17,
         "name": "thumbhash",
         "type_info": "Bytea",
         "origin": {
@@ -213,7 +202,7 @@
         }
       },
       {
-        "ordinal": 19,
+        "ordinal": 18,
         "name": "fetched_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -226,12 +215,11 @@
     ],
     "parameters": {
       "Left": [
-        "UuidArray",
-        "TextArray"
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
-      true,
       false,
       false,
       false,
@@ -253,5 +241,5 @@
       false
     ]
   },
-  "hash": "b1741740280754944d4f326ac8d9033dacbd4830c3d5f95edbe52839d13e15eb"
+  "hash": "92b1133abd8e43c42c1fc6b0d41434101b95739b9c58aa40a93e011f60a2679c"
 }
