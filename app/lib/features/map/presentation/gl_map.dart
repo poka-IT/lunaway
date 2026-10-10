@@ -96,6 +96,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   Object? _sentSelected;
   String? _sentSelectedId;
   LatLng? _sentPoint;
+  List<SavedMark>? _sentSaved;
   bool? _sentDark;
 
   // Updates run one after the other: a newer one never races an older one.
@@ -243,6 +244,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     _sentSelected = null;
     _sentSelectedId = null;
     _sentPoint = null;
+    _sentSaved = null;
     _sentDark = null;
     _poi.forget();
     _tiles.forget();
@@ -369,6 +371,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
         MapStyle.selectionPinLayer,
+        MapStyle.savedLayer,
         MapStyle.placesLayer,
         MapStyle.clusterCountLayer,
         MapStyle.clustersLayer,
@@ -390,6 +393,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       await fresh(
         () => c.addSource(MapStyle.selectionSource, const gl.GeojsonSourceProperties(data: empty)),
         source: MapStyle.selectionSource,
+      );
+      await fresh(
+        () => c.addSource(MapStyle.savedSource, const gl.GeojsonSourceProperties(data: empty)),
+        source: MapStyle.savedSource,
       );
       await fresh(
         () => c.addCircleLayer(
@@ -446,6 +453,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.placesLayer,
       );
+      // The saved points over the places, under the selection.
+      await fresh(
+        () => c.addSymbolLayer(
+          MapStyle.savedSource,
+          MapStyle.savedLayer,
+          _selectionLayer(_pinScale * MapStyle.savedSize),
+          enableInteraction: false,
+        ),
+        layer: MapStyle.savedLayer,
+      );
       await fresh(
         () => c.addSymbolLayer(
           MapStyle.selectionSource,
@@ -478,6 +495,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
+      _sentSaved = null;
       _sentDark = dark;
       _scheduleSync();
       // The first idle hands the page's first map over; a map whose tiles
@@ -529,6 +547,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       await c.setGeoJsonSource(
         MapStyle.placesSource,
         await placesFeatureCollectionInBackground(props.places),
+      );
+    }
+    if (!listEquals(props.savedPoints, _sentSaved)) {
+      _sentSaved = props.savedPoints;
+      await c.setGeoJsonSource(
+        MapStyle.savedSource,
+        savedPointsFeatureCollection(props.savedPoints),
       );
     }
     if (_sentDark != props.dark) {
@@ -707,6 +732,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
               _props.places.where((p) => p.id == id).firstOrNull ??
               (selected?.id == id ? selected : null),
         );
+        return;
+      case TapSaved(:final id):
+        _props.onSavedPointTap?.call(id);
         return;
       case TapNothing():
         break;

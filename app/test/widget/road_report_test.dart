@@ -79,7 +79,7 @@ void main() {
       );
       app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
       await settleShort(tester);
-      expect(find.text('Copier les coordonnées'), findsOneWidget, reason: 'the card is open');
+      expect(find.text('Créer un lieu ici'), findsOneWidget, reason: 'the card is open');
       expect(
         find.text('Signaler un problème ici'),
         offered ? findsOneWidget : findsNothing,

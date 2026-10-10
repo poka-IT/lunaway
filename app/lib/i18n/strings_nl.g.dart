@@ -691,7 +691,7 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get title => 'Favorieten';
 	@override String get defaultList => 'Mijn favorieten';
 	@override String get empty => 'Hier is nog niets opgeslagen';
-	@override String get emptyHint => 'Tik bij een plek op Opslaan om hem te bewaren, ook offline.';
+	@override String get emptyHint => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.';
 	@override String get newList => 'Nieuwe lijst';
 	@override String get listName => 'Naam van de lijst';
 	@override String get renameList => 'Lijst hernoemen';
@@ -704,10 +704,25 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get removed => 'Uit de lijst verwijderd';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		zero: 'Leeg',
-		one: '${n} plek',
-		other: '${n} plekken',
+		one: '${n} favoriet',
+		other: '${n} favorieten',
 	);
 	@override String get error => 'Je favorieten konden niet worden geladen.';
+	@override String pointNamed({required Object date}) => 'Punt van ${date}';
+	@override String get name => 'Naam';
+	@override String get note => 'Notitie (optioneel)';
+	@override String get edit => 'Bewerken';
+	@override String get rename => 'Naam wijzigen';
+	@override String get removeEverywhere => 'Uit favorieten verwijderen';
+	@override String get removedEverywhere => 'Uit favorieten verwijderd';
+	@override String get inFavorites => 'In je favorieten';
+	@override String inFavoritesAs({required Object name}) => 'In je favorieten als “${name}”';
+	@override String get pointActions => 'Opties voor dit punt';
+	@override late final _Translations$favorites$pointKind$nl pointKind = _Translations$favorites$pointKind$nl._(_root);
+	@override String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.',
+		other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.',
+	);
 }
 
 // Path: vehicle
@@ -911,7 +926,7 @@ class _Translations$account$nl extends Translations$account$en {
 	// Translations
 	@override String get title => 'Je account';
 	@override String get noneTitle => 'Nog geen account';
-	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.';
+	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.';
 	@override String get recover => 'Mijn account herstellen';
 	@override String memberSince({required Object date}) => 'Lid sinds ${date}';
 	@override String get editPseudonym => 'Pseudoniem wijzigen';
@@ -954,7 +969,7 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String get welcomeTitle => 'Bedankt voor je eerste bijdrage';
 	@override String welcomeBody({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.';
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
-	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu bij je account bewaard.';
+	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
 }
 
 // Path: recovery
@@ -1374,7 +1389,7 @@ class _Translations$favoritesSync$nl extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}';
 	@override String get failed => 'Synchroniseren lukt nu niet';
 	@override String get title => 'Je favorieten synchroniseren?';
-	@override String get body => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
+	@override String get body => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
 	@override String get confirm => 'Account maken en synchroniseren';
 }
 
@@ -2294,6 +2309,19 @@ class _Translations$navigation$enforcement$nl extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} over ${distance}';
 	@override String limit({required Object limit}) => 'maximaal ${limit}';
 	@override String averageLimit({required Object limit}) => 'gemiddeld maximaal ${limit}';
+}
+
+// Path: favorites.pointKind
+class _Translations$favorites$pointKind$nl extends Translations$favorites$pointKind$en {
+	_Translations$favorites$pointKind$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get address => 'Adres';
+	@override String get town => 'Gemeente';
+	@override String get point => 'Punt op de kaart';
+	@override String get poi => 'Winkel of voorziening';
 }
 
 // Path: vehicle.types
@@ -3819,7 +3847,7 @@ extension on TranslationsNl {
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
-			'favorites.emptyHint' => 'Tik bij een plek op Opslaan om hem te bewaren, ook offline.',
+			'favorites.emptyHint' => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.',
 			'favorites.newList' => 'Nieuwe lijst',
 			'favorites.listName' => 'Naam van de lijst',
 			'favorites.renameList' => 'Lijst hernoemen',
@@ -3830,8 +3858,23 @@ extension on TranslationsNl {
 			'favorites.openOnMap' => 'Bekijken op de kaart',
 			'favorites.remove' => 'Uit de lijst verwijderen',
 			'favorites.removed' => 'Uit de lijst verwijderd',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} plek', other: '${n} plekken', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} favoriet', other: '${n} favorieten', ), 
 			'favorites.error' => 'Je favorieten konden niet worden geladen.',
+			'favorites.pointNamed' => ({required Object date}) => 'Punt van ${date}',
+			'favorites.name' => 'Naam',
+			'favorites.note' => 'Notitie (optioneel)',
+			'favorites.edit' => 'Bewerken',
+			'favorites.rename' => 'Naam wijzigen',
+			'favorites.removeEverywhere' => 'Uit favorieten verwijderen',
+			'favorites.removedEverywhere' => 'Uit favorieten verwijderd',
+			'favorites.inFavorites' => 'In je favorieten',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In je favorieten als “${name}”',
+			'favorites.pointActions' => 'Opties voor dit punt',
+			'favorites.pointKind.address' => 'Adres',
+			'favorites.pointKind.town' => 'Gemeente',
+			'favorites.pointKind.point' => 'Punt op de kaart',
+			'favorites.pointKind.poi' => 'Winkel of voorziening',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.', other: 'De ${n} punten die in deze lijst zijn opgeslagen, worden mee verwijderd.', ), 
 			'vehicle.title' => 'Mijn voertuig',
 			'vehicle.why' => 'Met de afmetingen worden plekken verborgen waar je voertuig niet past. Ze worden bij elke routeaanvraag meegestuurd en niet bewaard.',
 			'vehicle.none' => 'Beschrijf je voertuig om plekken te verbergen waar het niet past.',
@@ -3972,7 +4015,7 @@ extension on TranslationsNl {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
-			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.',
+			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.',
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
 			'account.editPseudonym' => 'Pseudoniem wijzigen',
@@ -4005,6 +4048,8 @@ extension on TranslationsNl {
 			'account.recoveryRemake' => 'Opnieuw maken',
 			'account.recoveryRemakeHint' => 'Een nieuwe herstelkaart maken',
 			'account.contributions' => 'Mijn bijdragen',
+			_ => null,
+		} ?? switch (path) {
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} bijdrage wacht op verzending', other: '${n} bijdragen wachten op verzending', ), 
 			'account.mutedAuthors' => 'Verborgen auteurs',
 			'account.devices' => 'Apparaten',
@@ -4020,9 +4065,7 @@ extension on TranslationsNl {
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
-			_ => null,
-		} ?? switch (path) {
-			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
+			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
@@ -4328,7 +4371,7 @@ extension on TranslationsNl {
 			'favoritesSync.synced' => ({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}',
 			'favoritesSync.failed' => 'Synchroniseren lukt nu niet',
 			'favoritesSync.title' => 'Je favorieten synchroniseren?',
-			'favoritesSync.body' => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
+			'favoritesSync.body' => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
 			'favoritesSync.confirm' => 'Account maken en synchroniseren',
 			'poi.category.groceries' => 'Boodschappen',
 			'poi.category.vending' => 'Voedselautomaten',
@@ -4519,6 +4562,8 @@ extension on TranslationsNl {
 			'offlineMaps.cancel' => 'Stoppen en download verwijderen',
 			'offlineMaps.waiting' => 'Wacht op zijn beurt',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} van ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Gepauzeerd bij ${done} van ${total}',
 			'offlineMaps.verifying' => 'Bestand wordt gecontroleerd',
 			'offlineMaps.failedNetwork' => 'Gestopt: geen verbinding. Het downloaden gaat verder waar het stopte zodra er weer verbinding is.',
@@ -4534,8 +4579,6 @@ extension on TranslationsNl {
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',

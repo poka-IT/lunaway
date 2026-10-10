@@ -17,6 +17,9 @@ import 'package:lunaway/core/router/popup_routes.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
@@ -511,6 +514,9 @@ class _MapState extends ConsumerState<_Map> {
         : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
     final selection = ref.watch(selectionProvider);
     final select = ref.read(selectionProvider.notifier);
+    // The points saved in the list the favourites show: an address saved
+    // has no pin of its own on the map.
+    final saved = ref.watch(shownListPointsProvider).value ?? const <FavoritePointEntry>[];
     final poiChoice = ref.watch(poiLayerProvider);
     final pois = PoiLayerView(
       // The tiles of every category only while a chip shows one read on
@@ -544,6 +550,15 @@ class _MapState extends ConsumerState<_Map> {
         onMarkerTap: () {
           _gate.cancel();
           widget.onMarkerTapped?.call();
+        },
+        savedPoints: [for (final e in saved) SavedMark(e.point.id, e.point.position)],
+        onSavedPointTap: (id) {
+          _gate.cancel();
+          final point = saved.where((e) => e.point.id == id).firstOrNull?.point;
+          if (point == null) return;
+          select.select(selectionOfSaved(point));
+          // As for a long press: the sheet that opens may cover the point.
+          unawaited(ref.read(mapControllerProvider)?.moveTo(point.position));
         },
         onPlaceTap: (id, {hint}) {
           _gate.cancel();
@@ -730,12 +745,17 @@ class _SelectionActions extends ConsumerWidget {
       final place? => PlaceActionBar(place: place, floating: true),
       null => const SizedBox.shrink(),
     },
-    PointSelection(:final position) => PointActionBar(
+    PointSelection(:final position, :final address) => PointActionBar(
       position: position,
+      address: address,
       floating: true,
       here: true,
     ),
-    PoiSelection(:final feature) => PointActionBar(position: feature.position, floating: true),
+    PoiSelection(:final feature) => PointActionBar(
+      position: feature.position,
+      poi: feature,
+      floating: true,
+    ),
   };
 }
 

@@ -56,6 +56,7 @@ Future<List<int>> _render(Size logical, double ratio, void Function(Canvas) pain
 /// Every image: its id, logical size and painter.
 List<(String, Size, void Function(Canvas))> _images() => [
   (markedPointImageId, pointMarkerSize, paintPointMarker),
+  (savedPointImageId, pointMarkerSize, paintSavedMarker),
   for (final selected in [false, true])
     for (final kind in PlaceKind.values)
       for (final overnight in OvernightStatus.values)
@@ -140,6 +141,10 @@ void main() {
     expect(File('$sheetDir/pins@2x.json').existsSync(), isTrue);
   });
 
+  // LUNAWAY_SPRITE_ONLY=<id>,<id> renders those pins alone: a new pin
+  // joins the set without rewriting the others.
+  final only = Platform.environment['LUNAWAY_SPRITE_ONLY']?.split(',').toSet();
+
   testWidgets('renders every pin at every pixel ratio', (tester) async {
     await tester.runAsync(() async {
       await _loadIconFonts();
@@ -150,7 +155,7 @@ void main() {
                 .writeAsBytesSync(await _render(size, ratio.toDouble(), paint));
 
         for (final (id, size, paint) in _images()) {
-          await write(id, size, paint);
+          if (only == null || only.contains(id)) await write(id, size, paint);
         }
       }
     });
