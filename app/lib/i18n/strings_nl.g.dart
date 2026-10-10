@@ -425,6 +425,7 @@ class _Translations$search$nl extends Translations$search$en {
 		other: '${town} ${n}e',
 	);
 	@override String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+	@override String departmentWithNumber({required Object department, required Object number}) => '${department} (${number})';
 	@override String get recent => 'Recente zoekopdrachten';
 	@override String get recentText => 'Zoekopdracht';
 	@override String get recentMark => 'Recente zoekopdracht';
@@ -3584,6 +3585,7 @@ extension on TranslationsNl {
 			'search.deviceOnly' => 'De server antwoordt niet: er wordt alleen in de gedownloade regio\'s gezocht.',
 			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
 			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.departmentWithNumber' => ({required Object department, required Object number}) => '${department} (${number})',
 			'search.recent' => 'Recente zoekopdrachten',
 			'search.recentText' => 'Zoekopdracht',
 			'search.recentMark' => 'Recente zoekopdracht',
@@ -3915,9 +3917,9 @@ extension on TranslationsNl {
 			'navigation.states.originHint' => 'Lunaway heeft je positie nodig om de route te berekenen.',
 			'navigation.states.locate' => 'Mijn positie bepalen',
 			'navigation.states.offlineTitle' => 'Geen verbinding',
-			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			'navigation.states.rateLimitedTitle' => 'Te veel routeaanvragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.',
 			'navigation.states.unavailableTitle' => 'Routeberekening niet beschikbaar',
@@ -4429,9 +4431,9 @@ extension on TranslationsNl {
 			'translation.gone' => 'Deze tekst is niet meer beschikbaar.',
 			'translation.unsupported' => 'Voor deze taal is geen vertaling beschikbaar.',
 			'translation.autoReviews' => 'Reviews automatisch vertalen',
-			'translation.autoReviewsHint' => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.',
 			_ => null,
 		} ?? switch (path) {
+			'translation.autoReviewsHint' => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
@@ -4943,9 +4945,9 @@ extension on TranslationsNl {
 			'poi.kind.musicShop' => 'Muziekwinkel',
 			'poi.kind.petShop' => 'Dierenwinkel',
 			'poi.kind.babyGoods' => 'Babywinkel',
-			'poi.kind.fabric' => 'Stoffen en fournituren',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.fabric' => 'Stoffen en fournituren',
 			'poi.kind.craft' => 'Ambachtsman',
 			'poi.kind.shop' => 'Winkel',
 			'poi.kind.hotel' => 'Hotel',

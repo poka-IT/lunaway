@@ -437,8 +437,8 @@ void main() {
     await settleShort(tester);
     // The places come first, then the towns: a window tall enough for both.
     expect(find.text('Communes'), findsOneWidget);
-    expect(find.text('Commune · Ardèche · 25 lieux'), findsOneWidget);
-    expect(find.text('Commune · Yonne · 2 lieux'), findsOneWidget);
+    expect(find.text('Commune · Ardèche\u00a0(07) · 25 lieux'), findsOneWidget);
+    expect(find.text('Commune · Yonne\u00a0(89) · 2 lieux'), findsOneWidget);
   });
 
   testWidgets('a search the API does not answer in time leaves the device answering alone', (

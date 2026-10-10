@@ -238,6 +238,7 @@
       "other": "$town ${n}e"
     },
     "townInDepartment": "$town ($department)",
+    "departmentWithNumber": "$department ($number)",
     "recent": "Recente zoekopdrachten",
     "recentText": "Zoekopdracht",
     "recentMark": "Recente zoekopdracht",

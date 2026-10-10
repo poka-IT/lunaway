@@ -778,6 +778,9 @@ class Translations$search$en {
 	/// en: '$town ($department)'
 	String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
 
+	/// en: '$department ($number)'
+	String departmentWithNumber({required Object department, required Object number}) => '${department} (${number})';
+
 	/// en: 'Recent searches'
 	String get recent => 'Recent searches';
 
@@ -7547,6 +7550,7 @@ extension on Translations {
 			'search.deviceOnly' => 'The server does not answer: the search covers the downloaded regions only.',
 			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
 			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.departmentWithNumber' => ({required Object department, required Object number}) => '${department} (${number})',
 			'search.recent' => 'Recent searches',
 			'search.recentText' => 'Search',
 			'search.recentMark' => 'Recent search',
@@ -7878,9 +7882,9 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
-			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
@@ -8392,9 +8396,9 @@ extension on Translations {
 			'translation.gone' => 'This text is no longer available.',
 			'translation.unsupported' => 'No translation is available for this language.',
 			'translation.autoReviews' => 'Translate reviews automatically',
-			'translation.autoReviewsHint' => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.',
 			_ => null,
 		} ?? switch (path) {
+			'translation.autoReviewsHint' => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
@@ -8906,9 +8910,9 @@ extension on Translations {
 			'poi.kind.musicShop' => 'Music shop',
 			'poi.kind.petShop' => 'Pet shop',
 			'poi.kind.babyGoods' => 'Baby shop',
-			'poi.kind.fabric' => 'Fabrics and haberdashery',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.fabric' => 'Fabrics and haberdashery',
 			'poi.kind.craft' => 'Craftsman',
 			'poi.kind.shop' => 'Shop',
 			'poi.kind.hotel' => 'Hotel',

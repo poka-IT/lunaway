@@ -162,7 +162,22 @@ void main() {
         ),
         home: 'FR',
       ),
-      'Commune · Yonne · 2 lieux',
+      'Commune · Yonne\u00a0(89) · 2 lieux',
+    );
+    expect(
+      townDetail(
+        t,
+        const Municipality(
+          name: 'Saint-Denis',
+          postcode: '97400',
+          countryCode: 'RE',
+          center: LatLng(-20.88, 55.45),
+          placeCount: 3,
+        ),
+        home: 'FR',
+      ),
+      'Commune · La Réunion\u00a0(974) · 3 lieux',
+      reason: 'overseas read as France, its department from the postcode',
     );
     expect(
       townDetail(

@@ -413,7 +413,7 @@ def journey_town(run):
     run.open()
     run.type_search("Annecy")
     run.step("results")
-    run.tap("Annecy 74", within=True, right=True, name="town")
+    run.tap("Annecy Commune · Haute-Savoie (74)", within=True, right=True, name="town")
     run.expect_soon(lambda: run.camera_near(ANNECY, 4000, 11.5), "the map at Annecy after the town touched")
     time.sleep(1.5)
     run.expect(run.hash() == "#/map", f"nothing open after the town, not {run.hash()}")
