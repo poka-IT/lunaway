@@ -123,7 +123,9 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final flow = ref.read(mapFlowProvider.notifier);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
-    if (!await ensureLocationAccess(context, ref) || !mounted) return;
+    // A page left meanwhile stays mounted for its exit: the route says so.
+    final page = ModalRoute.of(context);
+    if (!await ensureLocationAccess(context, ref) || !mounted || !(page?.isActive ?? true)) return;
     timelineMark('lunaway-guidance-access');
     // Android 13 and later asks whether the app may notify: the guidance's
     // own notification, said first in the app's words, once. Android tells
@@ -131,12 +133,12 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     // before every guidance for a dialog Android no longer shows.
     final notifications = ref.read(notificationAccessProvider);
     if (await notifications.wouldAsk()) {
-      if (!mounted) return;
+      if (!mounted || !(page?.isActive ?? true)) return;
       if (settings.notificationExplained) {
         await notifications.ask();
       } else {
         final ask = await _explainNotification(context);
-        if (!mounted) return;
+        if (!mounted || !(page?.isActive ?? true)) return;
         // Not kept: said again next time, nothing worse.
         unawaited(
           ref
@@ -146,7 +148,7 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
         );
         if (ask) await notifications.ask();
       }
-      if (!mounted) return;
+      if (!mounted || !(page?.isActive ?? true)) return;
     }
     // The guidance is there at once, its screen opens on it, and what it
     // still waits for (the voice, the position) shows over its map, with
