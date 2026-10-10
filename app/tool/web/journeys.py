@@ -17,8 +17,9 @@ journey fails; writes a screenshot at each step and a report.json under
 
 The journeys: a town found and touched (the map goes there); an address
 found (its card stays), its route, "C'est parti !" (the guidance), a back
-during it ("Arrêter le guidage ?", then the card), a second guidance and
-its end, the close; a place found and guided to, its map dragged during
+during it ("Arrêter le guidage ?", then the card), a second guidance (the
+vehicle described for the first not asked for again) and its end, the
+close; a place found and guided to, its map dragged during
 the guidance with a mouse ("Recentrer" comes); a point of the map ("Ici")
 and its route; on a phone, the browser's back over the filters and over the
 photo viewer; on a computer, the button of a message over the map, and
@@ -343,18 +344,27 @@ class Run:
                 return True
         return False
 
-    def start_guidance(self):
+    def startable(self):
+        """Whether "C'est parti !" is there and active: a route to start."""
+        return self.page.evaluate(
+            """() => [...document.querySelectorAll('flt-semantics[role=button]')]
+                 .some((e) => (e.innerText || '').startsWith("C'est parti") && e.getAttribute('aria-disabled') !== 'true')""")
+
+    def start_guidance(self, vehicle_known=False):
         """From a preview: the vehicle described when asked, then "C'est
-        parti !", and the guidance shown."""
-        self.wait(lambda: self.find("C'est parti") or self.find("Décrire mon véhicule"), "the preview's action")
+        parti !", and the guidance shown. With [vehicle_known], a vehicle
+        this run described before must not be asked for again."""
+        # While the preview reads the vehicle, "C'est parti !" is there but
+        # inactive, before "Décrire mon véhicule" takes its place when none
+        # is known (a fresh browser's): only an active button or the
+        # request to describe says which one it is.
+        self.wait(lambda: self.find("Décrire mon véhicule") or self.startable(), "the preview's action")
         if self.find("Décrire mon véhicule"):
+            self.expect(not vehicle_known, "the vehicle described before was asked for again")
             self.tap("Décrire mon véhicule")
             self.tap("Enregistrer")
         # The button turns active once the route is there.
-        self.wait(lambda: self.page.evaluate(
-            """() => [...document.querySelectorAll('flt-semantics[role=button]')]
-                 .some((e) => (e.innerText || '').startsWith("C'est parti") && e.getAttribute('aria-disabled') !== 'true')"""),
-            "a route to start")
+        self.wait(self.startable, "a route to start")
         self.tap("C'est parti")
         self.expect_soon(lambda: self.find(END) is not None, "the guidance after \"C'est parti !\"")
         self.expect(not self.shows("C'est parti"), "the preview left under the guidance")
@@ -419,7 +429,7 @@ def journey_address(run):
     run.expect_soon(lambda: run.hash() == "#/map?point" and run.find("Itinéraire jusqu'ici"),
                     "the address's card after the guidance stopped")
     run.tap("Itinéraire jusqu'ici", name="second-route")
-    run.start_guidance()
+    run.start_guidance(vehicle_known=True)
     run.end_guidance()
     run.expect_soon(lambda: run.find("Itinéraire jusqu'ici") is not None, "the card after the second guidance")
     run.tap("Fermer", exact=True, name="close")
