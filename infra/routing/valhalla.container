@@ -47,9 +47,10 @@ ConditionPathExists=/srv/routing/current/valhalla.json
 # 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06);
 # keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
 Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
-# Four worker threads, half the backend's 8 vCPUs: PostgreSQL and the API
-# keep the rest. A long European route takes 0.4 to 1.2 s of one thread
-# once its tiles are in memory (plan/research/31-routage-europe.md, 3.2).
+# Four worker threads, a quarter of the backend's 16 vCPUs: PostgreSQL, the
+# API, Photon and the translation keep the rest. A long European route takes
+# 0.4 to 1.2 s of one thread once its tiles are in memory
+# (plan/research/31-routage-europe.md, 3.2).
 Exec=valhalla_service /srv/routing/current/valhalla.json 4
 # Host network, bound to 127.0.0.1 by valhalla.json: no port publishing, no
 # firewall rule, and the API reaches it on loopback.

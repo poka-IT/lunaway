@@ -2,17 +2,13 @@
 # shellcheck disable=SC2034 # the settings are read by the scripts that source this file
 # Shared settings and helpers of the local infra scripts. Sourced, never run.
 #
-# Three servers, one role each, on a private network (10.42.0.0/16):
-#   backend   lunaway-backend-1   10.42.0.2   API, PostgreSQL + PostGIS, Caddy,
-#                                             the data pipeline (lunaway CLI),
-#                                             the basemap (pmtiles, own volume)
-#   ops       lunaway-sync-1      10.42.0.3   status page and checks (Gatus),
-#                                             replica of the nightly dumps
-#   geocode   lunaway-geocode-1   10.42.0.4   Photon, the addresses outside
-#                                             France, answering the backend only
-# The ops server reads two things from the backend over the private network,
-# each through a key forced to one read-only command (infra/server/ops-access.sh):
-# the health facts and the encrypted dumps. The backend never connects to it.
+# One server, role "backend": lunaway-backend-1 runs the API, PostgreSQL +
+# PostGIS, Caddy, the data pipeline (lunaway CLI), the routing engine, the
+# basemap, the geocoders (Photon), the translation server, the status page
+# (Gatus) and the external community feed's crawler, which talk to each other
+# on the loopback. It replaced three servers on 2026-10-10 (docs/deploy.md,
+# "Sizing"). The Mac pulls the encrypted dumps from it with a key forced to a
+# read-only rsync (infra/server/ops-access.sh).
 #
 # Private values live in ~/.config/lunaway/env, outside the repository, so this
 # public tree names no account, no address and no key:
@@ -28,8 +24,7 @@
 #   LUNAWAY_API_HOST, LUNAWAY_TILES_URL, LUNAWAY_WEB_URL, LUNAWAY_STATUS_DOMAIN,
 #   LUNAWAY_MEDIA_BASE_URL    the public names, optional: the lunaway.net
 #                             names below unless set (docs/deploy.md, "The domain")
-#   LUNAWAY_BACKEND_IPV4/_IPV6/_VOLUME_ID/_TILES_VOLUME_ID,
-#   LUNAWAY_OPS_IPV4/_IPV6/_VOLUME_ID
+#   LUNAWAY_BACKEND_IPV4/_IPV6/_VOLUME_ID
 #                             written by provision.sh
 
 LUNAWAY_INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -42,9 +37,9 @@ LUNAWAY_SSH_CONFIG="$LUNAWAY_CONFIG_DIR/ssh_config"
 [ -f "$LUNAWAY_ENV_FILE" ] && . "$LUNAWAY_ENV_FILE"
 
 # The public names every script checks and renders (docs/deploy.md, "The
-# domain"): the API, its photos, the basemap and the website on the backend,
-# the status page on the ops server. They are public, so they live here; the
-# env file may still override one for a test setup.
+# domain"): the API, its photos, the basemap, the website and the status
+# page, all on the backend. They are public, so they live here; the env file
+# may still override one for a test setup.
 : "${LUNAWAY_API_HOST:=api.lunaway.net}"
 : "${LUNAWAY_TILES_URL:=https://tiles.lunaway.net}"
 : "${LUNAWAY_WEB_URL:=https://lunaway.net}"
@@ -57,67 +52,40 @@ LUNAWAY_NETWORK="lunaway-net"
 LUNAWAY_NETWORK_RANGE="10.42.0.0/16"
 LUNAWAY_SUBNET_RANGE="10.42.0.0/24"
 LUNAWAY_NETWORK_ZONE="eu-central"
+# The backend's address on the private network. No service talks over it
+# since the geocoding and ops servers were merged into the backend; the
+# server stays attached so that a second server can join without
+# readdressing.
 LUNAWAY_BACKEND_PRIVATE_IP="10.42.0.2"
-# Also written as is in infra/files/etc/nftables.conf (the ops server's
-# exemption from the SSH rate limit): change both together.
-LUNAWAY_OPS_PRIVATE_IP="10.42.0.3"
-# Also written as is in infra/files/roles/geocode/nftables.nft (who may ask
-# Photon) and infra/caddy/Caddyfile (the backend's way to it).
-LUNAWAY_GEOCODE_PRIVATE_IP="10.42.0.4"
 LUNAWAY_IMAGE="${LUNAWAY_IMAGE:-debian-13}"
-# The admin account on both servers. Root never logs in over SSH.
+# The admin account. Root never logs in over SSH.
 LUNAWAY_ADMIN_USER="ops"
 
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "==> $*"; }
 
-# role_get ROLE FIELD: the fixed properties of each role.
+# role_get ROLE FIELD: the fixed properties of the server's role.
 role_get() {
   case "$1:$2" in
     backend:server) echo lunaway-backend-1 ;;
     backend:firewall) echo lunaway-backend-fw ;;
+    # The import cache, the dumps, the photos, the regional packs of
+    # places, the basemap's offline packs, the external feed's inbox and the
+    # crawler's state (docs/deploy.md, "The data volume").
     backend:volume) echo lunaway-data ;;
     backend:volume_gb) echo "${LUNAWAY_BACKEND_VOLUME_GB:-150}" ;;
-    # The basemap: two planet archives (the one served and the next, about
-    # 139 GB each in October 2026), two sets of offline packs (about 19 GB
-    # each) and room for growth (docs/deploy.md, "Basemap"). Grown from 300
-    # to 350 GB on 2026-10-06 for the packs.
-    backend:tiles_volume) echo lunaway-tiles ;;
-    backend:tiles_volume_gb) echo "${LUNAWAY_TILES_VOLUME_GB:-350}" ;;
     backend:private_ip) echo "$LUNAWAY_BACKEND_PRIVATE_IP" ;;
     backend:alias) echo lunaway ;;
     backend:env) echo LUNAWAY_BACKEND ;;
-    backend:backups) echo yes ;;
-    # Best value first; the API refuses a type out of stock and the next is
-    # tried. 32 GB since 2026-10-10, so that the database's search tables
-    # stay in memory next to the routing engine (docs/deploy.md, "Sizing");
-    # the 16 GB types after it hold everything, with less of it cached.
-    backend:candidates) echo "${LUNAWAY_BACKEND_CANDIDATES:-cx53:fsn1 cx53:nbg1 cx43:nbg1 cx43:fsn1 cax31:nbg1 cax31:fsn1 cx33:nbg1 cx33:fsn1 cx43:hel1 cax31:hel1 cx23:nbg1}" ;;
-    # The ops role runs on the server first provisioned as the sync server; its
-    # Hetzner names stay, only its role changed.
-    ops:server) echo lunaway-sync-1 ;;
-    ops:firewall) echo lunaway-sync-fw ;;
-    ops:volume) echo lunaway-sync-data ;;
-    # Fourteen nightly dumps: 2.2 GB each on 2026-10-10, when it grew from
-    # 20 to 60 GB.
-    ops:volume_gb) echo "${LUNAWAY_OPS_VOLUME_GB:-60}" ;;
-    ops:private_ip) echo "$LUNAWAY_OPS_PRIVATE_IP" ;;
-    ops:alias) echo lunaway-ops ;;
-    ops:env) echo LUNAWAY_OPS ;;
-    ops:backups) echo no ;;
-    ops:candidates) echo "${LUNAWAY_OPS_CANDIDATES:-cax11:nbg1 cax11:fsn1 cx23:nbg1 cx23:fsn1 cax11:hel1 cx23:hel1}" ;;
-    # Photon over the Europe database: its index (about 44 GB in October
-    # 2026) on the local NVMe, which a network volume could not match for
-    # random reads, and room for the next one during a refresh. No volume:
-    # everything on it is downloaded again in an hour.
-    geocode:server) echo lunaway-geocode-1 ;;
-    geocode:firewall) echo lunaway-geocode-fw ;;
-    geocode:volume) echo "" ;;
-    geocode:private_ip) echo "$LUNAWAY_GEOCODE_PRIVATE_IP" ;;
-    geocode:alias) echo lunaway-geocode ;;
-    geocode:env) echo LUNAWAY_GEOCODE ;;
-    geocode:backups) echo no ;;
-    geocode:candidates) echo "${LUNAWAY_GEOCODE_CANDIDATES:-cx43:fsn1 cx43:nbg1 cx43:hel1}" ;;
+    # No Hetzner backup images: the root disk holds the database, so its
+    # images would keep it in clear. The age-encrypted dumps, pulled by the
+    # Mac, are the backups (docs/deploy.md, "Backups and restore").
+    backend:backups) echo no ;;
+    # 32 GB of memory and 320 GB of local disk: the database, the routing
+    # engine's graphs, Photon's Europe index (48 GB) and the basemap extract
+    # (36 GB) live on the local NVMe (docs/deploy.md, "Sizing"). fsn1 first:
+    # the data volume is there, and a volume attaches only in its location.
+    backend:candidates) echo "${LUNAWAY_BACKEND_CANDIDATES:-cx53:fsn1 cx53:nbg1 cx53:hel1}" ;;
     *) die "unknown role or field: $1 $2" ;;
   esac
 }
@@ -167,23 +135,20 @@ env_unset() {
   unset "$key"
 }
 
-# One Host block per server already provisioned, plus lunaway-ops-pull: the
-# nightly job of infra/ops/mac/ reads the dump replica on the ops server with
-# its own key, which the server forces to a read-only rsync.
+# The admin Host block, plus lunaway-backup-pull: the Mac's nightly job
+# (infra/ops/mac/) reads the encrypted dumps with its own key, which the
+# backend forces to a read-only rsync and accepts from the admin sources
+# only.
 write_ssh_config() {
-  local role ip aliases
+  local ip
   [ -n "${LUNAWAY_SSH_IDENTITY:-}" ] || die "set LUNAWAY_SSH_IDENTITY in $LUNAWAY_ENV_FILE"
   install -d -m 0700 "$LUNAWAY_CONFIG_DIR"
+  ip="$(role_var backend IPV4)"
   {
-    echo "# Written by infra/lib.sh. Use with: ssh -F $LUNAWAY_SSH_CONFIG lunaway (or lunaway-ops)"
-    for role in backend ops geocode; do
-      ip="$(role_var "$role" IPV4)"
-      [ -n "$ip" ] || continue
-      aliases="$(role_get "$role" alias)"
-      # The name the ops server had as the sync server keeps working.
-      [ "$role" = ops ] && aliases="$aliases lunaway-sync"
+    echo "# Written by infra/lib.sh. Use with: ssh -F $LUNAWAY_SSH_CONFIG lunaway"
+    if [ -n "$ip" ]; then
       cat <<EOF
-Host $aliases
+Host $(role_get backend alias)
   HostName $ip
   User $LUNAWAY_ADMIN_USER
   IdentityFile $LUNAWAY_SSH_IDENTITY
@@ -192,15 +157,11 @@ Host $aliases
   StrictHostKeyChecking accept-new
   ServerAliveInterval 30
   ConnectTimeout 15
-EOF
-    done
-    ip="$(role_var ops IPV4)"
-    if [ -n "$ip" ]; then
-      cat <<EOF
-Host lunaway-ops-pull
+
+Host lunaway-backup-pull
   HostName $ip
   User lunaway-pull
-  IdentityFile $LUNAWAY_CONFIG_DIR/ops-pull_ed25519
+  IdentityFile $LUNAWAY_CONFIG_DIR/backup-pull_ed25519
   IdentitiesOnly yes
   UserKnownHostsFile $LUNAWAY_CONFIG_DIR/known_hosts
   StrictHostKeyChecking yes
@@ -248,10 +209,9 @@ current_ipv6_64() {
 }
 
 # firewall_rules_json ROLE CIDR...: the Hetzner Cloud Firewall rules. SSH
-# from the admin sources only on both; both also take the web ports and ICMP
-# from anywhere (the API on the backend, the status page on the ops server).
-# Outbound stays open (no "out" rule). Hetzner firewalls do not filter the
-# private network; nftables does.
+# from the admin sources only; the web ports and ICMP from anywhere (the
+# API, the website, the basemap and the status page). Outbound stays open
+# (no "out" rule).
 firewall_rules_json() {
   python3 - "$@" <<'EOF'
 import json, sys
@@ -260,18 +220,15 @@ anywhere = ["0.0.0.0/0", "::/0"]
 rules = [
     {"direction": "in", "protocol": "tcp", "port": "22", "source_ips": ssh_sources,
      "description": "SSH, admin sources only (infra/ssh-access.sh)"},
+    {"direction": "in", "protocol": "tcp", "port": "80", "source_ips": anywhere,
+     "description": "HTTP: ACME challenge and redirect to HTTPS"},
+    {"direction": "in", "protocol": "tcp", "port": "443", "source_ips": anywhere,
+     "description": "HTTPS"},
+    {"direction": "in", "protocol": "udp", "port": "443", "source_ips": anywhere,
+     "description": "HTTP/3 (QUIC)"},
+    {"direction": "in", "protocol": "icmp", "source_ips": anywhere,
+     "description": "ICMP: ping and path MTU discovery"},
 ]
-if role in ("backend", "ops"):
-    rules += [
-        {"direction": "in", "protocol": "tcp", "port": "80", "source_ips": anywhere,
-         "description": "HTTP: ACME challenge and redirect to HTTPS"},
-        {"direction": "in", "protocol": "tcp", "port": "443", "source_ips": anywhere,
-         "description": "HTTPS"},
-        {"direction": "in", "protocol": "udp", "port": "443", "source_ips": anywhere,
-         "description": "HTTP/3 (QUIC)"},
-        {"direction": "in", "protocol": "icmp", "source_ips": anywhere,
-         "description": "ICMP: ping and path MTU discovery"},
-    ]
 print(json.dumps(rules, indent=1))
 EOF
 }

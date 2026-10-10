@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
-# What the ops server may read from the backend, run as root by setup.sh on
-# the backend. One account, lunaway-pull, reachable over SSH from the ops
-# server's private address only, with up to three keys, each forced to one
-# read-only command by a root-owned authorized_keys:
+# Who may read what from the backend over SSH, run as root by setup.sh. One
+# account, lunaway-pull, with up to three keys, each forced to one read-only
+# command by a root-owned authorized_keys:
 #
 #   probe key     /usr/local/sbin/lunaway-health: the health facts as JSON,
-#                 which Gatus checks every few minutes
-#   replica key   rrsync -ro /srv/data/backups/offsite: the age-encrypted
-#                 dumps and their markers, and the age-encrypted photos
-#                 (media/), pulled every night
+#                 which Gatus checks every few minutes; Gatus runs on this
+#                 server (ops-status.sh made the key), so the key is
+#                 accepted from the loopback only
 #   erasures key  /usr/local/sbin/lunaway-extcom-erasures: the SHA-256 of
 #                 every author of the external community source erased at
 #                 the partner's request, which the feed's producer purges
 #                 from its own copy (docs/deploy.md, "The external
-#                 community feed")
+#                 community feed"); the producer runs on this server too, so
+#                 from the loopback only
+#   Mac's key     rrsync -ro /srv/data/backups/offsite: the age-encrypted
+#                 dumps and their markers, the encrypted photos (media/) and
+#                 journals, pulled every night by the maintainer's Mac,
+#                 accepted from the admin sources only
 #
-# The backend never connects to the ops server.
+#   LUNAWAY_MAC_PULL_PUBKEY   the Mac's public key (infra/configure.sh reads
+#       ~/.config/lunaway/backup-pull_ed25519.pub); empty until it exists
+#   LUNAWAY_SSH_ALLOW         the admin sources, the only ones the Mac's key
+#       is accepted from
 #
-#   LUNAWAY_PROBE_PUBKEY, LUNAWAY_REPLICA_PUBKEY   the first two public
-#       keys, generated on the ops server (infra/configure.sh reads them
-#       there); empty before the ops server is configured
-#   LUNAWAY_EXTCOM_ERASURES_PUBKEY   the producer's key, made by its private
-#       deployment, which leaves the public half in
-#       /etc/lunaway-ops/extcom-erasures_ed25519.pub (configure.sh reads it
-#       there); empty while the producer is not deployed
-#   LUNAWAY_OPS_PRIVATE_IP   the ops server's address on the private network
+# The probe key's public half is read from /etc/lunaway-ops/probe_ed25519.pub
+# (ops-status.sh), the producer's from
+# /etc/lunaway-ops/extcom-erasures_ed25519.pub, which its private deployment
+# leaves there.
 . "$(dirname "$0")/common.sh"
 need_root
-ops_ip="${LUNAWAY_OPS_PRIVATE_IP:?set LUNAWAY_OPS_PRIVATE_IP}"
-[[ "$ops_ip" =~ ^10\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "unexpected private address $ops_ip"
 apt_install rsync
 [ -x /usr/bin/rrsync ] || die "rrsync is missing from the rsync package"
 getent group lunaway-pull >/dev/null || die "no group lunaway-pull; run the backups step first"
@@ -38,36 +38,63 @@ if ! getent passwd lunaway-pull >/dev/null; then
   # A real shell: sshd runs the forced commands through it. The keys allow
   # nothing else (restrict, command=).
   useradd --system --gid lunaway-pull --home-dir /var/lib/lunaway-pull --no-create-home \
-    --shell /bin/sh --comment "Lunaway ops server, read-only pulls" lunaway-pull
+    --shell /bin/sh --comment "Lunaway read-only pulls: status probe, erasures list, the Mac's backups" lunaway-pull
 fi
 install_file files/usr/local/sbin/lunaway-health /usr/local/sbin/lunaway-health 0755 || true
 install_file files/usr/local/sbin/lunaway-extcom-erasures /usr/local/sbin/lunaway-extcom-erasures 0755 || true
 
+# The admin sources the Mac's key is accepted from: validated, joined with
+# commas, without any range wider than /16 or /48 (after `ssh-access.sh
+# open`, 0.0.0.0/0 is no admin source; the same floor as fail2ban's
+# exemptions in harden.sh).
+# shellcheck disable=SC2086 # one CIDR per word
+admin_sources="$(python3 - ${LUNAWAY_SSH_ALLOW:-} <<'EOF'
+import ipaddress, sys
+nets = [ipaddress.ip_network(v, strict=False) for v in sys.argv[1:]]
+print(",".join(str(n) for n in nets if n.prefixlen >= (16 if n.version == 4 else 48)))
+EOF
+)" || die "LUNAWAY_SSH_ALLOW is not a list of CIDRs"
+
 log "keys"
 install -d -m 0755 -o root -g root /var/lib/lunaway-pull /var/lib/lunaway-pull/.ssh
 : > "$STAGING/pull-authorized_keys"
-# add_key NAME COMMAND KEY [WHEN MISSING]: one line of authorized_keys, from
-# the ops server only, forced to COMMAND.
+# add_key NAME SOURCES COMMAND KEY [WHEN MISSING]: one line of
+# authorized_keys, from SOURCES only, forced to COMMAND.
 add_key() {
-  local name="$1" command="$2" key="$3" missing="${4:-configure the ops server first}"
+  local name="$1" sources="$2" command="$3" key="$4" missing="${5:-}"
   if [ -z "$key" ]; then
-    log "no $name key yet ($missing)"
+    log "no $name key yet${missing:+ ($missing)}"
     return 0
   fi
+  key="$(printf '%s' "$key" | cut -d' ' -f1,2)"
   [[ "$key" =~ $ED25519_PUBKEY_RE ]] || die "the $name key is not an Ed25519 public key"
-  echo "restrict,from=\"$ops_ip\",command=\"$command\" $key" >> "$STAGING/pull-authorized_keys"
+  echo "restrict,from=\"$sources\",command=\"$command\" $key" >> "$STAGING/pull-authorized_keys"
 }
-add_key probe /usr/local/sbin/lunaway-health "${LUNAWAY_PROBE_PUBKEY:-}"
-add_key replica "/usr/bin/rrsync -ro /srv/data/backups/offsite" "${LUNAWAY_REPLICA_PUBKEY:-}"
-add_key extcom-erasures /usr/local/sbin/lunaway-extcom-erasures "${LUNAWAY_EXTCOM_ERASURES_PUBKEY:-}" \
-  "deploy the external community feed's producer first"
+read_key() { [ -f "$1" ] && head -n 1 "$1" || true; }
+add_key probe "127.0.0.1,::1" /usr/local/sbin/lunaway-health \
+  "$(read_key /etc/lunaway-ops/probe_ed25519.pub)" "run the ops-status step first"
+add_key extcom-erasures "127.0.0.1,::1" /usr/local/sbin/lunaway-extcom-erasures \
+  "$(read_key /etc/lunaway-ops/extcom-erasures_ed25519.pub)" "deploy the external community feed's producer first"
+if [ -n "${LUNAWAY_MAC_PULL_PUBKEY:-}" ]; then
+  [ -n "$admin_sources" ] || die "no admin source narrower than /16 or /48 in LUNAWAY_SSH_ALLOW to accept the Mac's key from"
+fi
+add_key "Mac's pull" "$admin_sources" "/usr/bin/rrsync -ro /srv/data/backups/offsite" \
+  "${LUNAWAY_MAC_PULL_PUBKEY:-}" "infra/ops/mac/install.sh keys on the Mac"
 # Root-owned: the account cannot change its own restrictions.
 install_file "$STAGING/pull-authorized_keys" /var/lib/lunaway-pull/.ssh/authorized_keys 0644 || true
 
+# sshd lets the account in from the loopback and the admin sources only, a
+# second wall behind each key's from= (the Hetzner firewall already limits
+# SSH to the admin sources from outside).
+allow="AllowUsers lunaway-pull@127.0.0.1 lunaway-pull@::1"
+for net in ${admin_sources//,/ }; do
+  allow="$allow lunaway-pull@$net"
+done
 cat > "$STAGING/12-lunaway-pull.conf" <<EOF
-# Written by infra/server/ops-access.sh: the ops server's read-only account,
-# from its private address only. Each key is forced to one command.
-AllowUsers lunaway-pull@$ops_ip
+# Written by infra/server/ops-access.sh: the read-only account, from the
+# loopback (Gatus, the feed's producer) and the admin sources (the Mac's
+# backups) only. Each key is forced to one command.
+$allow
 EOF
 if install_file "$STAGING/12-lunaway-pull.conf" /etc/ssh/sshd_config.d/12-lunaway-pull.conf 0644; then
   if ! sshd -t; then
@@ -76,4 +103,4 @@ if install_file "$STAGING/12-lunaway-pull.conf" /etc/ssh/sshd_config.d/12-lunawa
   fi
   systemctl reload ssh
 fi
-log "lunaway-pull: $(grep -c . /var/lib/lunaway-pull/.ssh/authorized_keys) key(s), from $ops_ip only"
+log "lunaway-pull: $(grep -c . /var/lib/lunaway-pull/.ssh/authorized_keys) key(s)"

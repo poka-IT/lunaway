@@ -1,7 +1,7 @@
 # Lunaway's translation server (docs/deploy.md, "Translation"), on the
-# geocoding server: OPUS-MT models on CTranslate2, answering the backend's
-# Caddy on the private network, which forwards the API's requests
-# (infra/caddy/geocoders.caddy). Installed by infra/server/translate.sh.
+# backend: OPUS-MT models on CTranslate2, answering Caddy on the loopback,
+# which forwards the API's requests (infra/caddy/geocoders.caddy).
+# Installed by infra/server/translate.sh.
 [Unit]
 Description=Lunaway translation server (OPUS-MT on CTranslate2)
 Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
@@ -16,10 +16,11 @@ StartLimitBurst=5
 [Service]
 Type=exec
 ExecStart=/opt/lunaway-translate/venv/bin/python /usr/local/lib/lunaway-translate/server.py
-Environment=LUNAWAY_TRANSLATE_LISTEN=10.42.0.4:2324
+Environment=LUNAWAY_TRANSLATE_LISTEN=127.0.0.1:2324
 Environment=LUNAWAY_TRANSLATE_MODELS=/srv/translate/models
-# Two texts at once, two threads each: four of the eight cores at most,
-# the others left to Photon, which also has the larger CPU weight below.
+# Two texts at once, two threads each: four of the sixteen cores at most,
+# the others left to the API, PostgreSQL, the routing engine and Photon,
+# which also have the larger CPU weight (CPUWeight below).
 Environment=LUNAWAY_TRANSLATE_WORKERS=2
 Environment=LUNAWAY_TRANSLATE_THREADS=2
 Environment=LUNAWAY_TRANSLATE_BEAM=4
@@ -79,19 +80,19 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 
-# Network: it listens on the private address, for the backend and for the
-# checks on this host, and connects to nothing.
+# Network: it listens on the loopback, for Caddy and the health probe, and
+# connects to nothing.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
-IPAddressAllow=localhost 10.42.0.2/32 10.42.0.4/32
+IPAddressAllow=localhost
 SocketBindDeny=any
 SocketBindAllow=tcp:2324
 
 # Resources: the 28 models take 3.1 GB resident after a start, 3.3 GB once
 # every pair has translated long texts (measured 2026-10-09); the model
 # files' pages the unit read fill the rest up to MemoryHigh, which takes
-# them back first. A runaway process is stopped before it takes Photon's
-# page cache.
+# them back first. A runaway process is stopped before it takes the page
+# cache of the database, Photon and the routing engine.
 MemoryHigh=4G
 MemoryMax=4608M
 CPUWeight=20

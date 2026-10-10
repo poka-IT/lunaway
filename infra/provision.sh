@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Creates the Hetzner Cloud resources of Lunaway, or finds them: the admin
-# SSH key, the private network, then for each role its firewall, its server
-# (first boot hardened by cloud-init.yaml) and its volume, plus the tile
-# volume of the backend. Idempotent: an
-# existing resource is kept as it is, and only resources named lunaway-* are
-# ever created or changed.
+# SSH key, the private network, then the server's firewall, the server
+# (first boot hardened by cloud-init.yaml), its primary IPs and its data
+# volume. Idempotent: an existing resource is kept as it is, and only
+# resources named lunaway-* are ever created or changed.
 #
-#   infra/provision.sh                        both main roles (backend, ops)
-#   infra/provision.sh backend                one role (backend, ops, geocode)
-#   infra/provision.sh --render-only ROLE FILE   only render cloud-init.yaml, for review
+#   infra/provision.sh                        the server (role backend)
+#   infra/provision.sh --render-only backend FILE   only render cloud-init.yaml, for review
 #
 # Server types are tried in order of value for each role (role_get in
 # lib.sh); the API refuses a type out of stock in a location, and the next
@@ -49,7 +47,7 @@ if [ "${1:-}" = "--render-only" ]; then
   render_user_data "${2:?role}" > "${3:?usage: $0 --render-only ROLE FILE}"
   exit 0
 fi
-roles="${*:-backend ops}"
+roles="${*:-backend}"
 
 # The admin key, from its public half on this machine.
 if hcloud ssh-key describe "$LUNAWAY_SSH_KEY_NAME" >/dev/null 2>&1; then
@@ -60,7 +58,7 @@ else
   hcloud ssh-key create --name "$LUNAWAY_SSH_KEY_NAME" --public-key-from-file "$LUNAWAY_SSH_PUBKEY" "${LABEL_ARGS[@]}" >/dev/null
 fi
 
-# The private network between the backend and the ops server.
+# The private network (lib.sh: nothing talks over it today).
 if hcloud network describe "$LUNAWAY_NETWORK" >/dev/null 2>&1; then
   log "network $LUNAWAY_NETWORK exists"
 else
@@ -151,9 +149,7 @@ provision_role() {
     esac
   done
 
-  if [ -z "$volume" ]; then
-    : # A role whose data is all downloaded again (geocode) keeps it on the server's disk.
-  elif hcloud volume describe "$volume" >/dev/null 2>&1; then
+  if hcloud volume describe "$volume" >/dev/null 2>&1; then
     log "volume $volume exists"
     if [ -z "$(hcloud volume describe "$volume" -o json | json_field server)" ]; then
       hcloud volume attach --server "$server" "$volume" >/dev/null
@@ -166,25 +162,6 @@ provision_role() {
       --format ext4 --server "$server" --enable-protection delete "${LABEL_ARGS[@]}" >/dev/null
   fi
 
-  # The backend's second volume holds the basemap (planet archives, fonts,
-  # offline packs): rebuilt by download, so apart from the database's.
-  if [ "$role" = backend ]; then
-    local tiles
-    tiles="$(role_get backend tiles_volume)"
-    if hcloud volume describe "$tiles" >/dev/null 2>&1; then
-      log "volume $tiles exists"
-      if [ -z "$(hcloud volume describe "$tiles" -o json | json_field server)" ]; then
-        hcloud volume attach --server "$server" "$tiles" >/dev/null
-        log "volume $tiles attached"
-      fi
-    else
-      log "creating volume $tiles ($(role_get backend tiles_volume_gb) GB, ext4) for $server"
-      hcloud volume create --name "$tiles" --size "$(role_get backend tiles_volume_gb)" \
-        --format ext4 --server "$server" --enable-protection delete "${LABEL_ARGS[@]}" --label role=tiles >/dev/null
-    fi
-    env_set LUNAWAY_BACKEND_TILES_VOLUME_ID "$(hcloud volume describe "$tiles" -o json | json_field id)"
-  fi
-
   json="$(hcloud server describe "$server" -o json)"
   if [ "$(echo "$json" | json_field status)" = off ]; then
     log "starting $server"
@@ -195,7 +172,7 @@ provision_role() {
   ipv6_net="$(echo "$json" | json_field public_net.ipv6.ip)"
   env_set "${prefix}_IPV4" "$ipv4"
   env_set "${prefix}_IPV6" "${ipv6_net%%/*}1"
-  [ -z "$volume" ] || env_set "${prefix}_VOLUME_ID" "$(hcloud volume describe "$volume" -o json | json_field id)"
+  env_set "${prefix}_VOLUME_ID" "$(hcloud volume describe "$volume" -o json | json_field id)"
   env_set "${prefix}_SERVER_TYPE" "$(echo "$json" | json_field server_type.name)"
   env_set "${prefix}_LOCATION" "$(echo "$json" | json_field location.name)"
   return 0
@@ -227,4 +204,4 @@ for role in $roles; do
   wait_for_role "$role"
   log "$(role_get "$role" server): $(role_var "$role" SERVER_TYPE) in $(role_var "$role" LOCATION), $(role_var "$role" IPV4), $(role_var "$role" IPV6), private $(role_get "$role" private_ip)"
 done
-log "next: infra/ops/mac/install.sh keys, infra/configure.sh ops, infra/configure.sh backend, infra/deploy-api.sh, infra/deploy-gatus.sh"
+log "next: infra/ops/mac/install.sh keys, infra/configure.sh backend, infra/enable-domain.sh, infra/deploy-api.sh, infra/deploy-gatus.sh"

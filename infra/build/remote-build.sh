@@ -2,12 +2,13 @@
 # Sourced by infra/deploy-api.sh when LUNAWAY_BUILDER=hetzner: the same build
 # (infra/build/build-api.sh in the pinned Rust image) on a throwaway Hetzner
 # server instead of the local Docker, for a machine whose Docker does not
-# work (the maintainer's Mac on 2026-10-06). The builder is a cx33 in fsn1
+# work (the maintainer's Mac on 2026-10-06). The builder is a ccx23 in fsn1
 # (x86_64, the backend's architecture, so no cross linker), labelled
 # project=lunaway,managed-by=claude,purpose=build, behind the backend's
 # firewall (SSH from the admin sources only), and is deleted when the build
-# ends, failed or not. A build costs well under a cent (0.0136 EUR excl. VAT
-# an hour on 2026-10-06).
+# ends, failed or not. A build costs about two cents (0.1378 EUR excl. VAT
+# an hour on 2026-10-07). Dedicated vCPUs: they count apart from the
+# project's 18 shared ones, of which the backend (cx53) takes 16.
 #
 # Third-party build code (crates' build scripts) runs there, never on a
 # production server.
@@ -22,9 +23,8 @@
 # project holds few, and throwaway servers can take them all ("Primary IP
 # limit exceeded" on 2026-10-07). Everything the build reaches (Docker Hub,
 # Debian, crates.io) answers over IPv6, and so must this machine.
-# LUNAWAY_BUILDER_TYPE picks another server type than the cx33, a ccx23
-# when the project's shared vCPUs are all taken (dedicated ones count
-# apart; 0.1378 EUR an hour excl. VAT in fsn1 on 2026-10-07).
+# LUNAWAY_BUILDER_TYPE picks another server type, a cx33 (shared vCPUs,
+# 0.0136 EUR an hour) when the project has four shared vCPUs to spare.
 
 BUILDER_NAME=lunaway-builder-1
 
@@ -64,7 +64,7 @@ remote_build() {
   # array for an unset variable under `set -u`.
   local -a family=()
   [ "${LUNAWAY_BUILDER_IPV6:-0}" = 1 ] && family=(--without-ipv4)
-  local type="${LUNAWAY_BUILDER_TYPE:-cx33}"
+  local type="${LUNAWAY_BUILDER_TYPE:-ccx23}"
   log "creating the builder $BUILDER_NAME ($type, fsn1${family[*]:+, IPv6 only})"
   hcloud server create --name "$BUILDER_NAME" --type "$type" --location fsn1 --image debian-13 \
     --ssh-key "$LUNAWAY_SSH_KEY_NAME" --firewall lunaway-backend-fw ${family[@]+"${family[@]}"} \

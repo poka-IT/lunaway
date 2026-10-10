@@ -1,7 +1,7 @@
 #!/bin/sh
 # Health facts of the backend as one JSON object, computed at each call. The
-# forced command of the ops server's probe key (infra/server/ops-access.sh):
-# Gatus on the ops server runs it over SSH every few minutes and checks the
+# forced command of the status page's probe key (infra/server/ops-access.sh):
+# Gatus runs it over SSH on the loopback every few minutes and checks the
 # fields. Runs as lunaway-pull, reads nothing secret, writes nothing, and
 # ignores the command the client asked for.
 #
@@ -10,17 +10,12 @@
 #   root_disk          how full / is
 #   dump.ok            true when the last nightly dump succeeded less than
 #                      26 hours ago and no failure was recorded after it
-#   tiles              whether the tile volume is mounted, how full it is
-#                      (two planets and two sets of offline packs fill it to
-#                      about 90% after a refresh, by design), how full it
-#                      would be without the planet builds not served
-#                      (held_percent: the refresh removes those to make room,
-#                      lunaway-tiles-refresh), the planet build served and
-#                      its age in days
+#   tiles              ok when a basemap build is served (/srv/basemap, on
+#                      the root disk), the build served and its age in days
 #   packs.ok           true when the offline packs' manifest names as many
 #                      packs as there are outlines, its build is less than 35
-#                      days old, and it is the planet build served (or the
-#                      planet switched less than a day ago: the packs follow
+#                      days old, and it is the basemap build served (or the
+#                      build switched less than a day ago: the packs follow
 #                      within minutes, lunaway-tiles-packs)
 #   worker.ok          true when lunaway-conflate-worker is active, its queues
 #                      were measured less than 5 minutes ago
@@ -40,8 +35,9 @@
 #                      hours ago (lunaway-ingest-fuel, every 15 minutes), as
 #                      measured by lunaway-worker-status in the last 5 minutes
 #   routing.ok         true when valhalla.service is active and the graph it
-#                      serves (/srv/routing/current) was built less than 10
-#                      days ago: built weekly, installed by a daily refresh
+#                      serves (/srv/routing/current) was built less than 17
+#                      days ago: built every two weeks, installed by a daily
+#                      refresh
 #   imports.ok         true when the OpenStreetMap places of France were read
 #                      less than 30 hours ago (daily) and every other country
 #                      less than 8 days ago (weekly groups), as measured by
@@ -71,10 +67,10 @@
 #                      /var/lib/lunaway-unit-result/*.result): a failed import
 #                      retried hourly reads "activating" while it runs. A
 #                      unit that never ran has failed nothing
-#   translate.ok       true when the translation server of the geocoding
-#                      server answers its health check through the API's
-#                      way to it (Caddy, 127.0.0.1:8486/translator): a short
-#                      text went through a model; pairs counts the models
+#   translate.ok       true when the translation server answers its health
+#                      check through the API's way to it (Caddy,
+#                      127.0.0.1:8486/translator): a short text went through
+#                      a model; pairs counts the models
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -108,34 +104,19 @@ if [ -n "$success_at" ]; then
 	fi
 fi
 
-if mountpoint -q /srv/tiles; then tiles_mounted=true; else tiles_mounted=false; fi
-tiles_used="$(percent /srv/tiles)"
-# What the volume holds once the planet builds not served are counted as
-# free: the next refresh removes them first, so this is the room it has.
-tiles_spare=0
-served_planet="$(readlink /srv/tiles/serve/planet.pmtiles 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8}\.pmtiles)$|\1|p')"
-for f in /srv/tiles/builds/*.pmtiles; do
-	[ -f "$f" ] || continue
-	[ "$(basename "$f")" = "$served_planet" ] && continue
-	tiles_spare=$((tiles_spare + $(stat -c %s "$f")))
-done
-tiles_size="$(df --output=size -B1 /srv/tiles 2>/dev/null | tail -n 1 | tr -dc '0-9')"
-tiles_usedb="$(df --output=used -B1 /srv/tiles 2>/dev/null | tail -n 1 | tr -dc '0-9')"
-tiles_held=100
-if [ -n "$tiles_size" ] && [ "$tiles_size" -gt 0 ] && [ -n "$tiles_usedb" ]; then
-	tiles_held=$(( (tiles_usedb - tiles_spare) * 100 / tiles_size ))
-fi
 # The build behind the stable alias, named by the date of its OpenStreetMap data.
-tiles_build="$(readlink /srv/tiles/serve/planet.pmtiles 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p')"
+tiles_build="$(readlink /srv/basemap/serve/planet.pmtiles 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p')"
+tiles_ok=false
 tiles_age=-1
-if [ -n "$tiles_build" ]; then
+if [ -n "$tiles_build" ] && [ -f "/srv/basemap/builds/$tiles_build.pmtiles" ]; then
+	tiles_ok=true
 	tiles_age=$(( ($(date -u +%s) - $(date -u -d "$tiles_build" +%s)) / 86400 ))
 fi
 
 # The offline packs (docs/deploy.md, "Offline packs"): the manifest's own
 # build, read from its head (the top-level key comes first), its number of
 # packs against the number of outlines installed.
-packs_manifest=/srv/tiles/packs/manifest.json
+packs_manifest=/srv/data/basemap/packs/manifest.json
 packs_build="$(head -c 2048 "$packs_manifest" 2>/dev/null | sed -nE 's/^ *"build": *"([0-9]{8})",?$/\1/p' | head -n 1)"
 packs_count="$(grep -c '"sha256":' "$packs_manifest" 2>/dev/null || true)"
 packs_expected="$(grep -o '"kind":' /usr/local/share/lunaway/pack-regions.geojson 2>/dev/null | wc -l)"
@@ -143,7 +124,7 @@ packs_age=-1
 if [ -n "$packs_build" ]; then
 	packs_age=$(( ($(date -u +%s) - $(date -u -d "$packs_build" +%s)) / 86400 ))
 fi
-planet_switched_s=$(( $(date -u +%s) - $(stat -c %Y /srv/tiles/serve/planet.pmtiles 2>/dev/null || echo 0) ))
+planet_switched_s=$(( $(date -u +%s) - $(stat -c %Y /srv/basemap/serve/planet.pmtiles 2>/dev/null || echo 0) ))
 packs_ok=false
 if [ "$packs_age" -ge 0 ] && [ "$packs_age" -lt 35 ] && [ "${packs_count:-0}" -gt 0 ] && [ "${packs_count:-0}" -eq "$packs_expected" ] \
 	&& { [ "$packs_build" = "$tiles_build" ] || [ "$planet_switched_s" -lt 86400 ]; }; then
@@ -334,13 +315,13 @@ if [ -n "$routing_built" ]; then
 	routing_age=$(( ($(date -u +%s) - $(date -u -d "$routing_built" +%s)) / 86400 ))
 fi
 routing_ok=false
-if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" -ge 0 ] && [ "$routing_age" -lt 10 ]; then
+if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" -ge 0 ] && [ "$routing_age" -lt 17 ]; then
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"held_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s},"extcom":{"ok":%s,"failed_units":%s,"failed":"%s","last_failed":"%s"},"translate":{"ok":%s,"pairs":%s}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"ok":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s},"extcom":{"ok":%s,"failed_units":%s,"failed":"%s","last_failed":"%s"},"translate":{"ok":%s,"pairs":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
-	"$tiles_mounted" "${tiles_used:-100}" "$tiles_held" "$tiles_build" "$tiles_age" \
+	"$tiles_ok" "$tiles_build" "$tiles_age" \
 	"$packs_ok" "$packs_build" "$packs_age" "${packs_count:-0}" "${packs_expected:-0}" \
 	"$worker_ok" "${worker_state:-unknown}" "${worker_restarts:-0}" "$status_age" "$queue_oldest" "$flagged" \
 	"$media_ok" "$media_success" "$media_age" \

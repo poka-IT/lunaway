@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# The geocoding server, run as root by setup.sh (docs/deploy.md,
+# The geocoders of the backend, run as root by setup.sh (docs/deploy.md,
 # "Geocoding"): Java, the pinned Photon jar, the photon account, the two
-# instances (photon@europe, photon@morocco), lunaway-photon-refresh with its
-# unit and timer, and /srv/photon on the local disk.
+# instances (photon@europe, photon@morocco) on the loopback,
+# lunaway-photon-refresh with its unit and timer, and /srv/photon on the
+# local disk.
 #
 # An instance starts once its database is installed (lunaway-photon-refresh,
 # by hand the first time: sudo systemctl start lunaway-photon-refresh, about
@@ -10,8 +11,6 @@
 . "$(dirname "$0")/common.sh"
 need_root
 . "$INFRA/geocode/version.sh"
-[ "${LUNAWAY_GEOCODE_PRIVATE_IP:-}" = 10.42.0.4 ] \
-  || die "photon.service and the role's nftables listen on 10.42.0.4; LUNAWAY_GEOCODE_PRIVATE_IP says ${LUNAWAY_GEOCODE_PRIVATE_IP:-nothing}"
 
 log "packages"
 apt_install openjdk-21-jre-headless lbzip2 zstd curl ca-certificates
@@ -38,13 +37,12 @@ if [ "$(readlink /opt/photon/photon.jar 2>/dev/null || true)" != "$jar" ]; then
 fi
 
 log "units"
-# Europe's heap: a quarter of the memory, 4 GB at most: OpenSearch's own
-# structures fit in it, and the page cache that serves the index gets the
-# rest (docs/deploy.md, the measurements of 2026-10-07). Morocco's index
-# weighs about 110 MB.
-heap_mb=$(( $(mem_mb) / 4 ))
-[ "$heap_mb" -le 4096 ] || heap_mb=4096
-printf 'PHOTON_PORT=2322\nPHOTON_HEAP=%sm\n' "$heap_mb" > "$STAGING/europe.env"
+# Europe's heap: 2 GB, which held OpenSearch's own structures and answered
+# as fast as 4 GB under a 7 GB cap (docs/deploy.md, the measurements of
+# 2026-10-07); the index is read through the page cache, which the backend's
+# database and routing engine share, within the unit's MemoryHigh. Morocco's
+# index weighs about 110 MB.
+printf 'PHOTON_PORT=2322\nPHOTON_HEAP=2048m\n' > "$STAGING/europe.env"
 printf 'PHOTON_PORT=2323\nPHOTON_HEAP=512m\n' > "$STAGING/morocco.env"
 install_file "$STAGING/europe.env" /usr/local/share/lunaway/geocode/europe.env 0644 && changed=1
 install_file "$STAGING/morocco.env" /usr/local/share/lunaway/geocode/morocco.env 0644 && changed=1

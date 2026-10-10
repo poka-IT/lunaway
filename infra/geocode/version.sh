@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034 # read by the scripts that source this file
-# The pins of the geocoding server (docs/deploy.md, "Geocoding"): Photon's
+# The pins of the geocoders (docs/deploy.md, "Geocoding"): Photon's
 # release and the databases it serves. Sourced by infra/server/geocode.sh on
 # the server and by lunaway-photon-refresh.
 #

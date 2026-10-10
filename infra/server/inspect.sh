@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
-# Read-only inspection of a Lunaway server from the inside, run as root by
+# Read-only inspection of the Lunaway server from the inside, run as root by
 # infra/verify.sh: effective SSH settings, firewall, fail2ban, listening
-# sockets, sandbox scores, kernel settings, updates; on the backend also
-# PostgreSQL, credentials, backups, the API, the data pipeline and what the
-# ops server may read; on the ops server Gatus, the status page and the dump
-# replica. Key material is never printed: authorized_keys lines show their
-# options with the key replaced.
+# sockets, sandbox scores, kernel settings, updates, PostgreSQL, credentials,
+# backups, the API, the data pipeline, the basemap, the routing engine, the
+# geocoders and the translation server, the status page, and who may read
+# what through lunaway-pull and extcom-drop. Key material is never printed:
+# authorized_keys lines show their options, the key type and the start of
+# the key's SHA-256 fingerprint (the one ssh-keygen -l prints).
 #
-#   sudo bash ~/infra/server/inspect.sh backend|ops
+#   sudo env LUNAWAY_SSH_ALLOW='CIDR...' bash ~/infra/server/inspect.sh backend
+#
+# LUNAWAY_SSH_ALLOW, passed by verify.sh, holds the admin sources, the only
+# ones the Mac's pull key may come from. Without it, fail2ban's exemptions
+# stand in: harden.sh writes them from the same list, with the same floor.
 set -uo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run as root (sudo)" >&2; exit 1; }
-server_role="${1:?backend or ops}"
-masked_keys() { sed -E 's/ssh-ed25519 [A-Za-z0-9+\/=]+.*$/ssh-ed25519 <key>/' "$1"; }
+server_role="${1:?backend}"
+[ "$server_role" = backend ] || { echo "unknown role $server_role: the only server is backend" >&2; exit 1; }
+# The external community feed's crawler comes from a private deployment,
+# which keeps its keys in a directory of /etc named like its unit. The
+# partner is named nowhere in this repository, so the name is read there.
+crawler=""
+for key in /etc/*/erasures_ed25519 /etc/*/push_ed25519; do
+  [ -f "$key" ] && { crawler="$(basename "$(dirname "$key")")"; break; }
+done
 
 echo "--- sshd effective settings"
 sshd -T 2>/dev/null | grep -E '^(permitrootlogin|passwordauthentication|kbdinteractiveauthentication|authenticationmethods|allowusers|maxauthtries|logingracetime|x11forwarding|allowtcpforwarding|allowagentforwarding|kexalgorithms|ciphers|macs|hostkeyalgorithms|persourcepenalties) '
@@ -27,12 +39,19 @@ grep -h '^ignoreip' /etc/fail2ban/jail.d/lunaway-ignore.local
 echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
-units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite lunaway-takedowns-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-ingest-osm-europe@Mon lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-packs lunaway-cameras lunaway-enforcement lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
-[ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
+units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite lunaway-takedowns-offsite
+  postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-ingest-osm-europe@Mon lunaway-conflate
+  lunaway-conflate-worker lunaway-worker-status lunaway-packs lunaway-cameras lunaway-enforcement lunaway-tiles
+  lunaway-tiles-refresh lunaway-tiles-prune lunaway-tiles-packs photon@europe photon@morocco lunaway-photon-refresh
+  lunaway-translate gatus ${crawler:-} ssh"
 for unit in $units; do
-  printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
+  if [ "$(systemctl show -p LoadState --value "$unit")" = not-found ]; then
+    printf '%-30s %s\n' "$unit" "not installed"
+  else
+    printf '%-30s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
+  fi
 done
+[ -n "$crawler" ] || printf '%-30s %s\n' "the crawler" "not installed (no key under /etc/*/erasures_ed25519 or /etc/*/push_ed25519)"
 echo "--- kernel"
 sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.all.accept_redirects net.ipv6.conf.all.accept_redirects net.ipv4.tcp_syncookies kernel.kptr_restrict kernel.dmesg_restrict kernel.unprivileged_bpf_disabled fs.protected_symlinks fs.protected_hardlinks fs.suid_dumpable kernel.yama.ptrace_scope
 echo "AppArmor: $(aa-enabled), $(aa-status --profiled 2>/dev/null) profiles loaded, $(aa-status --enforced 2>/dev/null) enforced"
@@ -42,9 +61,8 @@ swapon --show
 grep -E '^[^#].* swap ' /etc/fstab || echo "fstab: no swap line"
 journalctl --disk-usage
 df -h / /srv/data | sed 1d
-[ -d /srv/tiles ] && df -h /srv/tiles | sed 1d
+findmnt -no SOURCE,TARGET,OPTIONS /
 findmnt -no SOURCE,TARGET,OPTIONS /srv/data
-[ -d /srv/tiles ] && findmnt -no SOURCE,TARGET,OPTIONS /srv/tiles
 grep -vE '^#|^$' /etc/fstab | awk '{ print $2, $3 }'
 ip -brief address
 echo "--- updates"
@@ -54,7 +72,7 @@ unattended-upgrade --dry-run --debug 2>&1 | grep -E 'Allowed origins' | head -n 
 # Caddy's former apt repository answers 402 (common.sh); apt.systemd.daily
 # reports success all the same, so the sources are read here.
 if grep -rqs 'dl\.cloudsmith\.io' /etc/apt/sources.list /etc/apt/sources.list.d/; then
-  echo "FAIL an apt source names dl.cloudsmith.io, Caddy's former repository: run the caddy (backend) or ops-status (ops) step"
+  echo "FAIL an apt source names dl.cloudsmith.io, Caddy's former repository: run the caddy step"
 else
   echo "ok   no apt source names Caddy's former repository"
 fi
@@ -74,28 +92,10 @@ else
   echo "FAIL caddy package ${installed:-absent}, apt candidate ${candidate:-none}, binary ${binary:-absent}, running ${exe:-nothing}, pinned ${pinned:-unknown}"
 fi
 echo "--- units"
-systemctl list-unit-files --no-pager --no-legend 'lunaway*' 'gatus*' | awk '{ print $1, $2 }'
+patterns=('lunaway*' 'gatus*' 'photon*')
+[ -n "$crawler" ] && patterns+=("$crawler*")
+systemctl list-unit-files --no-pager --no-legend "${patterns[@]}" | awk '{ print $1, $2 }'
 systemctl --failed --no-legend --no-pager
-
-if [ "$server_role" = ops ]; then
-  echo "--- Gatus"
-  systemctl is-active gatus caddy
-  stat -c '%a %U:%G %n' /etc/gatus /etc/gatus/config.yaml /usr/local/bin/gatus /etc/lunaway-ops /etc/lunaway-ops/*
-  sha256sum /usr/local/bin/gatus | cut -c1-64
-  curl -fsS -m 10 http://127.0.0.1:8080/api/v1/endpoints/statuses | python3 -c '
-import json, sys
-for e in json.load(sys.stdin):
-    r = (e.get("results") or [{}])[-1]
-    print("  %-8s %-16s %s %s" % (e.get("group"), e.get("name"), "ok  " if r.get("success") else "FAIL", r.get("timestamp", "")))'
-  echo "--- dump replica"
-  stat -c '%a %U:%G %n' /srv/data/backups/postgresql
-  ls -l /srv/data/backups/postgresql
-  systemctl status lunaway-replica.service --no-pager -n 3 | tail -n 4
-  echo "--- the Mac's pull account"
-  stat -c '%a %U:%G %n' /var/lib/lunaway-pull/.ssh/authorized_keys
-  masked_keys /var/lib/lunaway-pull/.ssh/authorized_keys
-  exit 0
-fi
 
 echo "--- PostgreSQL"
 runuser -u postgres -- psql -X -At -d lunaway -c "select 'version ' || current_setting('server_version') || ', postgis ' || postgis_lib_version() || ', listen ' || current_setting('listen_addresses') || ', password_encryption ' || current_setting('password_encryption') || ', data_directory ' || current_setting('data_directory')"
@@ -166,10 +166,16 @@ echo "--- basemap"
 systemctl is-active lunaway-tiles
 echo "refresh timer: $(systemctl is-enabled lunaway-tiles-refresh.timer), next $(systemctl list-timers --no-pager --no-legend lunaway-tiles-refresh.timer | awk '{ print $1, $2, $3 }')"
 echo "last refresh: $(systemctl show -p Result --value lunaway-tiles-refresh), $(journalctl -u lunaway-tiles-refresh --no-pager -n 1 -o cat 2>/dev/null)"
+for t in lunaway-tiles-prune lunaway-tiles-packs; do
+  echo "$t: timer $(systemctl is-enabled "$t.timer" 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend "$t.timer" | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value "$t"), $(journalctl -u "$t" --no-pager -n 1 -o cat 2>/dev/null | cut -c1-100)"
+done
 echo "$(/usr/local/bin/pmtiles version | cut -d, -f1), sha256 $(sha256sum /usr/local/bin/pmtiles | cut -c1-64)"
-echo "basemaps-assets: $(cat /srv/tiles/assets/.basemaps-assets 2>/dev/null || echo none)"
-stat -c '%a %U:%G %n' /srv/tiles /srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson /srv/tiles/assets /srv/tiles/packs
-ls -l /srv/tiles/builds /srv/tiles/serve
+echo "basemaps-assets: $(cat /srv/basemap/assets/.basemaps-assets 2>/dev/null || echo none)"
+# The archive on the root disk, read at random; the offline packs on the
+# data volume, read whole or by long ranges (tiles.sh).
+stat -c '%a %U:%G %n' /srv/basemap /srv/basemap/builds /srv/basemap/serve /srv/basemap/tilejson /srv/basemap/assets /srv/data/basemap/packs
+ls -l /srv/basemap/builds /srv/basemap/serve
+echo "offline packs: $(find /srv/data/basemap/packs -maxdepth 1 -type f -name '*.pmtiles' 2>/dev/null | wc -l) files, $(du -sh /srv/data/basemap/packs 2>/dev/null | cut -f1), manifest $(stat -c '%y' /srv/data/basemap/packs/manifest.json 2>/dev/null || echo none)"
 echo "local tile z0: $(curl -sS -o /dev/null -w '%{http_code} %{size_download} bytes in %{time_total}s' -m 10 http://127.0.0.1:8485/planet/0/0/0.mvt)"
 # pmtiles logs each request path; the unit's LogFilterPatterns keeps them out.
 echo "request lines from pmtiles in the journal (should be 0): $(journalctl -u lunaway-tiles --no-pager -o cat | grep -cE 'served [0-9]+|[^-]fetching|fetched')"
@@ -198,7 +204,7 @@ done
 echo "records by country: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(coalesce(scope, '-') || ' ' || n, ', ' order by n desc) from (select scope, count(*) n from source_records where source_id = 'osm' and deleted_at is null group by 1) s" 2>&1 | head -n 1)"
 echo "points by country: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(coalesce(scope, '-') || ' ' || n, ', ' order by n desc) from (select scope, count(*) n from pois where deleted_at is null group by 1) s" 2>&1 | head -n 1)"
 echo "import ages: $(cat /var/lib/lunaway-status/imports.json 2>/dev/null || echo none)"
-echo "extract cache: $(du -sh /srv/data/ingest/raw/osm-extract 2>/dev/null | cut -f1), $(find /srv/data/ingest/raw/osm-extract -maxdepth 1 -name '*.osm.pbf' 2>/dev/null | wc -l) files; a run in progress: $(ls /srv/data/ingest/raw/osm-extract/runs/ 2>/dev/null | grep -c '\.json$')"
+echo "extract cache: $(du -sh /srv/data/ingest/raw/osm-extract 2>/dev/null | cut -f1), $(find /srv/data/ingest/raw/osm-extract -maxdepth 1 -name '*.osm.pbf' 2>/dev/null | wc -l) files; a run in progress: $(find /srv/data/ingest/raw/osm-extract/runs -mindepth 1 -maxdepth 1 -name '*.json' ! -name '.*' 2>/dev/null | wc -l | tr -d ' ')"
 echo "database: $(runuser -u postgres -- psql -X -At -d lunaway -c "select pg_size_pretty(pg_database_size('lunaway')) || ', pois ' || pg_size_pretty(pg_total_relation_size('pois')) || ', source_records ' || pg_size_pretty(pg_total_relation_size('source_records')) || ', places ' || pg_size_pretty(pg_total_relation_size('places'))" 2>&1 | head -n 1)"
 echo "--- regional packs of places"
 echo "lunaway-packs: timer $(systemctl is-enabled lunaway-packs.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-packs.timer | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value lunaway-packs), $(journalctl -u lunaway-packs --no-pager -n 1 -o cat 2>/dev/null | cut -c1-100)"
@@ -231,8 +237,226 @@ grep -E '^(containers|lunaway)' /etc/subuid /etc/subgid
 echo "graph files: $(du -sh /srv/routing 2>/dev/null | cut -f1), root disk $(df --output=avail -h / | tail -n 1 | tr -d ' ') free"
 echo "engine status: $(curl -sS -m 5 http://127.0.0.1:8002/status 2>&1 | head -c 300)"
 echo "engine memory: $(systemctl show -p MemoryCurrent --value valhalla) bytes (unit), limit $(podman inspect --format '{{.HostConfig.Memory}}' systemd-valhalla 2>/dev/null) bytes (container)"
-echo "--- what the ops server may read (lunaway-pull)"
-id lunaway-pull
-stat -c '%a %U:%G %n' /var/lib/lunaway-pull/.ssh/authorized_keys
-masked_keys /var/lib/lunaway-pull/.ssh/authorized_keys
+echo "--- geocoders and translation"
+for unit in photon@europe photon@morocco lunaway-translate; do
+  echo "$unit: $(systemctl is-active "$unit"), restarts $(systemctl show -p NRestarts --value "$unit")"
+done
+echo "photon refresh: timer $(systemctl is-enabled lunaway-photon-refresh.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-photon-refresh.timer | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value lunaway-photon-refresh)"
+# Photon (2322, 2323), the OpenSearch embedded in each (9200-9400) and the
+# translation server (2324) answer Caddy on the loopback only. A Java
+# server may bind an IPv6 socket, where 127.0.0.1 shows as
+# [::ffff:127.0.0.1].
+sockets="$(ss -ltnpH | awk '{ n = split($4, a, ":"); p = a[n] + 0; if (p == 2322 || p == 2323 || p == 2324 || (p >= 9200 && p <= 9400)) print $4, $6 }')"
+[ -n "$sockets" ] || echo "no socket listens on 2322, 2323, 2324 or 9200-9400"
+while read -r address process; do
+  [ -n "$address" ] || continue
+  case "${address%:*}" in
+    127.0.0.1 | '[::ffff:127.0.0.1]') echo "ok   $address $process" ;;
+    '[::1]') echo "note $address $process: the IPv6 loopback, out of reach from outside, where 127.0.0.1 is expected" ;;
+    *) echo "FAIL $address $process listens beyond 127.0.0.1" ;;
+  esac
+done <<<"$sockets"
+databases=0
+for current in /srv/photon/*/current; do
+  [ -L "$current" ] || continue
+  databases=$((databases + 1))
+  echo "$current -> $(readlink "$current"), installed $(cat "$current/INSTALLED_AT" 2>/dev/null || echo '?')"
+done
+[ "$databases" -gt 0 ] || echo "no Photon database under /srv/photon"
+echo "sizes: $(du -sh /srv/photon /srv/translate 2>/dev/null | awk '{ print $2 " " $1 }' | tr '\n' ' ')"
+# As the API reaches it, through Caddy; the health check translates a short
+# text and lists the pairs it serves (the status page reads it the same way,
+# lunaway-health).
+translator="$(curl -fsS -m 10 http://127.0.0.1:8486/translator/health 2>/dev/null | head -c 4096)"
+case "$translator" in
+  *'"pairs"'*) echo "translator through Caddy: $(printf '%s' "$translator" | grep -oE '"[a-z]{2,3}-[a-z]{2,3}"' | wc -l | tr -d ' ') pairs" ;;
+  *) echo "translator through Caddy: no answer with pairs" ;;
+esac
+echo "--- status page"
+echo "gatus: $(systemctl is-active gatus), restarts $(systemctl show -p NRestarts --value gatus)"
+stat -c '%a %U:%G %n' /etc/gatus /etc/gatus/config.yaml /usr/local/bin/gatus /etc/lunaway-ops /etc/lunaway-ops/* 2>&1
+echo "gatus binary: sha256 $(sha256sum /usr/local/bin/gatus 2>/dev/null | cut -c1-64)"
+if [ -e /etc/caddy/sites-enabled/status.caddy ]; then
+  echo "status.caddy: enabled ($(readlink /etc/caddy/sites-enabled/status.caddy || echo 'a file, not a link'))"
+else
+  echo "status.caddy: not enabled; infra/enable-domain.sh links it once the status page's name points at this server"
+fi
+statuses="$(curl -fsS -m 10 http://127.0.0.1:8080/api/v1/endpoints/statuses 2>/dev/null)"
+if [ -n "$statuses" ]; then
+  python3 -c '
+import json, sys
+for e in json.load(sys.stdin):
+    r = (e.get("results") or [{}])[-1]
+    print("  %-8s %-16s %s %s" % (e.get("group"), e.get("name"), "ok  " if r.get("success") else "FAIL", r.get("timestamp", "")))' <<<"$statuses"
+else
+  echo "no answer from Gatus on 127.0.0.1:8080"
+fi
+echo "--- who may read what through lunaway-pull and extcom-drop"
+for account in lunaway-pull extcom-drop; do
+  id "$account" 2>/dev/null || echo "$account: no such account"
+done
+stat -c '%a %U:%G %n' /var/lib/lunaway-pull/.ssh/authorized_keys /var/lib/extcom-drop/.ssh/authorized_keys 2>&1
+transition=/etc/ssh/sshd_config.d/15-transition-ops-probe.conf
+if [ -e "$transition" ]; then
+  echo "note $transition exists: a temporary opening for the old ops server, to remove with that server"
+  grep -vE '^[[:space:]]*(#|$)' "$transition" | sed 's/^/       /'
+fi
+if [ -n "${LUNAWAY_SSH_ALLOW:-}" ]; then
+  admin_from="LUNAWAY_SSH_ALLOW" admin="$LUNAWAY_SSH_ALLOW"
+else
+  admin_from="fail2ban's exemptions"
+  admin="$(sed -n 's/^ignoreip *= *//p' /etc/fail2ban/jail.d/lunaway-ignore.local 2>/dev/null)"
+fi
+# Each key of the two accounts and each of their AllowUsers entries must
+# name the loopback, where the status probe and the crawler connect from;
+# only the Mac's key, forced to the read-only rsync of the dumps, may come
+# from the admin sources (ops-access.sh). A key also needs restrict and a
+# forced command.
+python3 - "$admin_from" "$admin" <<'EOF'
+import base64, hashlib, ipaddress, os, sys
+
+admin_from, admin_text = sys.argv[1], sys.argv[2]
+MAC_COMMAND = "/usr/bin/rrsync -ro /srv/data/backups/offsite"
+LOOPBACK = {ipaddress.ip_network("127.0.0.1/32"), ipaddress.ip_network("::1/128")}
+
+
+def network(value):
+    try:
+        return ipaddress.ip_network(value.strip(), strict=False)
+    except ValueError:
+        return None
+
+
+# The floor of ops-access.sh and harden.sh: a range wider than /16 or /48
+# is no admin source. fail2ban's exemptions also hold the loopback.
+admin = [n for n in map(network, admin_text.split())
+         if n is not None and n not in LOOPBACK and n.prefixlen >= (16 if n.version == 4 else 48)]
+print("admin sources (%s): %s" % (admin_from, " ".join(map(str, admin)) or "none"))
+
+
+def allowed(value, admin_ok):
+    net = network(value)
+    if net is None:
+        return False
+    if net in LOOPBACK:
+        return True
+    return admin_ok and any(net.version == a.version and net.subnet_of(a) for a in admin)
+
+
+def split_line(line):
+    """The options, key type and key of an authorized_keys line."""
+    if line.startswith(("ssh-", "ecdsa-", "sk-")):
+        options, rest = "", line
+    else:
+        quoted, i = False, 0
+        while i < len(line) and (quoted or line[i] not in " \t"):
+            if line[i] == "\\" and quoted:
+                i += 1
+            elif line[i] == '"':
+                quoted = not quoted
+            i += 1
+        options, rest = line[:i], line[i:]
+    fields = rest.split()
+    return options, (fields[0] if fields else "?"), (fields[1] if len(fields) > 1 else "")
+
+
+def parse_options(text):
+    """The options by lower-case name, quotes removed."""
+    items, current, quoted, i = [], "", False, 0
+    while i < len(text):
+        c = text[i]
+        if c == "\\" and quoted and i + 1 < len(text):
+            current += text[i:i + 2]
+            i += 2
+            continue
+        if c == '"':
+            quoted = not quoted
+        if c == "," and not quoted:
+            items.append(current)
+            current = ""
+        else:
+            current += c
+        i += 1
+    if current:
+        items.append(current)
+    result = {}
+    for item in items:
+        name, _, value = item.partition("=")
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            value = value[1:-1]
+        result.setdefault(name.lower(), value)
+    return result
+
+
+def fingerprint(blob):
+    try:
+        raw = base64.b64decode(blob, validate=True)
+    except ValueError:
+        return "<unreadable key>"
+    return "SHA256:" + base64.b64encode(hashlib.sha256(raw).digest()).decode()[:12] + "..."
+
+
+failures = checked = 0
+for account, path in (("lunaway-pull", "/var/lib/lunaway-pull/.ssh/authorized_keys"),
+                      ("extcom-drop", "/var/lib/extcom-drop/.ssh/authorized_keys")):
+    try:
+        with open(path) as f:
+            lines = [l.strip() for l in f if l.strip() and not l.lstrip().startswith("#")]
+    except OSError as e:
+        print("%s: %s" % (path, e.strerror))
+        continue
+    print("%s, %d key(s):" % (path, len(lines)))
+    for n, line in enumerate(lines, 1):
+        options, kind, blob = split_line(line)
+        print("  %s%s %s" % (options + " " if options else "", kind, fingerprint(blob)))
+        opts = parse_options(options)
+        command = opts.get("command", "")
+        admin_ok = account == "lunaway-pull" and command == MAC_COMMAND
+        problems = []
+        if "from" not in opts:
+            problems.append("no from=: accepted from anywhere")
+        else:
+            outside = [v for v in opts["from"].split(",") if not allowed(v, admin_ok)]
+            if outside:
+                problems.append("from= names %s, %s" % (",".join(outside),
+                    "neither the loopback nor an admin source" if admin_ok else "not the loopback"))
+        if not command:
+            problems.append("no forced command")
+        if "restrict" not in opts:
+            problems.append("no restrict")
+        for p in problems:
+            print("FAIL %s key %d: %s" % (account, n, p))
+        failures += len(problems)
+        checked += 1
+
+for account, path in (("lunaway-pull", "/etc/ssh/sshd_config.d/12-lunaway-pull.conf"),
+                      ("extcom-drop", "/etc/ssh/sshd_config.d/13-extcom-drop.conf")):
+    name = os.path.basename(path)
+    try:
+        with open(path) as f:
+            allow = [l.strip() for l in f if l.strip().lower().startswith("allowusers")]
+    except OSError as e:
+        print("%s: %s" % (name, e.strerror))
+        continue
+    if not allow:
+        print("%s: no AllowUsers line" % name)
+    for line in allow:
+        print("%s: %s" % (name, line))
+        for entry in line.split()[1:]:
+            user, at, host = entry.partition("@")
+            if user not in ("lunaway-pull", "extcom-drop"):
+                continue
+            checked += 1
+            if not at:
+                print("FAIL %s: AllowUsers %s, from anywhere" % (name, entry))
+                failures += 1
+            elif not allowed(host, user == "lunaway-pull"):
+                print("FAIL %s: AllowUsers %s, %s" % (name, entry,
+                    "neither the loopback nor an admin source" if user == "lunaway-pull" else "not the loopback"))
+                failures += 1
+
+if checked and not failures:
+    print("ok   every key and AllowUsers entry of lunaway-pull and extcom-drop names the loopback, "
+          "or for the Mac's key the admin sources")
+EOF
 runuser -u lunaway-pull -- /usr/local/sbin/lunaway-health

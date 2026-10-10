@@ -3,7 +3,7 @@
 Translates the reviews and descriptions the API sends it, with the OPUS-MT
 models (CC BY 4.0) converted for CTranslate2 (MIT) by
 lunaway-translate-models: no third-party service ever sees a text. It
-listens on the private network for the backend's Caddy alone, keeps
+listens on the loopback for the backend's Caddy alone, keeps
 nothing, and logs no text and no address.
 
   POST /translate  {"source": "de", "target": "fr", "text": "..."}
@@ -18,7 +18,7 @@ A pair without its own model goes through English when both halves exist
 (Portuguese to French: pt-en then en-fr).
 
 Settings, from the environment (lunaway-translate.service):
-  LUNAWAY_TRANSLATE_LISTEN     address and port, 10.42.0.4:2324
+  LUNAWAY_TRANSLATE_LISTEN     address and port, 127.0.0.1:2324
   LUNAWAY_TRANSLATE_MODELS     the models' directory, /srv/translate/models
   LUNAWAY_TRANSLATE_WORKERS    texts translated at once, 2
   LUNAWAY_TRANSLATE_THREADS    threads per text, 2

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Which addresses may reach SSH (22/tcp) through the Hetzner Cloud Firewalls
-# of both servers.
+# of the server.
 # The host firewall leaves 22/tcp open (keys only, fail2ban), so this rule is
 # the allowlist, and changing it needs only the Hetzner API: nobody is locked
 # out for good by a new home address, a hotel or a phone hotspot.
@@ -17,18 +17,18 @@ apply() {
   local role
   [ "$#" -gt 0 ] || die "no CIDR given"
   cidr_list_ok "$@" || die "not a list of CIDRs: $*"
-  for role in backend ops; do
+  for role in backend; do
     hcloud firewall describe "$(role_get "$role" firewall)" >/dev/null 2>&1 || continue
     firewall_rules_json "$role" "$@" | hcloud firewall replace-rules --rules-file - "$(role_get "$role" firewall)" >/dev/null
   done
   env_set LUNAWAY_SSH_ALLOW "$*"
   log "SSH allowed from: $*"
-  log "run infra/configure.sh backend harden and infra/configure.sh ops harden ops-replica to refresh fail2ban's ignore lists and the pull key's sources"
+  log "run infra/configure.sh backend harden ops-access to refresh fail2ban's ignore list and the sources of the Mac's pull key"
 }
 
 case "${1:-show}" in
   show)
-    for role in backend ops; do
+    for role in backend; do
       echo "$(role_get "$role" firewall):"
       hcloud firewall describe "$(role_get "$role" firewall)" -o json 2>/dev/null | python3 -c '
 import json, sys

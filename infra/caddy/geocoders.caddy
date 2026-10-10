@@ -6,9 +6,9 @@
 # (infra/systemd/lunaway-api.service).
 #
 #   /ban/...             the Base Adresse Nationale, IGN's Géoplateforme
-#   /photon/europe/...   Photon on the geocoding server, Europe
-#   /photon/morocco/...  Photon on the geocoding server, Morocco
-#   /translator/...      the translation server on the geocoding server
+#   /photon/europe/...   Photon on this server, Europe
+#   /photon/morocco/...  Photon on this server, Morocco
+#   /translator/...      the translation server on this server
 #                        (backend/crates/lunaway-api/src/translate.rs)
 #
 # No access log: a line would hold the text searched. An error is logged by
@@ -33,7 +33,7 @@ http://127.0.0.1:8486 {
 		}
 	}
 	handle_path /photon/europe/* {
-		reverse_proxy 10.42.0.4:2322 {
+		reverse_proxy 127.0.0.1:2322 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Proto
 			header_up -X-Forwarded-Host
@@ -44,7 +44,7 @@ http://127.0.0.1:8486 {
 		}
 	}
 	handle_path /photon/morocco/* {
-		reverse_proxy 10.42.0.4:2323 {
+		reverse_proxy 127.0.0.1:2323 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Proto
 			header_up -X-Forwarded-Host
@@ -57,7 +57,7 @@ http://127.0.0.1:8486 {
 	# A description of 2 000 characters takes a few seconds; the API waits
 	# 15 s at most (LUNAWAY_TRANSLATE_TIMEOUT_MS).
 	handle_path /translator/* {
-		reverse_proxy 10.42.0.4:2324 {
+		reverse_proxy 127.0.0.1:2324 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Proto
 			header_up -X-Forwarded-Host
