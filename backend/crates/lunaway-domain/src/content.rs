@@ -676,6 +676,25 @@ pub fn review_poi(subject: &GeoSubject, candidates: &[PoiCandidate<'_>]) -> Opti
     }
 }
 
+/// Whether the name a review of `subject` gives agrees with a person's
+/// health practice among `candidates` within [`poi_review_radius_m`]
+/// ([`poi_takes_reviews`]). Such a review is kept nowhere: passing the
+/// practice over would hand it, and what it says of a person and of a
+/// patient's health, to a clinic or a shop of the same name beside it, or
+/// to a place near it.
+#[must_use]
+pub fn review_names_a_practice(subject: &GeoSubject, candidates: &[PoiCandidate<'_>]) -> bool {
+    let Some(name) = subject.name.as_deref() else {
+        return false;
+    };
+    let radius = poi_review_radius_m(subject);
+    candidates.iter().any(|c| {
+        !poi_takes_reviews(c.kind)
+            && subject.position.distance_m(c.position) <= radius
+            && name_agreement(name, c.name) >= NAMED_MATCH
+    })
+}
+
 /// A language tag as the content tables keep it: lower-case, two or three
 /// letters, an optional region or script; `None` otherwise.
 #[must_use]
@@ -1044,18 +1063,30 @@ mod tests {
             None,
             "a review of a named doctor would publish what a patient says of a person"
         );
+        assert!(review_names_a_practice(&review, &[doctor]));
         let clinic = PoiCandidate {
             kind: PoiKind::Clinic,
             name: "Clinique Martin",
             ..doctor
         };
-        // "Martin" agrees with both names, and the two stand as near: were
-        // the doctor a candidate, the review would go to neither.
+        // "Martin" agrees with both names: the review could be about the
+        // doctor, so it goes to neither, though the clinic takes reviews.
         let both = GeoSubject::parse("geo:47.0,2.0?q=Martin&u=50").unwrap();
+        assert!(
+            review_names_a_practice(&both, &[clinic, doctor]),
+            "a review that may speak of a person's practice is kept nowhere"
+        );
+        let of_the_clinic = GeoSubject::parse("geo:47.0,2.0?q=Clinique%20Martin&u=50").unwrap();
+        assert!(!review_names_a_practice(&of_the_clinic, &[clinic, doctor]));
         assert_eq!(
-            review_poi(&both, &[doctor, clinic]),
+            review_poi(&of_the_clinic, &[doctor, clinic]),
             Some(1),
-            "a clinic is an establishment, the doctor beside it no candidate"
+            "a clinic is an establishment"
+        );
+        let far = GeoSubject::parse("geo:47.01,2.0?q=Docteur%20Martin&u=50").unwrap();
+        assert!(
+            !review_names_a_practice(&far, &[doctor]),
+            "a practice a kilometre off is another one"
         );
         for kind in PoiKind::ALL {
             let individual = matches!(kind.category(), crate::poi::PoiCategory::Health)

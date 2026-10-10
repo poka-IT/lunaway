@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name AS \"name!\", ST_Y(geom::geometry) AS \"lat!\",\n               ST_X(geom::geometry) AS \"lon!\"\n        FROM pois\n        WHERE deleted_at IS NULL AND NOT hidden AND name IS NOT NULL\n          AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)\n          AND NOT (kind = ANY($4))\n        ORDER BY geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography\n        LIMIT 20\n        ",
+  "query": "\n        SELECT id, kind, name AS \"name!\", ST_Y(geom::geometry) AS \"lat!\",\n               ST_X(geom::geometry) AS \"lon!\"\n        FROM pois\n        WHERE deleted_at IS NULL AND NOT hidden AND name IS NOT NULL\n          AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)\n        ORDER BY geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography\n        LIMIT 20\n        ",
   "describe": {
     "columns": [
       {
@@ -53,8 +53,7 @@
       "Left": [
         "Float8",
         "Float8",
-        "Float8",
-        "TextArray"
+        "Float8"
       ]
     },
     "nullable": [
@@ -65,5 +64,5 @@
       null
     ]
   },
-  "hash": "4ab61fc9f83cb8ed9987a5b0541f8fd50c17dc739acca97264a77372450f34f6"
+  "hash": "af95c865e24c30605482f158cf6a0c6a338887d419c7ac7b95b115f413254f62"
 }

@@ -624,7 +624,12 @@ async fn a_mangrove_review_reaches_the_point_whose_name_it_gives(pool: PgPool) {
          ({nameless}), nor one of a person's health practice ({doctor})"
     );
     assert_eq!((r.places, r.pois), (0, 1), "{r:?}");
-    assert_eq!(r.skipped.get("\"NoPlace\""), Some(&5), "{r:?}");
+    assert_eq!(r.skipped.get("\"NoPlace\""), Some(&4), "{r:?}");
+    assert_eq!(
+        r.skipped.get("\"HealthPractice\""),
+        Some(&1),
+        "a review that names a person's practice is kept nowhere: {r:?}"
+    );
     let shown = db::reviews_of_poi(&pool, bakery, 20, None).await.unwrap();
     assert_eq!(shown.nodes[0].author.as_deref(), Some("named"));
 }

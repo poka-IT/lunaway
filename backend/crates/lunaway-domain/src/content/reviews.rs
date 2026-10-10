@@ -63,11 +63,13 @@ pub const MANGROVE_CAPS: ReviewCaps = ReviewCaps {
 pub struct ReviewOffer<'a, P> {
     /// The place or the point it is about.
     pub target: P,
-    /// Its new pair comes before those of the targets not preferred,
-    /// whatever their keys and however long they waited: a place's before a
-    /// point of interest's. The points of France had 450 Mangrove reviews
-    /// waiting on 2026-10-10, which a new review of a place would otherwise
-    /// queue behind for weeks.
+    /// Its new pair comes before those of the targets not preferred among
+    /// the keys of its standing (kept before, or new), however long they
+    /// waited: a place's before a point of interest's. The points of France
+    /// had 450 Mangrove reviews waiting on 2026-10-10, which a new review of
+    /// a place would otherwise queue behind for weeks. The standing comes
+    /// first, so fresh keys reviewing places never hold back the points'
+    /// reviews of keys kept before.
     pub preferred: bool,
     /// The hash of the key that signed it; `None` counts as a key of its
     /// own, new everywhere.
@@ -100,10 +102,10 @@ pub struct Picked {
 
 /// The reviews each place keeps among `offers`, at most `caps.per_place`
 /// a place, one per key and place (its latest). First the reviews of keys
-/// shown on the place already, oldest key first; then the new pairs, the
-/// preferred targets' first, keys kept before first (oldest first), then
-/// new keys, each group in the order Lunaway first read the reviews,
-/// within the caps on new pairs.
+/// shown on the place already, oldest key first; then the new pairs, keys
+/// kept before first, then new keys, each group the preferred targets'
+/// first, then the oldest key first and in the order Lunaway first read
+/// the reviews, within the caps on new pairs.
 #[must_use]
 pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCaps) -> Picked {
     // One per key and place: its latest, as the author dates it.
@@ -125,8 +127,8 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
         let o = &offers[i];
         (
             !o.shown_here,
-            !o.preferred,
             o.key_since.is_none(),
+            !o.preferred,
             o.key_since,
             o.first_seen,
             i,
@@ -378,6 +380,27 @@ mod tests {
         assert_eq!(
             picked.new_pairs, MANGROVE_CAPS.new_per_run,
             "the caps hold for places and points together"
+        );
+    }
+
+    #[test]
+    fn fresh_keys_on_places_never_hold_back_the_points_of_keys_kept_before() {
+        // Fifty fresh keys review fifty places; an aged key reviews a point,
+        // read after them.
+        let keys: Vec<String> = (0..50).map(|n| format!("fresh-{n}")).collect();
+        let mut offers: Vec<_> = keys
+            .iter()
+            .enumerate()
+            .map(|(n, k)| offer(u16::try_from(n).unwrap(), k, 1, None))
+            .collect();
+        offers.push(ReviewOffer {
+            preferred: false,
+            ..offer(900, "aged", 9, Some(0))
+        });
+        let picked = pick_reviews(&offers, MANGROVE_CAPS);
+        assert!(
+            picked.kept.contains(&50),
+            "a key kept before reaches the point ahead of the fresh keys"
         );
     }
 

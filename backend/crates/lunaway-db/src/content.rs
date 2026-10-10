@@ -2078,9 +2078,9 @@ pub struct NearPoi {
 }
 
 /// Live named points of interest within `radius_m` of a point, nearest
-/// first, at most 20, none of the kinds `except_kinds` names (the codes of
-/// the kinds a review never reaches). A point without a name is never one:
-/// a review goes to a point only by the name it gives.
+/// first, at most 20, health practices included: a review that names one
+/// is kept nowhere. A point without a name is never one: a review goes to
+/// a point only by the name it gives.
 ///
 /// # Errors
 ///
@@ -2090,7 +2090,6 @@ pub async fn pois_near(
     lat: f64,
     lon: f64,
     radius_m: f64,
-    except_kinds: &[String],
 ) -> Result<Vec<NearPoi>, DbError> {
     Ok(sqlx::query_as!(
         NearPoi,
@@ -2100,14 +2099,12 @@ pub async fn pois_near(
         FROM pois
         WHERE deleted_at IS NULL AND NOT hidden AND name IS NOT NULL
           AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
-          AND NOT (kind = ANY($4))
         ORDER BY geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
         LIMIT 20
         "#,
         lat,
         lon,
         radius_m,
-        except_kinds,
     )
     .fetch_all(pool)
     .await?)

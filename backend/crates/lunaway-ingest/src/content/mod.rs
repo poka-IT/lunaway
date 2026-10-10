@@ -48,7 +48,6 @@ use lunaway_db::{
 use lunaway_domain::{
     PlaceKind, Position, SourceId,
     content::{self, PhotoRelation, PoiCandidate, ReviewCandidate, reviews::ReviewOffer},
-    poi::PoiKind,
 };
 use lunaway_media::{Collection, MediaStore, Options, PanoramaView};
 use tokio::{sync::Mutex, time::Instant};
@@ -1668,41 +1667,19 @@ const MANGROVE_MAX_PAGES: usize = 100;
 /// How far from where a review says it is a place is looked for, metres.
 const REVIEW_SEARCH_M: f64 = 300.0;
 
-/// The named point of interest a review that no place took is about
-/// ([`content::review_poi`]), with its position; none for a review that
-/// names nothing, which is not even looked for.
-async fn review_point(
+/// The named points of interest a review could be about, or could name
+/// ([`content::poi_review_radius_m`]); none for a review that names
+/// nothing, for which they are not even looked up.
+async fn points_named_near(
     ctx: &Ctx<'_>,
     subject: &content::GeoSubject,
-) -> Result<Option<(ContentTarget, Position)>, IngestError> {
+) -> Result<Vec<db::NearPoi>, IngestError> {
     if subject.name.is_none() {
-        return Ok(None);
+        return Ok(Vec::new());
     }
     let at = subject.position;
     let radius = content::poi_review_radius_m(subject);
-    let except: Vec<String> = PoiKind::ALL
-        .iter()
-        .filter(|k| !content::poi_takes_reviews(**k))
-        .map(|k| k.code().to_owned())
-        .collect();
-    let near = db::pois_near(ctx.pool, at.lat(), at.lon(), radius, &except).await?;
-    let paired: Vec<(Uuid, PoiCandidate<'_>)> = near
-        .iter()
-        .filter_map(|p| {
-            Some((
-                p.id,
-                PoiCandidate {
-                    position: Position::new(p.lat, p.lon).ok()?,
-                    kind: p.kind.parse().ok()?,
-                    name: &p.name,
-                },
-            ))
-        })
-        .collect();
-    let candidates: Vec<PoiCandidate<'_>> = paired.iter().map(|(_, c)| *c).collect();
-    Ok(content::review_poi(subject, &candidates)
-        .and_then(|i| paired.get(i))
-        .map(|(id, c)| (ContentTarget::Poi(*id), c.position)))
+    Ok(db::pois_near(ctx.pool, at.lat(), at.lon(), radius).await?)
 }
 
 /// Mangrove: every review read, those about places on the map matched to
@@ -1773,13 +1750,35 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             })
             .collect();
         let candidates: Vec<ReviewCandidate<'_>> = paired.iter().map(|(_, c)| *c).collect();
-        let place = content::review_place(&r.subject, &candidates)
+        let points = points_named_near(ctx, &r.subject).await?;
+        let points: Vec<(Uuid, PoiCandidate<'_>)> = points
+            .iter()
+            .filter_map(|p| {
+                Some((
+                    p.id,
+                    PoiCandidate {
+                        position: Position::new(p.lat, p.lon).ok()?,
+                        kind: p.kind.parse().ok()?,
+                        name: &p.name,
+                    },
+                ))
+            })
+            .collect();
+        let point_candidates: Vec<PoiCandidate<'_>> = points.iter().map(|(_, c)| *c).collect();
+        // Before any place or point may take it: a review that names a
+        // person's health practice is kept nowhere.
+        if content::review_names_a_practice(&r.subject, &point_candidates) {
+            report.skip("HealthPractice");
+            continue;
+        }
+        let found = content::review_place(&r.subject, &candidates)
             .and_then(|i| paired.get(i))
-            .map(|(place, c)| (ContentTarget::Place(place.id), c.position));
-        let found = match place {
-            Some(found) => Some(found),
-            None => review_point(ctx, &r.subject).await?,
-        };
+            .map(|(place, c)| (ContentTarget::Place(place.id), c.position))
+            .or_else(|| {
+                content::review_poi(&r.subject, &point_candidates)
+                    .and_then(|i| points.get(i))
+                    .map(|(id, c)| (ContentTarget::Poi(*id), c.position))
+            });
         let Some((target, position)) = found else {
             report.skip("NoPlace");
             continue;
