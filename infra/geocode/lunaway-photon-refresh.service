@@ -44,7 +44,7 @@ SystemCallArchitectures=native
 ReadWritePaths=/srv/photon
 # Root with CAP_DAC_OVERRIDE: what else the backend holds stays out of sight
 # (the dumps, the photos, the database, the secrets).
-InaccessiblePaths=-/srv/data -/var/lib/postgresql -/etc/lunaway -/var/backups
+InaccessiblePaths=-/srv/data -/var/lib/postgresql -/etc/lunaway -/var/backups -/etc/lunaway-ops -/etc/gatus -/etc/ssh
 RuntimeDirectory=lunaway-photon-refresh
 RuntimeDirectoryMode=0700
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK

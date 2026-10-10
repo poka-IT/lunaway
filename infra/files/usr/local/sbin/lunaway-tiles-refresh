@@ -68,10 +68,14 @@ log() { echo "$*"; }
 want="${1:-}"
 [ -z "$want" ] || [ "$want" = --prune ] || [[ "$want" =~ ^[0-9]{8}$ ]] || die "usage: $0 [YYYYMMDD|--prune]"
 [[ "$SCHEMA_MAJOR" =~ ^[0-9]+$ ]] || die "LUNAWAY_TILES_SCHEMA_MAJOR is not a number"
-for dir in "$BUILDS" "$SERVE" "$TILEJSON"; do
+# The prune writes builds/ and serve/ only, and its unit makes no more
+# writable; a refresh writes the TileJSON too.
+writable=("$BUILDS" "$SERVE")
+[ "$want" = --prune ] || writable+=("$TILEJSON")
+for dir in "${writable[@]}"; do
   [ -d "$dir" ] && [ -w "$dir" ] || die "$dir is missing or not writable; run infra/configure.sh backend tiles"
 done
-[ -r "$REGION" ] || die "no zone outlines at $REGION"
+[ "$want" = --prune ] || [ -r "$REGION" ] || die "no zone outlines at $REGION"
 
 # One run at a time, the timer's and a manual one included.
 exec 9>"$BUILDS/.lock"
@@ -142,24 +146,29 @@ publish() {
   # The TileJSON carries a template action in place of the public base URL,
   # which Caddy's templates fill in with the site's base URL
   # (tiles.lunaway.net). Its quotes are backticks, so the file stays JSON.
-  # shellcheck disable=SC2016 # literal backticks, a Caddy template action
-  "$PMTILES" show --tilejson --public-url="__TILES_BASE__/planet-$key" "$SERVE/planet-$key.pmtiles" \
-    | sed 's|__TILES_BASE__|{{placeholder `http.vars.tiles_base`}}|g' > "$TILEJSON/.planet.json.new"
-  python3 - "$TILEJSON/.planet.json.new" "$key" <<'EOF'
+  # The rest comes from the archive's metadata, and Caddy executes the file
+  # as a template, where an action could read a file or the environment:
+  # the metadata may hold none, and the tile URL is written here, so the
+  # file holds exactly one action, ours.
+  "$PMTILES" show --tilejson --public-url="https://example.org/planet-$key" "$SERVE/planet-$key.pmtiles" \
+    > "$TILEJSON/.planet.json.from-archive"
+  python3 - "$TILEJSON/.planet.json.from-archive" "$key" > "$TILEJSON/.planet.json.new" <<'EOF'
 import json, sys
 text = open(sys.argv[1]).read()
-json.loads(text)
-plain = text.replace('{{placeholder `http.vars.tiles_base`}}', "https://example.org")
-# The rest comes from the archive's metadata. Caddy executes the file as a
-# template, where an action could read a file or the environment: the only
-# action allowed is ours.
-if "{{" in plain:
+if "{{" in text:
     sys.exit("the archive's metadata holds a template action; TileJSON refused")
-tilejson = json.loads(plain)
+tilejson = json.loads(text)
 want = "https://example.org/planet-%s/{z}/{x}/{y}.mvt" % sys.argv[2]
 if tilejson.get("tiles") != [want]:
     sys.exit("unexpected tiles in the TileJSON: %r" % tilejson.get("tiles"))
+action = "{{placeholder `http.vars.tiles_base`}}"
+tilejson["tiles"] = [action + "/planet-%s/{z}/{x}/{y}.mvt" % sys.argv[2]]
+out = json.dumps(tilejson, ensure_ascii=False, indent=2)
+if out.count("{{") != 1:
+    sys.exit("the TileJSON would hold another template action; refused")
+sys.stdout.write(out + "\n")
 EOF
+  rm -f "$TILEJSON/.planet.json.from-archive"
   chmod 0644 "$TILEJSON/.planet.json.new"
   mv -f "$TILEJSON/.planet.json.new" "$TILEJSON/planet.json"
   link planet "$key"

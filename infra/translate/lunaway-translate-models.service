@@ -42,7 +42,7 @@ SystemCallArchitectures=native
 ReadWritePaths=/srv/translate
 # Root with CAP_DAC_OVERRIDE: what else the backend holds stays out of sight
 # (the dumps, the photos, the database, the secrets).
-InaccessiblePaths=-/srv/data -/var/lib/postgresql -/etc/lunaway -/var/backups
+InaccessiblePaths=-/srv/data -/var/lib/postgresql -/etc/lunaway -/var/backups -/etc/lunaway-ops -/etc/gatus -/etc/ssh
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # Outbound: the archives' host over HTTPS; never the private network, the
 # metadata service or this host's own services.

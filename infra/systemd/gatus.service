@@ -1,4 +1,4 @@
-# Gatus, the status page and checks of the ops server. Installed by
+# Gatus, the status page and its checks, on the backend. Installed by
 # infra/server/ops-status.sh; the binary comes from infra/deploy-gatus.sh and
 # the configuration (/etc/gatus/config.yaml) from infra/ops/gatus/config.yaml.
 [Unit]
@@ -52,11 +52,17 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 
-# Network: outbound checks (HTTPS to the public names, SSH to the backend's
-# private address); it listens on loopback 8080 only, behind Caddy.
+# Network: outbound checks (HTTPS to the public names, SSH to the loopback);
+# never the private ranges or the cloud metadata service. It listens on
+# loopback 8080 only, behind Caddy.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 SocketBindDeny=any
 SocketBindAllow=tcp:8080
+# The server's data is none of its business: the database, the dumps, the
+# photos, the basemap and the geocoders stay out of sight.
+TemporaryFileSystem=/srv:ro
+InaccessiblePaths=-/var/lib/postgresql -/var/backups -/etc/lunaway
 
 MemoryHigh=384M
 MemoryMax=512M

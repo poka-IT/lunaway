@@ -39,10 +39,14 @@ Group=photon
 UMask=0027
 
 # Filesystem: the whole tree read-only but this instance's databases, which
-# OpenSearch writes (its lock and translog) even when it only serves.
+# OpenSearch writes (its lock and translog) even when it only serves. Of
+# /srv it sees those alone: the server also holds the photos, the dumps and
+# the import cache.
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/srv/photon/%i
+TemporaryFileSystem=/srv:ro
+BindPaths=/srv/photon/%i
+InaccessiblePaths=-/var/lib/postgresql -/var/backups -/etc/lunaway -/etc/lunaway-ops -/etc/gatus
 PrivateTmp=yes
 PrivateDevices=yes
 DevicePolicy=closed

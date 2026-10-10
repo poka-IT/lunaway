@@ -24,6 +24,17 @@ crawler=""
 for key in /etc/*/erasures_ed25519 /etc/*/push_ed25519; do
   [ -f "$key" ] && { crawler="$(basename "$(dirname "$key")")"; break; }
 done
+# Its private keys: the push key writes feeds the map imports, so neither
+# may be readable by the group or the others.
+for key in /etc/*/erasures_ed25519 /etc/*/push_ed25519; do
+  [ -f "$key" ] || continue
+  mode="$(stat -c '%a' "$key")"
+  if [ "$(( 8#$mode & 077 ))" -eq 0 ]; then
+    echo "ok   the crawler's $(basename "$key") is $mode, $(stat -c '%U:%G' "$key")"
+  else
+    echo "FAIL the crawler's $(basename "$key") is $mode: readable beyond its owner"
+  fi
+done
 
 echo "--- sshd effective settings"
 sshd -T 2>/dev/null | grep -E '^(permitrootlogin|passwordauthentication|kbdinteractiveauthentication|authenticationmethods|allowusers|maxauthtries|logingracetime|x11forwarding|allowtcpforwarding|allowagentforwarding|kexalgorithms|ciphers|macs|hostkeyalgorithms|persourcepenalties) '

@@ -75,11 +75,12 @@ empty_slot() {
 }
 
 refresh() {
-  local instance="$1" url port min_free_gb dir current previous next remote_md5 free_gb got_md5
+  local instance="$1" url port size_gb floor_gb dir current previous next remote_md5 free_gb got_md5
   case "$instance" in
-    # The new database (48 GB) beside the one served, and a margin.
-    europe) url="$PHOTON_DUMP_URL" port=2322 min_free_gb=60 ;;
-    morocco) url="$PHOTON_MOROCCO_DUMP_URL" port=2323 min_free_gb=5 ;;
+    # What a new database takes when none serves yet: Europe 48 GB unpacked
+    # in October 2026, Morocco 120 MB.
+    europe) url="$PHOTON_DUMP_URL" port=2322 size_gb=55 ;;
+    morocco) url="$PHOTON_MOROCCO_DUMP_URL" port=2323 size_gb=1 ;;
     *) log "unknown instance $instance"; return 1 ;;
   esac
   dir="/srv/photon/$instance"
@@ -93,15 +94,27 @@ refresh() {
 
   remote_md5="$(as_photon curl -fsS --max-time 60 "$url.md5" | awk '{ print $1 }')"
   [[ "$remote_md5" =~ ^[0-9a-f]{32}$ ]] || { log "$instance: no checksum published beside the dump"; return 1; }
-  if [ -n "$current" ] && [ "$(cat "$current/SOURCE_MD5" 2>/dev/null || true)" = "$remote_md5" ]; then
+  # Files of the slots are photon's: read as photon, so that a link planted
+  # there never makes root read a file of its own choice.
+  if [ -n "$current" ] && [ "$(as_photon head -c 64 "$current/SOURCE_MD5" 2>/dev/null | tr -dc '0-9a-f')" = "$remote_md5" ]; then
     log "$instance: the database served is the one published ($remote_md5)"
     return 0
   fi
 
   empty_slot "$instance" "$next"
   rm -f "$dir/download" "$dir/download.md5"
+  # Room: the new database, about the size of the one served, plus a tenth,
+  # must leave a tenth of the disk free, which the database, the routing
+  # graphs and the basemap share.
+  if [ -n "$current" ]; then
+    size_gb="$(du -s -BG "$current" | cut -f1 | tr -dc '0-9')"
+  fi
   free_gb="$(df --output=avail -BG /srv/photon | tail -n 1 | tr -dc '0-9')"
-  [ "$free_gb" -ge "$min_free_gb" ] || { log "$instance: only $free_gb GB free, $min_free_gb needed"; return 1; }
+  floor_gb="$(( $(df --output=size -BG /srv/photon | tail -n 1 | tr -dc '0-9') / 10 ))"
+  if [ $(( free_gb - size_gb - size_gb / 10 )) -lt "$floor_gb" ]; then
+    log "$instance: $free_gb GB free, a database of about $size_gb GB would leave less than $floor_gb GB"
+    return 1
+  fi
 
   install -d -m 0750 -o photon -g photon "$dir/$next"
   log "$instance: streaming $url into $dir/$next"
@@ -120,10 +133,11 @@ refresh() {
           -data-dir "$dir/$next" -j 2
       ;;
   esac
-  got_md5="$(cat "$dir/download.md5" 2>/dev/null || true)"
+  got_md5="$(as_photon head -c 64 "$dir/download.md5" 2>/dev/null | tr -dc '0-9a-f')"
   rm -f "$dir/download.md5"
+  [[ "$got_md5" =~ ^[0-9a-f]{32}$ ]] || got_md5=""
   if [ "$got_md5" != "$remote_md5" ]; then
-    log "$instance: the download hashes to ${got_md5:-nothing}, GraphHopper publishes $remote_md5; new slot removed"
+    log "$instance: the download hashes to ${got_md5:-nothing readable}, GraphHopper publishes $remote_md5; new slot removed"
     empty_slot "$instance" "$next"
     return 1
   fi
