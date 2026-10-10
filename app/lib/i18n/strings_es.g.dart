@@ -306,8 +306,8 @@ class _Translations$map$es extends Translations$map$en {
 	@override String get filters => 'Filtros';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.';
-	@override String get creditPhotos => 'Fotos: colaboradores de Lunaway, Fuente comunitaria externa';
-	@override String get creditPhotosLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: colaboradores de Lunaway, Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get creditPhotos => 'Fotos: Fuente comunitaria externa';
+	@override String get creditPhotosLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.';
 	@override String get showList => 'Lista';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Lista (${n})',
@@ -3102,8 +3102,8 @@ extension on TranslationsEs {
 			'map.filters' => 'Filtros',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.',
-			'map.creditPhotos' => 'Fotos: colaboradores de Lunaway, Fuente comunitaria externa',
-			'map.creditPhotosLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: colaboradores de Lunaway, Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.creditPhotos' => 'Fotos: Fuente comunitaria externa',
+			'map.creditPhotosLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.',
 			'map.showList' => 'Lista',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Lista (${n})', other: 'Lista (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'lugar aquí', other: 'lugares aquí', ), 

@@ -530,9 +530,9 @@ class _PortraitState extends ConsumerState<_Portrait> {
 }
 
 /// How the guidance's map draws the places drawn large, read by the map and
-/// by its credit alike: photos while the user chose them and the API
-/// answers, credited by the map's credit ([_BarCredit]).
-RichStyle _richStyle(BuildContext context, WidgetRef ref) {
+/// by its credit alike: photos while the user chose them, the API answers
+/// and the layout writes their sources ([credited], [_BarCredit]).
+RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}) {
   final fromTiles = ref.watch(placesFromTilesProvider);
   return RichStyle(
     look:
@@ -540,7 +540,7 @@ RichStyle _richStyle(BuildContext context, WidgetRef ref) {
             .look,
     words: RichWords.of(context.t),
     online: fromTiles,
-    credited: true,
+    credited: credited,
     muted: ref.watch(mutedAuthorIdsProvider),
     labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
   );
@@ -554,22 +554,47 @@ RichStyle _richStyle(BuildContext context, WidgetRef ref) {
 /// A caption only: a stray touch while driving never leaves the guidance
 /// for the browser.
 class _BarCredit extends ConsumerWidget {
-  const new({required this.color});
+  const new({required this.color, this.photosCredited = true});
 
   final Color color;
+
+  /// The layout has room for the photos' line ([_GuidanceMap.photosCredited]).
+  final bool photosCredited;
+
+  static TextStyle? _style(BuildContext context, Color? color) =>
+      Theme.of(context).textTheme.labelSmall?.copyWith(color: color);
+
+  // A legal line, not reading matter, as the main map's (MapCredit).
+  static TextScaler _scaler(BuildContext context) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+
+  /// Its height at [width], with the photos' line or without.
+  static double heightOf(BuildContext context, double width, {required bool photos}) {
+    final t = context.t;
+    var height = 0.0;
+    for (final text in [t.map.credit, if (photos) t.map.creditPhotos]) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(context, null)),
+        textDirection: Directionality.of(context),
+        textScaler: _scaler(context),
+      )..layout(maxWidth: math.max(1, width));
+      height += painter.height;
+      painter.dispose();
+    }
+    return height;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final style = Theme.of(context).textTheme.labelSmall?.copyWith(color: color);
-    // A legal line, not reading matter, as the main map's (MapCredit).
-    final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+    final style = _style(context, color);
+    final scaler = _scaler(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(t.map.credit, style: style, textScaler: scaler),
-        if (_richStyle(context, ref).photos)
+        if (_richStyle(context, ref, credited: photosCredited).photos)
           Text(t.map.creditPhotos, style: style, textScaler: scaler),
       ],
     );
@@ -579,7 +604,12 @@ class _BarCredit extends ConsumerWidget {
 /// [_BarCredit] over the map, on the main map's light ground: readable on
 /// any basemap, and the map under it takes the touch.
 class _MapSideCredit extends StatelessWidget {
-  const new();
+  const new({required this.photosCredited});
+
+  final bool photosCredited;
+
+  /// Around its text.
+  static const padding = EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1);
 
   @override
   Widget build(BuildContext context) {
@@ -591,8 +621,8 @@ class _MapSideCredit extends StatelessWidget {
           borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-          child: _BarCredit(color: scheme.onSurface),
+          padding: padding,
+          child: _BarCredit(color: scheme.onSurface, photosCredited: photosCredited),
         ),
       ),
     );
@@ -638,6 +668,30 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
+  /// Whether the map's credit over [map], at its foot, keeps clear of the
+  /// vehicle the camera follows with the photos' line: a narrow map beside
+  /// the panel with large text wraps it up to the arrow. Without the room
+  /// the line goes, and the photos with it (pictograms need no credit).
+  bool _photosRoom(BuildContext context, Size map, double left) {
+    final safe = MediaQuery.paddingOf(context);
+    final width =
+        map.width -
+        left -
+        Space.s -
+        safe.right -
+        _buttonsColumn -
+        Space.s -
+        _MapSideCredit.padding.horizontal;
+    final top =
+        map.height -
+        safe.bottom -
+        Space.s -
+        _MapSideCredit.padding.vertical -
+        _BarCredit.heightOf(context, width, photos: true);
+    // The arrow is 30 px across, turned whichever way.
+    return top >= followAnchor(map, EdgeInsets.only(left: left)).dy + 15 + Space.s;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -680,9 +734,19 @@ class _LandscapeState extends ConsumerState<_Landscape> {
               session: session,
               padding: EdgeInsets.only(left: left),
               stripBottom: legsBottom,
+              photosCredited: _photosRoom(context, box.biggest, left),
               clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
               obstacles: arrived
-                  ? const []
+                  // The credit stays over the map at the arrival.
+                  ? [
+                      if (_over.credit case final size?)
+                        Rect.fromLTWH(
+                          left + Space.s,
+                          box.maxHeight - creditBottom - size.height,
+                          size.width,
+                          size.height,
+                        ),
+                    ]
                   : _over.rects(
                       free: free,
                       buttons: (size) => Rect.fromLTWH(
@@ -778,7 +842,7 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 onRect: (rect) {
                   if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
                 },
-                child: const _MapSideCredit(),
+                child: _MapSideCredit(photosCredited: _photosRoom(context, box.biggest, left)),
               ),
             ),
           ),
@@ -869,10 +933,15 @@ class _GuidanceMap extends ConsumerWidget {
     required this.stripBottom,
     required this.clear,
     this.obstacles = const [],
+    this.photosCredited = true,
   });
 
   final GuidanceSession session;
   final EdgeInsets padding;
+
+  /// The layout writes the photos' sources ([_BarCredit]): without that
+  /// line, no photo.
+  final bool photosCredited;
 
   /// How far above the bottom of [padding] the strip of the stops stands,
   /// when the overview shows it.
@@ -1013,7 +1082,7 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         places: tiles,
         rich: RouteMapRich(
-          style: _richStyle(context, ref),
+          style: _richStyle(context, ref, credited: photosCredited),
           art: ref.watch(richArtProvider),
           // Online the tiles' places in view, offline the device's.
           tiles: fromTiles,
@@ -1642,7 +1711,12 @@ class _BottomBar extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (credit) _BarCredit(color: colors.text),
+              if (credit)
+                // As far from the right edge as the text from the left.
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: Space.s),
+                  child: _BarCredit(color: colors.text),
+                ),
             ],
           ),
         ),

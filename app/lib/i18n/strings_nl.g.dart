@@ -306,8 +306,8 @@ class _Translations$map$nl extends Translations$map$en {
 	@override String get filters => 'Filters';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.';
-	@override String get creditPhotos => 'Foto\'s: bijdragers van Lunaway, Externe communitybron';
-	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: bijdragers van Lunaway, Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get creditPhotos => 'Foto\'s: Externe communitybron';
+	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
 	@override String get showList => 'Lijst';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'Lijst (${n})',
@@ -3102,8 +3102,8 @@ extension on TranslationsNl {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.',
-			'map.creditPhotos' => 'Foto\'s: bijdragers van Lunaway, Externe communitybron',
-			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: bijdragers van Lunaway, Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.creditPhotos' => 'Foto\'s: Externe communitybron',
+			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
 			'map.showList' => 'Lijst',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lijst (${n})', other: 'Lijst (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'plek hier', other: 'plekken hier', ), 

@@ -629,14 +629,24 @@ void main() {
         final plan = routeFixture('limoges_drive');
         await guide(tester, plan, size: size, textScale: text);
         await drive(tester, plan, toM: 100);
-        await gesture(tester);
         final basemap = find.text('© OpenStreetMap · Protomaps');
-        final photos = find.text('Photos : contributeurs de Lunaway, Source communautaire externe');
-        expect(photos, findsOneWidget, reason: 'online, the places drawn large may show photos');
-        final lines = [tester.getRect(basemap), tester.getRect(photos)];
-        final credit = lines.first.expandToInclude(lines.last);
-        expect((Offset.zero & size).contains(credit.topLeft), isTrue, reason: '$credit');
-        expect((Offset.zero & size).inflate(0.5).contains(credit.bottomRight), isTrue);
+        final photos = find.text('Photos : Source communautaire externe');
+        Rect credit() => photos.evaluate().isEmpty
+            ? tester.getRect(basemap)
+            : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+        // Never over the vehicle the camera follows: the narrow map of a
+        // small phone on its side with large text has no room for the
+        // photos' line beside it, and no photo then.
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final vehicle = view.topLeft + followAnchor(view.size, map().padding);
+        expect(credit().overlaps(Rect.fromCircle(center: vehicle, radius: 15)), isFalse);
+        final cramped = size == const Size(640, 360) && text > 1;
+        expect(photos, cramped ? findsNothing : findsOneWidget);
+        expect(map().rich!.style.photos, !cramped, reason: 'a photo shows with its credit');
+        await gesture(tester);
+        final rect = credit();
+        expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');
+        expect((Offset.zero & size).inflate(0.5).contains(rect.bottomRight), isTrue);
         final bar = tester.getRect(
           find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
         );
@@ -644,22 +654,19 @@ void main() {
           // Upright, at the foot of the bar, under the arrival and the
           // close button: over the map under the maneuver it covered the
           // road ahead (audit 94, m9, captures).
-          expect(bar.inflate(0.5).contains(credit.topLeft), isTrue, reason: '$credit in $bar');
-          expect(bar.inflate(0.5).contains(credit.bottomRight), isTrue);
-          expect(
-            credit.top,
-            greaterThanOrEqualTo(tester.getRect(find.byTooltip('Terminer')).bottom),
-          );
+          expect(bar.inflate(0.5).contains(rect.topLeft), isTrue, reason: '$rect in $bar');
+          expect(bar.inflate(0.5).contains(rect.bottomRight), isTrue);
+          expect(rect.top, greaterThanOrEqualTo(tester.getRect(find.byTooltip('Terminer')).bottom));
         } else {
           // On its side, over the map beside the panel: clear of the panel,
           // the buttons and "Recentrer", no place drawn large under it.
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
-          expect(credit.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
-          expect(credit.overlaps(bar), isFalse, reason: 'the bar');
+          expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
+          expect(rect.overlaps(bar), isFalse, reason: 'the bar');
           final recenter = find.byWidgetPredicate(
             (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
           );
-          expect(credit.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
+          expect(rect.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
           for (final tip in [
             'Lieux sur la carte',
             'Voix complète',
@@ -667,10 +674,10 @@ void main() {
             'Tout le trajet',
           ]) {
             if (find.byTooltip(tip).evaluate().isEmpty) continue;
-            expect(credit.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+            expect(rect.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
           }
           expect(
-            map().rich!.obstacles.any((o) => o.inflate(1).contains(credit.center)),
+            map().rich!.obstacles.any((o) => o.inflate(1).contains(rect.center)),
             isTrue,
             reason: 'no place drawn large under it',
           );
@@ -840,9 +847,7 @@ void main() {
           expect(
             find.descendant(
               of: credit,
-              matching: find.text(
-                'Photos : contributeurs de Lunaway, Source communautaire externe',
-              ),
+              matching: find.text('Photos : Source communautaire externe'),
             ),
             findsOneWidget,
           );

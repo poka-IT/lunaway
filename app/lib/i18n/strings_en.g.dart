@@ -522,11 +522,11 @@ class Translations$map$en {
 	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
 	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
 
-	/// en: 'Photos: Lunaway contributors, External community source'
-	String get creditPhotos => 'Photos: Lunaway contributors, External community source';
+	/// en: 'Photos: External community source'
+	String get creditPhotos => 'Photos: External community source';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.'
-	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.';
 
 	/// en: 'List'
 	String get showList => 'List';
@@ -6437,8 +6437,8 @@ extension on Translations {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
-			'map.creditPhotos' => 'Photos: Lunaway contributors, External community source',
-			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotos' => 'Photos: External community source',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 

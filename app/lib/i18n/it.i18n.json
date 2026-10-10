@@ -135,8 +135,8 @@
     "filters": "Filtri",
     "credit": "© OpenStreetMap · Protomaps",
     "creditLabel": "Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d'autore di OpenStreetMap.",
-    "creditPhotos": "Foto: contributori di Lunaway, Fonte comunitaria esterna",
-    "creditPhotosLabel": "Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: contributori di Lunaway, Fonte comunitaria esterna. Apre la pagina dei diritti d'autore di OpenStreetMap.",
+    "creditPhotos": "Foto: Fonte comunitaria esterna",
+    "creditPhotosLabel": "Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: Fonte comunitaria esterna. Apre la pagina dei diritti d'autore di OpenStreetMap.",
     "showList": "Elenco",
     "showListCount(param=n)": {
       "one": "Elenco ($n)",

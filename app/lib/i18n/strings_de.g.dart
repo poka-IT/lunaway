@@ -306,8 +306,8 @@ class _Translations$map$de extends Translations$map$en {
 	@override String get filters => 'Filter';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps. Öffnet die Urheberrechtsseite von OpenStreetMap.';
-	@override String get creditPhotos => 'Fotos: Lunaway-Mitwirkende, Externe Community-Quelle';
-	@override String get creditPhotosLabel => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Lunaway-Mitwirkende, Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.';
+	@override String get creditPhotos => 'Fotos: Externe Community-Quelle';
+	@override String get creditPhotosLabel => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.';
 	@override String get showList => 'Liste';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: 'Liste (${n})',
@@ -3102,8 +3102,8 @@ extension on TranslationsDe {
 			'map.filters' => 'Filter',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps. Öffnet die Urheberrechtsseite von OpenStreetMap.',
-			'map.creditPhotos' => 'Fotos: Lunaway-Mitwirkende, Externe Community-Quelle',
-			'map.creditPhotosLabel' => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Lunaway-Mitwirkende, Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.',
+			'map.creditPhotos' => 'Fotos: Externe Community-Quelle',
+			'map.creditPhotosLabel' => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.',
 			'map.showList' => 'Liste',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Liste (${n})', other: 'Liste (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Platz hier', other: 'Plätze hier', ), 
