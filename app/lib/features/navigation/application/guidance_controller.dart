@@ -415,9 +415,10 @@ const _quoteReachM = 300.0;
 const _stopReachedM = 80.0;
 
 /// The position the device knew before the guidance asked for one stands
-/// for the first fix when this recent ([GuidanceController._seedPosition]):
-/// the vehicle has hardly moved since the preview asked for the start.
-const _seedAge = Duration(seconds: 30);
+/// for the first fix when this recent ([GuidanceController._seedPosition]),
+/// and within [_joinWithinM] of the route's start: the vehicle stood where
+/// the preview asked the route from, the time it took to read it.
+const _seedAge = Duration(minutes: 5);
 
 /// And when this precise, metres: what the engine needs to place a fix on
 /// a step (`min_accuracy_m`).
@@ -693,8 +694,8 @@ class GuidanceController extends _$GuidanceController {
   /// The position the device knew a moment ago, taken as the first fix:
   /// the first instruction shows with its distance, and the camera follows
   /// the vehicle, at once rather than after the receiver's first fix,
-  /// which can take seconds. Only a recent and precise one, and never once
-  /// a fix came.
+  /// which can take seconds. Only a recent and precise one at the route's
+  /// start, and never once a fix came.
   Future<void> _seedPosition(int generation) async {
     Fix? fix;
     try {
@@ -705,6 +706,7 @@ class GuidanceController extends _$GuidanceController {
     if (fix == null || !_current(generation) || state!.snapshot != null) return;
     final age = ref.read(clockProvider)().difference(fix.at);
     if (age > _seedAge || fix.accuracyM > _seedAccuracyM) return;
+    if (fix.position.distanceTo(state!.route.line.first) > _joinWithinM) return;
     _onFix(fix, seed: true);
   }
 

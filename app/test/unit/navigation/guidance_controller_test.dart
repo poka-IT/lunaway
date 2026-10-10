@@ -334,7 +334,8 @@ void main() {
         lastKnown: Fix(
           position: start0,
           accuracyM: 8,
-          at: t0.subtract(const Duration(seconds: 10)),
+          // The time to read the preview.
+          at: t0.subtract(const Duration(minutes: 2)),
         ),
       );
       await settle();
@@ -342,21 +343,29 @@ void main() {
       expect(session().startup?.position, isTrue);
     });
 
-    test('an old or vague position the device knew waits for a real fix', () async {
+    test('an old, vague or distant position the device knew waits for a real fix', () async {
       final a = routeFixture('limoges_drive');
       final start0 = LineTrack(a.routes.single).at(0);
       await begin(
         a,
-        lastKnown: Fix(position: start0, accuracyM: 8, at: t0.subtract(const Duration(minutes: 2))),
+        lastKnown: Fix(position: start0, accuracyM: 8, at: t0.subtract(const Duration(minutes: 6))),
       );
       await settle();
-      expect(session().snapshot, isNull);
+      expect(session().snapshot, isNull, reason: 'old');
       await begin(
         a,
         lastKnown: Fix(position: start0, accuracyM: 120, at: t0),
       );
       await settle();
-      expect(session().snapshot, isNull);
+      expect(session().snapshot, isNull, reason: 'vague');
+      // 600 m from the start the route was asked from: the vehicle moved.
+      final away = LatLng(start0.lat + 0.0054, start0.lon);
+      await begin(
+        a,
+        lastKnown: Fix(position: away, accuracyM: 8, at: t0),
+      );
+      await settle();
+      expect(session().snapshot, isNull, reason: 'away from the start');
     });
 
     test('a route asked from far away is still asked again at the first real fix', () async {
