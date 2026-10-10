@@ -833,7 +833,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         final errors = PlaceTileErrors.count();
         final failed = errors > _tileErrorsSeen;
         _tileErrorsSeen = errors;
-        final found = await _tiles.probe(c, zoom: camera.zoom, camera: key, bounds: bounds);
+        final size = mounted ? context.size : null;
+        if (size == null) return;
+        final found = await _tiles.probe(
+          c,
+          zoom: camera.zoom,
+          camera: key,
+          bounds: bounds,
+          // The whole view, in the engine's units ([_reportPlacesDrawn]).
+          view: Offset.zero & size * _queryScale,
+        );
         if ((found != null || failed) && mounted) {
           reportPlaces(found ?? const [], bounds, failed: failed);
         }

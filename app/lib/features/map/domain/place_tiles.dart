@@ -32,6 +32,14 @@ abstract final class PlaceTiles {
   static const pinDotsLayer = 'lw-place-pin-dots';
   static const pinsLayer = 'lw-place-pins';
 
+  /// Every place of [pinsSourceLayer] from [pinZoom], unfiltered and drawn
+  /// invisible: what a native map is asked for the places in view, at
+  /// rest. Asked of the source instead, it wrote out every copy of every
+  /// place of every tile it held, lower zooms included: 200 to 1 150 for 3
+  /// to 200 places in view, 30 to 120 ms of the thread that draws the app
+  /// on an emulator after each move (`plan/research/112-perf-android.md`).
+  static const probeLayer = 'lw-place-probe';
+
   /// The first zoom whose tiles carry [pinsSourceLayer]. MapLibre's zoom
   /// levels count 512 px tiles, so a map at zoom z draws the tiles of z.
   static const pinZoom = 10.0;
