@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -444,6 +446,114 @@ void main() {
         findsOneWidget,
         reason: 'the credit the photo is shown under, beside it',
       );
+    });
+
+    testWidgets("the external source's photo is credited without the agreement's reference", (
+      tester,
+    ) async {
+      final along = FakeOnTheWay(
+        pages: {
+          'places': [
+            OnTheWayPage(
+              items: [
+                aire(
+                  name: 'Aire du lac',
+                  alongM: 12000,
+                  photo: const Photo(
+                    id: 'ph-x',
+                    sourceId: extcomSourceId,
+                    thumbUrl: 'https://api.example.org/external-photos/x/thumb.webp',
+                    largeUrl: 'https://api.example.org/external-photos/x/full.webp',
+                  ),
+                  licence: 'EXTCOM-2026-10-07',
+                ),
+              ],
+            ),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Dormir');
+      await settleShort(tester);
+      expect(find.text('Photo : Source communautaire externe'), findsOneWidget);
+      expect(find.textContaining('EXTCOM'), findsNothing);
+    });
+
+    testWidgets('the place the trip goes to is not offered as a stop on the way', (tester) async {
+      PlaceOnTheWay at(String id, LatLng position, double alongM) => PlaceOnTheWay(
+        id: id,
+        position: position,
+        alongM: alongM,
+        offM: 20,
+        detourM: 100,
+        detourS: 30,
+        place: PlaceSummary(
+          id: id,
+          kind: PlaceKind.motorhomeArea,
+          lat: position.lat,
+          lon: position.lon,
+          overnight: OvernightStatus.allowed,
+          name: 'Aire $id',
+        ),
+      );
+      final along = FakeOnTheWay(
+        pages: {
+          'places': [
+            OnTheWayPage(
+              items: [
+                at('halte', const LatLng(45.846, 1.283), 3000),
+                // The destination itself, and its copy from another source.
+                at('utrillo', utrillo.destination, 7000),
+                at('copie', const LatLng(45.84520, 1.28640), 7000),
+              ],
+            ),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Dormir');
+      await settleShort(tester);
+      expect(find.text('Aire halte'), findsOneWidget);
+      expect(find.text('Aire utrillo'), findsNothing);
+      expect(find.text('Aire copie'), findsNothing);
+    });
+
+    testWidgets('no station with a price says the prices are known in France only', (tester) async {
+      await preview(tester, fuel: FakeFuelStations(const []));
+      await open(tester);
+      expect(
+        find.text('Aucune station avec un prix de ce carburant près du trajet.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          "Les prix viennent du relevé du ministère de l'Économie : ils ne sont connus qu'en France.",
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('with a mouse the chips scroll by the wheel and by an arrow, fading at the edge', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await preview(tester, along: FakeOnTheWay(), size: const Size(1024, 900));
+        await open(tester);
+        final fuel = find.widgetWithText(ChoiceChip, 'Carburant');
+        final before = tester.getTopLeft(fuel).dx;
+        expect(find.byTooltip('Voir les filtres suivants'), findsOneWidget);
+        // A wheel turns vertically: the row moves sideways.
+        final scroll = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(scroll.hover(tester.getCenter(fuel)));
+        await tester.sendEventToBinding(scroll.scroll(const Offset(0, 200)));
+        await settleShort(tester);
+        expect(tester.getTopLeft(fuel).dx, lessThan(before));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
 
     testWidgets('a stop added once the window widened is added all the same', (tester) async {

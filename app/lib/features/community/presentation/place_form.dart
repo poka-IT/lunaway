@@ -349,6 +349,8 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             decoration: InputDecoration(
               labelText: t.placeForm.name,
               hintText: t.placeForm.nameHint,
+              // Whole on a phone, rather than cut after a few words.
+              hintMaxLines: 3,
             ),
             validator: (v) {
               final length = (v ?? '').trim().runes.length;

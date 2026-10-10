@@ -16,6 +16,7 @@ import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
+import 'package:lunaway/shared/text_measure.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
@@ -155,7 +156,20 @@ class _Loaded extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: size == .compact ? Space.xl : Space.xxl),
             itemCount: cards.length,
             separatorBuilder: (_, _) => const SizedBox(width: Space.s),
-            itemBuilder: (_, i) => SizedBox(width: 136 + 40 * scale, child: cards[i]),
+            // As wide as the list's name asks, up to twice the width: "Meine
+            // Favoriten" whole rather than cut, a name of a sentence cut.
+            itemBuilder: (context, i) {
+              final base = 136 + 40 * scale;
+              final name = lineWidth(
+                listName(t, lists[i]),
+                theme.textTheme.titleLarge,
+                MediaQuery.textScalerOf(context),
+              );
+              return SizedBox(
+                width: (name + _ListCard.inset * 2).clamp(base, base * 2),
+                child: cards[i],
+              );
+            },
           ),
         ),
         const SizedBox(height: Space.s),
@@ -250,6 +264,9 @@ class _ListCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// The room around the card's content.
+  static const double inset = Space.l;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
@@ -271,7 +288,7 @@ class _ListCard extends StatelessWidget {
           ),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(Space.l),
+            padding: const EdgeInsets.all(inset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

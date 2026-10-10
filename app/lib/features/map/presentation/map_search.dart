@@ -146,9 +146,17 @@ class _MapSearchState extends ConsumerState<MapSearch> {
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                hintText: t.map.searchHint,
-                hintMaxLines: 1,
-                hintStyle: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                // Narrowed by the list's panel or a large text, the hint
+                // gets a little smaller rather than end in "une com...".
+                hint: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    t.map.searchHint,
+                    maxLines: 1,
+                    style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
               ),
               onChanged: (value) => ref.read(searchQueryProvider.notifier).change(value),
             ),

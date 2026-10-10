@@ -201,7 +201,7 @@
     "noFix": "Position introuvable pour l'instant. Réessayez à découvert ou dans un moment.",
     "unsupported": "Cet appareil ne donne pas sa position.",
     "browserDeniedTitle": "Position bloquée par le navigateur",
-    "browserDenied": "Le navigateur refuse votre position à Lunaway. Pour l'autoriser, cliquez sur l'icône à gauche de l'adresse du site (un cadenas ou des curseurs), mettez Position sur Autoriser, puis cliquez de nouveau sur le bouton de position.",
+    "browserDenied": "Le navigateur refuse votre position à Lunaway. Pour l'autoriser, ouvrez l'icône à gauche de l'adresse du site (un cadenas ou des curseurs), mettez Position sur Autoriser, puis demandez de nouveau votre position avec son bouton.",
     "browserNoFix": "Le navigateur n'a pas donné de position. Réessayez dans un moment ; sur un ordinateur, le Wi-Fi aide à la trouver."
   },
   "search": {
@@ -279,6 +279,7 @@
     "save": "Enregistrer",
     "saved": "Enregistré",
     "saveHint": "Dans Mes favoris. Appui long pour choisir des listes.",
+    "saveHintClick": "Dans Mes favoris. Clic droit pour choisir des listes.",
     "saveTo": "Enregistrer dans une liste",
     "chooseLists": "Listes",
     "savedToast": "Ajouté à Mes favoris",
@@ -310,9 +311,7 @@
     "website": "Site web",
     "call": "Appeler",
     "coordinates": "Coordonnées",
-    "copy": "Copier les coordonnées",
     "copyShort": "Copier",
-    "copyAs": "Copier en $format",
     "copiesAs": "« Copier » copie : $format",
     "copied": "Copié : $text",
     "otherFormats": "Choisir le format copié",
@@ -331,7 +330,8 @@
     "loadError": "Ce lieu n'a pas pu s'afficher.",
     "openFailed": "Aucune application n'a pu ouvrir ce lien.",
     "photos": "Photos",
-    "extrasOffline": "Les photos et les avis demandent une connexion.",
+    "extrasOffline": "Pas de connexion : les photos et les avis s'afficheront au retour du réseau.",
+    "offlineRest": "Pas de connexion : le reste de la fiche s'affichera au retour du réseau.",
     "reviewsTitle": "Avis",
     "reviewsCount(param=n)": {
       "one": "$n avis",
@@ -340,7 +340,7 @@
     "noReviews": "Aucun avis pour l'instant.",
     "noOtherReviews": "Aucun autre avis pour l'instant.",
     "moreReviews": "Plus d'avis",
-    "moreReviewsFailed": "La suite des avis n'a pas pu se charger. Touchez pour réessayer.",
+    "moreReviewsFailed": "La suite des avis n'a pas pu se charger. Réessayer",
     "stars": "$rating sur 5",
     "externalRatingsLabel(param=n)": {
       "one": "avis externe",
@@ -539,7 +539,8 @@
       "unknownHours": "Horaires inconnus",
       "add": "Ajouter",
       "station": "Station-service",
-      "empty": "Aucune station de ce carburant près du trajet.",
+      "empty": "Aucune station avec un prix de ce carburant près du trajet.",
+      "emptyHint": "Les prix viennent du relevé du ministère de l'Économie : ils ne sont connus qu'en France.",
       "failed": "Les stations n'ont pas pu être chargées.",
       "estimated": "Détours estimés d'après la distance à la route.",
       "attribution": "Prix : ministère de l'Économie (data.economie.gouv.fr)",
@@ -617,6 +618,7 @@
       "whatToDo": "Ce que vous pouvez faire",
       "checkVehicle": "Vérifiez les valeurs saisies : $height de haut, $weight.",
       "pickOtherPoint": "Choisissez une arrivée avant l'obstacle : appui long sur la carte.",
+      "pickOtherPointClick": "Choisissez une arrivée avant l'obstacle : clic droit sur la carte.",
       "noRouteTitle": "Aucune route ne mène à ce point",
       "noRouteHint": "Le point est peut-être sur une voie privée, ou sur une île sans ferry.",
       "allowUnpaved": "Les voies non revêtues sont évitées : autorisez-les si l'arrivée est sur un chemin.",
@@ -675,7 +677,9 @@
       "removeStopNamed": "Retirer l'étape « $name »",
       "placesAround": "Voir les lieux autour de la destination",
       "moveDestination": "Ou choisissez une autre arrivée : appui long sur la carte, puis « Y aller directement ».",
+      "moveDestinationClick": "Ou choisissez une autre arrivée : clic droit sur la carte, puis « Y aller directement ».",
       "moveStop": "Pour une autre étape : touchez la carte de près, ou appui long, puis « Ajouter comme étape ».",
+      "moveStopClick": "Pour une autre étape : cliquez sur la carte de près, ou clic droit, puis « Ajouter comme étape ».",
       "moveOrigin": "Le départ est votre position : rejoignez une route que votre véhicule peut prendre, puis réessayez.",
       "pickInside": "Choisissez une destination dans un de ces pays.",
       "shorter": "Choisissez une destination plus proche, ou faites le trajet en plusieurs fois."
@@ -1027,7 +1031,7 @@
     "title": "Favoris",
     "defaultList": "Mes favoris",
     "empty": "Rien d'enregistré ici pour l'instant",
-    "emptyHint": "Touchez Enregistrer sur un lieu pour le garder, même hors connexion.",
+    "emptyHint": "Enregistrez un lieu depuis sa fiche pour le garder, même hors connexion.",
     "newList": "Nouvelle liste",
     "listName": "Nom de la liste",
     "renameList": "Renommer la liste",
@@ -1093,7 +1097,8 @@
     "title": "Hauteur de votre véhicule",
     "why": "Les lieux limités plus bas seront masqués. Ceux dont la hauteur n'est pas connue restent affichés.",
     "needed": "Indiquez la hauteur, par exemple 2,90",
-    "weightOptional": "Poids total autorisé (facultatif)",
+    "optional": "Facultatif",
+    "weight": "Poids total autorisé",
     "apply": "Filtrer avec cette hauteur",
     "later": "Le reste du véhicule se décrit dans Profil, Mon véhicule."
   },
@@ -1463,7 +1468,7 @@
   },
   "contribute": {
     "yourRating": "Votre note",
-    "rateHint": "Touchez une étoile pour noter",
+    "rateHint": "Choisissez de 1 à 5 étoiles",
     "rateStar(param=n)": {
       "one": "Noter $n étoile",
       "other": "Noter $n étoiles"

@@ -547,24 +547,33 @@ final class MapPlacesProvider
 String _$mapPlacesHash() => r'979c36a3a26865a95b52303ad4886ac4e826aa34';
 
 /// One place for its page: the synced copy, the copy of an earlier
-/// opening, or the API's ([PlaceReader]).
+/// opening, or the API's ([PlaceReader]). A network failure is not asked
+/// again behind the user's back ([placeRetry]): the page says at once that
+/// there is no connection, with what the map knew of the place, and the
+/// network's return reads it again.
 
 @ProviderFor(place)
 final placeProvider = PlaceFamily._();
 
 /// One place for its page: the synced copy, the copy of an earlier
-/// opening, or the API's ([PlaceReader]).
+/// opening, or the API's ([PlaceReader]). A network failure is not asked
+/// again behind the user's back ([placeRetry]): the page says at once that
+/// there is no connection, with what the map knew of the place, and the
+/// network's return reads it again.
 
 final class PlaceProvider
     extends $FunctionalProvider<AsyncValue<Place?>, Place?, Stream<Place?>>
     with $FutureModifier<Place?>, $StreamProvider<Place?> {
   /// One place for its page: the synced copy, the copy of an earlier
-  /// opening, or the API's ([PlaceReader]).
+  /// opening, or the API's ([PlaceReader]). A network failure is not asked
+  /// again behind the user's back ([placeRetry]): the page says at once that
+  /// there is no connection, with what the map knew of the place, and the
+  /// network's return reads it again.
   PlaceProvider._({
     required PlaceFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: placeRetry,
          name: r'placeProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -603,16 +612,19 @@ final class PlaceProvider
   }
 }
 
-String _$placeHash() => r'c3d7194ee4a2e3de1d90b8c4c485c5ef8971dd5e';
+String _$placeHash() => r'796e1de218aecfc15d45324d0bd071b6d7b1e657';
 
 /// One place for its page: the synced copy, the copy of an earlier
-/// opening, or the API's ([PlaceReader]).
+/// opening, or the API's ([PlaceReader]). A network failure is not asked
+/// again behind the user's back ([placeRetry]): the page says at once that
+/// there is no connection, with what the map knew of the place, and the
+/// network's return reads it again.
 
 final class PlaceFamily extends $Family
     with $FunctionalFamilyOverride<Stream<Place?>, String> {
   PlaceFamily._()
     : super(
-        retry: null,
+        retry: placeRetry,
         name: r'placeProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -620,7 +632,10 @@ final class PlaceFamily extends $Family
       );
 
   /// One place for its page: the synced copy, the copy of an earlier
-  /// opening, or the API's ([PlaceReader]).
+  /// opening, or the API's ([PlaceReader]). A network failure is not asked
+  /// again behind the user's back ([placeRetry]): the page says at once that
+  /// there is no connection, with what the map knew of the place, and the
+  /// network's return reads it again.
 
   PlaceProvider call(String id) => PlaceProvider._(argument: id, from: this);
 

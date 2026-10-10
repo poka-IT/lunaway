@@ -181,7 +181,8 @@ class _Vehicle extends ConsumerWidget {
       if (v.widthM != null) t.vehicle.widthShort(value: t.metres(v.widthM!)),
       if (v.lengthM != null) t.vehicle.lengthShort(value: t.metres(v.lengthM!)),
       if (v.weightT != null) t.tonnes(v.weightT!),
-    ].join(' · ');
+      // A figure never breaks from its unit at the end of a line.
+    ].map((d) => d.replaceAll(' ', '\u00a0')).join(' · ');
     return _Section(
       title: t.vehicle.title,
       icon: AppIcons.vehicle,

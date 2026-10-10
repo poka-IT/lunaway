@@ -34,10 +34,12 @@ Future<void> copyCoordinates(
   if (!await systemShowsCopies()) showMessage(messenger, copied);
 }
 
-/// The coordinates of a position with a one-tap copy, in the format map apps
-/// accept when pasted, and the other formats one menu away. A format picked
-/// in the menu stays the one the copy button copies, said under the
-/// coordinates. The snackbar shows exactly what went to the clipboard.
+/// The coordinates of a position, in the format map apps accept when
+/// pasted, and the other formats one menu away. The copy itself is the
+/// action bar's, under every card that shows this one: a second button
+/// here copied the same thing. A format picked in the menu stays the one
+/// that button copies, said under the coordinates. The snackbar shows
+/// exactly what went to the clipboard.
 class CoordinatesCard extends ConsumerWidget {
   const new({required this.position, super.key});
 
@@ -79,11 +81,6 @@ class CoordinatesCard extends ConsumerWidget {
                   ),
               ],
             ),
-          ),
-          IconButton(
-            tooltip: chosen == .decimal ? t.place.copy : t.place.copyAs(format: label(t, chosen)),
-            icon: const Icon(AppIcons.copy),
-            onPressed: () => copyCoordinates(context, ref, position),
           ),
           PopupMenuButton<CoordinateFormat>(
             tooltip: t.place.otherFormats,

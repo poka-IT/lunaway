@@ -386,7 +386,7 @@ class _Translations$location$es extends Translations$location$en {
 	@override String get noFix => 'Todavía no se ha encontrado tu ubicación. Vuelve a intentarlo al aire libre o dentro de un momento.';
 	@override String get unsupported => 'Este dispositivo no proporciona su ubicación.';
 	@override String get browserDeniedTitle => 'El navegador bloquea tu ubicación';
-	@override String get browserDenied => 'El navegador no deja que Lunaway acceda a tu ubicación. Para permitirlo, haz clic en el icono a la izquierda de la dirección del sitio (un candado o unos controles deslizantes), pon Ubicación en Permitir y vuelve a hacer clic en el botón de ubicación.';
+	@override String get browserDenied => 'El navegador no deja que Lunaway acceda a tu ubicación. Para permitirlo, abre el icono a la izquierda de la dirección del sitio (un candado o unos controles deslizantes), pon Ubicación en Permitir y vuelve a pedir tu ubicación con su botón.';
 	@override String get browserNoFix => 'El navegador no ha dado ninguna ubicación. Vuelve a intentarlo dentro de un momento; en un ordenador, el Wi-Fi ayuda a encontrarla.';
 }
 
@@ -478,6 +478,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get save => 'Guardar';
 	@override String get saved => 'Guardado';
 	@override String get saveHint => 'En Mis favoritos. Mantén pulsado para elegir listas.';
+	@override String get saveHintClick => 'En Mis favoritos. Haz clic derecho para elegir listas.';
 	@override String get saveTo => 'Guardar en una lista';
 	@override String get chooseLists => 'Listas';
 	@override String get savedToast => 'Añadido a Mis favoritos';
@@ -505,9 +506,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get website => 'Sitio web';
 	@override String get call => 'Llamar';
 	@override String get coordinates => 'Coordenadas';
-	@override String get copy => 'Copiar coordenadas';
 	@override String get copyShort => 'Copiar';
-	@override String copyAs({required Object format}) => 'Copiar como ${format}';
 	@override String copiesAs({required Object format}) => '«Copiar» copia: ${format}';
 	@override String copied({required Object text}) => 'Copiado: ${text}';
 	@override String get otherFormats => 'Elegir el formato que se copia';
@@ -526,7 +525,8 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get loadError => 'No se ha podido cargar este lugar.';
 	@override String get openFailed => 'Ninguna aplicación ha podido abrir este enlace.';
 	@override String get photos => 'Fotos';
-	@override String get extrasOffline => 'Las fotos y las reseñas necesitan conexión.';
+	@override String get extrasOffline => 'Sin conexión: las fotos y las reseñas aparecerán cuando vuelva la red.';
+	@override String get offlineRest => 'Sin conexión: el resto de la ficha aparecerá cuando vuelva la red.';
 	@override String get reviewsTitle => 'Reseñas';
 	@override String reviewsCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: '${n} reseña',
@@ -535,7 +535,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get noReviews => 'Todavía no hay reseñas.';
 	@override String get noOtherReviews => 'Todavía no hay más reseñas.';
 	@override String get moreReviews => 'Más reseñas';
-	@override String get moreReviewsFailed => 'No se han podido cargar más reseñas. Toca para volver a intentarlo.';
+	@override String get moreReviewsFailed => 'No se han podido cargar más reseñas. Reintentar';
 	@override String stars({required Object rating}) => '${rating} sobre 5';
 	@override String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'reseña externa',
@@ -619,7 +619,7 @@ class _Translations$directions$es extends Translations$directions$en {
 	@override String get remember => 'Usar siempre esta aplicación';
 	@override String get rememberHint => 'Puedes cambiarlo en Perfil';
 	@override String get settingTitle => 'Abrir en otra aplicación';
-	@override String get settingHint => 'La aplicación que se abre al tocar «Abrir en» en una ruta';
+	@override String get settingHint => 'La aplicación que abre «Abrir en» desde una ruta';
 	@override String get askEachTime => 'Preguntar cada vez';
 	@override String get appleMaps => 'Mapas';
 	@override String get googleMaps => 'Google Maps';
@@ -691,7 +691,7 @@ class _Translations$favorites$es extends Translations$favorites$en {
 	@override String get title => 'Favoritos';
 	@override String get defaultList => 'Mis favoritos';
 	@override String get empty => 'Todavía no hay nada guardado aquí';
-	@override String get emptyHint => 'Toca Guardar en un lugar para conservarlo, incluso sin conexión.';
+	@override String get emptyHint => 'Guarda un lugar desde su ficha para conservarlo, incluso sin conexión.';
 	@override String get newList => 'Nueva lista';
 	@override String get listName => 'Nombre de la lista';
 	@override String get renameList => 'Cambiar el nombre de la lista';
@@ -761,7 +761,8 @@ class _Translations$vehicleHeight$es extends Translations$vehicleHeight$en {
 	@override String get title => 'Altura de tu vehículo';
 	@override String get why => 'Se ocultarán los lugares con un límite de altura más bajo. Los lugares sin altura conocida siguen en el mapa.';
 	@override String get needed => 'Indica la altura, por ejemplo 2,90';
-	@override String get weightOptional => 'Masa máxima autorizada (opcional)';
+	@override String get optional => 'Opcional';
+	@override String get weight => 'Masa máxima autorizada';
 	@override String get apply => 'Filtrar con esta altura';
 	@override String get later => 'El resto del vehículo se describe en Perfil, Mi vehículo.';
 }
@@ -1163,7 +1164,7 @@ class _Translations$contribute$es extends Translations$contribute$en {
 
 	// Translations
 	@override String get yourRating => 'Tu valoración';
-	@override String get rateHint => 'Toca una estrella para valorar';
+	@override String get rateHint => 'Elige de 1 a 5 estrellas';
 	@override String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Valorar con ${n} estrella',
 		other: 'Valorar con ${n} estrellas',
@@ -1855,7 +1856,8 @@ class _Translations$navigation$fuel$es extends Translations$navigation$fuel$en {
 	@override String get unknownHours => 'Horario desconocido';
 	@override String get add => 'Añadir';
 	@override String get station => 'Gasolinera';
-	@override String get empty => 'Ninguna gasolinera vende este combustible cerca de la ruta.';
+	@override String get empty => 'Ninguna gasolinera con precio de este combustible cerca de la ruta.';
+	@override String get emptyHint => 'Los precios vienen del Ministerio de Economía de Francia: solo se conocen en Francia.';
 	@override String get failed => 'No se han podido cargar las gasolineras.';
 	@override String get estimated => 'Desvíos estimados según la distancia a la ruta.';
 	@override String get attribution => 'Precios: Ministerio de Economía de Francia (data.economie.gouv.fr)';
@@ -1931,6 +1933,7 @@ class _Translations$navigation$states$es extends Translations$navigation$states$
 	@override String get whatToDo => 'Qué puedes hacer';
 	@override String checkVehicle({required Object height, required Object weight}) => 'Comprueba los datos introducidos: ${height} de alto, ${weight}.';
 	@override String get pickOtherPoint => 'Elige un destino antes del obstáculo: mantén pulsado el mapa.';
+	@override String get pickOtherPointClick => 'Elige un destino antes del obstáculo: haz clic derecho en el mapa.';
 	@override String get noRouteTitle => 'Ninguna carretera lleva a este punto';
 	@override String get noRouteHint => 'Puede que el punto esté en una vía privada o en una isla sin ferri.';
 	@override String get allowUnpaved => 'Se evitan los caminos sin asfaltar: permítelos si el destino está en una pista.';
@@ -1978,7 +1981,9 @@ class _Translations$navigation$noRoute$es extends Translations$navigation$noRout
 	@override String removeStopNamed({required Object name}) => 'Quitar la parada «${name}»';
 	@override String get placesAround => 'Ver los lugares alrededor del destino';
 	@override String get moveDestination => 'O elige otro destino: mantén pulsado el mapa y luego «Ir directamente».';
+	@override String get moveDestinationClick => 'O elige otro destino: haz clic derecho en el mapa y luego «Ir directamente».';
 	@override String get moveStop => 'Para otra parada: amplía bien el mapa y tócalo, o mantenlo pulsado, y luego «Añadir como parada».';
+	@override String get moveStopClick => 'Para otra parada: amplía bien el mapa y haz clic en él, o haz clic derecho, y luego «Añadir como parada».';
 	@override String get moveOrigin => 'La salida es tu ubicación: llega a una carretera que tu vehículo pueda tomar y vuelve a intentarlo.';
 	@override String get pickInside => 'Elige un destino en uno de estos países.';
 	@override String get shorter => 'Elige un destino más cercano o haz el trayecto en varios tramos.';
@@ -3147,7 +3152,7 @@ extension on TranslationsEs {
 			'location.noFix' => 'Todavía no se ha encontrado tu ubicación. Vuelve a intentarlo al aire libre o dentro de un momento.',
 			'location.unsupported' => 'Este dispositivo no proporciona su ubicación.',
 			'location.browserDeniedTitle' => 'El navegador bloquea tu ubicación',
-			'location.browserDenied' => 'El navegador no deja que Lunaway acceda a tu ubicación. Para permitirlo, haz clic en el icono a la izquierda de la dirección del sitio (un candado o unos controles deslizantes), pon Ubicación en Permitir y vuelve a hacer clic en el botón de ubicación.',
+			'location.browserDenied' => 'El navegador no deja que Lunaway acceda a tu ubicación. Para permitirlo, abre el icono a la izquierda de la dirección del sitio (un candado o unos controles deslizantes), pon Ubicación en Permitir y vuelve a pedir tu ubicación con su botón.',
 			'location.browserNoFix' => 'El navegador no ha dado ninguna ubicación. Vuelve a intentarlo dentro de un momento; en un ordenador, el Wi-Fi ayuda a encontrarla.',
 			'search.towns' => 'Municipios',
 			'search.places' => 'Lugares',
@@ -3207,6 +3212,7 @@ extension on TranslationsEs {
 			'place.save' => 'Guardar',
 			'place.saved' => 'Guardado',
 			'place.saveHint' => 'En Mis favoritos. Mantén pulsado para elegir listas.',
+			'place.saveHintClick' => 'En Mis favoritos. Haz clic derecho para elegir listas.',
 			'place.saveTo' => 'Guardar en una lista',
 			'place.chooseLists' => 'Listas',
 			'place.savedToast' => 'Añadido a Mis favoritos',
@@ -3233,9 +3239,7 @@ extension on TranslationsEs {
 			'place.website' => 'Sitio web',
 			'place.call' => 'Llamar',
 			'place.coordinates' => 'Coordenadas',
-			'place.copy' => 'Copiar coordenadas',
 			'place.copyShort' => 'Copiar',
-			'place.copyAs' => ({required Object format}) => 'Copiar como ${format}',
 			'place.copiesAs' => ({required Object format}) => '«Copiar» copia: ${format}',
 			'place.copied' => ({required Object text}) => 'Copiado: ${text}',
 			'place.otherFormats' => 'Elegir el formato que se copia',
@@ -3254,13 +3258,14 @@ extension on TranslationsEs {
 			'place.loadError' => 'No se ha podido cargar este lugar.',
 			'place.openFailed' => 'Ninguna aplicación ha podido abrir este enlace.',
 			'place.photos' => 'Fotos',
-			'place.extrasOffline' => 'Las fotos y las reseñas necesitan conexión.',
+			'place.extrasOffline' => 'Sin conexión: las fotos y las reseñas aparecerán cuando vuelva la red.',
+			'place.offlineRest' => 'Sin conexión: el resto de la ficha aparecerá cuando vuelva la red.',
 			'place.reviewsTitle' => 'Reseñas',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} reseña', other: '${n} reseñas', ), 
 			'place.noReviews' => 'Todavía no hay reseñas.',
 			'place.noOtherReviews' => 'Todavía no hay más reseñas.',
 			'place.moreReviews' => 'Más reseñas',
-			'place.moreReviewsFailed' => 'No se han podido cargar más reseñas. Toca para volver a intentarlo.',
+			'place.moreReviewsFailed' => 'No se han podido cargar más reseñas. Reintentar',
 			'place.stars' => ({required Object rating}) => '${rating} sobre 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'reseña externa', other: 'reseñas externas', ), 
 			'place.deletedAccount' => 'Cuenta eliminada',
@@ -3336,7 +3341,7 @@ extension on TranslationsEs {
 			'directions.remember' => 'Usar siempre esta aplicación',
 			'directions.rememberHint' => 'Puedes cambiarlo en Perfil',
 			'directions.settingTitle' => 'Abrir en otra aplicación',
-			'directions.settingHint' => 'La aplicación que se abre al tocar «Abrir en» en una ruta',
+			'directions.settingHint' => 'La aplicación que abre «Abrir en» desde una ruta',
 			'directions.askEachTime' => 'Preguntar cada vez',
 			'directions.appleMaps' => 'Mapas',
 			'directions.googleMaps' => 'Google Maps',
@@ -3420,7 +3425,8 @@ extension on TranslationsEs {
 			'navigation.fuel.unknownHours' => 'Horario desconocido',
 			'navigation.fuel.add' => 'Añadir',
 			'navigation.fuel.station' => 'Gasolinera',
-			'navigation.fuel.empty' => 'Ninguna gasolinera vende este combustible cerca de la ruta.',
+			'navigation.fuel.empty' => 'Ninguna gasolinera con precio de este combustible cerca de la ruta.',
+			'navigation.fuel.emptyHint' => 'Los precios vienen del Ministerio de Economía de Francia: solo se conocen en Francia.',
 			'navigation.fuel.failed' => 'No se han podido cargar las gasolineras.',
 			'navigation.fuel.estimated' => 'Desvíos estimados según la distancia a la ruta.',
 			'navigation.fuel.attribution' => 'Precios: Ministerio de Economía de Francia (data.economie.gouv.fr)',
@@ -3490,6 +3496,7 @@ extension on TranslationsEs {
 			'navigation.states.whatToDo' => 'Qué puedes hacer',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Comprueba los datos introducidos: ${height} de alto, ${weight}.',
 			'navigation.states.pickOtherPoint' => 'Elige un destino antes del obstáculo: mantén pulsado el mapa.',
+			'navigation.states.pickOtherPointClick' => 'Elige un destino antes del obstáculo: haz clic derecho en el mapa.',
 			'navigation.states.noRouteTitle' => 'Ninguna carretera lleva a este punto',
 			'navigation.states.noRouteHint' => 'Puede que el punto esté en una vía privada o en una isla sin ferri.',
 			'navigation.states.allowUnpaved' => 'Se evitan los caminos sin asfaltar: permítelos si el destino está en una pista.',
@@ -3504,10 +3511,10 @@ extension on TranslationsEs {
 			'navigation.noRoute.blockedOnTheWay' => 'Tu vehículo no tiene paso entre las paradas',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Tu vehículo no tiene paso entre las paradas: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Se puede llegar a cada parada, pero todas las carreteras que las unen pasan por una limitación que tu vehículo supera.',
-			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
-			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
+			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Ninguna carretera lleva a la parada ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Ninguna carretera une tus paradas',
 			'navigation.noRoute.notConnectedHint' => 'Sea cual sea el vehículo: una isla sin ferri para vehículos o una vía cerrada al tráfico.',
@@ -3546,7 +3553,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Quitar la parada «${name}»',
 			'navigation.noRoute.placesAround' => 'Ver los lugares alrededor del destino',
 			'navigation.noRoute.moveDestination' => 'O elige otro destino: mantén pulsado el mapa y luego «Ir directamente».',
+			'navigation.noRoute.moveDestinationClick' => 'O elige otro destino: haz clic derecho en el mapa y luego «Ir directamente».',
 			'navigation.noRoute.moveStop' => 'Para otra parada: amplía bien el mapa y tócalo, o mantenlo pulsado, y luego «Añadir como parada».',
+			'navigation.noRoute.moveStopClick' => 'Para otra parada: amplía bien el mapa y haz clic en él, o haz clic derecho, y luego «Añadir como parada».',
 			'navigation.noRoute.moveOrigin' => 'La salida es tu ubicación: llega a una carretera que tu vehículo pueda tomar y vuelve a intentarlo.',
 			'navigation.noRoute.pickInside' => 'Elige un destino en uno de estos países.',
 			'navigation.noRoute.shorter' => 'Elige un destino más cercano o haz el trayecto en varios tramos.',
@@ -3819,7 +3828,7 @@ extension on TranslationsEs {
 			'favorites.title' => 'Favoritos',
 			'favorites.defaultList' => 'Mis favoritos',
 			'favorites.empty' => 'Todavía no hay nada guardado aquí',
-			'favorites.emptyHint' => 'Toca Guardar en un lugar para conservarlo, incluso sin conexión.',
+			'favorites.emptyHint' => 'Guarda un lugar desde su ficha para conservarlo, incluso sin conexión.',
 			'favorites.newList' => 'Nueva lista',
 			'favorites.listName' => 'Nombre de la lista',
 			'favorites.renameList' => 'Cambiar el nombre de la lista',
@@ -3873,7 +3882,8 @@ extension on TranslationsEs {
 			'vehicleHeight.title' => 'Altura de tu vehículo',
 			'vehicleHeight.why' => 'Se ocultarán los lugares con un límite de altura más bajo. Los lugares sin altura conocida siguen en el mapa.',
 			'vehicleHeight.needed' => 'Indica la altura, por ejemplo 2,90',
-			'vehicleHeight.weightOptional' => 'Masa máxima autorizada (opcional)',
+			'vehicleHeight.optional' => 'Opcional',
+			'vehicleHeight.weight' => 'Masa máxima autorizada',
 			'vehicleHeight.apply' => 'Filtrar con esta altura',
 			'vehicleHeight.later' => 'El resto del vehículo se describe en Perfil, Mi vehículo.',
 			'profile.title' => 'Perfil',
@@ -4015,13 +4025,13 @@ extension on TranslationsEs {
 			'account.signOutNoCard' => 'No has creado ninguna tarjeta de recuperación en este dispositivo. Sin ella, esta cuenta se perderá para siempre.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Una contribución pendiente no se enviará.', other: '${n} contribuciones pendientes no se enviarán.', ), 
 			'account.signedOut' => 'Sesión cerrada. Tus favoritos se quedan en este dispositivo.',
+			_ => null,
+		} ?? switch (path) {
 			'account.lost' => 'Esta cuenta ya no se abre en este dispositivo. Recupérala con tu tarjeta de recuperación: Perfil, Recuperar mi cuenta.',
 			'account.lostAction' => 'Recuperar',
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
 			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
 			'recovery.title' => 'Tarjeta de recuperación',
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
@@ -4183,7 +4193,7 @@ extension on TranslationsEs {
 			'placement.same' => 'Sí, abrir su ficha',
 			'placement.notSame' => 'No, es otro lugar',
 			'contribute.yourRating' => 'Tu valoración',
-			'contribute.rateHint' => 'Toca una estrella para valorar',
+			'contribute.rateHint' => 'Elige de 1 a 5 estrellas',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Valorar con ${n} estrella', other: 'Valorar con ${n} estrellas', ), 
 			'contribute.writeReview' => 'Escribir una reseña',
 			'contribute.editReview' => 'Modificar tu reseña',
@@ -4529,13 +4539,13 @@ extension on TranslationsEs {
 			'offlineMaps.dataOf' => ({required Object date}) => 'datos del ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Actualizar, ${size}',
 			'offlineMaps.deleteNamed' => ({required Object name}) => 'Eliminar ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '¿Eliminar ${name} de este dispositivo?',
 			'offlineMaps.deleteBody' => 'Ya no se verá sin conexión. Puedes volver a descargarla.',
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',

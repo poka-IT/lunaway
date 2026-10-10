@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
@@ -990,7 +991,11 @@ class _NoSafeRoute extends StatelessWidget {
             weight: t.tonnes(v.weightT),
           ),
         ),
-        _Bullet(t.navigation.states.pickOtherPoint),
+        _Bullet(
+          pointerPlatform
+              ? t.navigation.states.pickOtherPointClick
+              : t.navigation.states.pickOtherPoint,
+        ),
         if (plan.applied.avoid.unpaved) _Bullet(t.navigation.states.allowUnpaved),
       ],
     );

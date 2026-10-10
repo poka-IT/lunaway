@@ -411,9 +411,20 @@ Stream<List<PlaceSummary>> mapPlaces(Ref ref) =>
     ref.watch(placesRepositoryProvider).watchAll(ref.watch(effectiveFilterProvider));
 
 /// One place for its page: the synced copy, the copy of an earlier
-/// opening, or the API's ([PlaceReader]).
-@riverpod
+/// opening, or the API's ([PlaceReader]). A network failure is not asked
+/// again behind the user's back ([placeRetry]): the page says at once that
+/// there is no connection, with what the map knew of the place, and the
+/// network's return reads it again.
+@Riverpod(retry: placeRetry)
 Stream<Place?> place(Ref ref, String id) => ref.watch(placeReaderProvider).watch(id);
+
+/// The retries of a place's page: none after a network failure, which the
+/// page shows at once (Riverpod's own retries kept it loading for a
+/// minute, a skeleton without a word); Riverpod's own for the rest.
+Duration? placeRetry(int count, Object error) =>
+    error is GraphQLNetworkException && error is! GraphQLRateLimitedException
+    ? null
+    : ProviderContainer.defaultRetry(count, error);
 
 // keepAlive: a stateless service over the run's client.
 @Riverpod(keepAlive: true)

@@ -11,6 +11,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/field_label.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('vehicle');
@@ -144,12 +145,18 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
       IconData icon,
       String? Function(String?) check, {
       required TextInputAction action,
+      String? helper,
     }) => TextFormField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textInputAction: action,
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
-      decoration: InputDecoration(labelText: label, suffixText: unit, prefixIcon: Icon(icon)),
+      decoration: InputDecoration(
+        label: FieldLabel(label),
+        helperText: helper,
+        suffixText: unit,
+        prefixIcon: Icon(icon),
+      ),
       style: theme.textTheme.bodyLarge,
       validator: check,
       onFieldSubmitted: action == TextInputAction.done ? (_) => _save() : null,
@@ -179,13 +186,17 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
             action: TextInputAction.next,
           ),
           const SizedBox(height: Space.m),
+          // "Optional" under the field rather than in its label: in the
+          // label it cut the name of the weight in Spanish, Italian and
+          // Dutch on a phone.
           field(
             _weight,
-            t.vehicleHeight.weightOptional,
+            t.vehicleHeight.weight,
             't',
             AppIcons.weight,
             inRange(Vehicle.weightRange, 't', required: false),
             action: TextInputAction.done,
+            helper: t.vehicleHeight.optional,
           ),
           const SizedBox(height: Space.l),
           // In a sheet the button is the one action; inside the filters it
