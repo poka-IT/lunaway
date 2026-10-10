@@ -169,7 +169,11 @@ EnforcementSource? _source(Map<String, dynamic> json) {
   return EnforcementSource(
     id: json['id'] as String,
     name: '${json['name']}',
-    attribution: '${json['attribution']}',
+    // Empty when absent, never the word "null": the name is cited then.
+    attribution: switch (json['attribution']) {
+      final String a => a,
+      _ => '',
+    },
     fetchedAt: fetched.toUtc(),
     listUpdatedAt: DateTime.tryParse('${json['listUpdatedAt']}')?.toUtc(),
   );

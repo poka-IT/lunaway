@@ -305,13 +305,15 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
-  /// "Sécurité routière, liste du 6 oct.": a list of speed cameras with
-  /// the date it gives of its last update, else of its last read (the
-  /// French list and Catalonia's ask for both); its year as well when it
-  /// is not this year's ("liste du 30 déc. 2025").
+  /// "Ministère de l'Intérieur, Délégation à la sécurité routière
+  /// (data.gouv.fr), liste du 6 oct.": a list of speed cameras by its
+  /// licensor ([EnforcementSource.credit]) with the date it gives of its
+  /// last update, else of its last read (the French list and Catalonia's
+  /// ask for both); its year as well when it is not this year's ("liste du
+  /// 30 déc. 2025").
   String enforcementSource(EnforcementSource s, {required DateTime now}) =>
       _t.navigation.guidance.enforcementSource(
-        source: s.name,
+        source: s.credit,
         date: listDate(s, now: now),
       );
 

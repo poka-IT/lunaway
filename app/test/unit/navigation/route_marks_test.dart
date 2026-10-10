@@ -202,7 +202,7 @@ void main() {
     final list = EnforcementSource(
       id: 'securite-routiere',
       name: 'Sécurité routière',
-      attribution: 'Sécurité routière',
+      attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
       fetchedAt: DateTime.utc(2026, 10, 6, 5),
     );
     CameraOnRoute camera(
@@ -289,7 +289,7 @@ void main() {
       expect(words.category, 'Radar');
       expect(words.title, 'Radar fixe · 90 km/h');
       expect(words.lines, ['à 12 km du départ', 'Contrôle votre sens de circulation']);
-      expect(words.source, 'Sécurité routière, liste du 6 oct.');
+      expect(words.source, 'Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.');
       final section = markWords(
         cameraMarker(
           camera(

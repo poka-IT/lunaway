@@ -260,6 +260,16 @@ final class EnforcementSource {
   /// The date the list gives of its own last update; [fetchedAt] stands for
   /// it when the list gives none.
   final DateTime? listUpdatedAt;
+
+  /// What a screen cites the list by: its [attribution], which names the
+  /// licensor (the Licence Ouverte asks for the licensor and the date, the
+  /// list's own name gives neither), else its [name]. A final period goes,
+  /// since the list's date follows it.
+  String get credit {
+    final text = attribution.trim();
+    final cited = text.isEmpty ? name : text;
+    return cited.endsWith('.') ? cited.substring(0, cited.length - 1) : cited;
+  }
 }
 
 /// The rule the vehicle drives under, from the countries around each fix:
