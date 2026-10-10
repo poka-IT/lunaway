@@ -177,7 +177,7 @@ description: Qué guardan la app Lunaway y sus servidores, dónde, durante cuán
 <h2 id="backups">Copias de seguridad</h2>
 <p>Para poder volver a poner en marcha el servicio después de una avería, la base de datos se copia cada noche, igual que cada foto nueva:</p>
 <ul>
-<li>en el servidor principal, sin cifrar durante 7&nbsp;noches en su disco de datos, y cifradas con age en su disco del sistema, que las imágenes de copia de seguridad diarias de este servidor en Hetzner guardan 7&nbsp;días;</li>
+<li>en el servidor principal, sin cifrar durante 7&nbsp;noches en su disco de datos, y cifradas con age en su disco del sistema. Ese disco del sistema contiene también la propia base de datos, sin cifrar: las imágenes de copia de seguridad diarias de este servidor en Hetzner guardan así durante 7&nbsp;días la base tal como estaba cada día, junto con esas copias cifradas;</li>
 <li>cifradas con age, en un segundo servidor de Hetzner en Núremberg durante 15&nbsp;días, y después en un ordenador del editor, el único que tiene la clave de descifrado, durante 30&nbsp;días. Cada uno borra las copias demasiado antiguas en su tarea nocturna, que el ordenador también ejecuta al arrancar si estaba apagado.</li>
 </ul>
 <p>Así, un dato eliminado de la base de datos desaparece de todas las copias de seguridad en unos 30&nbsp;días, y solo tarda más si ese ordenador sigue apagado, hasta que vuelve a arrancar. La copia de una foto eliminada sale del servidor principal esa misma noche, y de las otras dos copias al cabo de 26&nbsp;días.</p>

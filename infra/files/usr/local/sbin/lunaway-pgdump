@@ -6,11 +6,13 @@
 #
 # The root disk is what Hetzner's daily server backup captures (volumes are
 # not part of it), so a lost volume still leaves a recent dump in the backup
-# images; only encrypted ones, since those images are kept by Hetzner for a
-# week outside the durations this project controls. The plaintext dumps
-# stay on the data volume. The encrypted copies are encrypted to a
-# recipient whose private key exists only on the maintainer's Mac: the ops
-# server, the Mac and the images hold ciphertext they cannot read. A run that succeeds writes the time of its
+# images. The copies there are encrypted, and the plaintext dumps stay on
+# the data volume; since 2026-10-10 the root disk also holds the database
+# itself, which those images therefore keep as it stood each day for their
+# 7 days (docs/deploy.md, "How long things are kept"). The encrypted copies
+# are encrypted to a recipient whose private key exists only on the
+# maintainer's Mac: the ops server and the Mac hold ciphertext they cannot
+# read. A run that succeeds writes the time of its
 # dump to last-success there; lunaway-pgdump-failed.service writes
 # last-failure when one fails.
 #

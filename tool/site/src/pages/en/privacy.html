@@ -177,7 +177,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <h2 id="backups">Backups</h2>
 <p>To bring the service back after a failure, the database is copied every night, and so is each new photo:</p>
 <ul>
-<li>on the main server, unencrypted for 7&nbsp;nights on its data disk, and encrypted with age on its system disk, which this server's daily backup images at Hetzner keep for 7&nbsp;days;</li>
+<li>on the main server, unencrypted for 7&nbsp;nights on its data disk, and encrypted with age on its system disk. That system disk also holds the database itself, unencrypted: this server's daily backup images at Hetzner thus keep the database as it stood each day for 7&nbsp;days, along with those encrypted copies;</li>
 <li>encrypted with age, on a second Hetzner server in Nuremberg for 15&nbsp;days, then on a computer belonging to the publisher, the only holder of the decryption key, for 30&nbsp;days. Each one erases copies that are too old during its nightly task, which the computer also runs at start-up if it was off.</li>
 </ul>
 <p>Anything deleted from the database thus leaves every backup within about 30&nbsp;days, longer only if that computer stays off, until it starts again. The copy of a deleted photo leaves the main server the same night, and the two other copies after 26&nbsp;days.</p>

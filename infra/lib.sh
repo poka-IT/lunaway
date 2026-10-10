@@ -88,14 +88,19 @@ role_get() {
     backend:alias) echo lunaway ;;
     backend:env) echo LUNAWAY_BACKEND ;;
     backend:backups) echo yes ;;
-    # Best value first; the API refuses a type out of stock and the next is tried.
-    backend:candidates) echo "${LUNAWAY_BACKEND_CANDIDATES:-cx43:nbg1 cx43:fsn1 cax31:nbg1 cax31:fsn1 cx33:nbg1 cx33:fsn1 cx43:hel1 cax31:hel1 cx23:nbg1}" ;;
+    # Best value first; the API refuses a type out of stock and the next is
+    # tried. 32 GB since 2026-10-10, so that the database's search tables
+    # stay in memory next to the routing engine (docs/deploy.md, "Sizing");
+    # the 16 GB types after it hold everything, with less of it cached.
+    backend:candidates) echo "${LUNAWAY_BACKEND_CANDIDATES:-cx53:fsn1 cx53:nbg1 cx43:nbg1 cx43:fsn1 cax31:nbg1 cax31:fsn1 cx33:nbg1 cx33:fsn1 cx43:hel1 cax31:hel1 cx23:nbg1}" ;;
     # The ops role runs on the server first provisioned as the sync server; its
     # Hetzner names stay, only its role changed.
     ops:server) echo lunaway-sync-1 ;;
     ops:firewall) echo lunaway-sync-fw ;;
     ops:volume) echo lunaway-sync-data ;;
-    ops:volume_gb) echo "${LUNAWAY_OPS_VOLUME_GB:-20}" ;;
+    # Fourteen nightly dumps: 2.2 GB each on 2026-10-10, when it grew from
+    # 20 to 60 GB.
+    ops:volume_gb) echo "${LUNAWAY_OPS_VOLUME_GB:-60}" ;;
     ops:private_ip) echo "$LUNAWAY_OPS_PRIVATE_IP" ;;
     ops:alias) echo lunaway-ops ;;
     ops:env) echo LUNAWAY_OPS ;;
