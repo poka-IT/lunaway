@@ -46,7 +46,7 @@ Map<String, dynamic> _answer() => {
             'lon': 1.35,
             'overnight': 'ALLOWED',
             'services': ['DRINKING_WATER', 'GREY_WATER'],
-            'address': {'city': 'Pierre-Buffière'},
+            'address': {'street': null, 'city': 'Pierre-Buffière'},
             'municipality': null,
             'priceParkingEur': 12.0,
             'ratings': [

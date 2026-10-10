@@ -26,6 +26,7 @@ pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
 pub mod poi_osm;
+pub mod reverse_geocode;
 pub mod road_events;
 pub mod routing;
 pub mod run;

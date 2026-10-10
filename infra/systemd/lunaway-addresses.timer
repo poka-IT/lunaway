@@ -1,0 +1,13 @@
+# Hourly at :20, each run 50 minutes at most: the first runs give their
+# address to the places of the catalogue (about 108 000 on 2026-10-10, some
+# 90 minutes at 20 a second), the later ones to the new and moved places.
+[Unit]
+Description=Lunaway addresses of the places, hourly
+
+[Timer]
+OnCalendar=*-*-* *:20
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

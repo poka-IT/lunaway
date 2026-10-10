@@ -345,7 +345,8 @@ impl From<&DomainProvenance> for FieldProvenance {
 /// A postal address.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct Address {
-    /// Street and number.
+    /// Street with its house number when it has one, the number first
+    /// (`12 Rue de la Gare`) for a place; null when unknown.
     pub street: Option<String>,
     /// Postcode.
     pub postcode: Option<String>,
@@ -456,11 +457,17 @@ impl Place {
         self.0.description.as_deref()
     }
 
-    /// Postal address; null when no part of it is known.
+    /// Postal address; null when no part of it is known. A place without
+    /// a street in its sources gets the one a reverse geocoding of its
+    /// position finds on OpenStreetMap (its provenance then names `osm`);
+    /// a private host (`HOMESTAY`) never shows a street, only its town.
     async fn address(&self) -> Option<Address> {
         let a = &self.0.address;
         (!a.is_empty()).then(|| Address {
-            street: a.street.clone(),
+            street: a
+                .street
+                .clone()
+                .filter(|_| self.0.kind != lunaway_domain::PlaceKind::Homestay),
             postcode: a.postcode.clone(),
             city: a.city.clone(),
             country_code: a.country_code.clone(),

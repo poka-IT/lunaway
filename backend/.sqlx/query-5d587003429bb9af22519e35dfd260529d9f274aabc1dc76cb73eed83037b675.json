@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE places SET street = $2, postcode = $3, city = $4, country_code = $5,\n            provenance = $6, updated_at = now(), updated_seq = nextval('place_change_seq')\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5d587003429bb9af22519e35dfd260529d9f274aabc1dc76cb73eed83037b675"
+}

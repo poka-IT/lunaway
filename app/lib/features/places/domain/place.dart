@@ -154,6 +154,7 @@ final class Place {
     id: id,
     name: name,
     city: address?.city,
+    street: address?.street,
     kind: kind,
     lat: lat,
     lon: lon,
@@ -349,6 +350,7 @@ final class PlaceSummary {
     required this.overnight,
     this.name,
     this.city,
+    this.street,
     this.services = const {},
     this.priceParkingEur,
     this.ratingAverage,
@@ -362,6 +364,11 @@ final class PlaceSummary {
   final String id;
   final String? name;
   final String? city;
+
+  /// The street of its address, its house number first when it has one
+  /// ([Address.street]): a place without a name is titled by it. Null for
+  /// a private host, whose title is its town, and when unknown.
+  final String? street;
   final PlaceKind kind;
   final double lat;
   final double lon;
@@ -399,6 +406,7 @@ final class PlaceSummary {
       other.id == id &&
       other.name == name &&
       other.city == city &&
+      other.street == street &&
       other.kind == kind &&
       other.lat == lat &&
       other.lon == lon &&

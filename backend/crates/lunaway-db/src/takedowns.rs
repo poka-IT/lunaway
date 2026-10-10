@@ -601,6 +601,13 @@ async fn empty(conn: &mut PgConnection, family: &[Uuid], records: &[Uuid]) -> Re
     )
     .execute(&mut *conn)
     .await?;
+    // The reverse geocoding kept the address of where the place stood.
+    sqlx::query!(
+        "DELETE FROM place_geocodes WHERE place_id = ANY($1)",
+        family
+    )
+    .execute(&mut *conn)
+    .await?;
     // The country stays, so the sync region does too for a country synced
     // whole; a French place loses its commune, and the trigger of
     // `place_region_exits` reports it gone from its region's feed.

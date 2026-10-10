@@ -300,7 +300,7 @@ fragment PlaceSummaryFields on Place {
   overnight
   services
   priceParkingEur
-  address { city }
+  address { street city }
   municipality
   ratings { sourceId average count }
   ratingForFilters

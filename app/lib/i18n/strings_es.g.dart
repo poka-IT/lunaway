@@ -471,7 +471,7 @@ class _Translations$place$es extends Translations$place$en {
 	final TranslationsEs _root; // ignore: unused_field
 
 	// Translations
-	@override String unnamedIn({required Object kind, required Object town}) => '${kind} en ${town}';
+	@override String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 	@override String away({required Object distance}) => 'a ${distance}';
 	@override String get directions => 'Ruta';
 	@override String get share => 'Compartir';
@@ -505,6 +505,9 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get website => 'Sitio web';
 	@override String get call => 'Llamar';
 	@override String get coordinates => 'Coordenadas';
+	@override String get address => 'Dirección';
+	@override String get copyAddress => 'Copiar la dirección';
+	@override String addressSource({required Object source}) => 'Fuente: ${source}';
 	@override String get copy => 'Copiar coordenadas';
 	@override String get copyShort => 'Copiar';
 	@override String copyAs({required Object format}) => 'Copiar como ${format}';
@@ -3205,7 +3208,7 @@ extension on TranslationsEs {
 			'filters.apply' => 'Aplicar',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, zero: 'Ningún lugar coincide', one: 'Mostrar ${count} lugar', other: 'Mostrar ${count} lugares', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} filtro activo', other: '${n} filtros activos', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} en ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => 'a ${distance}',
 			'place.directions' => 'Ruta',
 			'place.share' => 'Compartir',
@@ -3238,6 +3241,9 @@ extension on TranslationsEs {
 			'place.website' => 'Sitio web',
 			'place.call' => 'Llamar',
 			'place.coordinates' => 'Coordenadas',
+			'place.address' => 'Dirección',
+			'place.copyAddress' => 'Copiar la dirección',
+			'place.addressSource' => ({required Object source}) => 'Fuente: ${source}',
 			'place.copy' => 'Copiar coordenadas',
 			'place.copyShort' => 'Copiar',
 			'place.copyAs' => ({required Object format}) => 'Copiar como ${format}',
@@ -3508,11 +3514,11 @@ extension on TranslationsEs {
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destino inaccesible para tu vehículo: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Parada ${n} inaccesible para tu vehículo',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Parada ${n} inaccesible para tu vehículo: ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.blockedOnTheWay' => 'Tu vehículo no tiene paso entre las paradas',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Tu vehículo no tiene paso entre las paradas: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Se puede llegar a cada parada, pero todas las carreteras que las unen pasan por una limitación que tu vehículo supera.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
 			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Ninguna carretera lleva a la parada ${n}',
@@ -4022,11 +4028,11 @@ extension on TranslationsEs {
 			'account.signOutNoCard' => 'No has creado ninguna tarjeta de recuperación en este dispositivo. Sin ella, esta cuenta se perderá para siempre.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Una contribución pendiente no se enviará.', other: '${n} contribuciones pendientes no se enviarán.', ), 
 			'account.signedOut' => 'Sesión cerrada. Tus favoritos se quedan en este dispositivo.',
+			_ => null,
+		} ?? switch (path) {
 			'account.lost' => 'Esta cuenta ya no se abre en este dispositivo. Recupérala con tu tarjeta de recuperación: Perfil, Recuperar mi cuenta.',
 			'account.lostAction' => 'Recuperar',
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
@@ -4536,11 +4542,11 @@ extension on TranslationsEs {
 			'offlineMaps.dataOf' => ({required Object date}) => 'datos del ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Actualizar, ${size}',
 			'offlineMaps.deleteNamed' => ({required Object name}) => 'Eliminar ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '¿Eliminar ${name} de este dispositivo?',
 			'offlineMaps.deleteBody' => 'Ya no se verá sin conexión. Puedes volver a descargarla.',
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 

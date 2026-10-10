@@ -77,6 +77,7 @@ void main() {
         PlaceTiles.rating,
         PlaceTiles.name,
         PlaceTiles.city,
+        PlaceTiles.street,
       ]),
     );
     // The filters run on the device over both layers (placeTileFilter).

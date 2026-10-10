@@ -405,7 +405,8 @@ impl Layer {
                             "o1": "Number: the first range of Place.openingSeason as first day * 1000 + last day, days of a leap year (92305 for 1 April to 31 October, 1366 for the whole year); absent when the place has no season",
                             "o2": "Number: its second range, the same way; absent when it has one or none",
                             "name": format!("String, from zoom {}; absent when the place has none", place_tiles::NAME_MIN_ZOOM),
-                            "city": format!("String, from zoom {}: the town of the address, else of the commune; absent when neither is known", place_tiles::NAME_MIN_ZOOM)
+                            "city": format!("String, from zoom {}: the town of the address, else of the commune; absent when neither is known", place_tiles::NAME_MIN_ZOOM),
+                            "st": format!("String, from zoom {}, for a place without a name only: the street of its address, its house number first when it has one (Place.address.street); absent for a private host, whose title is its town, and when unknown", place_tiles::NAME_MIN_ZOOM)
                         }
                     },
                     {

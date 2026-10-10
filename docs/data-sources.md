@@ -499,6 +499,35 @@ addresses use; homonyms stay apart by department.
 | Base Adresse Nationale, through IGN's Géoplateforme geocoder (`data.geopf.fr/geocodage/search`, `index=address`, `autocomplete=1`) | France: house numbers, streets, localities ("lieux-dits"), municipalities, typos and missing accents forgiven (16 of 20 real addresses found to the number, the other four to the street or the town, plan/research/58) | Licence Ouverte 2.0: "Sauf indication contraire, tout le contenu de ce site est disponible sous la licence Open Licence 2.0" (data.gouv.fr page of the API, read 2026-10-07); the Géoplateforme's terms apply the Licence Ouverte of Etalab to every dataset whose producer sets no other (https://cartes.gouv.fr/cgu, "Droits des Fournisseurs de données", read 2026-10-07) | "Base Adresse Nationale, IGN Géoplateforme" | live, server side |
 | OpenStreetMap, through Lunaway's Photon (Apache 2.0) on the geocoding server, over GraphHopper's Europe database for Photon and a Morocco import of its Africa dump (`infra/geocode/`) | every other country of Europe and Morocco; French matches are left to the BAN | ODbL 1.0 (the OpenStreetMap row above) | "© OpenStreetMap contributors" | live, server side |
 
+## Addresses of the places
+
+A place shows the postal address its sources give (OpenStreetMap's
+`addr:*`, the external community source, Atout France, DATAtourisme), and
+the conflation keeps it from one source, never one part of each. The
+places no source gives a street (an unnamed car park of OpenStreetMap, a
+rest area, a spot in nature the partner only placed in its town: 108 000
+of 414 000 on 2026-10-10) get one from a reverse geocoding of their
+position on Lunaway's own Photon, OpenStreetMap's data under the ODbL, and
+never from a third party (`lunaway addresses`,
+`lunaway-domain/src/place_address.rs`): the street within 50 m of the
+place (the point Photon gives for a street is the middle of its way), the
+house number of a house within 20 m, the town and postcode of the nearest
+features within a kilometre. The geocoded address replaces the sources'
+whole, never a part of it; it is kept with the position asked
+(`place_geocodes`) and asked again once the place moves by more than
+25 m. Its provenance names `osm`, the sources' own address among the
+alternatives, and the card credits it "© OpenStreetMap contributors". A
+private host (`homestay`) never shows a street nor a house number, from
+any source, in the API, the tiles or the packs: its town only
+(plan/research/69-extcom-suites.md, section 9). Measured on 1 000 places
+without a street on 2026-10-10, one request every 50 ms: 50 s, median
+10 ms, p95 15 ms; a street for 496, a house number for 45, a town for
+941, a postcode for 855, nothing within a kilometre for 42.
+
+A place without a name is titled by its kind and its street without the
+house number (`Parking · Rue de la Gare`), else its kind and its town; a
+private host by its town only.
+
 | host | for | terms as read |
 |---|---|---|
 | `data.geopf.fr` (`/geocodage/search`) | one request per search once typing pauses, the text and the map's centre on the 0.05 degree grid, 40 a second at most for every client together, stopped for as long as a 429's `Retry-After` says | "50 requêtes par seconde depuis une même adresse IP", open access without a key (data.gouv.fr page of the API, read 2026-10-07); beyond, "une erreur HTML 429 (Too Many Requests) est envoyée en réponse à toute requête. Ce blocage intervient pour une durée de 5 secondes" (cartes.gouv.fr, "Limites d'usage des API", read 2026-10-07); the terms name commercial and non-commercial developers alike ("Développeur : Utilisateur API effectuant un développement (par exemple : site Internet, application web, application mobile) à des fins commerciales ou non", https://cartes.gouv.fr/cgu) |

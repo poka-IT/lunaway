@@ -14,6 +14,7 @@ pub mod fuel;
 pub mod geo;
 pub mod listing;
 pub mod opening;
+pub mod place_address;
 pub mod poi;
 pub mod record;
 pub mod region;

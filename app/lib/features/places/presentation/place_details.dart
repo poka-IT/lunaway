@@ -14,6 +14,7 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/address_card.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/description_languages.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
@@ -218,6 +219,10 @@ class PlaceDetailsBody extends ConsumerWidget {
         ),
         PlaceSurroundings(place: place),
         gap,
+        if (AddressCard.shows(place)) ...[
+          AddressCard(place: place),
+          const SizedBox(height: Space.s),
+        ],
         CoordinatesCard(position: place.position),
         if (ownText)
           _Section(
@@ -369,7 +374,12 @@ class _Header extends ConsumerWidget {
                 header: true,
                 child: Builder(
                   builder: (context) {
-                    final title = t.placeTitle(name: place.name, kind: place.kind, city: city);
+                    final title = t.placeTitle(
+                      name: place.name,
+                      kind: place.kind,
+                      city: city,
+                      street: place.address?.street,
+                    );
                     // A long name ("Aire de stationnement camping-cars de
                     // Colmyr") ends with the word that tells it apart: a
                     // smaller size keeps it whole rather than cut there.
@@ -1160,7 +1170,7 @@ class _DetailsSkeleton extends StatelessWidget {
                     Semantics(
                       header: true,
                       child: Text(
-                        t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
+                        t.summaryTitle(hint),
                         style: theme.textTheme.headlineSmall,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,

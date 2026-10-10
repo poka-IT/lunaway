@@ -272,7 +272,7 @@
     }
   },
   "place": {
-    "unnamedIn": "$kind à $town",
+    "unnamedTitle": "$kind · $where",
     "away": "à $distance",
     "directions": "Itinéraire",
     "share": "Partager",
@@ -310,6 +310,9 @@
     "website": "Site web",
     "call": "Appeler",
     "coordinates": "Coordonnées",
+    "address": "Adresse",
+    "copyAddress": "Copier l'adresse",
+    "addressSource": "Source : $source",
     "copy": "Copier les coordonnées",
     "copyShort": "Copier",
     "copyAs": "Copier en $format",

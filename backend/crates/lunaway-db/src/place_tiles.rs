@@ -30,7 +30,8 @@ use crate::{DbError, PgPool};
 /// it, [`DOTS_MIN_ZOOM`] up, dots. The densest tile of Europe at this zoom
 /// held 197 places on 2026-10-07, 4.1 KB gzip without names.
 pub const PIN_ZOOM: i32 = 10;
-/// Zoom from which a pin carries its name and its town: names add 60% to a
+/// Zoom from which a pin carries its name and its town (and, without a
+/// name, its street): names add 60% to a
 /// tile at zooms 10 and 11, where a map draws no label anyway
 /// (`docs/deploy.md`, "Places layer"). From it the app's list beside the
 /// map reads the tiles in view rather than ask the API, so a row needs its
@@ -421,6 +422,11 @@ pub async fn tile(
                        -- The town of the address, else of the commune, as
                        -- the app titles a place without a name.
                        CASE WHEN $1 >= $8 THEN coalesce(p.city, p.municipality) END AS city,
+                       -- The street of a place without a name, which the
+                       -- app titles by it (`Parking · Rue de la Gare`); never
+                       -- a private host's, whose title is its town.
+                       CASE WHEN $1 >= $8 AND p.name IS NULL AND p.kind <> 'homestay'
+                            THEN p.street END AS st,
                        ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)
                            AS geom
                 FROM places p

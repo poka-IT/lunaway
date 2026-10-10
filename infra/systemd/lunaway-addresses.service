@@ -1,0 +1,65 @@
+# The addresses of the places no source gives a street or a town: `lunaway
+# addresses` asks Lunaway's own Photon for each one's position (once, and
+# again when the place moves), at 20 requests a second at most, and writes
+# what it found with the import role, like the conflation
+# (lunaway_domain::place_address, docs/deploy.md, "Addresses of the
+# places"). Photon is reached through the backend's Caddy on the loopback
+# (infra/caddy/geocoders.caddy), as the API reaches it for the search: this
+# unit connects to nothing outside the host. Hourly, from
+# lunaway-addresses.timer, for 50 minutes at most; installed by
+# infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway addresses of the places (reverse geocoding)
+After=postgresql.service network-online.target caddy.service
+Wants=postgresql.service
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0077
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment="LUNAWAY_GEOCODE_PHOTON_URL=http://127.0.0.1:8486/photon/europe http://127.0.0.1:8486/photon/morocco"
+Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway addresses --for-mins 50
+TimeoutStartSec=58min
+Nice=10
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# PostgreSQL and Caddy's way to Photon on loopback, nothing else; no file
+# is written.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryMax=512M
