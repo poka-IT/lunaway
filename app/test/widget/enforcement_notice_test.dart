@@ -13,10 +13,12 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 
+// The French list as the API serves it: its name says nothing of its
+// licensor, its attribution names it, and runs the longest of the lists.
 final _list = EnforcementSource(
-  id: 'securite-routiere',
-  name: 'Sécurité routière',
-  attribution: 'Sécurité routière',
+  id: 'fr-dsr',
+  name: 'Liste des radars fixes en France',
+  attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
   fetchedAt: DateTime.utc(2026, 10, 6, 5),
 );
 
@@ -115,7 +117,12 @@ void main() {
     await _pump(tester, _banners['a camera ahead']!, width: 364);
     final cited = find.textContaining(' · ');
     expect(cited, findsOneWidget, reason: 'two lists, one text');
-    expect(find.textContaining('Sécurité routière'), findsOneWidget);
+    expect(
+      find.textContaining("Ministère de l'Intérieur, Délégation à la sécurité routière"),
+      findsOneWidget,
+      reason: 'the Licence Ouverte asks for the licensor',
+    );
+    expect(find.textContaining('Liste des radars fixes'), findsNothing);
   });
 
   testWidgets('the look gives the notice one sentence and makes no live region of its own', (

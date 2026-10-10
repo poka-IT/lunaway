@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -201,7 +202,7 @@ void main() {
     final dsr = EnforcementSource(
       id: 'fr-dsr',
       name: 'Liste des radars fixes en France',
-      attribution: "Ministère de l'Intérieur",
+      attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
       fetchedAt: DateTime.utc(2026, 10, 9),
       listUpdatedAt: DateTime.utc(2025, 12, 30, 12),
     );
@@ -209,15 +210,62 @@ void main() {
     test('carries its year when it is not this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2026, 10, 9)),
-        'Liste des radars fixes en France, liste du 30 déc. 2025',
+        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr), "
+        'liste du 30 déc. 2025',
       );
     });
 
     test('goes without it this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2025, 12, 31)),
-        'Liste des radars fixes en France, liste du 30 déc.',
+        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr), "
+        'liste du 30 déc.',
       );
+    });
+  });
+
+  group('a list is cited by its licensor', () {
+    EnforcementSource list(String attribution) => EnforcementSource(
+      id: 'x',
+      name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
+      attribution: attribution,
+      fetchedAt: DateTime.utc(2026, 10, 9),
+    );
+
+    test('its attribution, which the Licence Ouverte asks for, not its name', () {
+      expect(
+        list("Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)").credit,
+        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
+      );
+    });
+
+    test('a sentence loses its final period, since the date follows it', () {
+      expect(
+        list(
+          'Inneholder data under norsk lisens for offentlige data (NLOD) '
+          'tilgjengeliggjort av Statens vegvesen.',
+        ).credit,
+        'Inneholder data under norsk lisens for offentlige data (NLOD) '
+        'tilgjengeliggjort av Statens vegvesen',
+      );
+    });
+
+    test('its name when the attribution is empty', () {
+      expect(list('  ').credit, 'Statens vegvesen, NVDB, automatisk trafikkontroll');
+    });
+
+    test('its name when the answer carries no attribution, never the word "null"', () {
+      final page = enforcementPageFromJson({
+        'cursor': 'n3.a',
+        'sources': [
+          {
+            'id': 'x',
+            'name': 'Bruxelles Mobilité, radars fixes',
+            'fetchedAt': '2026-10-09T05:00:00Z',
+          },
+        ],
+      });
+      expect(page.sources.single.credit, 'Bruxelles Mobilité, radars fixes');
     });
   });
 }
