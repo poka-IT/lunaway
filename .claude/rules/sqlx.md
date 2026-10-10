@@ -68,7 +68,10 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   when `place_layer.dot_tiles_version` is not the version before). A migration that
   changes what a dot or a cluster is made of without writing the rows
   fills them again from `place_dots_computed` and
-  `poi_cluster_cells_computed`.
+  `poi_cluster_cells_computed`, and sets `place_layer.dot_tiles_version`
+  to NULL: the worker then stores every dots tile again at its next run
+  (`place_tiles::publish_layer`), which the API serves meanwhile by
+  building them.
 - An import of several country extracts writes each record under the
   scope of its country and retires only in the scopes of the countries it
   read (`extract_run`); its progress is kept in the cache so a stopped run

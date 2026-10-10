@@ -140,6 +140,7 @@ pub async fn publish_layer(pool: &PgPool, every: Duration) -> Result<Option<i64>
     .fetch_one(pool)
     .await?;
     if !pending {
+        store_tiles_of_the_version(pool).await?;
         return Ok(None);
     }
     let mut tx = pool.begin().await?;
@@ -152,6 +153,56 @@ pub async fn publish_layer(pool: &PgPool, every: Duration) -> Result<Option<i64>
     let version = move_version(&mut tx, &layer).await?;
     tx.commit().await?;
     Ok(Some(version))
+}
+
+/// Stores every dots tile of the current version when they are not stored
+/// for it although its dots are those of its places: a version a release
+/// that does not store them published (the worker of the release before,
+/// between the migrations and its restart), or a migration that rewrote
+/// the dots. Without it the API builds those tiles at each request until a
+/// place is written again. The version does not move: its tiles say the
+/// same as before, read instead of built.
+async fn store_tiles_of_the_version(pool: &PgPool) -> Result<(), DbError> {
+    let behind = sqlx::query_scalar!(
+        r#"
+        SELECT dot_tiles_version IS DISTINCT FROM version AND dots_seq >= published_seq
+            AS "behind!"
+        FROM place_layer
+        "#
+    )
+    .fetch_one(pool)
+    .await?;
+    if !behind {
+        return Ok(());
+    }
+    let mut tx = pool.begin().await?;
+    let layer = sqlx::query!(
+        r#"
+        SELECT version, dot_tiles_version IS DISTINCT FROM version AND dots_seq >= published_seq
+            AS "behind!"
+        FROM place_layer FOR UPDATE
+        "#
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if layer.behind {
+        let started = std::time::Instant::now();
+        let stored = store_every_dot_tile(&mut tx).await?;
+        sqlx::query!(
+            "UPDATE place_layer SET dot_tiles_version = $1",
+            layer.version
+        )
+        .execute(&mut *tx)
+        .await?;
+        tracing::info!(
+            version = layer.version,
+            tiles = stored,
+            ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            "places layer: dots tiles of the version stored"
+        );
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Moves the tiles' version now, whatever the interval, with the dots of

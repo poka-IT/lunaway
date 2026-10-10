@@ -278,7 +278,8 @@ async fn a_dots_tile_is_the_one_its_version_s_publication_stored(pool: PgPool) {
         "a stored tile is read, never built at the request"
     );
     // A version published by a release that does not store them: the
-    // tiles are built from the dots until the next publication.
+    // tiles are built from the dots until the worker stores them, at its
+    // next run, without moving the version.
     sqlx::query!("UPDATE place_layer SET version = version + 1")
         .execute(&pool)
         .await
@@ -288,6 +289,25 @@ async fn a_dots_tile_is_the_one_its_version_s_publication_stored(pool: PgPool) {
         built,
         "stored tiles of another version are not served"
     );
+    let before = place_tiles::layer_version(&pool).await.unwrap().version;
+    assert_eq!(
+        place_tiles::publish_layer(&pool, Duration::ZERO)
+            .await
+            .unwrap(),
+        None,
+        "no place written: the version stays"
+    );
+    assert_eq!(
+        place_tiles::layer_version(&pool).await.unwrap().version,
+        before
+    );
+    assert_eq!(stale_tiles(&pool).await, 0, "its tiles are stored again");
+    let complete: bool =
+        sqlx::query_scalar!(r#"SELECT dot_tiles_version = version AS "c!" FROM place_layer"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(complete, "and served from the store");
 
     // Brest gone: its tiles hold no dot and lose their rows.
     write(&pool, brest, "deleted_at = now()").await;

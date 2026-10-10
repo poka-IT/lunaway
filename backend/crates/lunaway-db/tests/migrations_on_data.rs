@@ -26,7 +26,8 @@ const RATING_AND_TOWNS: std::ops::RangeInclusive<i64> = 20_261_008_220_000..=20_
 const BEFORE_DOTS_SEASON: i64 = 20_261_009_020_010;
 /// The last migration before the restaurants and the sights.
 const BEFORE_FOOD_SIGHTS: i64 = 20_261_009_090_000;
-/// The last migration before the dots tiles were stored.
+/// A migration before the dots tiles were stored (20261010150100), and
+/// before the other migrations of that day.
 const BEFORE_DOT_TILES: i64 = 20_261_009_163_000;
 
 #[test]
