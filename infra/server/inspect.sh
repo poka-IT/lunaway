@@ -51,8 +51,25 @@ echo "--- updates"
 systemctl is-enabled unattended-upgrades apt-daily.timer apt-daily-upgrade.timer
 systemctl list-timers --no-pager | grep -E 'apt-daily|lunaway' | awk '{ print $(NF-1), $NF }'
 unattended-upgrade --dry-run --debug 2>&1 | grep -E 'Allowed origins' | head -n 1
-echo "Caddy signing key: $(gpg --homedir /var/lib/lunaway-setup/gnupg --batch --with-colons --show-keys /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null | awk -F: '$1 == "fpr" { print $10; exit }')"
-grep -vE '^#|^$' /etc/apt/sources.list.d/caddy-stable.list
+# Caddy's former apt repository answers 402 (common.sh); apt.systemd.daily
+# reports success all the same, so the sources are read here.
+if grep -rqs 'dl\.cloudsmith\.io' /etc/apt/sources.list /etc/apt/sources.list.d/; then
+  echo "FAIL an apt source names dl.cloudsmith.io, Caddy's former repository: run the caddy (backend) or ops-status (ops) step"
+else
+  echo "ok   no apt source names Caddy's former repository"
+fi
+# The release pinned in infra/caddy/version.sh, which verify.sh uploads
+# beside infra/server/; a running Caddy started from the binary in place
+# (one replaced under it shows as "(deleted)").
+pinned="$(sed -n 's/^CADDY_VERSION=//p' "$(dirname "$0")/../caddy/version.sh" 2>/dev/null)"
+installed="$(dpkg-query -W -f '${Version}' caddy 2>/dev/null)"
+binary="$(caddy version 2>/dev/null | cut -d' ' -f1)"
+exe="$(readlink "/proc/$(systemctl show -p MainPID --value caddy)/exe" 2>/dev/null)"
+if [ -n "$pinned" ] && [ "$installed" = "$pinned" ] && [ "$binary" = "v$pinned" ] && [ "$exe" = /usr/bin/caddy ]; then
+  echo "ok   caddy $installed, the pinned release, running from /usr/bin/caddy"
+else
+  echo "FAIL caddy package ${installed:-absent}, binary ${binary:-absent}, running ${exe:-nothing}, pinned ${pinned:-unknown}"
+fi
 echo "--- units"
 systemctl list-unit-files --no-pager --no-legend 'lunaway*' 'gatus*' | awk '{ print $1, $2 }'
 systemctl --failed --no-legend --no-pager

@@ -107,36 +107,74 @@ random_password() {
 # shellcheck disable=SC2034 # read by the scripts that source this file
 ED25519_PUBKEY_RE='^ssh-ed25519 [A-Za-z0-9+/=]+( [A-Za-z0-9@._-]+)*$'
 
-# Caddy from the Caddy project's repository. The signing key is fetched from
-# Cloudsmith but accepted only with the primary fingerprint pinned here
-# (checked again on every run, without network, against the installed
-# keyring); the source line comes from the repository.
-CADDY_KEY_FPR=65760C51EDEA2017CEA2CA15155B6D79CA56EA34
-CADDY_KEYRING=/usr/share/keyrings/caddy-stable-archive-keyring.gpg
-
-# primary_fingerprints FILE: the primary key fingerprints of a key file,
-# armored or not, one per line.
-primary_fingerprints() {
-  install -d -m 0700 "$STAGING/gnupg"
-  gpg --homedir "$STAGING/gnupg" --batch --with-colons --show-keys "$1" 2>/dev/null \
-    | awk -F: '$1 == "pub" { want = 1; next } $1 == "fpr" && want { print $10; want = 0 }'
+# fetch_sha512 URL SHA512 FILE: leaves in FILE what URL serves, accepted
+# only when it hashes to SHA512. A FILE already there with that hash is kept
+# without a download; one with another hash is removed first. A download
+# that hashes to anything else is removed and stops the run.
+fetch_sha512() {
+  local url="$1" want="$2" file="$3" got
+  [[ "$want" =~ ^[0-9a-f]{128}$ ]] || die "no SHA-512 pinned for $url"
+  if [ -f "$file" ]; then
+    [ "$(sha512sum "$file" | awk '{ print $1 }')" = "$want" ] && return 0
+    rm -f -- "$file"
+  fi
+  rm -f -- "$file.download"
+  curl -fsSL --retry 3 -m 600 -A "Lunaway infra (+https://lunaway.net)" -o "$file.download" "$url" \
+    || { rm -f -- "$file.download"; die "cannot download $url"; }
+  got="$(sha512sum "$file.download" | awk '{ print $1 }')"
+  if [ "$got" != "$want" ]; then
+    rm -f -- "$file.download"
+    die "$url hashes to $got, the pin says $want"
+  fi
+  mv -f -- "$file.download" "$file"
 }
 
+# Caddy's apt repository on Cloudsmith, the source of the first
+# installations, has answered 402 Payment Required since 2026-10-09
+# (github.com/caddyserver/dist/issues/142), which stopped every
+# `apt-get update`. This removes its source line, its signing key, and the
+# key copy and keyring directory the former installation checked it with;
+# apt-get update then drops the repository's lists by itself.
+remove_caddy_apt_source() {
+  local file
+  for file in /etc/apt/sources.list.d/caddy-stable.list /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    "$STAGING/caddy-gpg.key"; do
+    if [ -e "$file" ]; then
+      rm -f -- "$file"
+      echo "    removed $file"
+    fi
+  done
+  if [ -d /var/lib/lunaway-setup/gnupg ]; then
+    rm -rf /var/lib/lunaway-setup/gnupg
+    echo "    removed /var/lib/lunaway-setup/gnupg"
+  fi
+}
+
+# Caddy from the .deb of its official GitHub release, at the version and
+# SHA-512 infra/caddy/version.sh pins. The apt preferences keep Debian's own
+# caddy package (2.6 in trixie, 2.11.2 in its backports) from ever replacing
+# it. An installed package of the pinned version is left alone; another
+# version is replaced, and the package's own script then restarts a running
+# Caddy.
 install_caddy_package() {
-  local changed=0
-  if [ "$(primary_fingerprints "$CADDY_KEYRING" 2>/dev/null)" != "$CADDY_KEY_FPR" ]; then
-    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key -o "$STAGING/caddy-gpg.key"
-    [ "$(primary_fingerprints "$STAGING/caddy-gpg.key")" = "$CADDY_KEY_FPR" ] \
-      || die "the Caddy signing key from Cloudsmith does not have the pinned fingerprint $CADDY_KEY_FPR"
-    gpg --homedir "$STAGING/gnupg" --batch --yes --dearmor -o "$CADDY_KEYRING.new" "$STAGING/caddy-gpg.key"
-    chmod 0644 "$CADDY_KEYRING.new"
-    mv "$CADDY_KEYRING.new" "$CADDY_KEYRING"
-    echo "    installed the Caddy signing key $CADDY_KEY_FPR"
-    changed=1
+  local arch want deb
+  . "$INFRA/caddy/version.sh"
+  remove_caddy_apt_source
+  install_file files/etc/apt/preferences.d/lunaway-caddy /etc/apt/preferences.d/lunaway-caddy 0644 || true
+  if [ "$(dpkg-query -W -f '${Status} ${Version}' caddy 2>/dev/null || true)" = "install ok installed $CADDY_VERSION" ]; then
+    return 0
   fi
-  install_file files/etc/apt/sources.list.d/caddy-stable.list /etc/apt/sources.list.d/caddy-stable.list 0644 && changed=1
-  if [ "$changed" = 1 ] || ! dpkg-query -W -f '${Status}' caddy 2>/dev/null | grep -q 'install ok installed'; then
-    apt-get update -q >/dev/null
-  fi
-  apt_install caddy
+  arch="$(dpkg --print-architecture)"
+  case "$arch" in
+    amd64) want="$CADDY_DEB_SHA512_AMD64" ;;
+    arm64) want="$CADDY_DEB_SHA512_ARM64" ;;
+    *) die "no Caddy package pinned for $arch" ;;
+  esac
+  deb="$STAGING/caddy_${CADDY_VERSION}_linux_$arch.deb"
+  fetch_sha512 "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_linux_$arch.deb" \
+    "$want" "$deb"
+  # The Caddyfile is a conffile of the package: ours stays.
+  dpkg --force-confdef --force-confold -i "$deb" >/dev/null
+  rm -f -- "$deb"
+  echo "    installed caddy $CADDY_VERSION ($arch) from its GitHub release"
 }

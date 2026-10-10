@@ -11,10 +11,9 @@
 # and checked against infra/tiles/version.sh.
 #
 # On macOS (Apple silicon) and Linux x86_64 it runs native binaries by
-# default: the Caddy release the servers run (2.11.7, pinned below by the
-# SHA-256 GitHub records for the asset; the release's own checksums file
-# gives the same tarball's SHA-512) and the pinned pmtiles, bound to
-# 127.0.0.1, on ports 18080 (sites), 18484 (stand-in API) and 18485
+# default: the Caddy release the servers run (infra/caddy/version.sh, the
+# tarball checked against the SHA-512 pinned there) and the pinned pmtiles,
+# bound to 127.0.0.1, on ports 18080 (sites), 18484 (stand-in API) and 18485
 # (pmtiles). LUNAWAY_CADDY_DOCKER=1 runs the Docker images instead (a
 # Docker that answers `docker info` may still fail to start containers, as
 # colima did on 2026-10-06).
@@ -24,15 +23,13 @@ set -euo pipefail
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="$(cd "$INFRA/.." && pwd)"
 SCRATCH="${LUNAWAY_SCRATCH_DIR:-$REPO/data/tmp/infra}/caddy-test"
-CADDY_IMAGE="${LUNAWAY_CADDY_IMAGE:-caddy:2.11}"
+. "$INFRA/caddy/version.sh"
+CADDY_IMAGE="${LUNAWAY_CADDY_IMAGE:-caddy:$CADDY_VERSION}"
 PORT=18080
 NETWORK=lunaway-caddy-test
 BUILD=20261005
 . "$INFRA/tiles/version.sh"
-CADDY_NATIVE_URL_MAC_ARM64=https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_mac_arm64.tar.gz
-CADDY_NATIVE_SHA256_MAC_ARM64=cda3030e5d5b13eb9f0b6fb541037f633bddd958c070c5f561d7a5cccb581665
-CADDY_NATIVE_URL_LINUX_AMD64=https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz
-CADDY_NATIVE_SHA256_LINUX_AMD64=727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b
+CADDY_RELEASE_URL="https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION"
 
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64|Linux-x86_64) native_pin=yes ;;
@@ -53,10 +50,13 @@ mkdir -p "$SCRATCH/bin" "$SCRATCH/tiles/builds" "$SCRATCH/tiles/serve" "$SCRATCH
   "$SCRATCH/tiles/assets/fonts/Noto Sans Regular" "$SCRATCH/tiles/assets/sprites/protomaps-v4" \
   "$SCRATCH/tiles/assets/styles" "$SCRATCH/tiles/packs" "$SCRATCH/fdroid/repo/diff"
 
-# fetch_pinned URL SHA256 FILE: downloads once, and checks the hash each run.
+# fetch_pinned URL SHA FILE: downloads once, and checks the hash each run
+# (SHA-256 or SHA-512, by the length of the pin).
 fetch_pinned() {
+  local bits=256
+  [ "${#2}" = 128 ] && bits=512
   [ -f "$3" ] || curl -fsSL -m 300 -o "$3" "$1"
-  [ "$(shasum -a 256 "$3" | awk '{ print $1 }')" = "$2" ] || { echo "$3 does not match its pin" >&2; exit 1; }
+  [ "$(shasum -a "$bits" "$3" | awk '{ print $1 }')" = "$2" ] || { echo "$3 does not match its pin" >&2; exit 1; }
 }
 if [ "$MODE" = docker ]; then
   case "$(docker info --format '{{.Architecture}}')" in
@@ -69,16 +69,18 @@ else
   mkdir -p "$SCRATCH/native"
   case "$(uname -s)-$(uname -m)" in
     Darwin-arm64)
-      fetch_pinned "$CADDY_NATIVE_URL_MAC_ARM64" "$CADDY_NATIVE_SHA256_MAC_ARM64" "$SCRATCH/native/caddy.tar.gz"
+      fetch_pinned "$CADDY_RELEASE_URL/caddy_${CADDY_VERSION}_mac_arm64.tar.gz" "$CADDY_TAR_SHA512_MAC_ARM64" \
+        "$SCRATCH/native/caddy-$CADDY_VERSION.tar.gz"
       fetch_pinned "$PMTILES_URL_DARWIN_ARM64" "$PMTILES_SHA256_DARWIN_ARM64" "$SCRATCH/native/pmtiles.zip"
       unzip -o -q "$SCRATCH/native/pmtiles.zip" pmtiles -d "$SCRATCH/native" ;;
     Linux-x86_64)
-      fetch_pinned "$CADDY_NATIVE_URL_LINUX_AMD64" "$CADDY_NATIVE_SHA256_LINUX_AMD64" "$SCRATCH/native/caddy.tar.gz"
+      fetch_pinned "$CADDY_RELEASE_URL/caddy_${CADDY_VERSION}_linux_amd64.tar.gz" "$CADDY_TAR_SHA512_LINUX_AMD64" \
+        "$SCRATCH/native/caddy-$CADDY_VERSION.tar.gz"
       fetch_pinned "$PMTILES_URL_AMD64" "$PMTILES_SHA256_AMD64" "$SCRATCH/native/pmtiles.tar.gz"
       tar -xzf "$SCRATCH/native/pmtiles.tar.gz" -C "$SCRATCH/native" pmtiles ;;
     *) echo "no pinned native Caddy for $(uname -s)-$(uname -m); start Docker" >&2; exit 1 ;;
   esac
-  tar -xzf "$SCRATCH/native/caddy.tar.gz" -C "$SCRATCH/native" caddy
+  tar -xzf "$SCRATCH/native/caddy-$CADDY_VERSION.tar.gz" -C "$SCRATCH/native" caddy
 fi
 fetch_pinned "$PMTILES_TEST_FIXTURE_URL" "$PMTILES_TEST_FIXTURE_SHA256" "$SCRATCH/tiles/builds/$BUILD.pmtiles"
 ln -sfn "../builds/$BUILD.pmtiles" "$SCRATCH/tiles/serve/planet-$BUILD.pmtiles"

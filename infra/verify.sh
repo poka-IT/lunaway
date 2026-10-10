@@ -47,6 +47,17 @@ else
   diff <(echo "$europe") <(echo "$groups") | sed 's/^/       /'
 fi
 
+# Caddy is pinned and no longer updates itself (infra/caddy/version.sh): a
+# newer release is for the maintainer to read and pin.
+. "$LUNAWAY_INFRA_DIR/caddy/version.sh"
+latest="$(curl -fsS -m 10 https://api.github.com/repos/caddyserver/caddy/releases/latest 2>/dev/null \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo unknown)"
+if [ "$latest" = "v$CADDY_VERSION" ]; then
+  echo "ok   Caddy $CADDY_VERSION pinned, the latest release"
+else
+  echo "note Caddy $CADDY_VERSION pinned, the latest release is $latest: docs/deploy.md, \"Upgrading Caddy\""
+fi
+
 for role in $roles; do
   require_host "$role"
   ip4="$(role_var "$role" IPV4)"
@@ -251,10 +262,11 @@ print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") o
   fi
 
   section "$server, inside"
-  host_ssh "$role" 'mkdir -p ~/infra/server'
+  host_ssh "$role" 'mkdir -p ~/infra/server ~/infra/caddy'
   lunaway_scp "$LUNAWAY_INFRA_DIR/server/common.sh" "$LUNAWAY_INFRA_DIR/server/inspect.sh" \
     "$LUNAWAY_INFRA_DIR/server/test-fail2ban.sh" "$LUNAWAY_INFRA_DIR/server/test-ops-access.sh" \
     "$LUNAWAY_INFRA_DIR/server/test-grants.sh" "$(role_get "$role" alias):infra/server/"
+  lunaway_scp "$LUNAWAY_INFRA_DIR/caddy/version.sh" "$(role_get "$role" alias):infra/caddy/"
   host_ssh "$role" "sudo bash ~/infra/server/inspect.sh $role"
 
   section "$server, inside: fail2ban end to end"

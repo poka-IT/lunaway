@@ -1,0 +1,11 @@
+# Installed by infra/server/common.sh (install_caddy_package). Caddy comes
+# from the .deb of its GitHub release pinned in infra/caddy/version.sh;
+# Debian's own caddy package (2.6 in trixie, 2.11.2 in trixie-backports in
+# October 2026) never replaces it, whatever its version.
+Package: caddy
+Pin: release o=Debian
+Pin-Priority: -1
+
+Package: caddy
+Pin: release o=Debian Backports
+Pin-Priority: -1

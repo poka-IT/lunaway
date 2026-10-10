@@ -12,6 +12,8 @@ need_root
 [ "${VERSION_CODENAME:-}" = trixie ] || die "expected Debian 13 (trixie), found ${PRETTY_NAME:-unknown}"
 
 log "packages"
+# Caddy's former apt source answers 402 and would stop the update below.
+remove_caddy_apt_source
 apt-get update -q >/dev/null
 apt_install nftables fail2ban python3-systemd unattended-upgrades needrestart chrony \
   apparmor apparmor-utils ca-certificates curl gnupg openssl systemd-zram-generator

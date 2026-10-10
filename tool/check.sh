@@ -79,6 +79,7 @@ if command -v python3 >/dev/null 2>&1; then
 else
   echo "==> hook tests: skipped (no python3)"
 fi
+run "caddy package tests" bash infra/tests/caddy-package.sh
 
 if [ -z "$DART" ]; then
   echo "tool/check.sh: no dart toolchain on PATH (install fvm, then \`fvm install\`)" >&2
