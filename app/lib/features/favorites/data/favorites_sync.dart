@@ -646,9 +646,13 @@ final class FavoritesSync {
     for (final id in jsonDecode(json) as List<dynamic>) id as String,
   };
 
-  static Map<String, String> _fingerprintsOf(String json) => {
-    for (final MapEntry(:key, :value) in (jsonDecode(json) as Map<String, dynamic>).entries)
-      key: value as String,
+  static Map<String, String> _fingerprintsOf(String json) => switch (jsonDecode(json)) {
+    final Map<String, dynamic> map => {
+      for (final MapEntry(:key, :value) in map.entries) key: value as String,
+    },
+    // A base a development build wrote before the refused points kept
+    // their fingerprints: none refused.
+    _ => const {},
   };
 
   /// The fingerprints of [points] by id, but those of [without]; empty for
