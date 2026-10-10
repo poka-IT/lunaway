@@ -503,13 +503,8 @@ void main() {
           .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
           .first,
     );
-    // scrollUntilVisible stops once the button enters the list's viewport;
-    // with the address card above it the tap then fell at y 939 of a
-    // 915-high window. The button is brought to the middle of the list.
-    await Scrollable.ensureVisible(
-      tester.element(find.byTooltip('Copier les coordonnées')),
-      alignment: 0.5,
-    );
+    // The sheet still moves when scrollUntilVisible returns: the button
+    // stood at y 939 of a 915-high window, then at 124 once settled.
     await settleShort(tester);
     await tester.tap(find.byTooltip('Copier les coordonnées'));
     await tester.pump();
