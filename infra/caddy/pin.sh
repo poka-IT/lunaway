@@ -9,6 +9,18 @@
 # servers get the release from `infra/configure.sh <role> caddy|ops-status`
 # (docs/deploy.md, "Upgrading Caddy").
 #
+# Cosign 3 deprecates `verify-blob --certificate` and `--signature` ("please
+# use --bundle"); its help calls a Sigstore bundle "the preferred way to
+# provide verification material". Caddy's releases publish the signature
+# and the certificate apart, without a bundle, so `cosign bundle create`
+# makes one from them and the entry Rekor holds for them, the conversion
+# docs.sigstore.dev/cosign/verifying/verify/ gives ("You can take existing
+# signed material and make a new protobuf bundle with `cosign bundle
+# create ...`"). `verify-blob --bundle` then checks the same identity and
+# OIDC issuer as before, the chain to the Sigstore roots, and the log
+# entry's inclusion proof, tied to the file, its signature and its
+# certificate.
+#
 #   infra/caddy/pin.sh 2.11.8
 set -euo pipefail
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,6 +28,17 @@ REPO="$(cd "$INFRA/.." && pwd)"
 version="${1:?usage: infra/caddy/pin.sh VERSION, such as 2.11.8}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "unexpected version $version" >&2; exit 1; }
 command -v cosign >/dev/null || { echo "cosign not found (brew install cosign)" >&2; exit 1; }
+# Cosign 3.1.3 or later. From 3, the bundle `bundle create` writes (the
+# protobuf format) is read by default; until 3.1.3, a file that fails to
+# parse as one falls back to the legacy format, whose identity check
+# GHSA-fx35-mq7g-6g98 bypassed.
+cosign_version="$(cosign version --json | sed -n 's/.*"gitVersion": *"v\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')"
+IFS=. read -r major minor patch <<< "$cosign_version"
+if ! [[ "$cosign_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+  || (( major * 1000000 + minor * 1000 + patch < 3001003 )); then
+  echo "cosign 3.1.3 or later needed, not '$cosign_version' (brew upgrade cosign)" >&2
+  exit 1
+fi
 dir="${LUNAWAY_SCRATCH_DIR:-$REPO/data/tmp/infra}/caddy-pin/$version"
 mkdir -p "$dir"
 sums="caddy_${version}_checksums.txt"
@@ -23,7 +46,9 @@ for file in "$sums" "$sums.pem" "$sums.sig"; do
   curl -fsSL --retry 3 -m 120 -A "Lunaway infra (+https://lunaway.net)" -o "$dir/$file" \
     "https://github.com/caddyserver/caddy/releases/download/v$version/$file"
 done
-cosign verify-blob --certificate "$dir/$sums.pem" --signature "$dir/$sums.sig" \
+cosign bundle create --artifact "$dir/$sums" --signature "$dir/$sums.sig" \
+  --certificate "$dir/$sums.pem" --out "$dir/$sums.sigstore.json"
+cosign verify-blob --bundle "$dir/$sums.sigstore.json" \
   --certificate-identity "https://github.com/caddyserver/caddy/.github/workflows/release.yml@refs/tags/v$version" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com "$dir/$sums"
 
