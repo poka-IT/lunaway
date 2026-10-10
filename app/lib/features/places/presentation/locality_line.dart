@@ -55,14 +55,18 @@ String? localityLine(Translations t, Locality? locality, {required String home})
 }
 
 /// Where a town of the search lies, after what it is: its department in
-/// France ("Commune · Drôme"), its postcode elsewhere, which tells two
-/// homonyms of one country apart, and its country when it is not the
-/// user's own ([home]): "Commune · 67433 · Allemagne".
+/// France, named and numbered as a place's town is ("Commune · Haute-Savoie
+/// (74)", as "Saint-Jorioz (74)"; decision of the PO, 2026-10-10), its
+/// postcode elsewhere, which tells two homonyms of one country apart, and
+/// its country when it is not the user's own ([home]): "Commune · 67433 ·
+/// Allemagne".
 String townWhere(Translations t, Municipality town, {required String home}) {
   final country = town.countryCode;
   final french = country == null || frenchCountries.contains(country);
-  final department = french
-      ? frenchDepartments[town.department ?? departmentOfPostcode(town.postcode)]
+  final number = french ? town.department ?? departmentOfPostcode(town.postcode) : null;
+  final name = frenchDepartments[number];
+  final department = number != null && name != null
+      ? t.search.departmentWithNumber(department: name, number: number)
       : null;
   return [
     t.search.addressKind.town,

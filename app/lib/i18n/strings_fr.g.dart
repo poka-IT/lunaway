@@ -425,6 +425,7 @@ class _Translations$search$fr extends Translations$search$en {
 		other: '${town} ${n}e',
 	);
 	@override String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+	@override String departmentWithNumber({required Object department, required Object number}) => '${department} (${number})';
 	@override String get recent => 'Recherches récentes';
 	@override String get recentText => 'Recherche';
 	@override String get recentMark => 'Recherche récente';
@@ -3602,6 +3603,7 @@ extension on TranslationsFr {
 			'search.deviceOnly' => 'Le serveur ne répond pas : la recherche se limite aux régions téléchargées.',
 			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
 			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.departmentWithNumber' => ({required Object department, required Object number}) => '${department} (${number})',
 			'search.recent' => 'Recherches récentes',
 			'search.recentText' => 'Recherche',
 			'search.recentMark' => 'Recherche récente',
@@ -3933,9 +3935,9 @@ extension on TranslationsFr {
 			'navigation.states.originHint' => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.',
 			'navigation.states.locate' => 'Me localiser',
 			'navigation.states.offlineTitle' => 'Pas de connexion',
-			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			'navigation.states.rateLimitedTitle' => 'Trop d\'itinéraires demandés',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Réessayez dans ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Calcul d\'itinéraire indisponible',
@@ -4447,9 +4449,9 @@ extension on TranslationsFr {
 			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
 			'translation.from.it' => 'Traduit automatiquement de l\'italien',
 			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
-			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			'translation.offline' => 'La traduction a besoin du réseau.',
 			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
 			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
@@ -4961,9 +4963,9 @@ extension on TranslationsFr {
 			'poi.kind.hardware' => 'Bricolage, quincaillerie',
 			'poi.kind.home' => 'Maison, décoration',
 			'poi.kind.electronics' => 'Électronique, téléphonie',
-			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			'poi.kind.departmentStore' => 'Grand magasin, centre commercial',
 			'poi.kind.varietyStore' => 'Bazar, discount',
 			'poi.kind.secondHand' => 'Occasion, brocante',

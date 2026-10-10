@@ -86,6 +86,36 @@ Future<List<RecentSearch>> _kept(TestApp app, WidgetTester tester) async => (awa
   () => app.container(tester).read(searchHistoryStoreProvider).watch().first,
 ))!;
 
+/// Types [text] in the focused search field as a browser with its semantics
+/// on does (a screen reader, the web journeys), one key every 30 ms, two
+/// frames apart. Its input element is made from the field's semantics
+/// node: a node that changes is a new, empty element, and the keys typed
+/// next replace the ones typed before (the web engine's
+/// `SemanticTextField`, measured on lunaway.net on 2026-10-10: "Camping-car
+/// Park Viviers" became "ing-car Park Viviers").
+Future<void> _typeAsABrowser(WidgetTester tester, String text) async {
+  int fieldNode() => tester.getSemantics(find.byType(EditableText).first).id;
+  var element = fieldNode();
+  // Where the element in use took its first key.
+  var since = 0;
+  for (var typed = 1; typed <= text.length; typed++) {
+    final value = text.substring(since, typed);
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      ),
+    );
+    for (var frame = 0; frame < 2; frame++) {
+      await tester.pump(const Duration(milliseconds: 15));
+      if (fieldNode() != element) {
+        element = fieldNode();
+        since = typed;
+      }
+    }
+  }
+}
+
 void main() {
   setUp(() => LocaleSettings.setLocale(AppLocale.fr));
 
@@ -399,6 +429,32 @@ void main() {
     });
   });
 
+  group('typing in the search field', () {
+    for (final (name, size) in [('phone', phone), ('tablet', tablet), ('desktop', desktop)]) {
+      for (final recorded in [false, true]) {
+        testWidgets('on a $name, every key typed right after the focus reaches the field'
+            '${recorded ? ', the history shown' : ''}', (tester) async {
+          final semantics = tester.ensureSemantics();
+          final online = FakeOnlinePlaces(samplePlaces);
+          final app = await _app(tester, online, size: size);
+          if (recorded) await _record(app, tester, [const RecentText('pizzeria annecy')]);
+          await tester.tap(_field);
+          await tester.pump();
+          await _typeAsABrowser(tester, 'Lac Bleu');
+          await settleShort(tester);
+          expect(
+            tester.widget<TextField>(_field).controller!.text,
+            'Lac Bleu',
+            reason: 'no key lost while the clear button and the results come',
+          );
+          expect(app.container(tester).read(searchQueryProvider), 'Lac Bleu');
+          expect(_inSearch(find.text(lakeArea.name!)), findsWidgets);
+          semantics.dispose();
+        });
+      }
+    }
+  });
+
   group('the town on each row of the search', () {
     testWidgets('an establishment says where it lies, and so does its page', (tester) async {
       final online = FakeOnlinePlaces(samplePlaces)..pois.add(_restaurant);
@@ -434,7 +490,7 @@ void main() {
       expect(_inSearch(find.textContaining('Adresse · Paris\u00a07e')), findsOneWidget);
       await tester.enterText(_field, 'Annecy');
       await settleShort(tester);
-      expect(_inSearch(find.textContaining('Commune · Haute-Savoie')), findsOneWidget);
+      expect(_inSearch(find.textContaining('Commune · Haute-Savoie\u00a0(74) · ')), findsOneWidget);
     });
   });
 }

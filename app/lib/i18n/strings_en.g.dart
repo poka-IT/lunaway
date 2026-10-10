@@ -778,6 +778,9 @@ class Translations$search$en {
 	/// en: '$town ($department)'
 	String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
 
+	/// en: '$department ($number)'
+	String departmentWithNumber({required Object department, required Object number}) => '${department} (${number})';
+
 	/// en: 'Recent searches'
 	String get recent => 'Recent searches';
 
@@ -7581,6 +7584,7 @@ extension on Translations {
 			'search.deviceOnly' => 'The server does not answer: the search covers the downloaded regions only.',
 			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
 			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.departmentWithNumber' => ({required Object department, required Object number}) => '${department} (${number})',
 			'search.recent' => 'Recent searches',
 			'search.recentText' => 'Search',
 			'search.recentMark' => 'Recent search',
@@ -7912,9 +7916,9 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
-			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
@@ -8426,9 +8430,9 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
-			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
 			'translation.busy' => 'The translation service is busy. Try again later.',
@@ -8940,9 +8944,9 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
-			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
 			'poi.kind.secondHand' => 'Second-hand and antiques',
