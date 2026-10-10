@@ -639,6 +639,12 @@ const double _sidePanel = 380;
 /// on its side keeps the foot of the map (720 at 1180 x 820).
 const double _legsBesidePanelMin = 560;
 
+/// The least room the map's credit takes left of the vehicle's column, on a
+/// screen on its side: about the line "© OpenStreetMap · Protomaps" at the
+/// text's size. A phone on its side leaves 201 at 844 x 390, 99 at 640 x
+/// 360, where the credit runs up to the buttons instead.
+const double _creditBesideVehicle = 160;
+
 /// The room a sheet over the guidance leaves on the left: the panel of the
 /// maneuver, the screen on its side; none upright. Read again when the
 /// phone turns under the sheet.
@@ -668,6 +674,23 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
+  /// Where the map's credit over [map] ends, from the window's right edge:
+  /// short of the buttons' column, and short of the column under the
+  /// vehicle the camera follows, where the road behind it runs down to the
+  /// foot of the map. Up to the buttons, the credit lay over that road in 8
+  /// of 12 captures of a phone on its side (844 x 390). A map too narrow to
+  /// leave the credit [_creditBesideVehicle] there keeps the room up to the
+  /// buttons.
+  double _creditRight(Size map, double left) {
+    final safe = MediaQuery.paddingOf(context);
+    final buttons = safe.right + _buttonsColumn + Space.s;
+    // The arrow is 30 px across, turned whichever way.
+    final vehicle = followAnchor(map, EdgeInsets.only(left: left)).dx - 15 - Space.s;
+    return vehicle - left - Space.s >= _creditBesideVehicle
+        ? math.max(buttons, map.width - vehicle)
+        : buttons;
+  }
+
   /// Whether the map's credit over [map], at its foot, keeps clear of the
   /// vehicle the camera follows with the photos' line: a narrow map beside
   /// the panel with large text wraps it up to the arrow. Without the room
@@ -675,16 +698,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// The credit is taken at the map's foot, where it stands while the
   /// camera follows; in the overview it may stand higher, over the strip of
   /// the stops, but the camera follows no vehicle there.
-  bool _photosRoom(BuildContext context, Size map, double left) {
+  bool _photosRoom(BuildContext context, Size map, double left, double right) {
     final safe = MediaQuery.paddingOf(context);
-    final width =
-        map.width -
-        left -
-        Space.s -
-        safe.right -
-        _buttonsColumn -
-        Space.s -
-        _MapSideCredit.padding.horizontal;
+    final width = map.width - left - Space.s - right - _MapSideCredit.padding.horizontal;
     final top =
         map.height -
         safe.bottom -
@@ -729,8 +745,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
         : safe.bottom + Space.s;
     return LayoutBuilder(
       builder: (context, box) {
+        final creditRight = _creditRight(box.biggest, left);
         // Measured once: the map and the credit read the same answer.
-        final photos = _photosRoom(context, box.biggest, left);
+        final photos = _photosRoom(context, box.biggest, left, creditRight);
         return Stack(
           children: [
             // The map takes the whole window; its insets keep the vehicle
@@ -835,12 +852,12 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 ),
               ),
             ),
-            // The map's credit at the foot of the map beside the panel, where
-            // the route behind the vehicle seldom runs; the places drawn large
-            // keep off it.
+            // The map's credit at the foot of the map beside the panel, left
+            // of the road behind the vehicle ([_creditRight]); the places
+            // drawn large keep off it.
             Positioned(
               left: left + Space.s,
-              right: safe.right + _buttonsColumn + Space.s,
+              right: creditRight,
               bottom: creditBottom,
               child: Align(
                 alignment: AlignmentDirectional.bottomStart,

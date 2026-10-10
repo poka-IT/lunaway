@@ -662,6 +662,11 @@ void main() {
           // the buttons and "Recentrer", no place drawn large under it.
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
           expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
+          // Left of the road behind the vehicle, which runs down from it to
+          // the foot of the map; the small phone's map is too narrow for that.
+          if (size != const Size(640, 360)) {
+            expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
+          }
           expect(rect.overlaps(bar), isFalse, reason: 'the bar');
           final recenter = find.byWidgetPredicate(
             (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
