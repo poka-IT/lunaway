@@ -100,6 +100,20 @@ extension type _Hits._(JSObject _) implements JSObject {
   external String? pointerType();
 }
 
+/// Tells the page that the gesture starting now is a map's: the app's hit
+/// test gave its first press to a map (`lunawayGestures` in
+/// web/lunaway_maplibre.js). Called while the app handles that press,
+/// before the browser hands the map the gesture's touch and mouse events;
+/// those of a gesture no map claimed never reach one.
+void claimWebMapGesture() => _gestures?.claim();
+
+@JS('lunawayGestures')
+external _Gestures? get _gestures;
+
+extension type _Gestures._(JSObject _) implements JSObject {
+  external void claim();
+}
+
 /// How many of the app's maps the mouse is over, in the app's own hit test.
 var _mapsUnderPointer = 0;
 

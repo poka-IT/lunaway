@@ -453,6 +453,58 @@
   })();
   // END MAP HITS
 
+  // BEGIN GESTURES
+  // The app's maps are HTML elements laid out under the app's canvas, and
+  // the browser hands them the touches and clicks wherever they lie: those
+  // meant for a sheet or a button the app draws over them, and the late
+  // ones of a tap the app has already taken. A phone's browser sends the
+  // mouse events of a tap (mousedown, mouseup, click) after its touch, up
+  // to a few hundred milliseconds later, to whatever element lies under the
+  // finger by then: a search result tapped closes its list, and its click
+  // fell on the map that the list no longer covered, which cut the flight
+  // to the result short and acted on the map (the card just opened closed,
+  // a cluster opened). A gesture is a map's only when the app's own hit
+  // test gave it its first press (`claim`, called by the app while it
+  // handles that press: WebMapPointer in
+  // lib/features/map/presentation/web_map_pointer.dart); the touch and
+  // mouse events of any other gesture stop before they reach a map. The
+  // wheel and a mouse that only moves are no gesture and pass.
+  var lunawayGestures = (function () {
+    var GATED = ['touchstart', 'touchmove', 'touchend', 'touchcancel', 'mousedown', 'mouseup',
+      'click', 'dblclick', 'contextmenu'];
+    var claimed = false;
+
+    // A map of the app: one in a platform view of the Flutter view. The
+    // page's first map (premap.js) lies outside it and keeps its gestures.
+    function onAppMap(target) {
+      return !!(target && target.closest && target.closest('flt-platform-view .maplibregl-map'));
+    }
+
+    // win, doc: the page's window and document (stand-ins in tests).
+    function install(win, doc) {
+      // Heard first: a gesture belongs to no map until the app says so. A
+      // second finger joins the gesture of the first.
+      win.addEventListener('pointerdown', function (e) {
+        if (e.isPrimary) claimed = false;
+      }, true);
+      GATED.forEach(function (type) {
+        doc.addEventListener(type, function (e) {
+          if (claimed || !onAppMap(e.target)) return;
+          e.stopPropagation();
+          // Nor does the map's canvas take the focus from the app.
+          if (type === 'mousedown') e.preventDefault();
+        }, true);
+      });
+    }
+
+    return {
+      install: install,
+      claim: function () { claimed = true; },
+      owns: function () { return claimed; }
+    };
+  })();
+  // END GESTURES
+
   // BEGIN ROUTE MOTION
   // The guidance's vehicle and camera, run by the page rather than by the
   // app at every frame: the app sends one call per fix and per change of
@@ -502,6 +554,9 @@
 
     // map: a MapLibre GL JS map; emit(event): tells the app. options.longPress:
     // report long presses (the browser; the desktop page has its own).
+    // options.owns: whether the gesture under way is the map's, asked when
+    // a press lands on it (the browser's page: the app decides by its own
+    // hit test, lunawayGestures); every press is the map's without it.
     // options.now and options.frame stand in for the clock and
     // requestAnimationFrame in tests.
     function create(map, emit, options) {
@@ -710,7 +765,15 @@
       }
 
       var container = map.getCanvasContainer();
-      container.addEventListener('pointerdown', onPointerDown);
+      // Heard on the window once the press has gone through the page: the
+      // app has had it by then and said whether it is the map's. A press on
+      // a button the app draws over the map is not a touch of the map.
+      function onPagePointerDown(e) {
+        if (!container.contains(e.target)) return;
+        if (options.owns && !options.owns()) return;
+        onPointerDown(e);
+      }
+      window.addEventListener('pointerdown', onPagePointerDown);
       container.addEventListener('pointermove', onPointerMove);
       // Released anywhere: a drag may end off the map.
       window.addEventListener('pointerup', onPointerUp, true);
@@ -736,6 +799,7 @@
         if (frame !== null) cancelFn(frame);
         frame = null;
         cancelHold();
+        window.removeEventListener('pointerdown', onPagePointerDown);
         window.removeEventListener('pointerup', onPointerUp, true);
         window.removeEventListener('pointercancel', onPointerUp, true);
         window.removeEventListener('blur', onBlur);
@@ -857,7 +921,10 @@
           var sink = { emit: emit };
           map.lunawayMotion = {
             sink: sink,
-            run: lunawayRouteMotion.create(map, function (event) { sink.emit(event); }, { longPress: true })
+            run: lunawayRouteMotion.create(map, function (event) { sink.emit(event); }, {
+              longPress: true,
+              owns: lunawayGestures.owns
+            })
           };
         }
         map.lunawayMotion.sink.emit = emit;
@@ -969,6 +1036,11 @@
   // lib/features/map/presentation/web_map_controls_web.dart).
   window.lunawayLoadMissingPins = loadMissingPins;
   window.lunawayHits = lunawayHits;
+
+  // The app claims the gestures its hit test gives to a map
+  // (claimWebMapGesture in lib/features/map/presentation/web_map_controls_web.dart).
+  lunawayGestures.install(window, document);
+  window.lunawayGestures = lunawayGestures;
 
   // The app's maps show their own cursor only where the app sees them
   // under the mouse: the app marks it on the body (WebMapPointer in
