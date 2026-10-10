@@ -564,6 +564,63 @@ void main() {
       expect(find.textContaining(t.poi.hoursUnknown), findsNothing, reason: 'nothing unknown said');
     });
 
+    testWidgets('a row says the cuisine the search asked for before another it cooks', (
+      tester,
+    ) async {
+      // Listed for its pizza: "Régionale" first on the line read as an
+      // answer to another search (Le Lilas Rose, Annecy).
+      final both = poiJson(
+        '00000000-0000-7000-8000-00000000c005',
+        'RESTAURANT',
+        name: 'Le Lilas Rose',
+        extra: {
+          'cuisine': ['regional', 'pizza'],
+        },
+      );
+      final online = api()
+        ..kindSearches['pizzeria annecy'] = PoiResults(
+          pois: [poiFromJson(both)!],
+          match: PoiMatch.kind,
+          kinds: const [PoiKind.restaurant, PoiKind.fastFood],
+          town: 'Annecy',
+        );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'pizzeria annecy');
+      await settleShort(tester);
+      expect(
+        find.text('${t.poiKind(PoiKind.restaurant)} · ${t.poi.cuisine.pizza}'),
+        findsOneWidget,
+      );
+      expect(find.textContaining(t.poi.cuisine.regional), findsNothing);
+    });
+
+    testWidgets("the town's name is not read as a cuisine sought", (tester) async {
+      // "poissy" starts as "Poisson" does: the town is left out of what the
+      // search asks for.
+      final both = poiJson(
+        '00000000-0000-7000-8000-00000000c006',
+        'RESTAURANT',
+        name: 'La Mer à Boire',
+        extra: {
+          'cuisine': ['fish', 'pizza'],
+        },
+      );
+      final online = api()
+        ..kindSearches['pizzeria poissy'] = PoiResults(
+          pois: [poiFromJson(both)!],
+          match: PoiMatch.kind,
+          kinds: const [PoiKind.restaurant, PoiKind.fastFood],
+          town: 'Poissy',
+        );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'pizzeria poissy');
+      await settleShort(tester);
+      expect(
+        find.text('${t.poiKind(PoiKind.restaurant)} · ${t.poi.cuisine.pizza}'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a partial match comes after the towns and the addresses', (tester) async {
       final online = api()
         ..addresses.add(_coiffeurStreet)

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -74,6 +75,9 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
     if (results.pois.isEmpty) return const SizedBox.shrink();
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final from = widget.from;
+    // The words of the search without its town: "pizzeria poissy" asks for
+    // pizza, not fish.
+    final sought = soughtWords(_shownQuery, town: results.town) ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -86,7 +90,7 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
               faded: poi.hours.opennessAt(now) == PoiOpenness.closed,
             ),
             title: Text(t.poiTitle(poi.name, poi.kind), maxLines: 2),
-            subtitle: Text(poiSearchLine(t, poi, now, from: from), maxLines: 2),
+            subtitle: Text(poiSearchLine(t, poi, now, from: from, sought: sought), maxLines: 2),
             onTap: () => widget.onTap(poi),
           ),
       ],
@@ -119,20 +123,39 @@ String poiSearchTitle(Translations t, PoiResults results, String query) {
 /// centre de santé" is two).
 bool _spells(String sought, String kind) {
   if (sought.contains(' ') || kind.contains(',')) return false;
-  final a = foldForSearch(sought);
-  final b = foldForSearch(kind);
-  return a.length >= 4 && b.length >= 4 && a.substring(0, 4) == b.substring(0, 4);
+  final stem = _stem(sought);
+  return stem != null && stem == _stem(kind);
 }
 
+/// The first four letters of [word], accents aside; null for a shorter
+/// word. Two words with the same stem name the same thing to the search's
+/// rows and title ("coifeur" and "Coiffeur", "pizzeria" and "Pizza").
+String? _stem(String word) {
+  final folded = foldForSearch(word);
+  return folded.length >= 4 ? folded.substring(0, 4) : null;
+}
+
+/// What is neither a letter nor a digit, between the words of a search:
+/// "l'italien" holds the word "italien".
+final _separators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
+
 /// The line under a point of the search: its kind, what a restaurant
-/// cooks, how far, and whether it is open (nothing when its hours are not
-/// known).
-String poiSearchLine(Translations t, Poi poi, DateTime now, {LatLng? from}) => [
+/// cooks (the cuisine [sought] names first), how far, and whether it is
+/// open (nothing when its hours are not known).
+String poiSearchLine(Translations t, Poi poi, DateTime now, {LatLng? from, String sought = ''}) => [
   t.poiKind(poi.kind),
-  // The first cuisine the app has a word for: a value of the source in
-  // English would read oddly on the line.
-  if (poi.category == PoiCategory.food) ?poi.cuisine.map(t.knownCuisine).nonNulls.firstOrNull,
+  if (poi.category == PoiCategory.food) ?_shownCuisine(t, poi.cuisine, sought),
   if (from != null) t.distance(poi.position.distanceTo(from)),
   if (!poi.kind.timeless && poi.hours.opennessAt(now) != PoiOpenness.unknown)
     t.poiOpening(poi.hours, now),
 ].join(' · ');
+
+/// The cuisine a row of the search says: the one a word of [sought] spells
+/// ("pizzeria" finds "Pizza" in a restaurant both regional and pizza, which
+/// the search listed for its pizza), else the first the app has a word
+/// for. A value of the source in English would read oddly on the line.
+String? _shownCuisine(Translations t, List<String> cuisine, String sought) {
+  final known = cuisine.map(t.knownCuisine).nonNulls.toList();
+  final stems = {for (final w in sought.split(_separators)) ?_stem(w)};
+  return known.firstWhereOrNull((label) => stems.contains(_stem(label))) ?? known.firstOrNull;
+}

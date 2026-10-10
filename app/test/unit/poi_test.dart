@@ -284,6 +284,56 @@ void main() {
       expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
     });
 
+    test('a row says the cuisine the search names, else the first the app has a word for', () {
+      final t = AppLocale.fr.buildSync();
+      final now = DateTime.utc(2026, 10, 10, 12);
+      String line(List<String> cuisine, String sought) => poiSearchLine(
+        t,
+        poiFromJson(
+          poiJson(
+            '00000000-0000-7000-8000-00000000c105',
+            'RESTAURANT',
+            extra: {'cuisine': cuisine},
+          ),
+        )!,
+        now,
+        sought: sought,
+      );
+      final restaurant = t.poiKind(PoiKind.restaurant);
+      final cuisine = t.poi.cuisine;
+      expect(line(const ['regional', 'pizza'], 'Pizzeria'), '$restaurant · ${cuisine.pizza}');
+      expect(
+        line(const ['wood_fired_oven', 'regional', 'pizza'], ''),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'nothing sought: the first cuisine with a word, not the source value',
+      );
+      expect(
+        line(const ['regional', 'pizza'], 'Restaurant'),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'a word that names no cuisine',
+      );
+      expect(
+        line(const ['regional', 'crepe'], 'Crêperie'),
+        '$restaurant · ${cuisine.crepe}',
+        reason: 'accents aside',
+      );
+      expect(
+        line(const ['regional', 'italian'], "Restaurant l'italien"),
+        '$restaurant · ${cuisine.italian}',
+        reason: 'a word after an apostrophe',
+      );
+      expect(
+        line(const ['regional', 'pizza'], 'piz'),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'under four letters, no word is matched',
+      );
+      expect(
+        line(const ['wood_fired_oven'], 'Pizzeria'),
+        restaurant,
+        reason: 'no cuisine the app has a word for',
+      );
+    });
+
     test('what a search seeks is the text without the town it names', () {
       expect(soughtWords('pizzeria annecy', town: 'Annecy'), 'Pizzeria');
       expect(soughtWords('Pizzerias à Annecy', town: 'Annecy'), 'Pizzerias');
