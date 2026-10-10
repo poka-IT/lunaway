@@ -681,6 +681,20 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "the API lists the towns and writes none"
     );
     assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_geocodes").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the reverse geocoding keeps its answers, a takedown forgets them"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_geocodes")
+            .await
+            .is_empty(),
+        "the API reads a place's address from the place"
+    );
+    lunaway_db::place_addresses::due(&ingest, uuid::Uuid::nil(), 10)
+        .await
+        .expect("the reverse geocoding reads the places due with the import role");
+    assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_takedowns").await,
         ["SELECT", "INSERT"],
         "the catalogue's writer logs a takedown and never rewrites one"

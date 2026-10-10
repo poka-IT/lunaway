@@ -123,7 +123,8 @@ A postal address.
 """
 type Address {
 	"""
-	Street and number.
+	Street with its house number when it has one, the number first
+	(`12 Rue de la Gare`) for a place; null when unknown.
 	"""
 	street: String
 	"""
@@ -2596,7 +2597,10 @@ type Place {
 	"""
 	description: String
 	"""
-	Postal address; null when no part of it is known.
+	Postal address; null when no part of it is known. A place without
+	a street in its sources gets the one a reverse geocoding of its
+	position finds on OpenStreetMap (its provenance then names `osm`);
+	a private host (`HOMESTAY`) never shows a street, only its town.
 	"""
 	address: Address
 	"""

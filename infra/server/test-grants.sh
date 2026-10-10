@@ -191,6 +191,10 @@ place_towns SELECT
 place_towns INSERT
 place_towns UPDATE
 place_towns DELETE
+place_geocodes SELECT
+place_geocodes INSERT
+place_geocodes UPDATE
+place_geocodes DELETE
 poi_confirmations DELETE
 poi_confirmations SELECT
 poi_refresh_queue DELETE

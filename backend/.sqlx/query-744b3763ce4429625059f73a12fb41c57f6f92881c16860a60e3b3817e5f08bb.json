@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO place_geocodes\n            (place_id, lat, lon, house_number, street, postcode, city, country_code, asked_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())\n        ON CONFLICT (place_id) DO UPDATE SET\n            lat = EXCLUDED.lat, lon = EXCLUDED.lon, house_number = EXCLUDED.house_number,\n            street = EXCLUDED.street, postcode = EXCLUDED.postcode, city = EXCLUDED.city,\n            country_code = EXCLUDED.country_code, asked_at = EXCLUDED.asked_at\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8",
+        "Float8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "744b3763ce4429625059f73a12fb41c57f6f92881c16860a60e3b3817e5f08bb"
+}

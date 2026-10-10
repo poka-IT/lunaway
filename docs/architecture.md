@@ -112,6 +112,11 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   pipeline.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
+- `place_geocodes`: the reverse geocoding of the places no source gives a
+  street or a town, on Lunaway's own Photon, with the position asked; the
+  address a place shows is completed from it by `lunaway addresses` and by
+  the conflation (`lunaway_domain::place_address`, `docs/data-sources.md`,
+  "Addresses of the places").
 - `changes`: a monotonic cursor the app syncs from, by box or by sync
   region (`places.region`: a French region, or a country elsewhere).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file

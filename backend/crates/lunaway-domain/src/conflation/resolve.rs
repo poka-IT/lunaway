@@ -301,7 +301,10 @@ fn render_codes<T: std::fmt::Display>(v: &[T]) -> String {
         .join(",")
 }
 
-fn render_address(a: &Address) -> String {
+/// An address as one line (`12 Rue de la Gare, 07220 Viviers, FR`): how
+/// the provenance gives another source's address.
+#[must_use]
+pub fn render_address(a: &Address) -> String {
     let city = [a.postcode.as_deref(), a.city.as_deref()]
         .into_iter()
         .flatten()

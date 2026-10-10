@@ -461,6 +461,30 @@ async fn a_merged_place_shows_both_sources_and_where_each_field_comes_from(pool:
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_private_host_is_served_with_its_town_and_never_a_street(pool: PgPool) {
+    // Whatever a row holds (the conflation never writes one), the API
+    // never gives a private host's street (plan/research/69, section 9).
+    let id = uuid::Uuid::now_v7();
+    sqlx::query!(
+        r#"
+        INSERT INTO places (id, kind, geom, overnight, street, postcode, city, content_hash)
+        VALUES ($1, 'homestay', ST_SetSRID(ST_MakePoint(4.6896, 44.4818), 4326)::geography,
+                'allowed', '3 Impasse des Lilas', '07220', 'Viviers', 'x')
+        "#,
+        id,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let app = app(pool, ApiConfig::default());
+    let body = gql(&app, PLACE, json!({"id": id})).await;
+    let address = &body["data"]["place"]["address"];
+    assert_eq!(address["street"], Value::Null);
+    assert_eq!(address["city"], "Viviers");
+    assert_eq!(address["postcode"], "07220");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn search_folds_accents_and_forgives_a_typo(pool: PgPool) {
     seeded(&pool).await;
     let app = app(pool, ApiConfig::default());

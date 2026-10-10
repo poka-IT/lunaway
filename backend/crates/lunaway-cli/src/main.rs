@@ -287,6 +287,29 @@ enum Command {
     /// tables (`lunaway_db::retention`), with the API's database role:
     /// daily, from a timer.
     Retention,
+    /// Gives an address to the places no source gives a street or a town,
+    /// by a reverse geocoding of their position on Lunaway's own Photon
+    /// (`lunaway_domain::place_address`), with the import role: hourly,
+    /// from a timer, until the places due are done. A place is asked once,
+    /// and again when it moves.
+    Addresses {
+        /// Photon's base URLs, asked in order until one knows a feature
+        /// near the place (Europe, then Morocco), separated by spaces or
+        /// commas.
+        #[arg(
+            long = "photon",
+            env = "LUNAWAY_GEOCODE_PHOTON_URL",
+            value_delimiter = ',',
+            required = true
+        )]
+        photon: Vec<String>,
+        /// Requests per second at most.
+        #[arg(long, default_value_t = 20)]
+        rate: u32,
+        /// Stops after this many minutes, once its page is written.
+        #[arg(long, default_value_t = 50)]
+        for_mins: u64,
+    },
     /// The routing graph: its build steps and its publication.
     Routing {
         #[command(subcommand)]
@@ -1568,6 +1591,34 @@ async fn run() -> anyhow::Result<()> {
             let journal =
                 journal_dir(cli.deletion_journal).map(lunaway_db::deletions::DeletionJournal::new);
             accounts(&pool, &media, journal.as_ref(), action).await?;
+        }
+        Command::Addresses {
+            photon,
+            rate,
+            for_mins,
+        } => {
+            let config = lunaway_ingest::reverse_geocode::ReverseConfig {
+                urls: photon
+                    .iter()
+                    .flat_map(|u| u.split_whitespace())
+                    .map(str::to_owned)
+                    .collect(),
+                pace: Duration::from_secs(1) / rate.max(1),
+                ..lunaway_ingest::reverse_geocode::ReverseConfig::default()
+            };
+            let client = http::loopback_client().context("cannot build the HTTP client")?;
+            let s = lunaway_ingest::reverse_geocode::run(
+                &pool,
+                &client,
+                &config,
+                Duration::from_secs(for_mins * 60),
+            )
+            .await
+            .context("the reverse geocoding of the places failed")?;
+            println!(
+                "addresses: {} places asked, {} with a street, {} with a town, {} written",
+                s.asked, s.with_street, s.with_town, s.written
+            );
         }
         Command::Retention => {
             let s = lunaway_db::retention::sweep(&pool, chrono::Utc::now()).await?;

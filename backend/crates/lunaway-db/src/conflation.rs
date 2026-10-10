@@ -489,8 +489,23 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
     let c = p.content;
     let services: Vec<String> = c.services.iter().map(|s| s.code().to_owned()).collect();
     let activities: Vec<String> = c.activities.iter().map(|s| s.code().to_owned()).collect();
+    // The sources' address, or the one the reverse geocoding completes it
+    // with (`crate::place_addresses`); the content hash stays the sources'.
+    let completed = crate::place_addresses::shown(
+        tx.conn(),
+        p.id,
+        c.kind,
+        c.position,
+        &c.address,
+        p.provenance,
+    )
+    .await?;
+    let (address, provenance) = match &completed {
+        Some((address, provenance)) => (address, provenance.as_slice()),
+        None => (&c.address, p.provenance),
+    };
     let provenance =
-        serde_json::to_value(p.provenance).map_err(|e| DbError::decode("provenance", e))?;
+        serde_json::to_value(provenance).map_err(|e| DbError::decode("provenance", e))?;
     let descriptions =
         serde_json::to_value(p.descriptions).map_err(|e| DbError::decode("descriptions", e))?;
     let links =
@@ -572,10 +587,10 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         &services,
         &activities,
         c.description,
-        c.address.street,
-        c.address.postcode,
-        c.address.city,
-        c.address.country_code,
+        address.street,
+        address.postcode,
+        address.city,
+        address.country_code,
         c.price_parking_eur,
         c.price_services_eur,
         c.max_height_m,

@@ -475,6 +475,7 @@ sudo lunaway-admin conflate --take-down <place> --reason-code CODE [--yes]  # st
 sudo lunaway-admin takedowns import < FILE               # the takedown journal's copy back into its days
 sudo lunaway-admin takedowns replay [--dry-run]          # after a restore; replay-takedowns below does all three steps
 sudo lunaway-admin stats
+sudo lunaway-admin addresses --for-mins 5                # the places' reverse geocoding now (lunaway-addresses.timer)
 sudo lunaway-admin pois stats                            # the layer of points of interest and its joins
 sudo lunaway-admin road-events stats                     # the road events by source, class and placement
 sudo lunaway-admin packs build                           # the regional packs now; writes /srv/data/packs only
@@ -2642,6 +2643,27 @@ for the server types (plan/research/58-recherche-adresses.md):
 A cx33 (8 GB, 80 GB) would serve as fast at this load, but holds one copy
 of the Europe database, not two: its refresh would stop the European
 addresses for an hour each month.
+
+### Addresses of the places
+
+`lunaway addresses` gives an address to the places no source gives a
+street or a town, by a reverse geocoding of their position on the same
+Photon, through the same Caddy on the loopback (`docs/data-sources.md`,
+"Addresses of the places"). `lunaway-addresses.timer` runs it hourly at
+:20 for 50 minutes at most, as the import role, one request every 50 ms
+(`--rate 20`): the first runs give their address to the places of the
+catalogue, about 108 000 on 2026-10-10 (90 minutes of requests, so two
+runs), the later ones to the new places and those that moved by more than
+25 m. Each page of 100 places is asked without the writers' lock, then
+written under it; a stopped run resumes with the places still without an
+answer. The change feed carries each address written, and the packs
+built after it hold them.
+
+```bash
+infra/configure.sh backend pipeline     # lunaway-addresses.service and its timer
+sudo systemctl start lunaway-addresses  # a run now, rather than at :20
+journalctl -u lunaway-addresses         # "addresses: N places asked, ..."
+```
 
 ## Translation
 

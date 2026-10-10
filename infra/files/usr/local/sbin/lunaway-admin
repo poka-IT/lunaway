@@ -23,6 +23,7 @@
 #   sudo lunaway-admin ingest cameras-osm [--europe | --extract NAME...]
 #   sudo lunaway-admin ingest extcom --file PATH
 #   sudo lunaway-admin stats
+#   sudo lunaway-admin addresses [--for-mins N]   the places' reverse geocoding, as its timer
 #   sudo lunaway-admin pois stats|hours
 #   sudo lunaway-admin road-events poll|match|stats|dialog-permanent [...]
 #       as the imports: user lunaway-ingest, role lunaway_ingest
@@ -352,6 +353,10 @@ case "${1:-}" in
   ingest|stats|pois|road-events)
     as_ingest "$@"
     ;;
+  addresses)
+    # Photon through Caddy on the loopback, as lunaway-addresses.service.
+    as_ingest "$@" --photon http://127.0.0.1:8486/photon/europe,http://127.0.0.1:8486/photon/morocco
+    ;;
   extcom)
     # purge-media removes files the API wrote, as the API.
     if [ "${2:-}" = purge-media ]; then
@@ -386,7 +391,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,67p' "$0" >&2
+    sed -n '2,68p' "$0" >&2
     exit 2
     ;;
 esac
