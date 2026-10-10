@@ -276,6 +276,23 @@ Organic Maps when the user opens a route in it (the only navigation app
 that takes a start point, `app/lib/core/navigation_apps.dart`); this is a
 user-initiated transfer, which the form does not count as sharing.
 
+Kept on the device only: the search's history, up to 15 entries (the
+results opened, with their id or position, name and town, and the texts
+searched without opening a result), in the cache database
+(`search_history`, `app/lib/features/search/`). It is never sent nor
+synced, and stays out of the Android backup and device transfer
+(`app/android/app/src/main/res/xml/`) and out of the iCloud backup (the
+cache lives in the caches directory on iOS and macOS). A cross removes an entry,
+"Clear the history" empties it, clearing the app's data erases it.
+Google's definition: "'Collect' means transmitting data from your app off
+a user's device", and "User data accessed by your app that is only
+processed locally on the user's device and not sent off device does not
+need to be disclosed" (Play Console Help, "Provide information for Google
+Play's Data safety section", answer 10787469, "Data collection", read on
+2026-10-10). The history therefore changes no answer of the form: the "In-app
+search history" declared below is the text each search sends to our
+server, as before.
+
 ### Data safety, the form
 
 Data collection and security:

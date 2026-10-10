@@ -533,7 +533,19 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   the map shows it, else to the map's centre, either one on the 0.05
   degree grid (the exact position is never sent); the search is
   `searchAll`, from the map's centre on the same grid, and a device that
-  holds places adds its own matches.
+  holds places adds its own matches. Each row of the search says where
+  its result lies ("Restaurant · Annecy (74)", `localityLine`): a place
+  and an address from their town and postcode, a point of interest from
+  `Poi.locality` (its address's town, else the French commune whose
+  outline covers it, read by the API at the request: 0.4 ms for a page
+  of ten points, `lunaway_db::pois::communes_of`).
+- **The search's history**: the field focused and empty lists the
+  results opened and the texts searched without opening one, 15 at most
+  (`features/search/`, table `search_history` of the cache database). An
+  entry opens again without a search: a place or a point read by its id
+  (gone, it leaves the history with a message), a town or an address at
+  its position. It stays on the device: never sent, never synced, out of
+  the device backups with the rest of the cache.
 - **Offline kept on phones and computers**: the regions' packs and their
   change feed fill a local SQLite database (R*Tree for the viewport, FTS5
   for search) in the background, a few seconds after the map's first view
