@@ -302,9 +302,17 @@ void main() {
       expect(exitAt('off ramp', 'A 411'), isNull);
       expect(exitAt('off ramp', 'N205'), isNull);
       expect(exitAt('off ramp', 'E 712; A 41'), isNull);
-      expect(exitAt('off ramp', '111', taken: '111; E 712'), isNull, reason: 'the road taken');
+      // Mapped in France: "4 a;4 b" on way 682936866, "17\u00a0a" on node
+      // 669076112.
+      expect(exitAt('off ramp', '4 a;4 b'), '4 a; 4 b');
+      expect(exitAt('off ramp', '17\u00a0a'), '17\u00a0a');
+      expect(exitAt('off ramp', 'Sortie 47'), isNull);
       expect(exitAt('off ramp', '1', left: '1'), isNull, reason: 'the road left');
-      expect(exitAt('off ramp', '17', left: '1', taken: '111'), '17');
+      expect(
+        exitAt('off ramp', '10', taken: '10'),
+        '10',
+        reason: 'a link that carries its exit number as its own ref (way 40115728)',
+      );
       expect(exitAt('fork', '17'), isNull, reason: 'a fork is no exit');
       expect(exitAt('turn', '17'), isNull);
     });

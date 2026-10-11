@@ -604,8 +604,10 @@ fn a_bar_on_a_node_closes_a_stretch_of_each_way_through_it_and_the_relations_fol
 
 /// The ramps of a motorway's end at a customs, as mapped at Thônex-Vallard
 /// (ways 8037008, 207376619, 753760288: `junction:ref=A 411`, the motorway
-/// they end), an exit numbered 31, and two motorway junctions, one whose
-/// `ref` names the road and one numbered 16.
+/// they end), exits numbered 31 and "4 a;4 b" (way 682936866), two
+/// motorway junctions, one whose `ref` names the road and one numbered 16,
+/// and a node that carries a `junction:ref`, which Valhalla never reads on
+/// a node.
 fn extract_with_junctions(dir: &std::path::Path) -> std::path::PathBuf {
     let mut s = Strings(vec![String::new()]);
     let mut nodes = Vec::new();
@@ -625,6 +627,14 @@ fn extract_with_junctions(dir: &std::path::Path) -> std::path::PathBuf {
         6.320,
         &[("highway", "motorway_junction"), ("ref", "16")],
     ));
+    nodes.push(node(
+        &mut s,
+        23,
+        46.130,
+        6.330,
+        &[("junction:ref", "A 411")],
+    ));
+    nodes.extend(street(&mut s, 31, 46.140, 6.340));
     let ways = vec![
         way(
             &mut s,
@@ -649,6 +659,12 @@ fn extract_with_junctions(dir: &std::path::Path) -> std::path::PathBuf {
                 ("destination", "Sainte-Anne-d'Auray"),
             ],
         ),
+        way(
+            &mut s,
+            300,
+            &[31, 32, 33],
+            &[("highway", "motorway_link"), ("junction:ref", "4 a;4 b")],
+        ),
     ];
     let path = dir.join("junctions.osm.pbf");
     std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
@@ -668,6 +684,10 @@ fn a_junction_reference_that_names_a_road_never_reaches_valhalla_as_an_exit() {
     );
     assert_eq!(prepared.report.fixed_ways, 1);
     assert_eq!(prepared.report.fixed_nodes, 1);
+    assert_eq!(
+        prepared.report.motorhome_access_copied, 0,
+        "a junction rewritten for its ref copies no access"
+    );
     routing::write(&prepared, dir.path()).unwrap();
     let mut osc = String::new();
     flate2::read::GzDecoder::new(std::fs::File::open(dir.path().join("fixes.osc.gz")).unwrap())
@@ -701,5 +721,13 @@ fn a_junction_reference_that_names_a_road_never_reaches_valhalla_as_an_exit() {
     assert!(
         element(&osc, "node", 22).is_empty(),
         "junction 16 stays: {osc}"
+    );
+    assert!(
+        element(&osc, "way", 300).is_empty(),
+        "exits 4 a and 4 b reach the graph as mapped: {osc}"
+    );
+    assert!(
+        element(&osc, "node", 23).is_empty(),
+        "a node's junction:ref is no exit to Valhalla: nothing to rewrite: {osc}"
     );
 }

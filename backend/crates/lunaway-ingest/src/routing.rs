@@ -523,14 +523,17 @@ fn node_element(
     }
     let mut fixes = tags::graph_fixes(&tags, &BTreeMap::new());
     // Valhalla reads no limit on a node; only the access matters there, and
-    // the exit number of a motorway junction.
-    let exits = tags::exit_number_fixes(&tags);
-    fixes.retain(|k, _| k == "motorcar" || exits.contains_key(k));
-    if fixes.contains_key("motorcar") {
+    // the `ref` of a motorway junction, its exit number.
+    fixes.retain(|k, _| k == "motorcar");
+    if !fixes.is_empty() {
         out.motorcar_copied += 1;
     }
-    if !exits.is_empty() {
-        out.exit_refs_dropped += 1;
+    if tags.get("highway").map(String::as_str) == Some("motorway_junction") {
+        let exits = tags::exit_number_fixes(&tags);
+        if !exits.is_empty() {
+            out.exit_refs_dropped += 1;
+            fixes.extend(exits);
+        }
     }
     if !fixes.is_empty() {
         let mut new_tags = tags.clone();
