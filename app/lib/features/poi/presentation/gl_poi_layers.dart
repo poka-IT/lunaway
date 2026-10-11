@@ -6,6 +6,7 @@ import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/map/layer_properties.dart';
 import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
@@ -210,19 +211,21 @@ final class GlPoiLayers {
         sent.night != view.night) {
       await c.setFilter(PoiMapStyle.dotsLayerId, PoiMapStyle.dotsFilter(view));
       await c.setFilter(PoiMapStyle.vendingDotsLayerId, PoiMapStyle.vendingDotsFilter(view));
+      // Each layer's properties for the new view, the ones it was added
+      // with: `toJson` leaves out those never set.
       for (final quiet in [PoiMapStyle.quietLayerId, PoiMapStyle.moreQuietLayerId]) {
         await c.setFilter(quiet, PoiMapStyle.quietFilter(view));
-        await c.setLayerProperties(quiet, _quiet(view, pinScale));
+        await c.updateLayerProperties(quiet, _quiet(view, pinScale).toJson());
       }
       for (final pins in [PoiMapStyle.pinsLayerId, PoiMapStyle.morePinsLayerId]) {
         await c.setFilter(pins, PoiMapStyle.pinsFilter(view));
-        await c.setLayerProperties(pins, _pins(view, pinScale));
+        await c.updateLayerProperties(pins, _pins(view, pinScale).toJson());
       }
       for (final (dots, _) in PoiMapStyle.pinDotLayers) {
         await c.setFilter(dots, PoiMapStyle.pinsFilter(view));
-        await c.setLayerProperties(dots, _pinDots(view, pinScale));
+        await c.updateLayerProperties(dots, _pinDots(view, pinScale).toJson());
       }
-      await c.setLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale));
+      await c.updateLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale).toJson());
     }
     if (!listEquals(sent?.fuelLabels, view.fuelLabels)) {
       await c.setGeoJsonSource(PoiMapStyle.fuelSource, PoiMapStyle.fuelCollection(view.fuelLabels));

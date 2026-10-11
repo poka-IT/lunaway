@@ -6,25 +6,10 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/shared/map/layer_properties.dart';
 import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
-
-/// Layer properties as a style document writes them, sent as they are. The
-/// plugin's typed classes send every property they know, the unset ones as
-/// null, which resets them: a change of one paint property, or of a
-/// basemap layer's colours, must leave the others alone.
-final class RawLayerProperties implements gl.LayerProperties {
-  const new(this.properties);
-
-  final Map<String, Object?> properties;
-
-  @override
-  Map<String, dynamic> toJson({bool skipNulls = true}) => {
-    for (final MapEntry(:key, :value) in properties.entries)
-      if (value != null || !skipNulls) key: value,
-  };
-}
 
 /// The places from the API's vector tiles on maplibre_gl (Android, iOS, the
 /// web): one source, the dots of the low zooms, a dot under each place
@@ -150,16 +135,13 @@ final class GlPlaceTiles {
       }
     }
     if (_sentDark != dark) {
-      final stroke = RawLayerProperties({'circle-stroke-color': MapLook.dotStroke(dark: dark)});
-      await c.setLayerProperties(PlaceTiles.dotsLayer, stroke);
-      await c.setLayerProperties(PlaceTiles.pinDotsLayer, stroke);
-      await c.setLayerProperties(
-        PlaceTiles.glowLayer,
-        RawLayerProperties({
-          'circle-color': MapLook.glowColor(dark: dark),
-          'circle-opacity': MapLook.glowOpacity(dark: dark),
-        }),
-      );
+      final stroke = {'circle-stroke-color': MapLook.dotStroke(dark: dark)};
+      await c.updateLayerProperties(PlaceTiles.dotsLayer, stroke);
+      await c.updateLayerProperties(PlaceTiles.pinDotsLayer, stroke);
+      await c.updateLayerProperties(PlaceTiles.glowLayer, {
+        'circle-color': MapLook.glowColor(dark: dark),
+        'circle-opacity': MapLook.glowOpacity(dark: dark),
+      });
       _sentDark = dark;
     }
     _sent = view;

@@ -30,6 +30,7 @@ import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart'
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/shared/map/layer_properties.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -839,17 +840,15 @@ class _GlRouteMapState extends State<GlRouteMap> {
     }
     await _syncPlaces(c);
     if (!mounted) return;
-    // The prices under the stations' pins, written by the pins' layers.
+    // The prices under the stations' pins, written by the pins' layers:
+    // their text and its colour, the pins left as they are.
     if (_placeLayers && !listEquals(p.fuelPrices, _sentPrices)) {
       _sentPrices = p.fuelPrices;
       for (final (id, _) in RoutePlaceLayers.poiLayers) {
-        await c.setLayerProperties(
-          id,
-          gl.SymbolLayerProperties(
-            textField: RoutePlaceLayers.priceText(p.fuelPrices),
-            textColor: RoutePlaceLayers.priceColor(p.fuelPrices, dark: p.dark),
-          ),
-        );
+        await c.updateLayerProperties(id, {
+          'text-field': RoutePlaceLayers.priceText(p.fuelPrices),
+          'text-color': RoutePlaceLayers.priceColor(p.fuelPrices, dark: p.dark),
+        });
       }
       if (!mounted) return;
     }

@@ -569,7 +569,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   the user's contributions stay in the browser.
 - **Map**: MapLibre (`maplibre_gl` on Android, iOS and the web; MapLibre GL
   JS in a WebView on macOS and Windows), behind one interface; never one
-  widget per spot. The camera is read when the map rests, never at each
+  widget per spot. A layer's properties change through
+  `updateLayerProperties` (`shared/map/layer_properties.dart`,
+  structure_check rule `layer-properties`), naming only those that change:
+  maplibre_gl's typed classes send the others as null, which resets them
+  on every engine. The camera is read when the map rests, never at each
   frame. A change of theme turns the colours in place: on Android and iOS
   the paint properties that differ between Aube and Minuit and the
   basemap's icons (`StyleDiff`, `BasemapIcons`); in the browser and the

@@ -26,6 +26,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/basemap_icons.dart';
+import 'package:lunaway/shared/map/layer_properties.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -279,7 +280,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final clock = Stopwatch()..start();
     await Future.wait([
       for (final MapEntry(key: layer, value: paint) in diff.paint.entries)
-        _quietly(() => c.setLayerProperties(layer, RawLayerProperties(paint))),
+        _quietly(() => c.updateLayerProperties(layer, paint)),
     ]);
     if (!diff.changesSprite || !mounted) return;
     final icons = await BasemapIcons.load(
@@ -613,23 +614,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     }
     if (_sentDark != props.dark) {
       _sentDark = props.dark;
-      await c.setLayerProperties(
-        MapStyle.clustersLayer,
-        RawLayerProperties(_clusterPaint(dark: props.dark)),
-      );
-      await c.setLayerProperties(
-        MapStyle.clusterCountLayer,
-        RawLayerProperties({'text-color': MapLook.clusterText(dark: props.dark)}),
-      );
+      await c.updateLayerProperties(MapStyle.clustersLayer, _clusterPaint(dark: props.dark));
+      await c.updateLayerProperties(MapStyle.clusterCountLayer, {
+        'text-color': MapLook.clusterText(dark: props.dark),
+      });
       if (props.pois != null) {
         await _quietly(
-          () => c.setLayerProperties(
-            PoiMapStyle.fuelLayerId,
-            RawLayerProperties({
-              'text-color': PoiMapStyle.fuelTextColor(dark: props.dark),
-              'text-halo-color': PoiMapStyle.fuelHalo(dark: props.dark),
-            }),
-          ),
+          () => c.updateLayerProperties(PoiMapStyle.fuelLayerId, {
+            'text-color': PoiMapStyle.fuelTextColor(dark: props.dark),
+            'text-halo-color': PoiMapStyle.fuelHalo(dark: props.dark),
+          }),
         );
       }
     }
@@ -680,7 +674,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const steps = [0.55, 0.8, 1.02, 1.08, 1.03, 1.0];
     for (final s in steps) {
       if (!mounted) return;
-      await c.setLayerProperties(MapStyle.selectionPinLayer, _selectionLayer(full * s));
+      await c.updateLayerProperties(MapStyle.selectionPinLayer, {'icon-size': full * s});
       await Future<void>.delayed(const Duration(milliseconds: 34));
     }
   }

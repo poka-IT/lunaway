@@ -178,6 +178,16 @@ final _rules = <_Rule>[
     ),
   ),
   _Rule(
+    'layer-properties',
+    "maplibre_gl's setLayerProperties sends every property its typed classes know, the unset ones as null, and a null resets a property on Android, iOS and the web: the price written under the route map's pins took their image and their size with it.",
+    'Change a layer through updateLayerProperties (app/lib/shared/map/layer_properties.dart), naming the properties to set and only those.',
+    (s) => _grep(
+      s,
+      RegExp(r'(?<![\w$])setLayerProperties\('),
+      where: (x) => x.dart && !x.generated && x.path != 'app/lib/shared/map/layer_properties.dart',
+    ),
+  ),
+  _Rule(
     'map-history',
     "The tab's history of the map and of the pages over it has one writer, which keeps its moves in order: a move written elsewhere could land after a newer action of the user and undo it.",
     'Ask MapFlow (app/lib/features/map/application/map_flow.dart) for the change; it writes through MapHistory (map_history.dart).',
