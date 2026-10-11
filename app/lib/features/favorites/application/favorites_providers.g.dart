@@ -898,7 +898,7 @@ final class FavoritesSyncControllerProvider
 }
 
 String _$favoritesSyncControllerHash() =>
-    r'daa24c8ba533757558bd523bb534f61dbf518aa2';
+    r'9d2d0e56eca735c8b1b6ae3fda67086922c63dcc';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes
