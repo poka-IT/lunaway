@@ -159,7 +159,7 @@ the index stay in the maintainer's `plan/screenshots/publication/`.
 4. **Captions and destinations.** `app/tool/screens/compose.py
    --profile <profile> --lang <lang> --raw <shots>` takes the raw shots of
    one run, adds the caption in a band of 16 % of the height (Minuit
-   `#061F43`, Fraunces 600 in Clair de lune, two lines at most), scales
+   `#061F43`, Figtree 650 in Clair de lune, two lines at most), scales
    the shot to the rest, and writes the store's set:
    `fastlane/metadata/android/<locale>/images/{phone,sevenInch,tenInch}Screenshots/<nn>-<scene>.jpg`
    and `fastlane/screenshots/ios/<locale>/<nn>_<profile>_<scene>.jpg`

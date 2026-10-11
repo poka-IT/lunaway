@@ -287,7 +287,7 @@ class _SyncLine extends ConsumerWidget {
   }
 }
 
-/// A list as a card: its name in Fraunces and how many places it holds.
+/// A list as a card: its name and how many places it holds.
 class _ListCard extends StatelessWidget {
   const new({required this.list, required this.selected, required this.onTap});
 

@@ -891,7 +891,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionCommunes => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.';
 	@override String get attributionCommunityPlaces => 'Lieux ajoutés et modifiés par les voyageurs de Lunaway, sous ODbL, avec la mention « Lunaway contributors ».';
 	@override String get attributionTiles => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.';
-	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
+	@override String get attributionFonts => 'Police Figtree d\'Erik Kennedy, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 	@override String get noTracking => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
 	@override String get attributionBdTopo => 'Hauteurs, largeurs, longueurs et poids limités des routes, et campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
@@ -4502,7 +4502,7 @@ extension on TranslationsFr {
 			'profile.attributionCommunes' => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.',
 			'profile.attributionCommunityPlaces' => 'Lieux ajoutés et modifiés par les voyageurs de Lunaway, sous ODbL, avec la mention « Lunaway contributors ».',
 			'profile.attributionTiles' => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.',
-			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
+			'profile.attributionFonts' => 'Police Figtree d\'Erik Kennedy, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'profile.noTracking' => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
 			'profile.attributionBdTopo' => 'Hauteurs, largeurs, longueurs et poids limités des routes, et campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',

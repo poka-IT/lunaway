@@ -290,10 +290,8 @@ class RecoveryCardView extends StatelessWidget {
     final groups = RecoveryCode.groups(code);
     final codeStyle = base.headlineSmall?.copyWith(
       color: _ink,
-      fontFamily: 'Atkinson',
       fontWeight: FontWeight.w700,
       letterSpacing: 2,
-      fontFeatures: const [ui.FontFeature.tabularFigures()],
     );
     final codeView = Semantics(
       label: '${t.recovery.codeLabel} ${groups.join(' ')}',
@@ -579,7 +577,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
             enableSuggestions: false,
             textCapitalization: TextCapitalization.characters,
             inputFormatters: [LengthLimitingTextInputFormatter(60)],
-            style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'Atkinson', letterSpacing: 1.5),
+            style: theme.textTheme.titleLarge?.copyWith(letterSpacing: 1.5),
             onChanged: (_) => setState(() => _refused = null),
             // The code opens the account: no keyboard learns it or suggests it.
             keyboardType: TextInputType.visiblePassword,

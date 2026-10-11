@@ -1,0 +1,26 @@
+Figtree Lunaway, the app's typeface
+
+Upstream
+  Figtree 2.002 by Erik Kennedy, https://github.com/erikdkennedy/figtree
+  (commit 032dfa7fe219ef3a02890d6d3add84eacc9aebfe), as built and published
+  by Google Fonts: https://github.com/google/fonts, commit
+  a60a77e14f28abd4ef243a1b5dfc48df0cec5205, ofl/figtree/
+  Figtree[wght].ttf  SHA-256 26ad3db9b31ff7dde67a91ff515d022d2f495cd506590699cf264f0bfe6fb714
+  OFL.txt            SHA-256 140d37233e7f3ce7313798befa9600893bcceaf41a55fa0fa5ad52f7f657a268
+
+Licence
+  SIL Open Font License 1.1, OFL.txt in this folder (unchanged copy of the
+  upstream file). No Reserved Font Name.
+
+Changes (app/tool/fonts/figtree_lunaway.py)
+  - the lowercase l and its accented forms (l, lacute, lcaron, lcommaaccent,
+    lslash) take the tailed glyphs of the upstream ss02 set by default;
+  - U+2009 THIN SPACE and U+202F NARROW NO-BREAK SPACE map to a new empty
+    glyph half as wide as the space at every weight;
+  - family renamed Figtree Lunaway (PostScript FigtreeLunaway), with a note
+    of these changes in the name table.
+
+Rebuild
+  app/tool/fonts/build.sh downloads the two upstream files above, checks
+  their SHA-256, derives FigtreeLunaway-Variable.ttf and checks the result
+  against app/tool/fonts/fonts.sha256 (two runs give the same bytes).

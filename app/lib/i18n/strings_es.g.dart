@@ -891,7 +891,7 @@ class _Translations$profile$es extends Translations$profile$en {
 	@override String get attributionCommunes => 'Municipios de los lugares: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), bajo licencia ODbL.';
 	@override String get attributionCommunityPlaces => 'Lugares añadidos y modificados por los viajeros de Lunaway, bajo ODbL, con la mención «Lunaway contributors».';
 	@override String get attributionTiles => 'Mapa base servido por Lunaway, estilos derivados de Protomaps (BSD-3-Clause), datos © colaboradores de OpenStreetMap.';
-	@override String get attributionFonts => 'Tipografías Fraunces y Atkinson Hyperlegible Next, bajo licencia SIL Open Font License 1.1.';
+	@override String get attributionFonts => 'Tipografía Figtree de Erik Kennedy, bajo licencia SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Iconos Phosphor, bajo licencia MIT.';
 	@override String get noTracking => 'Sin publicidad ni rastreadores. Tu cuenta no guarda ni tu correo electrónico ni tu número de teléfono.';
 	@override String get attributionBdTopo => 'Límites de altura, anchura, longitud y peso de las carreteras, y campings situados por su nombre: BD TOPO del IGN, a través de la Géoplateforme, bajo Licence Ouverte 2.0.';
@@ -4502,7 +4502,7 @@ extension on TranslationsEs {
 			'profile.attributionCommunes' => 'Municipios de los lugares: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), bajo licencia ODbL.',
 			'profile.attributionCommunityPlaces' => 'Lugares añadidos y modificados por los viajeros de Lunaway, bajo ODbL, con la mención «Lunaway contributors».',
 			'profile.attributionTiles' => 'Mapa base servido por Lunaway, estilos derivados de Protomaps (BSD-3-Clause), datos © colaboradores de OpenStreetMap.',
-			'profile.attributionFonts' => 'Tipografías Fraunces y Atkinson Hyperlegible Next, bajo licencia SIL Open Font License 1.1.',
+			'profile.attributionFonts' => 'Tipografía Figtree de Erik Kennedy, bajo licencia SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Iconos Phosphor, bajo licencia MIT.',
 			'profile.noTracking' => 'Sin publicidad ni rastreadores. Tu cuenta no guarda ni tu correo electrónico ni tu número de teléfono.',
 			'profile.attributionBdTopo' => 'Límites de altura, anchura, longitud y peso de las carreteras, y campings situados por su nombre: BD TOPO del IGN, a través de la Géoplateforme, bajo Licence Ouverte 2.0.',

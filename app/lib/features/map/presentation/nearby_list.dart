@@ -364,7 +364,7 @@ class _MissedRegionPrompt extends ConsumerWidget {
 }
 
 /// The count line above the list: how many places the area holds, the
-/// number in Fraunces, and the order of the list, which the user changes
+/// number set large, and the order of the list, which the user changes
 /// there.
 class NearbyCount extends ConsumerWidget {
   const new({this.trailing, super.key});
