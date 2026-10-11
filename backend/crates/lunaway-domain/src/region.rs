@@ -463,4 +463,30 @@ mod tests {
             );
         }
     }
+
+    /// The health probe's packs check (`lunaway-worker-status`) counts the
+    /// regions the pack builder builds, and only those: a place in a
+    /// country outside the catalogue gets no pack, so counting its region
+    /// would turn the check red two days after the place came in.
+    #[test]
+    fn the_packs_check_counts_the_sync_regions_and_no_other() {
+        let script = include_str!("../../../../infra/files/usr/local/sbin/lunaway-worker-status");
+        let listed: Vec<&str> = script
+            .lines()
+            .find_map(|l| l.strip_prefix("sync_regions='"))
+            .and_then(|rest| rest.strip_suffix('\''))
+            .expect("lunaway-worker-status sets sync_regions='...' on one line")
+            .split_whitespace()
+            .collect();
+        let catalogue: Vec<&str> = SYNC_REGIONS.iter().map(|r| r.code).collect();
+        assert_eq!(
+            listed, catalogue,
+            "the probe must count the regions the pack builder builds"
+        );
+        assert!(
+            script.contains("r.region = ANY (string_to_array('$sync_regions', ' ')) AS synced")
+                && script.contains("WHERE g.synced"),
+            "the packs check must keep to the sync regions"
+        );
+    }
 }
