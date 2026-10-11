@@ -226,7 +226,7 @@ RouteStep _step(
     ferry: s['mode'] == 'ferry',
     lanes: _lanesBefore(s, next),
     roadRef: _text(s['ref']),
-    exitRef: _text(s['exits']),
+    exitRef: _exitNumber(type, s['exits'], left: previous?['ref']),
     signs: _text(s['destinations']),
     motorway: switch (s['intersections']) {
       [final Map<String, dynamic> first, ...] =>
@@ -241,6 +241,39 @@ String? _text(Object? value) {
   final text = value is String ? value.trim() : null;
   return text == null || text.isEmpty ? null : text;
 }
+
+/// The exit's number a sign shows at a maneuver of [type], from the
+/// step's `exits`: on an `off ramp` only, Valhalla's way off a motorway
+/// (its `on ramp` leads onto one, where a link that carries its
+/// junction's number would read "Sortie" at an entrance), and only the
+/// values that read as a number (`17`, `6.1`, `6 b`) and do not name
+/// [left], the road the ramp leaves. Valhalla fills `exits` from the map's
+/// `junction:ref`, which some links carry with a road's number: the lanes
+/// of the Thônex-Vallard customs, at the end of the A 411, say `A 411`.
+/// The graph's preparation leaves those out too (`exit_number_fixes` in
+/// the backend); this filter still covers a graph built before that. A
+/// value equal to the ramp's own `ref` stays: some links carry their
+/// exit's number there.
+String? _exitNumber(String type, Object? exits, {required Object? left}) {
+  if (type != 'off ramp') return null;
+  List<String> values(Object? text) => [
+    for (final value in (_text(text) ?? '').split(';'))
+      if (value.trim() case final v when v.isNotEmpty) v,
+  ];
+  final roads = values(left).toSet();
+  final numbers = [
+    for (final value in values(exits))
+      if (_exitShape.hasMatch(value) && !roads.contains(value)) value,
+  ];
+  return numbers.isEmpty ? null : numbers.join('; ');
+}
+
+/// The backend's `reads_as_exit_number`: a digit first, then digits,
+/// letters and the marks that join them (`6.1`, `12b`, `8-9`), and at
+/// most one space or no-break space before a last group of up to three
+/// letters (`6 b`, `17 bis`). A road's number starts with its network's
+/// letters (`A 411`, `N205`, `E 712`).
+final _exitShape = RegExp(r'^\d[\dA-Za-z./-]*(?:[ \u00a0][A-Za-z]{1,3})?$');
 
 Map<String, dynamic> _maneuverOf(Map<String, dynamic>? step) =>
     step?['maneuver'] is Map<String, dynamic>

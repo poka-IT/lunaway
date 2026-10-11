@@ -36,6 +36,7 @@ import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
@@ -449,6 +450,42 @@ void main() {
       expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0, 1]);
       expect(SchematicRouteMap.last!.camera, camera, reason: 'the legend open, the camera stays');
     });
+
+    for (final (name, size) in [('a phone', tallPhone), ('a desktop', desktop)]) {
+      testWidgets('on $name, an alternative that came after, chosen on its card or on the map, '
+          'brings the camera out to take it in', (tester) async {
+        final (best, later) = bestFirst('utrillo_motorhome');
+        final held = Completer<LaterRoutes>();
+        await openPreview(
+          tester,
+          size: size,
+          answers: [best],
+          engine: LineEngine([best]),
+          later: {'token-1': held},
+        );
+        held.complete(later);
+        await settleShort(tester);
+        FitCamera camera() => SchematicRouteMap.last!.camera as FitCamera;
+        List<LatLng> line(int index) =>
+            SchematicRouteMap.last!.lines.singleWhere((l) => l.index == index).points;
+        final framed = camera();
+        expect(line(1).every(framed.bounds.contains), isFalse, reason: 'out of the view');
+
+        await tester.tap(find.text('Variante 1'));
+        await settleShort(tester);
+        final chosen = camera();
+        expect(line(1).every(chosen.bounds.contains), isTrue, reason: 'the camera took it in');
+        expect(line(0).every(chosen.bounds.contains), isTrue, reason: 'the best route too');
+
+        // Both in view from now on: choosing either on the map moves nothing.
+        for (final index in [0, 1]) {
+          SchematicRouteMap.last!.onLineTap!(index);
+          await settleShort(tester);
+          expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, index);
+          expect(camera(), chosen, reason: 'route $index chosen again, the camera stays');
+        }
+      });
+    }
 
     for (final scale in [1.0, 2.0]) {
       testWidgets('what lies under the routes stays where it is when the alternatives join, '
@@ -1429,6 +1466,21 @@ void main() {
         expect(find.text('Sortie 17'), findsOneWidget);
       },
     );
+
+    testWidgets('the lanes of the Thônex-Vallard customs show no exit, the map names them A 411', (
+      tester,
+    ) async {
+      // Recorded on 2026-10-11: four ramps from 1 214 m, each with
+      // `exits` "A 411", the motorway they end.
+      final plan = routeFixture('vallard_customs');
+      await guide(tester, plan);
+      for (final toM in [1100.0, 1230.0, 1290.0, 1350.0]) {
+        await drive(tester, plan, toM: toM);
+        expect(find.text('Autoroute Blanche'), findsWidgets, reason: 'the road, at $toM m');
+        expect(find.byType(ExitBadge), findsNothing, reason: 'no exit at $toM m');
+        expect(find.text('Sortie A 411'), findsNothing);
+      }
+    });
 
     testWidgets('the bar opens its options at a tap or a swipe up; a choice closes them', (
       tester,

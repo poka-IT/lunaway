@@ -667,8 +667,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   once), with the route chosen kept, in the room the panel kept for two
   cards (`RouteOptionPlaceholder`, sized by an unseen copy of the best
   route's card), so nothing under them moves; when they do not come,
-  nothing says so and the room closes. The guidance reads such an alternative in its own OSRM answer
-  (`RoutePlan.osrmOf`).
+  nothing says so and the room closes. An alternative that came after,
+  once chosen on the map or by its card, joins the frame while the plan
+  shows (`RoutePreview.framedLater`): the camera eases out to take it in,
+  and choosing a route already in view moves nothing. The guidance reads
+  such an alternative in its own OSRM answer (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
   (`core/http/app_http_client_io.dart`). A mobile network or a move from
@@ -731,8 +734,12 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   `widgets/guidance_panels.dart`), laid out as drivers know it from the big
   navigation apps (`plan/research/120-guidage-facon-gmaps.md`): the
   maneuver at the top (its arrow, the distance over the road, a motorway
-  exit's number), the lanes on a deeper band under it, "Puis" on a tab
-  when the next maneuver follows within 300 m; the notices under it; at
+  exit's number: on an `off ramp` only, and only when Valhalla's `exits`
+  reads as a number and does not repeat the number of the road left,
+  since the map gives the lanes of some junctions a road's number, "A
+  411" at the Thônex-Vallard customs, which the graph's preparation also
+  leaves out), the lanes on a deeper band under it, "Puis" on a tab when
+  the next maneuver follows within 300 m; the notices under it; at
   the foot of the map the speed and its limit on the left (or "Recentrer"
   once the map is moved or the whole route shown), a camera or a danger
   zone on its pill over them (in the panel over the bar on a screen on its

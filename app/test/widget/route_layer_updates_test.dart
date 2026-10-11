@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
@@ -10,6 +11,7 @@ import 'package:lunaway/features/navigation/presentation/route_place_layers.dart
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/shared/map/sprites.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 
 import '../helpers/map_engine.dart';
 
@@ -176,5 +178,43 @@ void main() {
     await until(tester, routeSent);
     expect(moves.isCompleted, isFalse, reason: 'the camera still moves');
     expect(routeSent(), isTrue);
+  });
+
+  // The preview widens its fit when the user chooses an alternative that
+  // came after the best route and reaches out of the view.
+  testWidgets('a wider fit eases the camera out over the theme camera time, with no jump', (
+    tester,
+  ) async {
+    final engine = LayerStackEngine(_aube)..install(tester);
+    final framed = GeoBounds.around(_line)!;
+    final wider = GeoBounds.around([..._line, const LatLng(44.90, 4.97)])!;
+    RouteMapProps props(GeoBounds bounds) => RouteMapProps(
+      style: _aube,
+      dark: false,
+      lines: [RouteMapLine(index: 0, points: _line, selected: true)],
+      camera: FitCamera(bounds),
+      places: _places,
+    );
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(props(framed))));
+    await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
+    await until(tester, () => engine.calls.any((c) => c.method == 'camera#animate'));
+    final before = engine.calls.length;
+    List<MethodCall> moves() => [
+      for (final c in engine.calls.skip(before))
+        if (c.method.startsWith('camera#')) c,
+    ];
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(props(wider))));
+    await until(tester, () => moves().isNotEmpty);
+    expect(moves().map((c) => c.method), ['camera#animate'], reason: 'no jump first');
+    final sent = moves().single.arguments as Map<Object?, Object?>;
+    expect(sent['duration'], Motion.camera.inMilliseconds);
+    final update = sent['cameraUpdate']! as List<Object?>;
+    expect(update.first, 'newLatLngBounds');
+    final corners = [for (final c in update[1]! as List) ...(c as List).cast<double>()];
+    final expected = [wider.south, wider.west, wider.north, wider.east];
+    expect(corners, hasLength(expected.length));
+    for (final (i, value) in corners.indexed) {
+      expect(value, closeTo(expected[i], 1e-9), reason: 'corner value $i');
+    }
   });
 }

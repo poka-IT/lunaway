@@ -231,6 +231,74 @@ const SAME_FIGURE: f64 = 0.01;
 /// remove it.
 pub type TagFixes = BTreeMap<String, Option<String>>;
 
+/// Whether `value` reads as the number a motorway exit's sign shows: a
+/// digit first, then digits, letters and the marks that join them (`17`,
+/// `6.1`, `31b`, `8-9`), and at most one space (or no-break space) before
+/// a last group of up to three letters (`6 b`, `17 bis`). A road's number
+/// starts with its network's letters (`A 411`, `N205`, `E 712`): every
+/// road's number mapped as a junction's reference in France does (7,584
+/// values read in the extract of 2026-10-06).
+#[must_use]
+pub fn reads_as_exit_number(value: &str) -> bool {
+    let (head, tail) = match value.split_once([' ', '\u{a0}']) {
+        Some((head, tail)) => (head, Some(tail)),
+        None => (value, None),
+    };
+    let mut chars = head.chars();
+    chars.next().is_some_and(|c| c.is_ascii_digit())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '/' | '-'))
+        && tail.is_none_or(|t| {
+            (1..=3).contains(&t.len()) && t.chars().all(|c| c.is_ascii_alphabetic())
+        })
+}
+
+/// The fixes that keep anything but an exit number out of the exit numbers
+/// Valhalla 3.9 writes on a ramp's sign (`exits` in its OSRM answer, and
+/// "Prenez la sortie ..." in its instructions). It reads them from a way's
+/// `junction:ref` (and `junction:ref:<language>`), else from the `ref` of
+/// the `highway=motorway_junction` node the ramp leaves from
+/// (`graphbuilder.cc`, `pbfgraphparser.cc`). Some links carry a road's
+/// number there: the lanes of the Thônex-Vallard customs say
+/// `junction:ref=A 411`, the motorway they end. Each value of those keys
+/// that does not [read as an exit number](reads_as_exit_number) is left
+/// out; a key left with none is removed. A value equal to the link's own
+/// `ref` stays: in France the three such values are exits whose number
+/// the link carries too.
+#[must_use]
+pub fn exit_number_fixes(tags: &BTreeMap<String, String>) -> TagFixes {
+    let junction = tags.get("highway").map(String::as_str) == Some("motorway_junction");
+    let mut out = TagFixes::new();
+    for (key, value) in tags {
+        // A junction node's exit number is its `ref`; Valhalla reads no
+        // `junction:ref` on a node.
+        let exit_key = if junction {
+            key == "ref"
+        } else {
+            key == "junction:ref"
+                || (key.starts_with("junction:ref:") && !key.contains("pronunciation"))
+        };
+        if !exit_key {
+            continue;
+        }
+        let values: Vec<&str> = value
+            .split(';')
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .collect();
+        let kept: Vec<&str> = values
+            .iter()
+            .copied()
+            .filter(|v| reads_as_exit_number(v))
+            .collect();
+        if kept.is_empty() {
+            out.insert(key.clone(), None);
+        } else if kept.len() < values.len() {
+            out.insert(key.clone(), Some(kept.join(";")));
+        }
+    }
+    out
+}
+
 /// Applies `fixes` to `tags`.
 pub fn apply_fixes(tags: &mut BTreeMap<String, String>, fixes: TagFixes) {
     for (key, value) in fixes {
@@ -384,6 +452,8 @@ pub fn spares_local_access_with(
 ///   reads first: on this graph the `auto` mode is the motorhome mode
 ///   (`plan/research/07-navigation.md`, A.4, correction 2, where the same
 ///   effect was tested by editing Valhalla's tag script).
+/// - A junction's reference that is no exit number goes
+///   ([`exit_number_fixes`]).
 #[must_use]
 pub fn graph_fixes(
     tags: &BTreeMap<String, String>,
@@ -439,6 +509,7 @@ pub fn graph_fixes(
     {
         out.insert("motorcar".to_owned(), Some(v.to_owned()));
     }
+    out.extend(exit_number_fixes(tags));
     out
 }
 
@@ -963,6 +1034,97 @@ mod tests {
             "a B8 sign does not concern a motorhome"
         );
         assert!(graph_fixes(&tags(&[("motorhome", "no;yes")]), &BTreeMap::new()).is_empty());
+    }
+
+    #[test]
+    fn a_junction_reference_reaches_the_graph_only_as_an_exit_number() {
+        let none = BTreeMap::new();
+        // The lanes of the Thônex-Vallard customs (way 753760288).
+        let customs = tags(&[
+            ("highway", "motorway_link"),
+            ("int_ref", "E 712"),
+            ("junction:ref", "A 411"),
+        ]);
+        assert_eq!(
+            graph_fixes(&customs, &none).get("junction:ref"),
+            Some(&None),
+            "a road's number must not reach the sign as 'sortie A 411'"
+        );
+        let ramp = fixed(
+            &[("junction:ref", "A 411"), ("highway", "motorway_link")],
+            &none,
+        );
+        assert!(
+            !ramp.contains_key("junction:ref"),
+            "the key goes, so Valhalla reads no exit number at all: {ramp:?}"
+        );
+        // Mapped in France: "4 a;4 b" on way 682936866, "17\u{a0}a" on node
+        // 669076112.
+        for exit in [
+            "31",
+            "17",
+            "6.1",
+            "31b",
+            "8-9",
+            "12;13",
+            "4 a;4 b",
+            "6 b",
+            "17\u{a0}a",
+            "17 bis",
+        ] {
+            let t = tags(&[("highway", "motorway_link"), ("junction:ref", exit)]);
+            assert!(
+                graph_fixes(&t, &none).is_empty(),
+                "{exit} is an exit number"
+            );
+        }
+        let mixed = tags(&[("highway", "motorway_link"), ("junction:ref", "17; A 411")]);
+        assert_eq!(set(&graph_fixes(&mixed, &none), "junction:ref"), Some("17"));
+        // Ways 40115728 and 142613572 carry their exit's number as `ref`
+        // too.
+        let copied = tags(&[
+            ("highway", "motorway_link"),
+            ("ref", "10"),
+            ("junction:ref", "10"),
+        ]);
+        assert!(
+            graph_fixes(&copied, &none).is_empty(),
+            "a link that repeats its exit's number keeps it"
+        );
+        for road in ["Bretelle B", "D 62", "Sortie 47", "4 a b", "4 abcd"] {
+            let t = tags(&[("highway", "motorway_link"), ("junction:ref", road)]);
+            assert_eq!(
+                graph_fixes(&t, &none).get("junction:ref"),
+                Some(&None),
+                "{road} is no exit number"
+            );
+        }
+        let language = tags(&[
+            ("junction:ref:fr", "A 411"),
+            ("junction:ref:pronunciation", "a quatre cent onze"),
+        ]);
+        let fixes = graph_fixes(&language, &none);
+        assert_eq!(fixes.get("junction:ref:fr"), Some(&None));
+        assert!(!fixes.contains_key("junction:ref:pronunciation"));
+    }
+
+    #[test]
+    fn a_motorway_junction_node_keeps_its_ref_only_as_an_exit_number() {
+        let none = BTreeMap::new();
+        let named = tags(&[("highway", "motorway_junction"), ("ref", "A 411")]);
+        assert_eq!(graph_fixes(&named, &none).get("ref"), Some(&None));
+        let numbered = tags(&[("highway", "motorway_junction"), ("ref", "16")]);
+        assert!(graph_fixes(&numbered, &none).is_empty());
+        let elsewhere = tags(&[("highway", "bus_stop"), ("ref", "A 411")]);
+        assert!(
+            graph_fixes(&elsewhere, &none).is_empty(),
+            "only a junction's ref is an exit number to Valhalla"
+        );
+        let lettered = tags(&[("highway", "motorway_junction"), ("ref", "16 a")]);
+        assert!(graph_fixes(&lettered, &none).is_empty(), "node 330843444");
+        assert!(!reads_as_exit_number(""));
+        assert!(!reads_as_exit_number("N205"));
+        assert!(!reads_as_exit_number(" 4"));
     }
 
     #[test]

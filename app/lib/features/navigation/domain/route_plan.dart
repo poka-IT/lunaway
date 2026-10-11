@@ -422,7 +422,7 @@ final class RouteStep {
   final String? roadRef;
 
   /// The number of the motorway exit taken at this maneuver (`17`), as its
-  /// sign shows it.
+  /// sign shows it: on a way off a motorway only, never a road's number.
   final String? exitRef;
 
   /// What the direction signs at this maneuver point to (`A 41: Genève,
@@ -724,7 +724,7 @@ final class RoutePlan {
   }
 
   /// Whether [route] came after the best route: the camera framed the
-  /// routes without it, and does not move for it.
+  /// routes without it, and moves for it only once the user chooses it.
   bool cameLater(RouteOption route) => switch (later) {
     final l? => route.index >= l.from,
     null => false,

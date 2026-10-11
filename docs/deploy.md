@@ -2914,7 +2914,11 @@ stopping the build on failure:
    `fixes.osc.gz`, the tags Valhalla must read differently (limits in
    canonical form, `maxweightrating` copied into `maxweight`, `motorhome=*`
    copied into `motorcar`, IGN limits on the ways they match, the lowest
-   value winning; a "sauf desserte" plate written as the
+   value winning; a junction reference that is no exit number, on a
+   way's `junction:ref` or a motorway junction's `ref` (`A 411` at the
+   Thônex-Vallard customs), left out, so Valhalla never says "Prenez la
+   sortie A 411" (`exit_refs_dropped` in `prepare.json`); a "sauf
+   desserte" plate written as the
    `maxweight:conditional=none @ destination` Valhalla reads, a "sauf
    livraisons" one removed; IGN weights on motorways and on lanes closed
    to the public set aside; the roads without a limit that only a "sauf
