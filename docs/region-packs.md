@@ -17,7 +17,21 @@ elsewhere (ISO 3166-1, `ES`). The list is fixed in the code
 - a place elsewhere belongs to its country, by its position;
 - a microstate goes with the region around it: Monaco with `FR-PAC`,
   Andorra and Gibraltar with `ES`, San Marino and the Vatican with `IT`,
-  Liechtenstein with `CH`, Svalbard with `NO`, Åland with `FI`.
+  Liechtenstein with `CH`, Svalbard with `NO`, Åland with `FI`, Western
+  Sahara with `MA` (its places keep the country `EH`).
+
+The countries are those that both an offline map (the outlines of
+`infra/tiles/packs/regions.geojson`, `docs/deploy.md`, "Offline packs")
+and the routing graph (`lunaway_domain::routing::coverage`) cover: a
+device that keeps a region offline has its places, its map and its routes
+there. A test of `lunaway_domain::region` holds the rule. Morocco joined on
+2026-10-11 (decision of the product owner); Western Sahara goes with it
+because the offline map of Morocco and the graph's cut of Morocco both
+hold it. The places of every other country (40 on 2026-10-11, Turkey,
+Romania and Hungary the largest; `plan/research/132-hors-ligne-pays.md`)
+are served online only: no pack is built for them, `changes(region:)`
+refuses their codes, and the app says, offline over one of them, that the
+area is online only.
 
 `Place.region` gives the region of a place. A place whose commune or
 country changes moves to another region: the feed of the region it left
@@ -30,8 +44,12 @@ the feed:
 
 ```sql
 BEGIN;
--- the writers' lock, lunaway-db's WRITER_LOCK (0x6c75_6e61_7761_7963)
+-- the writers' lock, lunaway-db's WRITER_LOCK (0x6c75_6e61_7761_7963),
+-- waited for two minutes at most: the owner's role has no lock_timeout,
+-- and a writer holding the lock would otherwise hold the deploy
+SET LOCAL lock_timeout = '2min';
 SELECT pg_advisory_xact_lock(7815274093265123683);
+SET LOCAL lock_timeout = '3s';
 UPDATE places
 SET country_code = country_code,
     updated_seq = nextval('place_change_seq'),
@@ -46,7 +64,9 @@ region, and the new region's feed would not list the place either. The
 writers' lock keeps the feed's order (`.claude/rules/sqlx.md`). The comment
 of migration `20261006150000`, which says an update of `country_code` to
 itself suffices, predates this and stays as written (a committed migration
-is never edited).
+is never edited). Migration `20261011194823` (Western Sahara with
+Morocco) waits for the lock without the bound; it ran once in production,
+on 2026-10-11, with the jobs paused (`plan/research/132-hors-ligne-pays.md`).
 
 ## The manifest
 
@@ -214,8 +234,12 @@ view of France. A choice made without a position is marked as a guess
 replaces it. Later, a position entering a region the device does not keep
 offers it once, over the map (`regions_offered`), never during the
 guidance: the region it ends in is offered when it stops. All of France
-and every other region stay in the offline maps, with their size. The
-regions downloaded update on an unmetered network (Android's
+and every other region stay in the offline maps, with their size.
+Offline, a view far from every outline of the offline maps (none within
+the view nor about 17 km of its centre: a country outside the catalogue,
+or the open sea; a bay of the coast stays its region's) says the area is
+online only, over the map and in the list, with no way to a download
+(`viewOnlineOnly`). The regions downloaded update on an unmetered network (Android's
 `isActiveNetworkMetered`, iOS's `isExpensive` or `isConstrained`) unless
 the user allows mobile data (`region_updates_mobile`) or asks for the
 update; a first download, or one cut short, goes over any network. Each
