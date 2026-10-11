@@ -3231,10 +3231,16 @@ Since the graph of 2026-10-11 the engine sees the limits mapped on a node:
 the preparation carries them onto a 4 m stretch of each way through the
 node (`lunaway-ingest/src/node_limits.rs`, "The graph build"), and the
 check still counts the node, for the ways left whole and as a safety
-net. What remains for the second call: a port's lane, the limits of the
-ways a turn relation keeps whole, and a node within 3 m of a route that
-does not go through it, such as one on a cycle path under a bridge the
-route crosses (plan/research/127-routage-serveur.md). The API looks for them
+net. It counts an OpenStreetMap node only where the route's shape passes
+through it (a point of the shape within 0.5 m, the shape being made of the
+nodes of the ways the route follows): a node on a cycle path under a bridge
+the route crosses, or on an aisle beside the road, no longer sends the
+route to the engine again (since 2026-10-11, PO's decision,
+plan/research/129-paquets-routage-suites.md); a barrier drawn beside the
+road, joined to no way the route drives, no longer counts either. What
+remains for the second call: a port's lane, the limits of the ways a turn
+relation keeps whole, and the limits the graph does not carry (a plate
+that spares local access, an axle load, a trailer ban). The API looks for them
 ahead from public data only (`routing::public`): a minute after it
 starts, then whenever the active graph or the restrictions outside the
 graphs (DiaLog's, the community's) changed, read every ten minutes, it

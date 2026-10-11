@@ -3,20 +3,23 @@
 //! The database returns every restriction near the route; most of them are
 //! only near it: the road under a bridge the route crosses, a car park
 //! barrier a few metres off the street. A restriction counts when the route
-//! runs along it: a node within [`NODE_TOLERANCE_M`] of the line, or a stretch
-//! of road the route follows, in either direction, at the same heading
-//! (within [`MAX_ANGLE_DEG`]) over a real distance. A crossing does not
-//! count, square or oblique: the headings differ, and the route's position
-//! barely moves while it passes the other road.
+//! runs along it: an OpenStreetMap node the route's shape passes through
+//! (within [`ON_GRAPH_M`] of one of its points), a node of another source
+//! within [`NODE_TOLERANCE_M`] of the line, or a stretch of road the route
+//! follows, in either direction, at the same heading (within
+//! [`MAX_ANGLE_DEG`]) over a real distance. A crossing does not count, square
+//! or oblique: the headings differ, and the route's position barely moves
+//! while it passes the other road.
 
 use std::collections::HashMap;
 
 use super::restriction::RestrictionSource;
 use crate::{Position, geo::EARTH_RADIUS_M};
 
-/// How far a restricted node may lie from the route's line: OpenStreetMap
-/// nodes the route passes through lie on it (the router's shape is made of
-/// the same nodes); a barrier a few metres inside a side entrance does not.
+/// How far a restricted node of a source other than OpenStreetMap (a
+/// community report) may lie from the route's line; a barrier a few metres
+/// inside a side entrance does not count. An OpenStreetMap node counts only
+/// when the route's shape passes through it ([`RouteLine::vertex_near`]).
 pub const NODE_TOLERANCE_M: f64 = 2.0;
 /// How far a line drawn through the router's own nodes may lie from a route
 /// that drives it, metres: the route's shape is made of the same nodes,
@@ -25,7 +28,9 @@ pub const NODE_TOLERANCE_M: f64 = 2.0;
 /// engine's route that drives them; the restricted branch leaving the same
 /// node at 7 degrees (way 871761763), which a tolerance of 3 m took for the
 /// route, is half a metre off 4 m after the fork (2026-10-07,
-/// `plan/research/65-accroche-et-desserte.md`).
+/// `plan/research/65-accroche-et-desserte.md`). The same holds for a node:
+/// the shape passes 0.00 to 0.02 m from the nodes of the ways it follows
+/// (production engine, 2026-10-11, `plan/research/127-routage-serveur.md`).
 pub const ON_GRAPH_M: f64 = 0.5;
 /// Spacing of the points a restricted line is checked at.
 const STEP_M: f64 = 4.0;
@@ -317,6 +322,37 @@ impl RouteLine {
         });
         best
     }
+
+    /// Distance from the start of the shape point nearest `p` within
+    /// `max_m`, if any: where the route passes through a node of the ways
+    /// it follows, its shape being made of those nodes. A node the line
+    /// only passes near (a barrier under a bridge the route crosses, a
+    /// portal on a parallel aisle) is no point of the shape.
+    #[must_use]
+    pub fn vertex_near(&self, p: Position, max_m: f64) -> Option<f64> {
+        let (r, c) = cell(p);
+        let mut best: Option<(usize, f64)> = None;
+        // A shape point is a sample of each segment it ends, so the lists of
+        // the nine cells around `p` hold every segment ending within a cell.
+        for dr in -1..=1 {
+            for dc in -1..=1 {
+                let Some(list) = self.grid.get(&(r + dr, c + dc)) else {
+                    continue;
+                };
+                for &seg in list {
+                    let i = seg as usize;
+                    for v in [i, i + 1] {
+                        let (x, y) = offset(p, self.points[v]);
+                        let d = x.hypot(y);
+                        if d <= max_m && best.is_none_or(|(_, bd)| d < bd) {
+                            best = Some((v, d));
+                        }
+                    }
+                }
+            }
+        }
+        best.map(|(v, _)| self.along[v])
+    }
 }
 
 /// The segments a query of [`RouteLine::nearest`] has read, by the call
@@ -439,14 +475,30 @@ pub fn match_route(route: &RouteLine, geometry: &[Position], tolerance_m: f64) -
 }
 
 /// The places where `route` drives through a restriction of `source` drawn
-/// as `geometry`: a node within its source's tolerance, a line within
+/// as `geometry`: an OpenStreetMap node the route's shape passes through
+/// ([`RouteLine::vertex_near`] within [`ON_GRAPH_M`]), another node within
+/// its source's tolerance, a line within
 /// [`RestrictionSource::line_tolerance_m`].
+///
+/// An OpenStreetMap node within a few metres of the line without being on
+/// it lies on another way: under a bridge the route crosses, on a parallel
+/// aisle. The graph carries the limits of the nodes on the ways through
+/// them, so the engine already keeps a route off such a node; counted, it
+/// sent the route to the engine again for nothing (six of 119 long trips,
+/// `plan/research/127-routage-serveur.md`). A barrier drawn beside the
+/// road, joined to no way the route drives, no longer counts.
 #[must_use]
 pub fn match_restriction(
     route: &RouteLine,
     geometry: &[Position],
     source: RestrictionSource,
 ) -> Vec<Hit> {
+    if let ([node], RestrictionSource::Osm) = (geometry, source) {
+        return route
+            .vertex_near(*node, ON_GRAPH_M)
+            .map(|s| vec![hit(route, s, s)])
+            .unwrap_or_default();
+    }
     let tolerance = if geometry.len() > 1 {
         source.line_tolerance_m()
     } else {
@@ -988,6 +1040,52 @@ mod tests {
             match_route(&route, &off, 3.0).is_empty(),
             "a barrier inside a side entrance is not on the route"
         );
+    }
+
+    #[test]
+    fn an_openstreetmap_node_counts_only_where_the_route_passes_through_it() {
+        // The route crosses a cycle path on a bridge at 260 m: its shape has
+        // a point every 50 m and none above the path.
+        let route = east_route();
+        let under = [at(limoges(), 260.0, 0.0)];
+        assert!(
+            match_restriction(&route, &under, RestrictionSource::Osm).is_empty(),
+            "a 3 m bar on the cycle path under the bridge is no node of the route"
+        );
+        // A portal on the aisle beside the road, 0.62 m off the line in plan
+        // (the Italian car park of report 127).
+        let beside = [at(limoges(), 260.0, 0.62)];
+        assert!(
+            match_restriction(&route, &beside, RestrictionSource::Osm).is_empty(),
+            "a node beside the line is on another way"
+        );
+        // A bar on the street the route drives: a node of its way, so a point
+        // of its shape, written to a millionth of a degree.
+        let on = [at(limoges(), 300.0, 0.05)];
+        let hits = match_restriction(&route, &on, RestrictionSource::Osm);
+        assert_eq!(hits.len(), 1, "the route drives through the bar: {hits:?}");
+        assert!((hits[0].start_m - 300.0).abs() < 0.5, "{hits:?}");
+        assert!(
+            (hits[0].at.distance_m(on[0])) < 0.5,
+            "the hit is told where the bar stands"
+        );
+        // A community report is drawn by hand on the map, no node of the
+        // graph: its tolerance stays.
+        assert_eq!(
+            match_restriction(&route, &under, RestrictionSource::Community).len(),
+            1,
+            "a report on the line still counts"
+        );
+    }
+
+    #[test]
+    fn the_shape_point_nearest_a_node_is_found_within_its_reach() {
+        let route = east_route();
+        assert_eq!(route.vertex_near(at(limoges(), 0.0, 0.0), 0.5), Some(0.0));
+        let last = route.vertex_near(at(limoges(), 1_000.0, 0.2), 0.5).unwrap();
+        assert!((last - 1_000.0).abs() < 0.5, "the last point: {last}");
+        assert_eq!(route.vertex_near(at(limoges(), 25.0, 0.0), 0.5), None);
+        assert_eq!(route.vertex_near(at(limoges(), 500.0, 1.0), 0.5), None);
     }
 
     #[test]

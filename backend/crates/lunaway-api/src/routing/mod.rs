@@ -2142,6 +2142,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_bar_under_a_bridge_crossed_is_not_met_and_a_bar_driven_through_blocks() {
+        use lunaway_domain::routing::{
+            Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        };
+        // A point `north` metres north of (45, 1).
+        let at = |north: f64| Position::new(45.0 + north / 111_195.0, 1.0).unwrap();
+        // The route drives 1 km north, over a bridge at 400 m (no shape
+        // point there) and through a barrier node at 700 m.
+        let line =
+            RouteLine::new(vec![at(0.0), at(350.0), at(450.0), at(700.0), at(1_000.0)]).unwrap();
+        let barrier = |north: f64, id: &str| db::NearRestriction {
+            id: uuid::Uuid::nil(),
+            restriction: Restriction {
+                kind: RestrictionKind::MaxHeight,
+                limit: Some(3.0),
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Barrier,
+                except_destination: false,
+                enclosed: false,
+            },
+            external_id: id.to_owned(),
+            name: None,
+            geometry: vec![at(north)],
+        };
+        let dims = RoutingDimensions {
+            height_m: 3.3,
+            width_m: 2.3,
+            length_m: 7.4,
+            weight_t: 3.5,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+            motorhome: true,
+        };
+        let (warnings, blocking) = match_restrictions(
+            &line,
+            vec![barrier(400.0, "node/1"), barrier(700.0, "node/2")],
+            &dims,
+        );
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let ids: Vec<&str> = blocking
+            .iter()
+            .map(|m| m.restriction.external_id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            ["node/2"],
+            "the 3 m bar under the bridge is on the road below, the one at 700 m is on the route"
+        );
+        assert!((blocking[0].hit.start_m - 700.0).abs() < 1.0);
+    }
+
     /// A height limit of 1.9 m drawn as `geometry`, blocking a 3.2 m
     /// motorhome.
     fn bar(geometry: Vec<Position>) -> Met {
