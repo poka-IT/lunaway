@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/http/connection_retry.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 
 final _log = Logger('graphql');
@@ -144,7 +145,7 @@ final class GraphQLClient {
       if (!kIsWeb) 'user-agent': userAgent,
     };
     for (var limited = 0; ;) {
-      final response = await _post(sent, body(), abort);
+      final response = await _post(sent, body(), abort, read: operation.read);
       final decoded = await _decode(response);
       if (!withDocument) {
         if (_hashUnknown(decoded)) {
@@ -206,12 +207,20 @@ final class GraphQLClient {
             .any((e) => e.code == GraphQLError.invalidInput && e.message.contains('`query`'));
   }
 
-  Future<http.Response> _post(Map<String, String> headers, String body, Future<void>? abort) async {
+  /// Sends [body]. A [read] goes as a [ReadRequest], which the app's client
+  /// sends again once when its connection closed before the answer; both
+  /// tries fit in [timeout].
+  Future<http.Response> _post(
+    Map<String, String> headers,
+    String body,
+    Future<void>? abort, {
+    required bool read,
+  }) async {
     try {
-      if (abort == null) {
+      if (abort == null && !read) {
         return await _http.post(endpoint, headers: headers, body: body).timeout(timeout);
       }
-      final request = http.AbortableRequest('POST', endpoint, abortTrigger: abort)
+      final request = _request(abort, read: read)
         ..headers.addAll(headers)
         ..body = body;
       Future<http.Response> sent() async =>
@@ -223,6 +232,10 @@ final class GraphQLClient {
       throw GraphQLNetworkException(e.message, e);
     }
   }
+
+  http.Request _request(Future<void>? abort, {required bool read}) => read
+      ? ReadRequest('POST', endpoint, abortTrigger: abort)
+      : http.AbortableRequest('POST', endpoint, abortTrigger: abort);
 
   /// The JSON object of the body, or null when the body is something else
   /// (a proxy's error page). A large body is read in another isolate: the

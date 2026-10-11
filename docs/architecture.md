@@ -634,6 +634,18 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   images of its style (the badges, the arrows) as it is built, all at
   once, while its style loads, and a camera move never holds the route
   that comes during it (`plan/research/125-calcul-itineraire.md`).
+- **The connections to our hosts**: on a device the app's HTTP client
+  keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
+  (`core/http/app_http_client_io.dart`). A mobile network or a move from
+  Wi-Fi to mobile data can drop a kept connection without the phone
+  knowing. A read whose connection closed or broke before any answer (a
+  GraphQL query, sent as a `ReadRequest`, or a GET of a tile, an image or
+  a pack) goes again once, at once, through a new set of connections,
+  within the first try's time (`ReconnectingClient`); the old set closes
+  once the requests it was sending have an answer. A mutation never goes
+  again there (its outbox and its idempotency key decide), nor does a
+  request that got an answer, whatever its status. A browser keeps its
+  own connections.
 - **The guidance's start**: "C'est parti !" answers on the next frame,
   and once the location and notification checks pass the guidance screen
   opens on the preview's own route (`GuidanceController.begin`, no new
