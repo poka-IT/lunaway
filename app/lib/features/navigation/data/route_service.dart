@@ -101,6 +101,11 @@ final class RouteFailure implements Exception {
 abstract interface class RouteService {
   Future<RoutePlan> route(RouteRequest request);
 
+  /// The alternatives of a best route sent alone, by its
+  /// [RoutePlan.alternativesToken]: the server waits for them, once per
+  /// token, within a minute of the route.
+  Future<LaterRoutes> alternatives(String token);
+
   Future<RoutingInfo> info();
 }
 
@@ -128,6 +133,27 @@ final class GraphQLRouteService implements RouteService {
       ),
     );
     return await withShapes(plan);
+  }
+
+  @override
+  Future<LaterRoutes> alternatives(String token) async {
+    final later = await _guard(() => _client.execute(routeAlternativesOperation, {'token': token}));
+    final json = later.osrmJson;
+    if (json == null) return later;
+    final shapes = await compute(readOsrmShapes, json);
+    return LaterRoutes(
+      status: later.status,
+      osrmJson: json,
+      routes: [
+        for (final r in later.routes)
+          if (r.index >= 0 && r.index < shapes.length)
+            r.withShape(
+              line: shapes[r.index].line,
+              steps: shapes[r.index].steps,
+              crossings: shapes[r.index].crossings,
+            ),
+      ],
+    );
   }
 
   @override
@@ -170,15 +196,18 @@ Future<RoutePlan> withShapes(RoutePlan plan) async {
 
 /// [RouteService] that answers a request it was just asked again from
 /// memory: the route of a stop's detour, computed to show its cost, serves
-/// once the stop is added. A few answers, for two minutes. The routing
-/// information, read before each preview, is kept a few hours once read:
-/// it changes with the weekly graph.
+/// once the stop is added. A few answers, for two minutes, and the
+/// alternatives that followed them: a token serves once on the server, and
+/// a preview opened again on a route kept here asks for them again. The
+/// routing information, read before each preview, is kept a few hours once
+/// read: it changes with the weekly graph.
 final class CachingRouteService implements RouteService {
   new(this._inner, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   final RouteService _inner;
   final DateTime Function() _clock;
   final Map<RouteRequest, ({DateTime at, RoutePlan plan})> _recent = {};
+  final Map<String, ({DateTime at, Future<LaterRoutes> later})> _later = {};
 
   ({DateTime at, RoutingInfo info})? _info;
 
@@ -201,6 +230,22 @@ final class CachingRouteService implements RouteService {
       _recent.remove(_recent.keys.first);
     }
     return plan;
+  }
+
+  /// Asked once per token; a failure is kept with it, the server would
+  /// refuse the token again.
+  @override
+  Future<LaterRoutes> alternatives(String token) {
+    final now = _clock();
+    _later.removeWhere((_, v) => now.difference(v.at) > _keep);
+    final known = _later[token];
+    if (known != null) return known.later;
+    final later = _inner.alternatives(token);
+    _later[token] = (at: now, later: later);
+    while (_later.length > _size) {
+      _later.remove(_later.keys.first);
+    }
+    return later;
   }
 
   /// A failure is not kept: the next preview asks again.

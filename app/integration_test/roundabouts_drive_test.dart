@@ -72,6 +72,9 @@ final class _Route implements RouteService {
   @override
   // A server without the query: the preview leaves the trip to the route.
   Future<RoutingInfo> info() async => throw UnimplementedError();
+
+  @override
+  Future<LaterRoutes> alternatives(String token) async => LaterRoutes.none;
 }
 
 final class _NoEvents implements RoadEventsSource {

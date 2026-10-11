@@ -317,6 +317,108 @@ async fn a_route_goes_around_a_closure_active_when_the_vehicle_gets_there(pool: 
     );
 }
 
+/// An answer of the engine with each of `geometries`, the first the best.
+fn osrm_of(geometries: &[&str]) -> Value {
+    let mut answer = osrm(geometries[0]);
+    for g in &geometries[1..] {
+        let route = osrm(g)["routes"][0].clone();
+        answer["routes"].as_array_mut().unwrap().push(route);
+    }
+    answer
+}
+
+/// A third way between the stops, east of the bridge, that meets nothing.
+fn detour() -> String {
+    polyline::encode(&[
+        Position::new(45.847_19, 1.284_76).unwrap(),
+        Position::new(45.846_8, 1.288_5).unwrap(),
+        Position::new(45.845_1, 1.286_37).unwrap(),
+    ])
+}
+
+fn shapes(osrm_json: &Value) -> Vec<String> {
+    let osrm: Value = serde_json::from_str(osrm_json.as_str().unwrap()).unwrap();
+    osrm["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["geometry"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_sent_alone_is_computed_again_around_its_closure_and_the_alternatives_keep_the_ring(
+    pool: PgPool,
+) {
+    // Trip 83 of plan/research/130-alternatives-apres.md (Indre to Drenthe):
+    // asked with its alternatives, the first answer's best route met
+    // closures and an alternative of it was sent as it stood, 912 km;
+    // asked alone, the best route was computed again around its closures
+    // only, 873 km and 22 minutes less.
+    seed_graph(&pool).await;
+    read(&pool, "dir", chrono::Duration::minutes(5)).await;
+    store(
+        &pool,
+        "dir",
+        closure(
+            "closed",
+            SourceGeometry::Lines(vec![under_stretch()]),
+            MatchQuality::Pending,
+        ),
+        Some(vec![under_stretch()]),
+    )
+    .await;
+    let detour = detour();
+    let later_query = r"
+query Route($input: RouteInput!) {
+  route(input: $input) { status recalculations osrmJson alternativesToken }
+}";
+    let mut wanting_two = input(None);
+    wanting_two["input"]["alternatives"] = 2.into();
+
+    // Today's path: the alternative of the first answer goes as it stands.
+    let (url, asked) = engine(vec![osrm_of(&[ROUTE_UNDER, &detour])]).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let once_query = r"
+query Route($input: RouteInput!) { route(input: $input) { status recalculations osrmJson } }";
+    let body = gql(&app, None, once_query, wanting_two.clone()).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["recalculations"], 0, "{body}");
+    assert_eq!(shapes(&r["osrmJson"]), [detour.as_str()]);
+    assert_eq!(asked.lock().unwrap().len(), 1);
+
+    // The best route first: computed again around the closure alone.
+    let (url, asked) = engine(vec![
+        osrm(ROUTE_UNDER),
+        osrm(ROUTE_AROUND),
+        osrm_of(&[ROUTE_AROUND, &detour]),
+    ])
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let body = gql(&app, None, later_query, wanting_two).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(r["recalculations"], 1, "the closed road is avoided");
+    assert_eq!(shapes(&r["osrmJson"]), [ROUTE_AROUND]);
+    let token = r["alternativesToken"].as_str().unwrap();
+    let alternatives_query = r"
+query Alternatives($token: String!) {
+  routeAlternatives(token: $token) { status osrmJson }
+}";
+    let body = gql(&app, None, alternatives_query, json!({"token": token})).await;
+    let a = &body["data"]["routeAlternatives"];
+    assert_eq!(a["status"], "OK", "{body}");
+    assert_eq!(shapes(&a["osrmJson"]), [detour.as_str()]);
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 3);
+    assert!(asked[0].get("alternates").is_none() && asked[1].get("alternates").is_none());
+    assert_eq!(asked[2]["alternates"], 2);
+    assert_eq!(
+        asked[2]["exclude_polygons"], asked[1]["exclude_polygons"],
+        "the alternatives go round the closure the best route went round"
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_closure_of_the_other_carriageway_or_another_time_is_not_avoided(pool: PgPool) {
     seed_graph(&pool).await;

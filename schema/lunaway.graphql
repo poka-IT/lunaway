@@ -5012,6 +5012,15 @@ type Query {
 	"""
 	route(input: RouteInput!): RouteResult!
 	"""
+	The alternatives of a route sent alone (`RouteResult.alternativesToken`),
+	waited for while the engine computes them, within the route's 15
+	seconds: once per token, from the client the route went to, for 60
+	seconds, without using the quota of routes. `NOT_FOUND` for a token
+	unknown, used, expired or another client's; a `status` other than
+	`OK` leaves the best route alone. One per request, like `route`.
+	"""
+	routeAlternatives(token: String!): RouteAlternatives!
+	"""
 	Whether routing works now, the date of its data, the bounds of a
 	route request and the typical vehicles to offer.
 	"""
@@ -6254,6 +6263,52 @@ type RoadEventWindow {
 }
 
 """
+The alternatives of a route sent before them
+(`RouteResult.alternativesToken`).
+"""
+type RouteAlternatives {
+	"""
+	How they ended.
+	"""
+	status: RouteAlternativesStatus!
+	"""
+	The alternatives alone in the OSRM format, as `RouteResult.osrmJson`
+	carries routes, checked as the best route was; the best route is not
+	among them. Null unless `status` is `OK`.
+	"""
+	osrmJson: String
+	"""
+	The alternatives, in the order of this `osrmJson.routes`: `index`
+	counts from 0 in it. Their `speedLimits` are traced when the route's
+	own document selected them, whatever this one selects.
+	"""
+	routes: [RouteSummary!]!
+}
+
+"""
+How the alternatives of a route ended (`RouteAlternatives.status`).
+"""
+enum RouteAlternativesStatus {
+	"""
+	At least one alternative the vehicle may drive.
+	"""
+	OK
+	"""
+	The engine found no other route the vehicle may drive.
+	"""
+	NONE
+	"""
+	The routing engine had no call to spare for them, or the server no
+	memory: the best route stands alone.
+	"""
+	BUSY
+	"""
+	The engine failed, or ran out of time: the best route stands alone.
+	"""
+	FAILED
+}
+
+"""
 A route request.
 """
 input RouteInput {
@@ -6499,6 +6554,17 @@ type RouteResult {
 	The disclaimer's translation key.
 	"""
 	disclaimerKey: String!
+	"""
+	Selected by a request that wants alternatives (two stops,
+	`alternatives` above 0): the best route alone comes in this answer,
+	sooner, and its alternatives are asked of the engine meanwhile, for
+	`routeAlternatives(token)`. Good for 60 seconds, once, from the
+	same client. Null when no alternative follows: none asked, `status`
+	not `OK`, the server short of room or no safe route for the best
+	route alone (the alternatives then come in this answer, as without
+	the field), or no random token drawn (the best route stands alone).
+	"""
+	alternativesToken: String
 }
 
 """

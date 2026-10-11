@@ -916,6 +916,72 @@ pub struct RouteResult {
     pub graph: RoutingGraph,
     /// The disclaimer's translation key.
     pub disclaimer_key: String,
+    /// Selected by a request that wants alternatives (two stops,
+    /// `alternatives` above 0): the best route alone comes in this answer,
+    /// sooner, and its alternatives are asked of the engine meanwhile, for
+    /// `routeAlternatives(token)`. Good for 60 seconds, once, from the
+    /// same client. Null when no alternative follows: none asked, `status`
+    /// not `OK`, the server short of room or no safe route for the best
+    /// route alone (the alternatives then come in this answer, as without
+    /// the field), or no random token drawn (the best route stands alone).
+    pub alternatives_token: Option<String>,
+}
+
+/// How the alternatives of a route ended (`RouteAlternatives.status`).
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RouteAlternativesStatus {
+    /// At least one alternative the vehicle may drive.
+    Ok,
+    /// The engine found no other route the vehicle may drive.
+    None,
+    /// The routing engine had no call to spare for them, or the server no
+    /// memory: the best route stands alone.
+    Busy,
+    /// The engine failed, or ran out of time: the best route stands alone.
+    Failed,
+}
+
+/// The alternatives of a route sent before them
+/// (`RouteResult.alternativesToken`).
+#[derive(SimpleObject, Debug, Clone)]
+pub struct RouteAlternatives {
+    /// How they ended.
+    pub status: RouteAlternativesStatus,
+    /// The alternatives alone in the OSRM format, as `RouteResult.osrmJson`
+    /// carries routes, checked as the best route was; the best route is not
+    /// among them. Null unless `status` is `OK`.
+    pub osrm_json: Option<String>,
+    /// The alternatives, in the order of this `osrmJson.routes`: `index`
+    /// counts from 0 in it. Their `speedLimits` are traced when the route's
+    /// own document selected them, whatever this one selects.
+    pub routes: Vec<RouteSummary>,
+}
+
+impl RouteAlternatives {
+    /// An answer without alternatives.
+    pub(crate) fn none(status: RouteAlternativesStatus) -> Self {
+        Self {
+            status,
+            osrm_json: None,
+            routes: Vec::new(),
+        }
+    }
+
+    /// About what it holds in memory: the OSRM text, and a kilobyte for each
+    /// route's summary besides its spans of speed limits.
+    pub(crate) fn bytes(&self) -> usize {
+        let summaries: usize = self
+            .routes
+            .iter()
+            .map(|r| {
+                1_024
+                    + r.speed_limits
+                        .as_ref()
+                        .map_or(0, |s| s.len() * std::mem::size_of::<SpeedLimitSpan>())
+            })
+            .sum();
+        self.osrm_json.as_ref().map_or(0, String::len) + summaries
+    }
 }
 
 /// Typical dimensions of a kind of vehicle, offered before the user enters

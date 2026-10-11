@@ -109,6 +109,24 @@ final class FakeRouteService implements RouteService {
     return answer as RoutePlan;
   }
 
+  /// What each token's alternatives are: [LaterRoutes], a [Completer] of
+  /// them to hold them back, or an exception to throw. None by default.
+  final Map<String, Object> later = {};
+
+  /// The tokens asked for, in order.
+  final List<String> laterAsked = [];
+
+  @override
+  Future<LaterRoutes> alternatives(String token) async {
+    laterAsked.add(token);
+    return switch (later[token]) {
+      final Completer<LaterRoutes> held => await held.future,
+      final Exception failure => throw failure,
+      final LaterRoutes routes => routes,
+      _ => LaterRoutes.none,
+    };
+  }
+
   @override
   Future<RoutingInfo> info() async {
     infoCalls++;

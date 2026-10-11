@@ -1085,6 +1085,13 @@ String _$previewOriginHash() => r'cbf5dfafe3e2b6e183778301e274025e00c69402';
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
 /// refused, rate-limited or offline request shows at once (`noRetry`).
+///
+/// The best route shows, and the guidance may start, as soon as it comes:
+/// the server sends it alone, then the alternatives it computed meanwhile
+/// ([RoutePlan.alternativesToken]), which join the preview without moving
+/// the camera or the route chosen. They took half the server's time of
+/// the trips that have them (`plan/research/130-alternatives-apres.md`).
+/// When they do not come, the best route stands alone and nothing says so.
 
 @ProviderFor(RoutePreviewController)
 final routePreviewControllerProvider = RoutePreviewControllerFamily._();
@@ -1092,11 +1099,25 @@ final routePreviewControllerProvider = RoutePreviewControllerFamily._();
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
 /// refused, rate-limited or offline request shows at once (`noRetry`).
+///
+/// The best route shows, and the guidance may start, as soon as it comes:
+/// the server sends it alone, then the alternatives it computed meanwhile
+/// ([RoutePlan.alternativesToken]), which join the preview without moving
+/// the camera or the route chosen. They took half the server's time of
+/// the trips that have them (`plan/research/130-alternatives-apres.md`).
+/// When they do not come, the best route stands alone and nothing says so.
 final class RoutePreviewControllerProvider
     extends $AsyncNotifierProvider<RoutePreviewController, RoutePreview> {
   /// The route to [target] for the user's vehicle, with alternatives,
   /// computed again when the vehicle, the settings or the start change. A
   /// refused, rate-limited or offline request shows at once (`noRetry`).
+  ///
+  /// The best route shows, and the guidance may start, as soon as it comes:
+  /// the server sends it alone, then the alternatives it computed meanwhile
+  /// ([RoutePlan.alternativesToken]), which join the preview without moving
+  /// the camera or the route chosen. They took half the server's time of
+  /// the trips that have them (`plan/research/130-alternatives-apres.md`).
+  /// When they do not come, the best route stands alone and nothing says so.
   RoutePreviewControllerProvider._({
     required RoutePreviewControllerFamily super.from,
     required RouteTarget super.argument,
@@ -1135,11 +1156,18 @@ final class RoutePreviewControllerProvider
 }
 
 String _$routePreviewControllerHash() =>
-    r'eeb8bdf60cea852f852608ab2e717bd3252a63fd';
+    r'289bb6a8dcc6dea334a10722f103224a1d53010c';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
 /// refused, rate-limited or offline request shows at once (`noRetry`).
+///
+/// The best route shows, and the guidance may start, as soon as it comes:
+/// the server sends it alone, then the alternatives it computed meanwhile
+/// ([RoutePlan.alternativesToken]), which join the preview without moving
+/// the camera or the route chosen. They took half the server's time of
+/// the trips that have them (`plan/research/130-alternatives-apres.md`).
+/// When they do not come, the best route stands alone and nothing says so.
 
 final class RoutePreviewControllerFamily extends $Family
     with
@@ -1162,6 +1190,13 @@ final class RoutePreviewControllerFamily extends $Family
   /// The route to [target] for the user's vehicle, with alternatives,
   /// computed again when the vehicle, the settings or the start change. A
   /// refused, rate-limited or offline request shows at once (`noRetry`).
+  ///
+  /// The best route shows, and the guidance may start, as soon as it comes:
+  /// the server sends it alone, then the alternatives it computed meanwhile
+  /// ([RoutePlan.alternativesToken]), which join the preview without moving
+  /// the camera or the route chosen. They took half the server's time of
+  /// the trips that have them (`plan/research/130-alternatives-apres.md`).
+  /// When they do not come, the best route stands alone and nothing says so.
 
   RoutePreviewControllerProvider call(RouteTarget target) =>
       RoutePreviewControllerProvider._(argument: target, from: this);
@@ -1173,6 +1208,13 @@ final class RoutePreviewControllerFamily extends $Family
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
 /// refused, rate-limited or offline request shows at once (`noRetry`).
+///
+/// The best route shows, and the guidance may start, as soon as it comes:
+/// the server sends it alone, then the alternatives it computed meanwhile
+/// ([RoutePlan.alternativesToken]), which join the preview without moving
+/// the camera or the route chosen. They took half the server's time of
+/// the trips that have them (`plan/research/130-alternatives-apres.md`).
+/// When they do not come, the best route stands alone and nothing says so.
 
 abstract class _$RoutePreviewController extends $AsyncNotifier<RoutePreview> {
   late final _$args = ref.$arg as RouteTarget;

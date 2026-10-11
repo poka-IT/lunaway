@@ -514,6 +514,24 @@ final class RouteOption {
     return duration >= slowAtLeastS ? (distanceM: distance, durationS: duration) : null;
   }
 
+  /// The same route under another [index]: an alternative that came after
+  /// the best route takes the place after those already listed.
+  RouteOption renumbered(int index) => RouteOption(
+    index: index,
+    distanceM: distanceM,
+    durationS: durationS,
+    hasToll: hasToll,
+    hasFerry: hasFerry,
+    hasMotorway: hasMotorway,
+    warnings: warnings,
+    line: line,
+    steps: steps,
+    speedLimits: speedLimits,
+    roadEvents: roadEvents,
+    ferries: ferries,
+    crossings: crossings,
+  );
+
   RouteOption withShape({
     required List<LatLng> line,
     required List<RouteStep> steps,
@@ -643,6 +661,8 @@ final class RoutePlan {
     this.roadEventSources = const [],
     this.noRouteReasons = const [],
     this.movedStops = const [],
+    this.alternativesToken,
+    this.later,
   });
 
   final RouteStatus status;
@@ -682,6 +702,54 @@ final class RoutePlan {
   /// move them.
   final List<MovedStop> movedStops;
 
+  /// With the best route alone: what asks the server for its alternatives,
+  /// once, within a minute (`routeAlternatives`); null when none follow.
+  final String? alternativesToken;
+
+  /// The alternatives that came after the best route: their own OSRM
+  /// answer, and the index in [routes] of the first of them. Null when
+  /// every route came at once.
+  final ({String osrmJson, int from})? later;
+
+  /// The OSRM answer that holds the route at [index], and its index in it:
+  /// what the guidance engine reads ([osrmJson] for the routes that came
+  /// at once, the answer of the alternatives for those that came after).
+  ({String json, int index})? osrmOf(int index) {
+    if (later case final l? when index >= l.from) return (json: l.osrmJson, index: index - l.from);
+    final json = osrmJson;
+    return json == null ? null : (json: json, index: index);
+  }
+
+  /// Whether [route] came after the best route: the camera framed the
+  /// routes without it, and does not move for it.
+  bool cameLater(RouteOption route) => switch (later) {
+    final l? => route.index >= l.from,
+    null => false,
+  };
+
+  /// This plan with [alternatives] after its routes, numbered on from them;
+  /// the same plan when they hold none, or when it has no route to follow.
+  RoutePlan withAlternatives(LaterRoutes alternatives) {
+    final json = alternatives.osrmJson;
+    if (status != RouteStatus.ok || json == null || alternatives.routes.isEmpty) return this;
+    final from = routes.length;
+    return RoutePlan(
+      status: status,
+      routes: [...routes, for (final r in alternatives.routes) r.renumbered(from + r.index)],
+      blockers: blockers,
+      recalculations: recalculations,
+      applied: applied,
+      graph: graph,
+      osrmJson: osrmJson,
+      avoidedRoadEvents: avoidedRoadEvents,
+      roadEventBlockers: roadEventBlockers,
+      roadEventSources: roadEventSources,
+      noRouteReasons: noRouteReasons,
+      movedStops: movedStops,
+      later: (osrmJson: json, from: from),
+    );
+  }
+
   /// Where the stop at [stopIndex] was moved, if it was.
   LatLng? movedTo(int stopIndex) =>
       movedStops.where((m) => m.stopIndex == stopIndex).firstOrNull?.position;
@@ -703,5 +771,40 @@ final class RoutePlan {
     roadEventSources: roadEventSources,
     noRouteReasons: noRouteReasons,
     movedStops: movedStops,
+    alternativesToken: alternativesToken,
+    later: later,
   );
+}
+
+/// How the alternatives asked after a best route ended
+/// (`RouteAlternativesStatus` of the API).
+enum LaterStatus {
+  /// At least one alternative the vehicle may drive.
+  ok,
+
+  /// No other route the vehicle may drive.
+  none,
+
+  /// The server had nothing to spare for them.
+  busy,
+
+  /// The server failed, or ran out of time.
+  failed,
+}
+
+/// The alternatives of a best route sent alone (`RouteAlternatives`).
+@immutable
+final class LaterRoutes {
+  const new({required this.status, this.osrmJson, this.routes = const []});
+
+  /// None: the best route stands alone.
+  static const none = LaterRoutes(status: LaterStatus.none);
+
+  final LaterStatus status;
+
+  /// Their own OSRM answer; null unless [status] is [LaterStatus.ok].
+  final String? osrmJson;
+
+  /// The alternatives, numbered in [osrmJson] from 0, shapes included.
+  final List<RouteOption> routes;
 }

@@ -30,7 +30,7 @@ use crate::{
     quota::QuotaLimiter,
     rate::RateLimiter,
     road_event_types::{GqlRoadEventClass, RoadEventDelta, RoadEventSourceStatus},
-    routing_types::{RouteInput, RouteResult, RoutingInfo},
+    routing_types::{RouteAlternatives, RouteInput, RouteResult, RoutingInfo},
     types::{
         AppConfig, BBoxInput, ChangeSet, GqlPlaceKind, LatLonInput, Place, PlaceConnection,
         PlaceFilterInput, Source,
@@ -950,6 +950,21 @@ impl QueryRoot {
     #[graphql(complexity = "ROUTE_FIELD_COST + child_complexity")]
     async fn route(&self, ctx: &Context<'_>, input: RouteInput) -> Result<RouteResult> {
         crate::routing_query::route(ctx, input).await
+    }
+
+    /// The alternatives of a route sent alone (`RouteResult.alternativesToken`),
+    /// waited for while the engine computes them, within the route's 15
+    /// seconds: once per token, from the client the route went to, for 60
+    /// seconds, without using the quota of routes. `NOT_FOUND` for a token
+    /// unknown, used, expired or another client's; a `status` other than
+    /// `OK` leaves the best route alone. One per request, like `route`.
+    #[graphql(complexity = "ROUTE_FIELD_COST + child_complexity")]
+    async fn route_alternatives(
+        &self,
+        ctx: &Context<'_>,
+        token: String,
+    ) -> Result<RouteAlternatives> {
+        crate::routing_query::route_alternatives(ctx, &token).await
     }
 
     /// Whether routing works now, the date of its data, the bounds of a

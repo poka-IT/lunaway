@@ -87,6 +87,9 @@ final class _Once implements RouteService {
 
   @override
   Future<RoutingInfo> info() async => throw UnimplementedError();
+
+  @override
+  Future<LaterRoutes> alternatives(String token) async => LaterRoutes.none;
 }
 
 /// The fixes of the drive at a pace the test sets.
