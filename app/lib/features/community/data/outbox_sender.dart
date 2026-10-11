@@ -208,6 +208,15 @@ final class OutboxSender {
         account ??= await accountId();
         if (account != null) await outbox.claimFor(account);
       } on Object catch (error, stack) {
+        // This very request learnt that its account went into another from
+        // elsewhere (nothing was sent): the entry waits for that account, as
+        // the others of its account do from now on.
+        if (error is AccountLostException &&
+            error.mergedInto != null &&
+            (await waiting()).contains(e.accountId)) {
+          await outbox.retryAt(e.id, at, uncertain: false, detail: '$error');
+          continue;
+        }
         final outcome = _classify(e, error, unsure: unsure);
         if (outcome.isDone) {
           await _accepted(e, null);

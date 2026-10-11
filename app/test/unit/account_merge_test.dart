@@ -185,7 +185,7 @@ void main() {
 
     // The app ends there; the next launch sends before any sign-in.
     store.refused.clear();
-    final (restarted, _) = over(store);
+    final (restarted, again) = over(store);
     final sender = OutboxSender(
       outbox: outbox,
       api: GraphQLCommunityApi(
@@ -203,11 +203,60 @@ void main() {
       },
       clock: () => testNow,
     );
+    // The account merged, read again at launch, claims nothing.
+    expect(await again.claimMerged((await restarted.restore())!.account), isFalse);
+    expect(await restarted.mergedFrom(), isNotNull);
     await sender.sendDue();
     expect(
       (await outbox.byId(waiting.id))!.state,
       isNot(OutboxState.failed),
       reason: 'it belongs to the account kept, which comes at the next sign-in',
+    );
+
+    // The launch goes on: a read signs in with the key of the account kept,
+    // saved by the merge, and the device holds that account.
+    await restarted.refresh();
+    final kept = (await restarted.restore())!.account;
+    expect(kept.id, FakeApi.otherId);
+    expect(await again.claimMerged(kept), isTrue);
+    final confirms = api.operations.where((o) => o == 'Confirm').length;
+    await sender.sendDue();
+    expect(await outbox.byId(waiting.id), isNull, reason: 'sent under the account kept');
+    expect(api.operations.where((o) => o == 'Confirm').length, confirms + 1);
+  });
+
+  test('the entry that learns its account went into another waits as the others do', () async {
+    final oldId = await currentId();
+    final first = await outbox.add(
+      ContributionKind.confirm,
+      placeId: lakeArea.id,
+      payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      accountId: oldId,
+    );
+    api.mergeElsewhere('Hérisson du Morvan', id: FakeApi.otherId);
+    final sender = OutboxSender(
+      outbox: outbox,
+      api: GraphQLCommunityApi(
+        account: service,
+        uploader: PhotoUploader(
+          client: MockClient((_) async => http.Response('', 404)),
+          endpoint: Uri.parse('$testApiBase/upload'),
+          userAgent: 'test',
+        ),
+      ),
+      accountId: () async => (await service.restore())?.account.id,
+      waiting: () async {
+        final merged = await service.mergedFrom();
+        return {?merged?.from, ?merged?.intoId};
+      },
+      clock: () => testNow,
+    );
+    final report = await sender.sendDue();
+    expect(report.failed, 0);
+    expect(
+      (await outbox.byId(first!.id))!.state,
+      OutboxState.pending,
+      reason: 'it waits for the account it went into, which takes it when it comes',
     );
   });
 

@@ -109,9 +109,13 @@ final class AccountSwitch {
     try {
       // Noted first: should the app end before the device holds the account
       // kept, what moved to it waits for it at the next launch, and the
-      // account kept claims it when it comes ([claimMerged]).
-      await service.noteMerged(from: currentId, into: kept);
-      await outbox.reassign(from: currentId, to: kept.id);
+      // account kept claims it when it comes ([claimMerged]). Nothing to
+      // move when the device came to hold it meanwhile (a sign-in with its
+      // key, saved by an earlier try).
+      if (currentId != kept.id) {
+        await service.noteMerged(from: currentId, into: kept);
+        await outbox.reassign(from: currentId, to: kept.id);
+      }
       await service.adopt(landed.target, kept);
     } on Object catch (e) {
       throw MergeUnsettledException(e, onDevice: true);
@@ -220,9 +224,11 @@ final class AccountSwitch {
   /// contributions were handed over.
   Future<bool> claimMerged(Account account) async {
     final merged = await service.mergedFrom();
+    if (merged == null) return false;
     // The account merged itself, read again at launch before the device
-    // learns where it went: what waits keeps waiting.
-    if (merged == null || merged.from == account.id) return false;
+    // learns where it went: what waits keeps waiting. A note naming one
+    // account twice says nothing.
+    if (merged.from == account.id && merged.intoId != account.id) return false;
     final claimed = merged.intoId == account.id;
     if (claimed) await outbox.reassign(from: merged.from, to: account.id);
     await service.forgetMergedFrom();
