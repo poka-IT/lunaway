@@ -248,8 +248,12 @@ final class OutboxSender {
 
   Future<DateTime?> _next() async {
     DateTime? next;
+    // What waits for the account the device's went into is due when that
+    // account comes, which sends a pass of its own.
+    final away = await mergedAway();
     for (final e in await outbox.all()) {
       if (e.state == OutboxState.failed) continue;
+      if (away != null && e.accountId == away) continue;
       final at = e.nextAttemptAt ?? clock();
       if (next == null || at.isBefore(next)) next = at;
     }

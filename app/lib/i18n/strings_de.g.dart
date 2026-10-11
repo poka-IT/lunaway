@@ -725,6 +725,7 @@ class _Translations$home$de extends Translations$home$en {
 	// Translations
 	@override String get title => 'Zuhause';
 	@override String get setTitle => 'Mein Zuhause festlegen';
+	@override String get error => 'Ihr Zuhause konnte nicht geladen werden.';
 	@override String get privacy => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.';
 	@override String get directionsHome => 'Route nach Hause';
 	@override String get actions => 'Aktionen für Ihr Zuhause';
@@ -1143,6 +1144,7 @@ class _Translations$accountImport$de extends Translations$accountImport$en {
 	@override String get failed => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.';
 	@override String get refused => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.';
 	@override String get replaceFailed => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String get unsettled => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.';
 	@override String get tooMany => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.';
 	@override String merged({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.';
 	@override String replaced({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.';
@@ -4370,6 +4372,7 @@ extension on TranslationsDe {
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
 			'home.title' => 'Zuhause',
 			'home.setTitle' => 'Mein Zuhause festlegen',
+			'home.error' => 'Ihr Zuhause konnte nicht geladen werden.',
 			'home.privacy' => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.',
 			'home.directionsHome' => 'Route nach Hause',
 			'home.actions' => 'Aktionen für Ihr Zuhause',
@@ -4525,9 +4528,9 @@ extension on TranslationsDe {
 			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
@@ -4687,6 +4690,7 @@ extension on TranslationsDe {
 			'accountImport.failed' => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.',
 			'accountImport.refused' => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.',
 			'accountImport.replaceFailed' => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.unsettled' => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.',
 			'accountImport.tooMany' => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.',
 			'accountImport.merged' => ({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.',
 			'accountImport.replaced' => ({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.',
@@ -5038,10 +5042,10 @@ extension on TranslationsDe {
 			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
 			'poi.kind.optician' => 'Optiker',
 			'poi.kind.hearingAids' => 'Hörakustik',
-			'poi.kind.medicalSupply' => 'Sanitätshaus',
-			'poi.kind.hairdresser' => 'Friseur',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.medicalSupply' => 'Sanitätshaus',
+			'poi.kind.hairdresser' => 'Friseur',
 			'poi.kind.beauty' => 'Kosmetikstudio',
 			'poi.kind.massage' => 'Massage',
 			'poi.kind.tattoo' => 'Tattoostudio',

@@ -124,8 +124,12 @@ class AccountController extends _$AccountController {
 
   Future<void> _restore(AccountService service) async {
     final StoredAccount? stored;
+    final String? mergedInto;
     try {
       stored = await service.restore();
+      // An account merged into another, since: the profile keeps saying
+      // where it went until an account comes here.
+      mergedInto = stored == null ? (await service.mergedFrom())?.into : null;
     } on Object catch (e) {
       // The device's storage failed (IndexedDB refused on the web): the
       // profile shows no account rather than a loading state for ever.
@@ -135,10 +139,7 @@ class AccountController extends _$AccountController {
     }
     if (!ref.mounted) return;
     if (stored == null) {
-      // An account merged into another, since: the profile keeps saying
-      // where it went until that account comes here.
-      final merged = await service.mergedFrom();
-      if (ref.mounted && state is AccountLoading) state = NoAccount(mergedInto: merged?.into);
+      if (state is AccountLoading) state = NoAccount(mergedInto: mergedInto);
       return;
     }
     state = SignedIn(account: stored.account, recoveryCardAt: stored.recoveryCardAt);
@@ -189,6 +190,9 @@ class AccountController extends _$AccountController {
               recoveryCardAt: card?.createdAt,
               recoveryCardChecked: card != null,
             );
+    } on AccountChangedException {
+      // Read under the account the device left meanwhile: the one it holds
+      // now is read by its own refresh.
     } on NoAccountException {
       if (ref.mounted) state = const NoAccount();
     } on Object catch (e) {
@@ -219,12 +223,11 @@ class AccountController extends _$AccountController {
   }
 
   Future<Account> recover(String code, {required bool revokeOthers}) async {
+    // The account the device's went into, from elsewhere: what waited for
+    // it leaves under it once it is here (`OutboxRunner`).
     final account = await ref
         .read(accountServiceProvider)
         .recover(code, revokeOthers: revokeOthers);
-    // The account the device's went into, from elsewhere: what waited for
-    // it leaves under it.
-    await ref.read(accountSwitchProvider).claimMerged(account);
     if (ref.mounted) {
       state = SignedIn(account: account, recoveryCardAt: ref.read(clockProvider)());
       unawaited(refresh());
@@ -238,9 +241,9 @@ class AccountController extends _$AccountController {
       ref.read(accountSwitchProvider).import(code);
 
   /// Merges the device's account into [imported], which the device keeps.
-  /// The caller holds the favourites' sync meanwhile
-  /// (`FavoritesSyncController.holding`): none runs under the account
-  /// merged.
+  /// The caller holds the favourites' sync and the outbox meanwhile
+  /// (`FavoritesSyncController.holding`, `OutboxRunner.holding`): neither
+  /// runs under the account merged.
   Future<MergeResult> merge(ImportedAccount imported) async {
     final current = state;
     if (current is! SignedIn) throw const NoAccountException();
@@ -265,8 +268,9 @@ class AccountController extends _$AccountController {
   }
 
   /// Takes [imported] in place of the device's account, without merging.
-  /// The caller holds the favourites' sync meanwhile: none runs under the
-  /// account left while its lists leave the device.
+  /// The caller holds the favourites' sync and the outbox meanwhile:
+  /// neither runs under the account left while its lists and its waiting
+  /// contributions leave the device.
   Future<void> replace(ImportedAccount imported) async {
     await ref.read(accountSwitchProvider).replace(imported);
     _imported(imported.account);

@@ -1080,6 +1080,7 @@
   "home": {
     "title": "Domicile",
     "setTitle": "Définir mon domicile",
+    "error": "Votre domicile n'a pas pu s'afficher.",
     "privacy": "Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d'autre ne le voit.",
     "directionsHome": "Itinéraire vers le domicile",
     "actions": "Actions du domicile",
@@ -1453,6 +1454,7 @@
     "failed": "La fusion n'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.",
     "refused": "Le serveur refuse cette fusion. Les deux comptes restent tels quels.",
     "replaceFailed": "Le remplacement n'a pas pu se terminer. Rien n'a changé sur cet appareil. Réessayez quand le réseau répond.",
+    "unsettled": "La fusion a peut-être eu lieu : le serveur n'a pas encore répondu. Rien n'est perdu. Réessayez quand le réseau répond.",
     "tooMany": "Trop de fusions pour l'instant. Réessayez plus tard.",
     "merged": "Comptes fusionnés : vous utilisez « $name ».",
     "replaced": "Cet appareil utilise maintenant « $name ».",

@@ -725,6 +725,7 @@ class _Translations$home$it extends Translations$home$en {
 	// Translations
 	@override String get title => 'Casa';
 	@override String get setTitle => 'Imposta la mia casa';
+	@override String get error => 'Non è stato possibile caricare la tua casa.';
 	@override String get privacy => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.';
 	@override String get directionsHome => 'Percorso verso casa';
 	@override String get actions => 'Azioni della casa';
@@ -1143,6 +1144,7 @@ class _Translations$accountImport$it extends Translations$accountImport$en {
 	@override String get failed => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.';
 	@override String get refused => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.';
 	@override String get replaceFailed => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.';
+	@override String get unsettled => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.';
 	@override String get tooMany => 'Troppe unioni per ora. Riprova più tardi.';
 	@override String merged({required Object name}) => 'Account uniti: stai usando «${name}».';
 	@override String replaced({required Object name}) => 'Questo dispositivo ora usa «${name}».';
@@ -4370,6 +4372,7 @@ extension on TranslationsIt {
 			'list.offlineNotHere' => 'Niente di quest\'area su questo dispositivo.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Imposta la mia casa',
+			'home.error' => 'Non è stato possibile caricare la tua casa.',
 			'home.privacy' => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.',
 			'home.directionsHome' => 'Percorso verso casa',
 			'home.actions' => 'Azioni della casa',
@@ -4525,9 +4528,9 @@ extension on TranslationsIt {
 			'profile.attributionTranslation' => 'Traduzioni automatiche: modelli OPUS-MT dell\'Università di Helsinki, con licenza CC BY 4.0, eseguiti sui server di Lunaway.',
 			'profile.attributionRoadEvents' => 'Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), con Licence Ouverte 2.0; Bordeaux Métropole e dipartimento delle Côtes-d\'Armor, con Licence Ouverte; Ville de Paris, Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}',
 			'profile.attributionOverture' => 'Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4687,6 +4690,7 @@ extension on TranslationsIt {
 			'accountImport.failed' => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.',
 			'accountImport.refused' => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.',
 			'accountImport.replaceFailed' => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.',
+			'accountImport.unsettled' => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.',
 			'accountImport.tooMany' => 'Troppe unioni per ora. Riprova più tardi.',
 			'accountImport.merged' => ({required Object name}) => 'Account uniti: stai usando «${name}».',
 			'accountImport.replaced' => ({required Object name}) => 'Questo dispositivo ora usa «${name}».',
@@ -5038,10 +5042,10 @@ extension on TranslationsIt {
 			'poi.kind.alternativeMedicine' => 'Osteopata, medicina alternativa',
 			'poi.kind.optician' => 'Ottico',
 			'poi.kind.hearingAids' => 'Apparecchi acustici',
-			'poi.kind.medicalSupply' => 'Sanitaria',
-			'poi.kind.hairdresser' => 'Parrucchiere',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.medicalSupply' => 'Sanitaria',
+			'poi.kind.hairdresser' => 'Parrucchiere',
 			'poi.kind.beauty' => 'Centro estetico',
 			'poi.kind.massage' => 'Massaggi',
 			'poi.kind.tattoo' => 'Studio tatuaggi',

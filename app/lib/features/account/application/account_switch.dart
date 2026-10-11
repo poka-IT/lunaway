@@ -121,14 +121,16 @@ final class AccountSwitch {
 
   /// [account] came to this device: when it is the account the device's
   /// went into from elsewhere, the contributions that waited for it leave
-  /// under it.
-  Future<void> claimMerged(Account account) async {
+  /// under it; when it is another, made or opened here instead, they never
+  /// leave, as any other account's (the outbox fails them). Whether
+  /// contributions were handed over.
+  Future<bool> claimMerged(Account account) async {
     final merged = await service.mergedFrom();
-    if (merged == null) return;
-    if (merged.into == account.pseudonym) {
-      await outbox.reassign(from: merged.from, to: account.id);
-    }
+    if (merged == null) return false;
+    final claimed = merged.intoId == account.id;
+    if (claimed) await outbox.reassign(from: merged.from, to: account.id);
     await service.forgetMergedFrom();
+    return claimed;
   }
 }
 

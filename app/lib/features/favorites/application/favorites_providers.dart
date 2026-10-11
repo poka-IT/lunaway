@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
@@ -9,6 +10,8 @@ import 'package:lunaway/features/favorites/data/favorites_sync.dart';
 import 'package:lunaway/features/favorites/data/home_repository.dart';
 import 'package:lunaway/features/favorites/data/home_sync.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -38,11 +41,19 @@ Stream<SavedPoint?> userHome(Ref ref) => ref.watch(homeRepositoryProvider).watch
 
 /// The user asked, in the favourites, to place their home on the map: the
 /// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
 // keepAlive: the choice made on the favourites tab waits for the map's.
 @Riverpod(keepAlive: true)
 class HomePicking extends _$HomePicking {
   @override
-  bool build() => false;
+  bool build() {
+    ref.listen(mapFlowProvider.select((flow) => flow.selection), (previous, next) {
+      if (previous is PointSelection && next is! PointSelection) state = false;
+    });
+    return false;
+  }
 
   void start() => state = true;
 
@@ -239,7 +250,10 @@ class FavoritesSyncController extends _$FavoritesSyncController {
     _holds++;
     _timer?.cancel();
     try {
-      await _running;
+      // Until none runs: a sync asked during one starts as it ends.
+      for (var running = _running; running != null; running = _running) {
+        await running;
+      }
       return await action();
     } finally {
       _holds--;
@@ -248,6 +262,8 @@ class FavoritesSyncController extends _$FavoritesSyncController {
   }
 
   Future<void> _syncIfSignedIn() async {
+    // Held: the hold's end syncs.
+    if (_holds > 0) return;
     if (ref.read(accountControllerProvider) is SignedIn) await _run();
   }
 

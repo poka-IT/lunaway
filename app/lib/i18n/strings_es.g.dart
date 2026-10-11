@@ -725,6 +725,7 @@ class _Translations$home$es extends Translations$home$en {
 	// Translations
 	@override String get title => 'Casa';
 	@override String get setTitle => 'Definir mi casa';
+	@override String get error => 'No se ha podido cargar tu casa.';
 	@override String get privacy => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.';
 	@override String get directionsHome => 'Ruta a casa';
 	@override String get actions => 'Acciones de tu casa';
@@ -1143,6 +1144,7 @@ class _Translations$accountImport$es extends Translations$accountImport$en {
 	@override String get failed => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
 	@override String get refused => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.';
 	@override String get replaceFailed => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
+	@override String get unsettled => 'Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.';
 	@override String get tooMany => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.';
 	@override String merged({required Object name}) => 'Cuentas fusionadas: usas «${name}».';
 	@override String replaced({required Object name}) => 'Este dispositivo usa ahora «${name}».';
@@ -4370,6 +4372,7 @@ extension on TranslationsEs {
 			'list.offlineNotHere' => 'Nada de esta zona en este dispositivo.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Definir mi casa',
+			'home.error' => 'No se ha podido cargar tu casa.',
 			'home.privacy' => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.',
 			'home.directionsHome' => 'Ruta a casa',
 			'home.actions' => 'Acciones de tu casa',
@@ -4525,9 +4528,9 @@ extension on TranslationsEs {
 			'profile.attributionTranslation' => 'Traducciones automáticas: modelos OPUS-MT de la Universidad de Helsinki, bajo licencia CC BY 4.0, ejecutados en los servidores de Lunaway.',
 			'profile.attributionRoadEvents' => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), bajo Licence Ouverte 2.0; Bordeaux Métropole y el departamento de Côtes-d\'Armor, bajo Licence Ouverte; Ville de Paris, Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionDangerZones' => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}',
 			'profile.attributionOverture' => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation (overturemaps.org): datos de Meta, PinMeTo y DAC con licencia CDLA Permissive 2.0, y de AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4687,6 +4690,7 @@ extension on TranslationsEs {
 			'accountImport.failed' => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
 			'accountImport.refused' => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.',
 			'accountImport.replaceFailed' => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
+			'accountImport.unsettled' => 'Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.',
 			'accountImport.tooMany' => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.',
 			'accountImport.merged' => ({required Object name}) => 'Cuentas fusionadas: usas «${name}».',
 			'accountImport.replaced' => ({required Object name}) => 'Este dispositivo usa ahora «${name}».',
@@ -5038,10 +5042,10 @@ extension on TranslationsEs {
 			'poi.kind.alternativeMedicine' => 'Osteópata, terapias naturales',
 			'poi.kind.optician' => 'Óptica',
 			'poi.kind.hearingAids' => 'Audífonos',
-			'poi.kind.medicalSupply' => 'Ortopedia',
-			'poi.kind.hairdresser' => 'Peluquería',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.medicalSupply' => 'Ortopedia',
+			'poi.kind.hairdresser' => 'Peluquería',
 			'poi.kind.beauty' => 'Centro de estética',
 			'poi.kind.massage' => 'Masajes',
 			'poi.kind.tattoo' => 'Estudio de tatuajes',

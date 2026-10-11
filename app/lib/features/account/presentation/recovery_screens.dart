@@ -440,6 +440,11 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   /// The server's answer about the code typed, until it changes.
   String? _refused;
 
+  /// An account opens beside the device's: asked to, and the device holds
+  /// one. Without one (an address typed on the web), the code brings its
+  /// account as a recovery does.
+  bool _importing(AccountState account) => widget.importing && account is! NoAccount;
+
   @override
   void dispose() {
     _code.dispose();
@@ -480,7 +485,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
     try {
-      if (widget.importing) {
+      if (_importing(ref.read(accountControllerProvider))) {
         await _import(code);
         return;
       }
@@ -544,6 +549,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final scheme = theme.colorScheme;
     final account = ref.watch(accountControllerProvider);
     final current = account is SignedIn ? account.account.pseudonym : '';
+    final importing = _importing(account);
     final symbols = RecoveryCode.symbolsOf(_code.text);
     final valid = RecoveryCode.parse(_code.text) != null;
     final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
@@ -561,8 +567,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       child: SubPage(
         // A form: every field built, so the button checks them all.
         builtWhole: true,
-        title: widget.importing ? t.accountImport.title : t.recover.title,
-        subtitle: widget.importing ? t.accountImport.intro(current: current) : t.recover.intro,
+        title: importing ? t.accountImport.title : t.recover.title,
+        subtitle: importing ? t.accountImport.intro(current: current) : t.recover.intro,
         children: [
           LunaTextField(
             controller: _code,
@@ -609,7 +615,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
           ),
           // The other devices of an account opened beside this one's are
           // its own business: the import leaves them as they are.
-          if (!widget.importing) ...[
+          if (!importing) ...[
             const SizedBox(height: Space.l),
             CheckboxListTile(
               value: _revoke,
@@ -621,7 +627,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
           ],
           const SizedBox(height: Space.l),
           SubmitButton(
-            label: widget.importing ? t.accountImport.submit : t.recover.submit,
+            label: importing ? t.accountImport.submit : t.recover.submit,
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
         ],

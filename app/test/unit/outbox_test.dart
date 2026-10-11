@@ -489,6 +489,38 @@ void main() {
     expect((await outbox.all()).single.errorCode, OutboxError.otherAccount);
   });
 
+  test(
+    'an entry of an account merged elsewhere waits, unsent and not due, for its account',
+    () async {
+      // The account went into another from another device: its entries
+      // belong to that one, and leave once it comes here.
+      await outbox.add(
+        ContributionKind.confirm,
+        placeId: 'p1',
+        payload: {'placeId': 'p1', 'status': 'STILL_OK'},
+        accountId: 'acc-1',
+      );
+      account = null;
+      final waiting = OutboxSender(
+        outbox: outbox,
+        api: server,
+        accountId: () async => account,
+        mergedAway: () async => 'acc-1',
+        clock: () => now,
+      );
+      final report = await waiting.sendDue();
+      expect(report.failed, 0);
+      expect(server.calls, isEmpty);
+      final entry = (await outbox.all()).single;
+      expect(entry.state, OutboxState.pending, reason: 'not failed: its account may still come');
+      expect(
+        report.nextAttemptAt,
+        isNull,
+        reason: 'no pass is due for it: the account coming sends one, a timer would spin',
+      );
+    },
+  );
+
   test('a replayed new place never takes the submission of another new place', () async {
     final first = await outbox.add(
       ContributionKind.addPlace,

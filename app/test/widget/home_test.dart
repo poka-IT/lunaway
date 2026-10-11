@@ -131,6 +131,34 @@ void main() {
     });
   }
 
+  testWidgets("the route home's link, opened again, routes to the home kept here", (tester) async {
+    final app = await _app(tester);
+    await _setHome(app, tester);
+    // As a reload or a link typed: nothing beside the link but the device.
+    unawaited(app.container(tester).read(routerProvider).push('/route?to=home'));
+    await settleShort(tester);
+    expect(find.byType(RoutePreviewScreen), findsOneWidget);
+    expect(find.text('Vers Domicile'), findsOneWidget);
+  });
+
+  testWidgets('choosing the home on the map ends with the card of the point closed', (
+    tester,
+  ) async {
+    final app = await _app(tester);
+    final container = app.container(tester);
+    container.read(homePickingProvider.notifier).start();
+    container.read(mapFlowProvider.notifier).select(const PointSelection(LatLng(45.77, 4.84)));
+    await settleShort(tester);
+    expect(find.text(t.home.here), findsOneWidget);
+    container.read(mapFlowProvider.notifier).select(null);
+    await settleShort(tester);
+    expect(
+      container.read(homePickingProvider),
+      isFalse,
+      reason: 'a point held days later is not offered as the home',
+    );
+  });
+
   testWidgets('at twice the text size, a phone shows the home and the lists without overflow', (
     tester,
   ) async {

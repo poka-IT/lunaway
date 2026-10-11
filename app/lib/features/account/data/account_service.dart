@@ -23,6 +23,29 @@ final class NoAccountException implements Exception {
   String toString() => 'NoAccountException';
 }
 
+/// The device changed accounts while a request was under way (another
+/// account adopted, the account left or forgotten): the request is not
+/// sent again under the account the device holds now, and its answer is
+/// not kept.
+final class AccountChangedException extends NoAccountException {
+  const new();
+
+  @override
+  String toString() => 'AccountChangedException';
+}
+
+/// The merge was sent and its answer did not come (the network dropped, a
+/// timeout, a server error): the server may have made it. Asked again, it
+/// answers the same either way ([AccountService.mergeLanded]).
+final class MergeUnsettledException implements Exception {
+  const new(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => 'MergeUnsettledException(${cause.runtimeType})';
+}
+
 /// The key of this device no longer opens the account it held (the device
 /// was removed from another one, the account was deleted on lunaway.net,
 /// or merged into another account from another device): the device forgot
@@ -178,23 +201,26 @@ final class AccountService {
   static const _recoverySlot = 'recovery_card';
 
   /// The account this device held before it learnt that account went into
-  /// another (`from`, its id, and `into`, the pseudonym it went into): its
-  /// waiting contributions wait for that account to come here.
+  /// another (`from`, its id; `into` and `intoId`, the pseudonym and the id
+  /// of the account it went into): its waiting contributions wait for that
+  /// account to come here.
   static const _mergedSlot = 'merged_from';
 
-  /// The account this device's went into, while that account has not come
-  /// to the device yet; null otherwise.
-  Future<({String from, String into})?> mergedFrom() async {
+  /// The account this device's went into, while no account has come to the
+  /// device since; null otherwise.
+  Future<({String from, String into, String? intoId})?> mergedFrom() async {
     final m = _decode(await secrets.read(_mergedSlot));
     if (m is! Map<String, dynamic>) return null;
     final from = m['from'];
     final into = m['into'];
     if (from is! String || into is! String) return null;
-    return (from: from, into: into);
+    final intoId = m['intoId'];
+    return (from: from, into: into, intoId: intoId is String ? intoId : null);
   }
 
-  /// The account the device's went into came here, or the user gave up on
-  /// it.
+  /// An account came to the device: the account its own went into, whose
+  /// contributions then leave under it, or another one, for which they
+  /// never leave.
   Future<void> forgetMergedFrom() => secrets.delete(_mergedSlot);
 
   final _events = StreamController<AccountEvent>.broadcast();
@@ -248,33 +274,52 @@ final class AccountService {
     Map<String, Object?> variables = const {},
     bool create = false,
     bool fresh = false,
+  }) => send(
+    (headers) => client.execute(operation, variables, headers),
+    refused: (e) => e is GraphQLResponseException && e.hasCode(GraphQLError.unauthenticated),
+    create: create,
+    fresh: fresh,
+  );
+
+  /// Sends a request as the account, [request] given the session's headers
+  /// (a GraphQL operation, a photo upload), signing in first when there is
+  /// no session, or none recent enough for a [fresh] action. A session the
+  /// server [refused] (expired, revoked, too old) is replaced by a new
+  /// signed sign-in, then the request goes once more; never under another
+  /// account than the one it began with: when the device changed accounts
+  /// meanwhile, [AccountChangedException].
+  Future<T> send<T>(
+    Future<T> Function(Map<String, String> headers) request, {
+    required bool Function(Object error) refused,
+    bool create = false,
+    bool fresh = false,
   }) async {
+    final generation = _generation;
     var session = await _current();
     if (session == null || (fresh && clock().difference(session.openedAt) > freshFor)) {
-      session = await _signInOnce(create: create, replacing: session);
+      session = await _renew(generation, create: create, replacing: session);
     }
     try {
-      return await client.execute(operation, variables, _headers(session));
-    } on GraphQLResponseException catch (e) {
-      if (!e.hasCode(GraphQLError.unauthenticated)) rethrow;
-      // An expired or revoked session, or one too old for this action: a
-      // new signed sign-in, then the same request once more.
-      session = await _signInOnce(create: create, replacing: session);
-      return await client.execute(operation, variables, _headers(session));
+      return await request(_headers(session));
+    } on Object catch (e) {
+      if (!refused(e)) rethrow;
+      session = await _renew(generation, create: create, replacing: session);
+      return await request(_headers(session));
     }
   }
 
-  /// A session for a request made outside GraphQL (a photo upload), signing
-  /// in when there is none.
-  Future<Map<String, String>> sessionHeaders({bool create = false}) async {
-    final session = await _current() ?? await _signInOnce(create: create, replacing: null);
-    return _headers(session);
+  /// A new session of the account the device held at [generation].
+  Future<Session> _renew(
+    int generation, {
+    required bool create,
+    required Session? replacing,
+  }) async {
+    if (generation == _generation) {
+      final session = await _signInOnce(create: create, replacing: replacing);
+      if (generation == _generation) return session;
+    }
+    throw const AccountChangedException();
   }
-
-  /// After a request outside GraphQL was refused for its session: a new
-  /// signed sign-in, whose headers the caller sends again.
-  Future<Map<String, String>> renewSession({bool create = false}) async =>
-      _headers(await _signInOnce(create: create, replacing: await _current()));
 
   /// Signs in once for every caller that needs it now: two requests refused
   /// together share one new session.
@@ -297,6 +342,9 @@ final class AccountService {
   }
 
   Future<Session> _signIn({required bool create}) async {
+    // The key kept was detached from its account for another to take its
+    // place: it opens nothing, and the device is about to switch.
+    if (_left) throw const AccountChangedException();
     final generation = _generation;
     var key = await keys.load();
     if (key == null) {
@@ -335,11 +383,13 @@ final class AccountService {
       if (generation != _generation || previous == null) throw const NoAccountException();
       // Merged into another account: the server names it, so the device
       // can say where its account went.
-      final mergedInto = e.withCode(GraphQLError.notFound)?.mergedInto;
+      final error = e.withCode(GraphQLError.notFound);
+      final mergedInto = error?.mergedInto;
+      final mergedIntoId = error?.mergedIntoId;
       // Merged from this device into the account opened beside it, the
       // answer lost on its way: the key stays, so the merge asked again
       // proves the account and finishes.
-      if (mergedInto != null && mergedInto == _pending?.account.pseudonym) {
+      if (mergedIntoId != null && mergedIntoId == _pending?.account.id) {
         throw AccountMergingException();
       }
       _log.warning(
@@ -350,7 +400,10 @@ final class AccountService {
       if (mergedInto != null) {
         // Its waiting contributions now belong to that account: they wait
         // for it to come to this device (`mergedFrom`).
-        await secrets.write(_mergedSlot, jsonEncode({'from': previous.id, 'into': mergedInto}));
+        await secrets.write(
+          _mergedSlot,
+          jsonEncode({'from': previous.id, 'into': mergedInto, 'intoId': ?mergedIntoId}),
+        );
       }
       await _forget(lost: true, mergedInto: mergedInto);
       throw AccountLostException(mergedInto: mergedInto);
@@ -430,7 +483,11 @@ final class AccountService {
   Future<({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})>
   refresh() async {
     final cards = _cardWrites;
+    final generation = _generation;
     final read = await run(myAccountOperation);
+    // The answer of the account the device left meanwhile is not kept over
+    // the one it holds now.
+    if (generation != _generation) throw const AccountChangedException();
     await secrets.write(_accountSlot, jsonEncode(read.account.toJson()));
     var card = read.recoveryCode;
     if (card != null && cards == _cardWrites) {
@@ -453,7 +510,9 @@ final class AccountService {
   int _cardWrites = 0;
 
   Future<Account> rename(String pseudonym) async {
+    final generation = _generation;
     final account = await run(updateProfileOperation, variables: {'pseudonym': pseudonym});
+    if (generation != _generation) throw const AccountChangedException();
     await secrets.write(_accountSlot, jsonEncode(account.toJson()));
     _events.add(AccountSignedIn(account, created: false));
     return account;
@@ -496,6 +555,7 @@ final class AccountService {
     });
     _cardWrites++;
     await keys.save(key);
+    _left = false;
     await _keep(result);
     await secrets.write(_recoverySlot, clock().toUtc().toIso8601String());
     _events.add(AccountSignedIn(result.account, created: false));
@@ -551,8 +611,9 @@ final class AccountService {
   /// keys sign, the imported account's session must be recent (a signed
   /// sign-in is made again when it is not). Nothing changes on the device:
   /// [adopt] keeps the imported account once the caller has moved what it
-  /// holds. Asked again after an answer that was lost, the server answers
-  /// the same.
+  /// holds. [MergeUnsettledException] when the merge was sent and its answer
+  /// did not come; asked again, the server answers the same. Any other
+  /// failure leaves the merge not made.
   Future<(ImportedAccount, MergeResult)> mergeOnServer(ImportedAccount imported) async {
     final current = await keys.load();
     if (current == null) throw const NoAccountException();
@@ -569,12 +630,24 @@ final class AccountService {
       final message = Uint8List.fromList(
         utf8.encode(mergeMessage(nonce, current.publicJwk, target.key.publicJwk)),
       );
-      return await client.execute(mergeAccountOperation, {
+      final variables = {
         'jwk': current.publicJwk.toJson(),
         'nonce': nonce,
         'absorbedSignature': P256.b64url(await current.sign(message)),
         'signature': P256.b64url(await target.key.sign(message)),
-      }, _headers(target.session));
+      };
+      try {
+        return await client.execute(mergeAccountOperation, variables, _headers(target.session));
+      } on GraphQLRateLimitedException {
+        // Refused before it ran.
+        rethrow;
+      } on GraphQLResponseException catch (e) {
+        // A server error may come after the merge was written.
+        if (e.transient) throw MergeUnsettledException(e);
+        rethrow;
+      } on Object catch (e) {
+        throw MergeUnsettledException(e);
+      }
     }
 
     try {
@@ -620,13 +693,15 @@ final class AccountService {
     // writes read the key of the account left, and keeps nothing.
     _generation++;
     _pending = null;
+    _left = false;
     _events.add(AccountSignedIn(account, created: false));
   }
 
   /// Whether the device's account went into [imported] already, a merge
   /// whose answer was lost: the device's key signs in, and either opens its
-  /// account (not merged) or the server names the account it went into.
-  /// Throws when the server does not answer: still unknown.
+  /// account (not merged), or the server names the account it went into,
+  /// or knows the key no more (gone another way: not merged into
+  /// [imported]). Throws when the server does not answer: still unknown.
   Future<bool> mergeLanded(ImportedAccount imported) async {
     final current = await keys.load();
     if (current == null) return false;
@@ -634,9 +709,9 @@ final class AccountService {
       await _openSession(current);
       return false;
     } on GraphQLResponseException catch (e) {
-      final into = e.withCode(GraphQLError.notFound)?.mergedInto;
-      if (into != null && into == imported.account.pseudonym) return true;
-      rethrow;
+      final error = e.withCode(GraphQLError.notFound);
+      if (error == null || error.reason != GraphQLError.unknownKey) rethrow;
+      return error.mergedIntoId == imported.account.id;
     }
   }
 
@@ -649,13 +724,24 @@ final class AccountService {
   /// server did not answer: the device must not forget a key whose account
   /// the server still keeps for it alone.
   Future<void> leaveForReplace() async {
+    // Left already, by an attempt that failed after.
+    if (_left) return;
     try {
       await run(signOutForgettingDeviceOperation, fresh: true);
     } on AccountLostException {
       // Gone already (removed, deleted or merged elsewhere): nothing left
       // to detach.
     }
+    // From here the key kept opens nothing: a request under way under the
+    // account left is not sent again under the one adopted, and no sign-in
+    // says the account was lost while the device switches.
+    _left = true;
+    _generation++;
   }
+
+  /// The device's key was detached from its account by [leaveForReplace],
+  /// and the device has not switched yet.
+  bool _left = false;
 
   /// Gives up [imported]: its new key is detached from it, and the device
   /// keeps the account it held. Nothing once [imported] was adopted or
@@ -663,6 +749,9 @@ final class AccountService {
   Future<void> cancelImport(ImportedAccount imported) async {
     if (!identical(_pending, imported)) return;
     _pending = null;
+    // A replacement that left the account and failed after: the key kept
+    // opens nothing, and the next sign-in says so.
+    _left = false;
     try {
       var session = imported.session;
       if (clock().difference(session.openedAt) > freshFor) {
@@ -708,6 +797,7 @@ final class AccountService {
 
   Future<void> _forget({bool lost = false, String? mergedInto}) async {
     _generation++;
+    _left = false;
     await keys.delete();
     await secrets.delete(_sessionSlot);
     await secrets.delete(_accountSlot);

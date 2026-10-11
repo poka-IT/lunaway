@@ -1242,7 +1242,7 @@ class _HomeArrival extends ConsumerWidget {
       alignment: AlignmentDirectional.centerStart,
       child: TextButton.icon(
         onPressed: () {
-          final next = RouteTarget(destination: home.position, label: t.home.title);
+          final next = RouteTarget(destination: home.position, label: t.home.title, home: true);
           replaceOverMap(context, NavigationRoutes.previewOf(next), extra: next);
         },
         icon: const Icon(AppIcons.home),

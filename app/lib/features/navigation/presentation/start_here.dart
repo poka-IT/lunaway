@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -47,7 +48,9 @@ class StartHereMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final home = this.home;
-    final isHome = home != null && isHomeId(ref, home().id);
+    // The draft is made when the menu opens: it reads what the card holds
+    // then, never during a build.
+    final homeId = home == null ? null : ref.watch(userHomeProvider).value?.id;
     return PopupMenuButton<String>(
       tooltip: context.t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),
@@ -62,7 +65,7 @@ class StartHereMenu extends ConsumerWidget {
       },
       itemBuilder: (context) => [
         startHereEntry(context, 'start'),
-        if (home != null) homeEntry(context, 'home', isHome: isHome),
+        if (home != null) homeEntry(context, 'home', isHome: homeId != null && homeId == home().id),
       ],
     );
   }

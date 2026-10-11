@@ -37,6 +37,9 @@ class FavoritesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final lists = ref.watch(favoriteListsProvider);
+    // The home heads the lists: both read before either shows.
+    final home = ref.watch(userHomeProvider);
+    final homeRead = home.hasValue || home.hasError;
     final selectedId = ref.watch(selectedFavoriteListProvider);
     return Scaffold(
       body: SafeArea(
@@ -44,7 +47,7 @@ class FavoritesScreen extends ConsumerWidget {
         child: ScrollsToTopOnReselect(
           tab: AppTabs.favorites,
           child: switch (lists) {
-            AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
+            AsyncValue(value: final lists?) when lists.isNotEmpty && homeRead => _Loaded(
               lists: lists,
               selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
             ),

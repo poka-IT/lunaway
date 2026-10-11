@@ -261,7 +261,7 @@ Windows, send the browser's.
 | New place, new vending machine, place edit | the user submits | `place_submissions`: the payload, with the position the user sets (a long press, or the map centre, which after "Show my position", or a launch that opens the map on the user, is the device's own position), linked to the account and device key; a rejected or withdrawn one emptied 30 days after the decision; at the account's deletion, the unapplied ones emptied and the applied ones kept without account | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `add_vending.dart`, `backend/crates/lunaway-db/src/submissions.rs`, `accounts.rs`, `retention.rs` (`SUBMISSION_PAYLOAD_DAYS`) |
 | Favourite lists | as soon as an account exists (made by the sync or by the first contribution), then 3 s after each change, at launch and on resume | list names and place ids (`favorite_lists`, `favorite_items`); the points saved outside the places (an address, a town, a bare point, a shop): the name the user gave, an optional note, the postal address when known and the coordinates (`favorite_points`), private to the account and deleted with it | `app/lib/features/favorites/application/favorites_providers.dart`, `data/favorites_sync.dart` |
 | Home | the user sets a home (Favourites, the "…" menu of an address, a point or a place, the current position): kept on the device, and, as soon as an account exists, synced with it like the favourite lists | `favorite_homes`: the kind of point, its name, its postal address when known and its coordinates, private to the account and deleted with it | `backend/crates/lunaway-db/src/home.rs`, migration `20261011002000_home_and_account_merge.sql`, `app/lib/features/favorites/` |
-| Account merge | the user opens another of their accounts on a device with its recovery card (Profile, Use another account) and merges the device's account into it: both device keys sign, the session must be recent | the merged account's data moves to the account kept, and its published contributions show that account's pseudonym; the merged account is deleted; the deletion journal notes its id with the id of the account kept; the SHA-256 of its device keys stays 365 days with the account kept (`merged_keys`), so its other devices learn where it went. "Replace without merging" detaches this device's key from the account left, and deletes that account when it has neither a recovery code nor another device | `backend/crates/lunaway-db/src/merge.rs`, `deletions.rs`, `accounts.rs` (`forget_device`), `retention.rs` (`MERGED_KEY_DAYS`); `app/lib/features/account/application/account_switch.dart` |
+| Account merge | the user opens another of their accounts on a device with its recovery card (Profile, Use another account) and merges the device's account into it: both device keys sign, the session must be recent | the merged account's data moves to the account kept, and its published contributions show that account's pseudonym; the merged account is deleted; the deletion journal notes its id with the id of the account kept; the SHA-256 of its device keys stays 365 days with the account kept (`merged_keys`), so its other devices learn where it went, and as long as the account kept is banned, then two years after that account's deletion (`banned_keys`). "Replace without merging" detaches this device's key from the account left, and deletes that account when it has neither a recovery code nor another device | `backend/crates/lunaway-db/src/merge.rs`, `deletions.rs`, `accounts.rs` (`forget_device`), `retention.rs` (`MERGED_KEY_DAYS`); `app/lib/features/account/application/account_switch.dart` |
 | Muted authors | the user mutes | `muted_authors` | 20261006005548 |
 | Idempotency keys | each contribution sent through the queue | key, operation, SHA-256 of the arguments (for a road report, kind and value only), result id; 30 days (14 for a road report), deleted with what they made and with the account | `app/lib/features/community/data/outbox_sender.dart`; migrations `20261006151001`, `20261006151002`; `backend/crates/lunaway-api/src/main.rs` |
 | Client address | every request | not stored: rate limits and quotas count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
@@ -421,7 +421,7 @@ Not declared, with the reason:
   the reader; the translation kept is the item's, served to every reader.
 - Web browsing, installed apps, files, calendar, contacts, messages,
   audio, health, financial: none.
-- Android Backup (favourites, settings with the stay dates and the regions
+- Android Backup (favourites and the home, settings with the stay dates and the regions
   offered, vehicle, the account id of synced favourites, contributions
   waiting to be sent, road reports included;
   `app/android/app/src/main/res/xml/`): it goes to the user's own Google
@@ -482,8 +482,9 @@ days, content reports and decided moderation entries a year after the
 decision, confirmations after two years (counts kept), the content of
 rejected or withdrawn submissions 30 days after the decision, a banned
 account's key hashes two years after its deletion, the key hashes of a
-merged account a year after the merge, translations whose
-original changed or went.
+merged account a year after the merge (while the account kept is banned
+they stay, and its deletion copies them among its own banned key hashes,
+kept two years), translations whose original changed or went.
 
 Account merge (`backend/crates/lunaway-db/src/merge.rs`), in one
 transaction, after the merge is written to the deletion journal with the

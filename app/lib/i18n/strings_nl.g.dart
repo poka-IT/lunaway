@@ -725,6 +725,7 @@ class _Translations$home$nl extends Translations$home$en {
 	// Translations
 	@override String get title => 'Thuis';
 	@override String get setTitle => 'Mijn thuis instellen';
+	@override String get error => 'Je thuis kon niet worden geladen.';
 	@override String get privacy => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.';
 	@override String get directionsHome => 'Route naar huis';
 	@override String get actions => 'Acties voor thuis';
@@ -1143,6 +1144,7 @@ class _Translations$accountImport$nl extends Translations$accountImport$en {
 	@override String get failed => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.';
 	@override String get refused => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.';
 	@override String get replaceFailed => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.';
+	@override String get unsettled => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.';
 	@override String get tooMany => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.';
 	@override String merged({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.';
 	@override String replaced({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.';
@@ -4370,6 +4372,7 @@ extension on TranslationsNl {
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
 			'home.title' => 'Thuis',
 			'home.setTitle' => 'Mijn thuis instellen',
+			'home.error' => 'Je thuis kon niet worden geladen.',
 			'home.privacy' => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.',
 			'home.directionsHome' => 'Route naar huis',
 			'home.actions' => 'Acties voor thuis',
@@ -4525,9 +4528,9 @@ extension on TranslationsNl {
 			'profile.attributionTranslation' => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.',
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4687,6 +4690,7 @@ extension on TranslationsNl {
 			'accountImport.failed' => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.',
 			'accountImport.refused' => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.',
 			'accountImport.replaceFailed' => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.unsettled' => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.',
 			'accountImport.tooMany' => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.',
 			'accountImport.replaced' => ({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.',
@@ -5038,10 +5042,10 @@ extension on TranslationsNl {
 			'poi.kind.alternativeMedicine' => 'Osteopaat, alternatieve geneeskunde',
 			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audicien',
-			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',
-			'poi.kind.hairdresser' => 'Kapper',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',
+			'poi.kind.hairdresser' => 'Kapper',
 			'poi.kind.beauty' => 'Schoonheidssalon',
 			'poi.kind.massage' => 'Massage',
 			'poi.kind.tattoo' => 'Tattooshop',

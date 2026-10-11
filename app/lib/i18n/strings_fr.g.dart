@@ -725,6 +725,7 @@ class _Translations$home$fr extends Translations$home$en {
 	// Translations
 	@override String get title => 'Domicile';
 	@override String get setTitle => 'Définir mon domicile';
+	@override String get error => 'Votre domicile n\'a pas pu s\'afficher.';
 	@override String get privacy => 'Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d\'autre ne le voit.';
 	@override String get directionsHome => 'Itinéraire vers le domicile';
 	@override String get actions => 'Actions du domicile';
@@ -1143,6 +1144,7 @@ class _Translations$accountImport$fr extends Translations$accountImport$en {
 	@override String get failed => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.';
 	@override String get refused => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.';
 	@override String get replaceFailed => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.';
+	@override String get unsettled => 'La fusion a peut-être eu lieu : le serveur n\'a pas encore répondu. Rien n\'est perdu. Réessayez quand le réseau répond.';
 	@override String get tooMany => 'Trop de fusions pour l\'instant. Réessayez plus tard.';
 	@override String merged({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».';
 	@override String replaced({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».';
@@ -4370,6 +4372,7 @@ extension on TranslationsFr {
 			'list.offlineNotHere' => 'Rien de cette zone sur cet appareil.',
 			'home.title' => 'Domicile',
 			'home.setTitle' => 'Définir mon domicile',
+			'home.error' => 'Votre domicile n\'a pas pu s\'afficher.',
 			'home.privacy' => 'Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d\'autre ne le voit.',
 			'home.directionsHome' => 'Itinéraire vers le domicile',
 			'home.actions' => 'Actions du domicile',
@@ -4525,9 +4528,9 @@ extension on TranslationsFr {
 			'profile.attributionTranslation' => 'Traductions automatiques : modèles OPUS-MT de l\'Université d\'Helsinki, sous licence CC BY 4.0, exécutés sur les serveurs de Lunaway.',
 			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), sous Licence Ouverte 2.0 ; Bordeaux Métropole et département des Côtes-d\'Armor, sous Licence Ouverte ; Ville de Paris, Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionDangerZones' => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radars et zones de danger : ${attribution}',
 			'profile.attributionOverture' => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation (overturemaps.org) : données de Meta, PinMeTo et DAC sous licence CDLA Permissive 2.0, et d\'AllThePlaces sous CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
@@ -4687,6 +4690,7 @@ extension on TranslationsFr {
 			'accountImport.failed' => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.',
 			'accountImport.refused' => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.',
 			'accountImport.replaceFailed' => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.',
+			'accountImport.unsettled' => 'La fusion a peut-être eu lieu : le serveur n\'a pas encore répondu. Rien n\'est perdu. Réessayez quand le réseau répond.',
 			'accountImport.tooMany' => 'Trop de fusions pour l\'instant. Réessayez plus tard.',
 			'accountImport.merged' => ({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».',
 			'accountImport.replaced' => ({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».',
@@ -5038,10 +5042,10 @@ extension on TranslationsFr {
 			'poi.kind.alternativeMedicine' => 'Ostéopathe, médecines douces',
 			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audioprothésiste',
-			'poi.kind.medicalSupply' => 'Matériel médical',
-			'poi.kind.hairdresser' => 'Coiffeur',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.medicalSupply' => 'Matériel médical',
+			'poi.kind.hairdresser' => 'Coiffeur',
 			'poi.kind.beauty' => 'Institut de beauté',
 			'poi.kind.massage' => 'Massages',
 			'poi.kind.tattoo' => 'Tatoueur',

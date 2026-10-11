@@ -14,11 +14,11 @@ import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
-import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -43,9 +43,11 @@ String _onMapNotice(Translations t) =>
     pointerPlatform ? t.home.onMapNoticeClick : t.home.onMapNotice;
 
 /// The route home: the preview, then the guidance, as for any destination,
-/// named "Domicile".
-void routeHome(BuildContext context, SavedPoint home) =>
-    openDirections(context, home.position, label: context.t.home.title);
+/// named "Domicile"; its link names the home without its point.
+void routeHome(BuildContext context, SavedPoint home) => openRoutePreview(
+  context,
+  RouteTarget(destination: home.position, label: context.t.home.title, home: true),
+);
 
 /// Makes [point] the home and says so, with the way back to the home
 /// before (or to none).
@@ -53,6 +55,8 @@ Future<void> makeHome(BuildContext context, WidgetRef ref, SavedPoint point) asy
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final repo = ref.read(homeRepositoryProvider);
+  // Placed: the map's next point held is no longer offered as the home.
+  ref.read(homePickingProvider.notifier).stop();
   try {
     final before = await repo.read();
     await repo.set(point);
@@ -76,6 +80,7 @@ Future<void> removeHome(BuildContext context, WidgetRef ref) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final repo = ref.read(homeRepositoryProvider);
+  ref.read(homePickingProvider.notifier).stop();
   try {
     final before = await repo.read();
     if (before == null) return;
@@ -125,22 +130,22 @@ Future<void> toggleHome(BuildContext context, WidgetRef ref, SavedPoint draft) a
   }
 }
 
-/// Whether the point [id] is the home, as the card's menu asks.
-bool isHomeId(WidgetRef ref, String id) => ref.watch(userHomeProvider).value?.id == id;
-
 /// The device's position now, asked the considerate way the locate button
 /// asks it; null, with a word, when none comes.
 Future<LatLng?> currentPosition(BuildContext context, WidgetRef ref) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final browser = ref.read(browserLocationProvider);
+  // Read before anything is awaited: the sheet that asks may close
+  // meanwhile, and its `ref` with it.
+  final user = ref.read(userLocationProvider.notifier);
   if (browser != null) {
     // Asked before anything is awaited: a browser shows its prompt only
     // during the click.
     final fix = await browser.locate();
     switch (fix) {
       case BrowserPosition(:final position):
-        ref.read(userLocationProvider.notifier).update(position);
+        user.update(position);
         return position;
       case BrowserDenied():
         showMessage(messenger, t.location.browserDenied);
@@ -149,13 +154,14 @@ Future<LatLng?> currentPosition(BuildContext context, WidgetRef ref) async {
     }
     return null;
   }
+  final feed = ref.read(locationFeedProvider);
   if (!await ensureLocationAccess(context, ref)) return null;
-  final fix = await ref.read(locationFeedProvider).current();
+  final fix = await feed.current();
   if (fix == null) {
     showMessage(messenger, t.location.noFix);
     return null;
   }
-  ref.read(userLocationProvider.notifier).update(fix.position);
+  user.update(fix.position);
   return fix.position;
 }
 
@@ -172,10 +178,31 @@ class HomeCard extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final home = ref.watch(userHomeProvider);
     final point = home.value;
-    // Nothing while it loads: the row of the lists does not jump for a
-    // home read in a frame.
-    if (!home.hasValue) return const SizedBox.shrink();
     final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
+    if (home.hasError && !home.hasValue) {
+      return Material(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.m),
+          child: Row(
+            children: [
+              Icon(AppIcons.home, color: scheme.error),
+              const SizedBox(width: Space.ml),
+              Expanded(
+                child: Text(
+                  t.home.error,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    // Loading: the favourites screen shows its skeleton until the home is
+    // read with the lists, so nothing moves down a frame later.
+    if (!home.hasValue) return const SizedBox.shrink();
     final badge = Container(
       width: 44,
       height: 44,
@@ -344,7 +371,14 @@ class _HomeSearchState extends ConsumerState<HomeSearch> {
   Future<void> _here() async {
     if (_locating) return;
     setState(() => _locating = true);
-    final position = await currentPosition(context, ref);
+    final LatLng? position;
+    try {
+      position = await currentPosition(context, ref);
+    } on Object catch (e) {
+      _log.info('no position for the home: ${e.runtimeType}');
+      if (mounted) setState(() => _locating = false);
+      return;
+    }
     if (!mounted) return;
     setState(() => _locating = false);
     if (position == null) return;
@@ -356,9 +390,13 @@ class _HomeSearchState extends ConsumerState<HomeSearch> {
   void _onMap() {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    ref.read(homePickingProvider.notifier).start();
+    final picking = ref.read(homePickingProvider.notifier);
+    final flow = ref.read(mapFlowProvider.notifier);
     Navigator.of(context).pop();
-    ref.read(mapFlowProvider.notifier).openBareMapFromElsewhere();
+    flow.openBareMapFromElsewhere();
+    // Once the card open on the map, if any, has closed: closing it ends
+    // the choice.
+    picking.start();
     showMessage(messenger, _onMapNotice(t));
   }
 

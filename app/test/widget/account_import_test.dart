@@ -213,6 +213,121 @@ void main() {
     expect((await saved(app)).map((r) => r.placeId), [lakeArea.id]);
   });
 
+  testWidgets('a replacement the server did not hear stays in the sheet, the device unchanged', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    api.offline = true;
+    await tapInSheet(tester, find.text(t.accountImport.replaceConfirm));
+    expect(find.byType(ImportChoice), findsOneWidget, reason: 'the sheet stays');
+    expect(find.text(t.accountImport.replaceFailed), findsOneWidget);
+    expect(signedIn(app, tester), _current);
+    expect(api.forgotten, isEmpty);
+    expect((await saved(app)).map((r) => r.placeId), [lakeArea.id]);
+
+    api.offline = false;
+    await tapInSheet(tester, find.text(t.accountImport.replaceConfirm));
+    expect(find.text(t.accountImport.replaced(name: _imported)), findsOneWidget);
+    expect(signedIn(app, tester), _imported);
+  });
+
+  testWidgets('the card of the account left is made on the way, and the choice comes back', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    await tapInSheet(tester, find.text(t.accountImport.card(current: _current)));
+    expect(find.byType(ImportChoice), findsNothing);
+    await tester.ensureVisible(find.text(t.recovery.make));
+    await tester.tap(find.text(t.recovery.make));
+    await settleShort(tester, const Duration(seconds: 2));
+    await tester.ensureVisible(find.text(t.recovery.done));
+    await tester.tap(find.text(t.recovery.done));
+    await settleShort(tester);
+    await tester.tap(find.text(t.recovery.done).last);
+    await settleShort(tester, const Duration(seconds: 2));
+
+    expect(
+      find.text(t.accountImport.replaceTitle(current: _current, imported: _imported)),
+      findsOneWidget,
+      reason: 'the sheet opens again at the replacement',
+    );
+    expect(
+      find.text(t.accountImport.replaceKeeps(current: _current)),
+      findsOneWidget,
+      reason: 'the card just made brings the account left back',
+    );
+    expect(signedIn(app, tester), _current);
+    expect(api.forgotten, isEmpty);
+  });
+
+  testWidgets('offline before the merge leaves, nothing is uncertain and giving up is direct', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    api.offline = true;
+    await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
+    expect(find.text(t.accountImport.failed), findsOneWidget);
+    expect(api.operations, isNot(contains('MergeAccount')));
+    expect(
+      find.text(t.accountImport.merge(imported: _imported)),
+      findsOneWidget,
+      reason: 'no merge left the device: nothing to settle, the button merges',
+    );
+    await tapInSheet(tester, find.text(t.common.cancel));
+    expect(find.text(t.accountImport.cancelled(name: _current)), findsOneWidget);
+    expect(signedIn(app, tester), _current);
+  });
+
+  testWidgets('after a cut merge, giving up offline waits for the server and says why', (
+    tester,
+  ) async {
+    final api = FakeApi()..loseMergeAnswer = true;
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
+    api.offline = true;
+    await tapInSheet(tester, find.text(t.common.cancel));
+    expect(find.byType(ImportChoice), findsOneWidget, reason: 'the merge may have been made');
+    expect(find.text(t.accountImport.unsettled), findsOneWidget);
+    expect(signedIn(app, tester), _current);
+    expect(api.forgotten, isEmpty, reason: 'the imported account keeps the key it may now need');
+
+    api.offline = false;
+    await tapInSheet(tester, find.text(t.common.cancel));
+    expect(find.text(t.accountImport.merged(name: _imported)), findsOneWidget);
+    expect(signedIn(app, tester), _imported);
+  });
+
+  testWidgets('replacing after a cut merge finishes the merge the server made', (tester) async {
+    final api = FakeApi()..loseMergeAnswer = true;
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    final card = find.ancestor(
+      of: find.text(t.accountImport.card(current: _current)),
+      matching: find.byWidgetPredicate((w) => w is OutlinedButton),
+    );
+    expect(
+      tester.widget<OutlinedButton>(card).onPressed,
+      isNull,
+      reason: 'no card of an account that may be gone',
+    );
+    await tapInSheet(tester, find.text(t.accountImport.replaceConfirm));
+    expect(find.text(t.accountImport.merged(name: _imported)), findsOneWidget);
+    expect(signedIn(app, tester), _imported);
+    expect(api.forgotten, isEmpty, reason: 'nothing was detached: the merge had been made');
+    expect((await saved(app)).map((r) => r.placeId), [lakeArea.id]);
+  });
+
   testWidgets('a merge cut by the network loses nothing, and "Réessayer" finishes it', (
     tester,
   ) async {
@@ -271,6 +386,39 @@ void main() {
     expect(api.forgotten, isEmpty, reason: 'no cancel ran beside the merge');
   });
 
+  testWidgets('no sync of the favourites starts while the device changes accounts', (tester) async {
+    final api = FakeApi();
+    final app = await pumpLunaway(tester, api: api, signedIn: true, storedFavorites: true);
+    await settleShort(tester, const Duration(seconds: 2));
+    final favorites = app.container(tester).read(favoritesSyncControllerProvider.notifier);
+    int reads() => api.operations.where((o) => o == 'MyFavoriteLists').length;
+    final before = reads();
+    api
+      ..held = {'MyFavoriteLists'}
+      ..hold = Completer<void>();
+    // A sync under way, and one more asked meanwhile, which would start as
+    // the first ends.
+    unawaited(favorites.syncNow());
+    unawaited(favorites.syncNow());
+    await tester.pump();
+    final switching = Completer<void>();
+    var inside = false;
+    final held = favorites.holding(() async {
+      inside = true;
+      await switching.future;
+    });
+    api.hold!.complete();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(inside, isTrue, reason: 'the switch runs once the sync under way has ended');
+    expect(reads(), before + 1, reason: 'the sync asked meanwhile waits for the switch to end');
+
+    switching.complete();
+    await held;
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(reads(), before + 2, reason: 'the switch done, the favourites sync again');
+  });
+
   testWidgets("the card of the device's own account is said on the field", (tester) async {
     final api = FakeApi();
     final (app, _) = await openImport(tester, api);
@@ -288,7 +436,7 @@ void main() {
   testWidgets('a device of an account merged elsewhere says where it went', (tester) async {
     final api = FakeApi();
     final app = await pumpLunaway(tester, api: api, signedIn: true);
-    api.mergeElsewhere(_imported);
+    api.mergeElsewhere(_imported, id: FakeApi.otherId);
     // Its next read of the account, as a sync would.
     await app.container(tester).read(accountControllerProvider.notifier).refresh();
     await settleShort(tester, const Duration(seconds: 2));

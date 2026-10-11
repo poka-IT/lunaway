@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +11,7 @@ import 'package:lunaway/features/account/data/account_service.dart';
 import 'package:lunaway/features/account/data/device_keys.dart';
 import 'package:lunaway/features/account/data/p256.dart';
 import 'package:lunaway/features/account/data/secret_store.dart';
+import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/community/data/outbox.dart';
 import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
@@ -147,6 +150,51 @@ void main() {
     expect(api.forgotten, isEmpty, reason: 'the key adopted is not detached by a late cancel');
   });
 
+  test(
+    'a request refused once the device took another account is not sent again under it',
+    () async {
+      final imported = await accounts.import(FakeApi.otherRecoveryCode);
+      api
+        ..held = {'MyAccount'}
+        ..hold = Completer<void>();
+      // A read of the account under way, with the session of the account the
+      // device holds, while the device merges it into the import.
+      final read = service.run(myAccountOperation);
+      await accounts.merge(imported, currentId: await currentId());
+      api.hold!.complete();
+      await expectLater(read, throwsA(isA<AccountChangedException>()));
+      expect(
+        api.calls.where((c) => c.operation == 'MyAccount').map((c) => c.token),
+        everyElement(isNot(startsWith('other-'))),
+        reason: 'a request of the account left never goes with the session of the account taken',
+      );
+    },
+  );
+
+  test('the account a merged one went into is known by its id, never by its name', () async {
+    final oldId = await currentId();
+    final waiting = await outbox.add(
+      ContributionKind.confirm,
+      placeId: lakeArea.id,
+      payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      accountId: oldId,
+    );
+    api.mergeElsewhere('Hérisson du Morvan', id: FakeApi.otherId);
+    await expectLater(service.run(myAccountOperation), throwsA(isA<AccountLostException>()));
+    // Another account of the same name comes to the device.
+    final namesake = Account.fromJson({
+      ...api.otherAccount(),
+      'id': '01990000-0000-7000-8000-000000000042',
+    })!;
+    expect(await accounts.claimMerged(namesake), isFalse);
+    expect(
+      (await outbox.byId(waiting!.id))!.accountId,
+      oldId,
+      reason: 'what waited for the account merged does not leave under a namesake',
+    );
+    expect(await service.mergedFrom(), isNull, reason: 'another account came: it waits no more');
+  });
+
   test('a merge never made leaves the device to its choice', () async {
     final oldId = await currentId();
     final imported = await accounts.import(FakeApi.otherRecoveryCode);
@@ -185,7 +233,11 @@ void main() {
           isA<AccountLostException>().having((e) => e.mergedInto, 'into', 'Hérisson du Morvan'),
         ),
       );
-      expect(await restarted.mergedFrom(), (from: oldId, into: 'Hérisson du Morvan'));
+      expect(await restarted.mergedFrom(), (
+        from: oldId,
+        into: 'Hérisson du Morvan',
+        intoId: FakeApi.otherId,
+      ));
       // The user opens the account it went into with its card.
       final again = AccountSwitch(
         service: restarted,

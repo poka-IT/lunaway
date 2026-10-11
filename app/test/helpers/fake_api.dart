@@ -143,9 +143,9 @@ final class FakeApi {
   final _otherKeys = <String, String>{};
   final _jwks = <String, PublicJwk>{};
 
-  /// Keys of the account merged into the other, by thumbprint, with the
-  /// pseudonym it went into.
-  final mergedKeys = <String, String>{};
+  /// Keys of the account merged into the other, by thumbprint, with the id
+  /// and the pseudonym of the account it went into.
+  final mergedKeys = <String, ({String id, String pseudonym})>{};
 
   Map<String, Object?> otherAccount() => {...account(), 'id': otherId, 'pseudonym': otherPseudonym};
 
@@ -249,11 +249,12 @@ final class FakeApi {
     _tokens[token] = thumbprint;
   }
 
-  /// The account was merged, from another device, into the account of
-  /// [into]: its keys open nothing any more, and their sign-in names it.
-  void mergeElsewhere(String into) {
+  /// The account was merged, from another device, into the account [id]
+  /// named [into]: its keys open nothing any more, and their sign-in names
+  /// it.
+  void mergeElsewhere(String into, {required String id}) {
     for (final k in _keys.keys) {
-      mergedKeys[k] = into;
+      mergedKeys[k] = (id: id, pseudonym: into);
     }
     _keys.clear();
   }
@@ -514,11 +515,17 @@ final class FakeApi {
         final key = _verify(v);
         return {'signIn': _otherSession(key)};
       case 'SignIn' when mergedKeys.containsKey(_peek(v)) && v['createIfUnknown'] == false:
-        // The account of the key went into another: said with its name.
+        // The account of the key went into another: said with its name
+        // and its id.
         _verify(v);
+        final into = mergedKeys[_peek(v)]!;
         throw _Refused(
           'NOT_FOUND',
-          extensions: {'reason': 'UNKNOWN_KEY', 'mergedInto': mergedKeys[_peek(v)]},
+          extensions: {
+            'reason': 'UNKNOWN_KEY',
+            'mergedInto': into.pseudonym,
+            'mergedIntoId': into.id,
+          },
         );
       case 'SignIn':
         final key = _verify(v);
@@ -628,10 +635,11 @@ final class FakeApi {
       case 'MergeAccount':
         final absorbed = _checkMerge(v, key);
         final home = otherHasHome ? 'KEPT' : 'MOVED';
+        final into = (id: otherId, pseudonym: otherPseudonym);
         for (final k in _keys.keys) {
-          mergedKeys[k] = otherPseudonym;
+          mergedKeys[k] = into;
         }
-        mergedKeys[absorbed] = otherPseudonym;
+        mergedKeys[absorbed] = into;
         _becomeOther(merging: true);
         merged = true;
         return {

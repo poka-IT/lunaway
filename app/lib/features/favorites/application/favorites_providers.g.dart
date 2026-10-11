@@ -188,6 +188,9 @@ String _$userHomeHash() => r'429ee8bcfd8aabc3be097d2580764a2de6400512';
 
 /// The user asked, in the favourites, to place their home on the map: the
 /// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
 // keepAlive: the choice made on the favourites tab waits for the map's.
 
 @ProviderFor(HomePicking)
@@ -195,10 +198,16 @@ final homePickingProvider = HomePickingProvider._();
 
 /// The user asked, in the favourites, to place their home on the map: the
 /// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
 // keepAlive: the choice made on the favourites tab waits for the map's.
 final class HomePickingProvider extends $NotifierProvider<HomePicking, bool> {
   /// The user asked, in the favourites, to place their home on the map: the
   /// card of the next point held on the map offers "Mon domicile est ici".
+  /// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+  /// and with the card of a point closed without it: a point held days later
+  /// is not taken for the home.
   // keepAlive: the choice made on the favourites tab waits for the map's.
   HomePickingProvider._()
     : super(
@@ -227,10 +236,13 @@ final class HomePickingProvider extends $NotifierProvider<HomePicking, bool> {
   }
 }
 
-String _$homePickingHash() => r'fa21b3d7d301e5181fcddfe5e97bfeba6f1c7d94';
+String _$homePickingHash() => r'bdf09f4673b2f47e1a898d0eba34bfe609d6c888';
 
 /// The user asked, in the favourites, to place their home on the map: the
 /// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
 // keepAlive: the choice made on the favourites tab waits for the map's.
 
 abstract class _$HomePicking extends $Notifier<bool> {
@@ -886,7 +898,7 @@ final class FavoritesSyncControllerProvider
 }
 
 String _$favoritesSyncControllerHash() =>
-    r'4674ad75db29c04fd1925b05aa6027a8f5b2b9fb';
+    r'daa24c8ba533757558bd523bb534f61dbf518aa2';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes

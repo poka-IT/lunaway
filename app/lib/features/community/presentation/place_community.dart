@@ -12,6 +12,7 @@ import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/navigation/presentation/start_here.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -119,6 +120,7 @@ class PlaceMoreMenu extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final direct = ref.watch(trustLevelProvider) >= TrustLevels.editDirectly;
     final home = placeHomeDraft(t, place.summary);
+    final isHome = ref.watch(userHomeProvider).value?.id == home.id;
     return PopupMenuButton<String>(
       tooltip: t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),
@@ -144,7 +146,7 @@ class PlaceMoreMenu extends ConsumerWidget {
       },
       itemBuilder: (context) => [
         startHereEntry(context, 'start'),
-        homeEntry(context, 'home', isHome: isHomeId(ref, home.id)),
+        homeEntry(context, 'home', isHome: isHome),
         PopupMenuItem(
           value: 'issue',
           child: ListTile(
