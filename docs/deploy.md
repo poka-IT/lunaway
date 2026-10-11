@@ -319,11 +319,17 @@ the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
 | the external feed's crawler | 0.47 GB | |
 | Caddy | 0.11 GB | |
 | Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
-| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 6 GB (`--memory=6g`) |
+| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 8 GB (`--memory=8g`) since 2026-10-11, 6 GB before |
 
 The database, the routing engine and Photon read their files through the
 page cache they share; PostgreSQL's settings ("PostgreSQL on the root
 disk") and Photon's caps ("Geocoding") leave each its part.
+
+The engine's cap rose from 6 to 8 GB with its threads, from four to six
+(plan/research/127-routage-serveur.md). On 2026-10-11, 21 hours after a
+restart with four threads, it sat at its 6 GB, 2.4 GB anonymous and 3.8 GB
+of tiles, had reached the cap 7,765 times and read 2 GB of tiles again
+(`memory.events`, `workingset_refault_file` of its cgroup).
 
 ### The data volume
 
@@ -414,9 +420,11 @@ after a resize retunes them). The other tenants hold about 21 GB at their
 caps (`others` = 21,504 MB): the routing engine 6 GB, an import reading an
 extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
 1.5 GB, and since the merge Photon's two JVMs about 3.5 GB, the translation
-server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. Their page cache is the
-database's too, so PostgreSQL keeps a smaller share for itself than on a
-server of its own:
+server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 8 GB since
+2026-10-11 are not in it: `others` only sets `effective_cache_size`, a hint
+to the planner, and a new value restarts PostgreSQL; it follows at the next
+retune. Their page cache is the database's too, so PostgreSQL keeps a
+smaller share for itself than on a server of its own:
 
 | setting | rule | 32 GB (cx53), 31,344 MB visible |
 |---|---|---|
@@ -2891,7 +2899,17 @@ stopping the build on failure:
    first pass, and written as restrictions flagged `enclosed` that the
    check joins to the zone and never tells: up to eight passes over the
    ways blocks, 1 152 areas and 2 303 roads for France on 2026-10-08,
-   about 30 s on the maintainer's Mac), `restrictions.ndjson.gz` (841 651 restrictions
+   about 30 s on the maintainer's Mac); and since 2026-10-11 the limits
+   mapped on a node (a height bar, a bollard with its width), which
+   Valhalla reads on ways only: each routable way through such a node is
+   cut 2 m before and after it, the 4 m between carry the node's height,
+   width, length or weight (a bar without its figure at 2.2 m, as the check
+   assumes), the first piece keeps the way's id, the others and the cut
+   points take ids above the extract's highest, and every relation naming
+   the way names its pieces (a turn its piece at its `via` node; a turn
+   through the way keeps it whole, as does a ring closed at the node;
+   `lunaway-ingest/src/node_limits.rs`, plan/research/127-routage-serveur.md),
+   `restrictions.ndjson.gz` (841 651 restrictions
    for Europe, 266 389 for France: OpenStreetMap ways and nodes, IGN
    sections, each with its geometry and certainty), `prepare.json` and
    `build.json`.
@@ -2911,7 +2929,11 @@ stopping the build on failure:
    aire of Goult and a 4.5 t one to the Calvaire aire, each behind a "sauf
    desserte" street, found on the engine's first pass (`first_pass`: the
    case fails on a route of the relaxed second pass, warning 401, which
-   ignores every plate). On the raw France graph
+   ignores every plate); bars mapped on a node, which a way id cannot name,
+   checked by the bar's position on the route's shape (`use_points`,
+   `avoid_points`): the port of Tarifa (a 2.0 m van takes its ferry, a
+   3.3 m motorhome crosses from Algeciras), an impasse in Limoges, the two
+   bars of Chemin du Barret near Avignon. On the raw France graph
    three of the France cases fail (the porch, the weight rating,
    `motorhome=no`): what the preparation exists for;
 6. the bundle, the graph in gzip parts under 1.9 GB (a release asset may not
@@ -2983,6 +3005,11 @@ infra/ops/mac-routing/install.sh backup   # its age-encrypted copy into the back
 infra/ops/mac-routing/install.sh          # the script and both launchd agents
 infra/ops/mac-routing/install.sh run      # one run now (launchctl kickstart): stops while the graph is under 9 days old
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --force   # a build now, whatever its age
+infra/ops/mac-routing/lunaway-routing-build.sh run --force --ref <branch>
+                                          # a build of a pushed branch's head instead of main's: a
+                                          # change of the preparation tried on Europe before it merges;
+                                          # it publishes like any build, so main must take the branch
+                                          # before its own next build, or that build drops the change
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --dry-run
                                           # what a run would do now: leftovers, the published graph's age,
                                           # the extracts' date; creates nothing, never waits, records nothing
@@ -3068,9 +3095,12 @@ serving meanwhile.
 
 - `valhalla.service` (Quadlet unit `infra/routing/valhalla.container`):
   the official image pinned by digest, run by Podman, `Network=host` with a
-  listener on 127.0.0.1:8002 only, read-only, no capability, a 6 GB memory
-  cap (Europe without a cap settled at 5.95 GB after 400 varied routes; with
-  3 GB the kernel read the tiles again and again, plan/research/31), and an
+  listener on 127.0.0.1:8002 only, read-only, no capability, six threads
+  (one per engine call the API lets in flight, `LUNAWAY_ROUTING_CONCURRENCY`;
+  four until 2026-10-11), an 8 GB memory cap (Europe without a cap settled
+  at 5.95 GB after 400 varied routes; with 3 GB the kernel read the tiles
+  again and again, plan/research/31; 6 GB with four threads until
+  2026-10-11, where it read 2 GB of tiles again in a day, "Memory"), and an
   IP filter to loopback: the engine receives every route's
   positions and reaches nothing. Its configuration is the repository's
   `infra/routing/valhalla.json` (route, trace_attributes, sources_to_targets
@@ -3092,7 +3122,8 @@ serving meanwhile.
   refuses a graph built more than 30 days ago, unpacks into
   `/srv/routing/builds/<id>/`, loads the restrictions inactive
   (`lunaway routing load`), serves the new graph on 127.0.0.1:8003
-  (`valhalla-candidate.service`) for the route tests, switches `current`
+  (`valhalla-candidate.service`) for the route tests, warms it (below),
+  switches `current`
   by an atomic rename, restarts the engine, runs the tests again, then
   activates the restrictions (`lunaway routing activate`), then queues
   `lunaway-enforcement-full.service`: the danger zones follow the roads of
@@ -3109,6 +3140,19 @@ serving meanwhile.
   small files, 512 MiB for the restrictions, 2 GiB a part, 8 parts), and
   only the download of the graph being installed stays in `incoming/`, so
   failed runs cannot pile up there.
+- The warm-up (`/usr/local/sbin/lunaway-routing-warm`, since 2026-10-11):
+  the 48 trips of `infra/routing/warm-routes.txt`, half across France, half
+  along the main corridors of the graph's countries, routed one after the
+  other as the API asks a route, so that the tiles of the main roads are
+  read from disk before the users' routes need them (a long route took 1.3
+  to 2.5 s from disk against 0.5 to 1.2 s from memory, plan/research/31,
+  3.2). The refresh runs it twice on the candidate engine, after its route
+  tests and before the switch: both engines map the same file, its pages
+  stay in memory once the candidate stops, and the journal shows the first
+  pass (from disk) against the second (warm).
+  `lunaway-routing-warm.service`, enabled with `WantedBy=valhalla.service`,
+  runs it after each start of the engine, a boot included. It reaches
+  loopback only, under a dynamic user, and never fails what calls it.
 - Disk: the root disk (local NVMe), not the data volume: the tiles are
   memory-mapped and read at random, and can be rebuilt. A Europe graph
   takes 20.4 GB unpacked and 8.3 GB to download; the two graphs kept took
@@ -3131,6 +3175,7 @@ serving meanwhile.
 sudo systemctl start lunaway-routing-refresh          # now
 sudo journalctl -u lunaway-routing-refresh -f
 sudo /usr/local/sbin/lunaway-routing-refresh --rollback
+sudo journalctl -u lunaway-routing-warm               # the warm-ups after each start
 ```
 
 ### The check after each route
@@ -3143,7 +3188,8 @@ alternatives, `MAX_TRIP_M` in a straight line, at most the engine's
 vehicle's bounds; one route per request), takes one use of the client's
 route quota (`LUNAWAY_QUOTA_ROUTE`, 30 every ten minutes, given back when
 the server fails), waits at most `LUNAWAY_ROUTING_QUEUE_WAIT_MS` (1 s) for
-one of `LUNAWAY_ROUTING_CONCURRENCY` engine slots, held until the answer is
+one of `LUNAWAY_ROUTING_CONCURRENCY` engine slots (6, the engine's threads),
+held until the answer is
 checked, and asks the engine with the vehicle's four dimensions (`auto`
 costing, `top_speed` 110 above 3.5 t). Everything a route does fits in
 15 s. The
@@ -3174,8 +3220,15 @@ position, and the graph's dates and IGN edition. Tested end to end on the prepar
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
 never on the maintainer's Mac).
 
-A blocker the engine does not see by itself (a height barrier mapped on a
-node, a port's lane) costs a second engine call. The API looks for them
+A blocker the engine does not see by itself costs a second engine call.
+Since the graph of 2026-10-11 the engine sees the limits mapped on a node:
+the preparation carries them onto a 4 m stretch of each way through the
+node (`lunaway-ingest/src/node_limits.rs`, "The graph build"), and the
+check still counts the node, for the ways left whole and as a safety
+net. What remains for the second call: a port's lane, the limits of the
+ways a turn relation keeps whole, and a node within 3 m of a route that
+does not go through it, such as one on a cycle path under a bridge the
+route crosses (plan/research/127-routage-serveur.md). The API looks for them
 ahead from public data only (`routing::public`): a minute after it
 starts, then whenever the active graph or the restrictions outside the
 graphs (DiaLog's, the community's) changed, read every ten minutes, it
