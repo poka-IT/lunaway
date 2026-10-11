@@ -307,6 +307,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     "name" to info.name,
                     "label" to info.label,
                     "isDefault" to (info.name == default),
+                    "system" to info.system,
                 )
             }
     }

@@ -56,12 +56,18 @@ enum PlatformLanguageStatus {
 /// NG, RHVoice.
 @immutable
 final class PlatformEngineInfo {
-  const PlatformEngineInfo({required this.name, required this.label, required this.isDefault});
+  const PlatformEngineInfo({
+    required this.name,
+    required this.label,
+    required this.isDefault,
+    this.system = false,
+  });
 
   factory PlatformEngineInfo.fromMap(Map<Object?, Object?> map) => PlatformEngineInfo(
     name: '${map['name']}',
     label: '${map['label']}',
     isDefault: map['isDefault'] == true,
+    system: map['system'] == true,
   );
 
   /// Its package.
@@ -72,6 +78,10 @@ final class PlatformEngineInfo {
 
   /// The one chosen in the system's settings.
   final bool isDefault;
+
+  /// Part of the system image (Google's, the maker's), not installed by
+  /// the user.
+  final bool system;
 }
 
 /// The device's speech engine, through this package's platform code

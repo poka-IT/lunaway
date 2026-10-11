@@ -94,6 +94,7 @@ final class FakeEngine {
     this.status = const {},
     this.starts = true,
     this.answers = true,
+    this.system = true,
   }) : label = label ?? name;
 
   final String name;
@@ -106,6 +107,9 @@ final class FakeEngine {
 
   /// False: it never answers.
   final bool answers;
+
+  /// False: installed by the user, not part of the system image.
+  final bool system;
 }
 
 /// An Android device with [installed] engines, the first one the default.
@@ -138,7 +142,7 @@ final class FakeDevice extends PlatformVoice {
     if (!answers) await Completer<void>().future;
     return [
       for (final (i, e) in installed.indexed)
-        PlatformEngineInfo(name: e.name, label: e.label, isDefault: i == 0),
+        PlatformEngineInfo(name: e.name, label: e.label, isDefault: i == 0, system: e.system),
     ];
   }
 
@@ -277,14 +281,16 @@ void main() {
     expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
   });
 
-  test('an engine that lists no voice but speaks the language on the device is taken at its '
-      'word', () async {
-    final platform = FakePlatformVoice(const [], PlatformLanguageStatus.available);
-    final output = PlatformVoiceOutput(voice: platform, chime: _wav);
-    expect(await output.prepare(RouteLanguage.en), VoiceReadiness.ready);
-    await output.say('Turn right.');
-    expect(platform.spoken.single.text, 'Turn right.');
-  });
+  test(
+    'an engine that lists no voice of the language has none to speak with, whatever it says',
+    () async {
+      final output = PlatformVoiceOutput(
+        voice: FakePlatformVoice(const [], PlatformLanguageStatus.available),
+        chime: _wav,
+      );
+      expect(await output.prepare(RouteLanguage.en), VoiceReadiness.none);
+    },
+  );
 
   test("one that speaks it through its vendor's server only means a voice to download", () async {
     final output = PlatformVoiceOutput(
@@ -422,6 +428,30 @@ void main() {
       expect(await speaks.prepare(RouteLanguage.fr), VoiceReadiness.ready);
       expect(chosen.used, unknown);
     });
+
+    test(
+      'an app under the name of a system engine, not part of the system, is passed over',
+      () async {
+        final device = FakeDevice([
+          FakeEngine(
+            samsung,
+            voices: {
+              'fr': [voice('fr-FR-SMTf00', installed: false)],
+            },
+          ),
+          FakeEngine(
+            google,
+            system: false,
+            voices: {
+              'fr': [voice('fr-fr-x-frc-local')],
+            },
+          ),
+        ]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+        expect(device.asked, [samsung]);
+      },
+    );
 
     test('an engine that does not start is passed over', () async {
       final device = FakeDevice([

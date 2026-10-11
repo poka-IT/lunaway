@@ -91,13 +91,20 @@ final class PlatformVoiceOutput implements VoiceOutput {
   /// voices that need the vendor's server say so (Google's lists both
   /// kinds, each marked). Another engine, which might wrap an online
   /// service and say nothing of it, speaks only as the user's choice.
-  static const onDeviceEngines = {
-    'com.google.android.tts',
-    'com.samsung.SMT',
-    'com.reecedunn.espeak',
-    'com.github.olga_yakovleva.rhvoice.android',
-    'com.svox.pico',
-  };
+  static const Set<String> onDeviceEngines = {...systemEngines, ...freeEngines};
+
+  /// Those that come with the system image: trusted only as part of it,
+  /// so an app installed under one of their names is passed over.
+  static const systemEngines = {'com.google.android.tts', 'com.samsung.SMT', 'com.svox.pico'};
+
+  /// Free engines installed by the user (F-Droid, Play), trusted by name:
+  /// an app taking one of these names would have to be installed in its
+  /// place.
+  static const freeEngines = {'com.reecedunn.espeak', 'com.github.olga_yakovleva.rhvoice.android'};
+
+  /// Whether the app speaks with [engine] when it is not the default one.
+  static bool trusted(nav.PlatformEngineInfo engine) =>
+      freeEngines.contains(engine.name) || (engine.system && systemEngines.contains(engine.name));
 
   @override
   bool get chimes => _chimes;
@@ -150,7 +157,7 @@ final class PlatformVoiceOutput implements VoiceOutput {
         // The user chose the default engine; another one the app picks
         // itself only when it is known to speak on the device with what
         // it says of its voices.
-        if (engine != null && !engine.isDefault && !onDeviceEngines.contains(engine.name)) {
+        if (engine != null && !engine.isDefault && !trusted(engine)) {
           continue;
         }
         final offer = await _offer(
@@ -221,10 +228,13 @@ final class PlatformVoiceOutput implements VoiceOutput {
     // through its vendor's server, or is not downloaded. The one to
     // install works offline and keeps the words on the device.
     if (voices.isNotEmpty) return _Offer.download;
+    // Without a voice listed, Android finds none to speak the language with
+    // (setLanguage looks the language's voice up in the list): the engine
+    // has only a download to offer, if anything.
     return switch (await _voice.languageStatus(language.speechTag, engine: engine)) {
-      nav.PlatformLanguageStatus.available => const _Offer(_OfferKind.ready),
       nav.PlatformLanguageStatus.network ||
       nav.PlatformLanguageStatus.missingData => _Offer.download,
+      nav.PlatformLanguageStatus.available ||
       nav.PlatformLanguageStatus.notSupported => _Offer.none,
     };
   }

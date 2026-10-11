@@ -667,9 +667,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   engine's own page; the voice is looked for again each time the user
   comes back to the app (`AppForeground.returns`). Besides the default
   engine (the user's choice), only engines known to synthesise on the
-  device speak (`PlatformVoiceOutput.onDeviceEngines`); an engine that
-  lists no voice of the language speaks it only when it declares
-  embedded synthesis, and the voice an engine is about to use is checked
+  device speak (`PlatformVoiceOutput.onDeviceEngines`: Google's,
+  Samsung's and Pico only as part of the system image, eSpeak NG and
+  RHVoice by name); an engine that lists no voice of the language has
+  none to speak with, and the voice an engine is about to use is checked
   before each sentence (on the device, of the language). Three modes,
   kept with the route settings (`VoiceMode`,
   `domain/route_settings.dart`): full (the engine's
