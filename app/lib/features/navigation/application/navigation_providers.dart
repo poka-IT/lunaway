@@ -260,7 +260,7 @@ final class RoutePreview {
   /// Null until both the vehicle and the start are known.
   final RoutePlan? plan;
 
-  /// The index (in the OSRM answer) of the route chosen.
+  /// The index ([RouteOption.index]) of the route chosen.
   final int selected;
 
   /// The stops the plan was computed with.
@@ -513,19 +513,30 @@ class RoutePreviewController extends _$RoutePreviewController {
 
   /// Adds the alternatives of [plan] once they come, to the preview that
   /// still shows it: a preview computed again meanwhile (another vehicle,
-  /// another start) is left alone. A failure leaves the best route alone,
-  /// unsaid: it is a route the vehicle may drive.
+  /// another start) is left alone. Without them the best route stands
+  /// alone, unsaid (it is a route the vehicle may drive), and the room kept
+  /// for them closes.
   Future<void> _alternatives(RouteService service, RoutePlan plan, String token) async {
-    final LaterRoutes later;
+    LaterRoutes later;
     try {
       later = await service.alternatives(token);
-      // The build that sent [plan] has handed its preview over.
-      await future;
-    } on Object catch (e) {
+    } on RouteFailure catch (e) {
       _log.fine('no alternatives after the best route: $e');
+      later = LaterRoutes.none;
+    } on Object catch (e, st) {
+      // Not the network nor the server: the app's reading of the answer.
+      _log.warning('the alternatives after the best route could not be read', e, st);
+      later = LaterRoutes.none;
+    }
+    if (!ref.mounted) return;
+    try {
+      // The build that sent [plan] has handed its preview over: an answer
+      // kept from an earlier preview comes back before it.
+      await future;
+    } on Object {
       return;
     }
-    if (!ref.mounted || later.status != LaterStatus.ok) return;
+    if (!ref.mounted) return;
     final current = state;
     if (current is! AsyncData<RoutePreview> || current.isLoading) return;
     if (!identical(current.value.plan, plan)) return;

@@ -30,12 +30,7 @@ final guidanceStationsProvider = GuidanceStationsProvider._();
 // A failure shows nowhere but in the prices missing: no retry here.
 
 final class GuidanceStationsProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<Poi>>,
-          List<Poi>,
-          FutureOr<List<Poi>>
-        >
+    extends $FunctionalProvider<AsyncValue<List<Poi>>, List<Poi>, FutureOr<List<Poi>>>
     with $FutureModifier<List<Poi>>, $FutureProvider<List<Poi>> {
   /// The fuel stations around the vehicle during a guidance, with the prices
   /// of the feed, as the main map reads them (`fuelStations`): those whose

@@ -109,6 +109,63 @@ class RouteOptionCard extends StatelessWidget {
   }
 }
 
+/// The place an alternative takes before it comes, as tall as its card: the
+/// best route is shown alone first, and what lies under the routes (the
+/// places on the way, the limits, the roadbook) stays where it is when the
+/// alternatives join (`plan/research/130-alternatives-apres.md`). [facts]
+/// keeps room for the line of chips the best route has. It says nothing,
+/// to a screen reader either: an alternative may not come.
+class RouteOptionPlaceholder extends StatelessWidget {
+  const new({required this.facts, super.key});
+
+  final bool facts;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    // A blank line of [style], as tall as a line of text in it.
+    Widget bar(TextStyle? style, double width) => DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(LunaTokens.radiusXs),
+      ),
+      child: SizedBox(
+        width: width,
+        child: Opacity(opacity: 0, child: Text(' ', style: style)),
+      ),
+    );
+    return ExcludeSemantics(
+      // A container, as the card: its border takes room inside it.
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(LunaTokens.radiusL),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(Space.m),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              bar(theme.textTheme.labelMedium, 72),
+              const SizedBox(height: Space.xxs),
+              bar(theme.textTheme.headlineSmall, 120),
+              if (facts) ...[
+                const SizedBox(height: Space.xs),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+                  child: bar(theme.textTheme.labelMedium, 96),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Fact extends StatelessWidget {
   const new({required this.text, this.icon, this.alert = false});
 

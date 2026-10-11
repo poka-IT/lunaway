@@ -462,7 +462,10 @@ final class RouteOption {
     this.crossings = const [],
   });
 
-  /// Its index in the OSRM answer; 0 is the recommended one.
+  /// Its number among the routes of the plan; 0 is the recommended one.
+  /// The OSRM answer that holds it, and its place there, are
+  /// [RoutePlan.osrmOf]'s: an alternative that came after the best route
+  /// is in an answer of its own.
   final int index;
   final double distanceM;
   final double durationS;
@@ -727,12 +730,30 @@ final class RoutePlan {
     null => false,
   };
 
-  /// This plan with [alternatives] after its routes, numbered on from them;
-  /// the same plan when they hold none, or when it has no route to follow.
+  /// This plan with [alternatives] after its routes, numbered on from them,
+  /// and no token left: they came, or will not. Without any, the routes
+  /// stay as they were.
   RoutePlan withAlternatives(LaterRoutes alternatives) {
     final json = alternatives.osrmJson;
-    if (status != RouteStatus.ok || json == null || alternatives.routes.isEmpty) return this;
-    final from = routes.length;
+    if (status != RouteStatus.ok || json == null || alternatives.routes.isEmpty) {
+      return RoutePlan(
+        status: status,
+        routes: routes,
+        blockers: blockers,
+        recalculations: recalculations,
+        applied: applied,
+        graph: graph,
+        osrmJson: osrmJson,
+        avoidedRoadEvents: avoidedRoadEvents,
+        roadEventBlockers: roadEventBlockers,
+        roadEventSources: roadEventSources,
+        noRouteReasons: noRouteReasons,
+        movedStops: movedStops,
+        later: later,
+      );
+    }
+    // After the highest index of the answer already read, gap or not.
+    final from = routes.fold(-1, (top, r) => r.index > top ? r.index : top) + 1;
     return RoutePlan(
       status: status,
       routes: [...routes, for (final r in alternatives.routes) r.renumbered(from + r.index)],

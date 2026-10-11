@@ -70,9 +70,12 @@ void main() {
     );
   });
 
-  test('alternatives that did not come change nothing', () {
+  test('alternatives that did not come leave the routes and wait no more', () {
     final plan = bestAlone();
-    expect(identical(plan.withAlternatives(LaterRoutes.none), plan), isTrue);
+    final alone = plan.withAlternatives(LaterRoutes.none);
+    expect(alone.routes, plan.routes);
+    expect(alone.osrmJson, plan.osrmJson);
+    expect(alone.alternativesToken, isNull, reason: 'the room kept for them closes');
     expect(
       laterRoutesFromJson({'status': 'SOMETHING_NEW', 'osrmJson': null, 'routes': <Object>[]})
           .status,

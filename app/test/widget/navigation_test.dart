@@ -38,7 +38,9 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -398,10 +400,12 @@ void main() {
           reason: 'the guidance may start on the best route without its alternatives',
         );
         expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0]);
+        expect(find.byType(RouteOptionPlaceholder), findsNWidgets(2), reason: 'room kept');
         final camera = SchematicRouteMap.last!.camera;
 
         held.complete(later);
         await settleShort(tester);
+        expect(find.byType(RouteOptionPlaceholder), findsNothing);
         expect(find.text('Variante 1'), findsOneWidget);
         expect(find.text('4,9 km'), findsOneWidget);
         expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0, 1]);
@@ -428,6 +432,92 @@ void main() {
       },
     );
 
+    testWidgets('on a desktop too, the alternatives join where the camera stands', (tester) async {
+      final (best, later) = bestFirst('utrillo_motorhome');
+      final held = Completer<LaterRoutes>();
+      await openPreview(
+        tester,
+        size: desktop,
+        answers: [best],
+        engine: LineEngine([best]),
+        later: {'token-1': held},
+      );
+      final camera = SchematicRouteMap.last!.camera;
+      held.complete(later);
+      await settleShort(tester);
+      expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0, 1]);
+      expect(SchematicRouteMap.last!.camera, camera, reason: 'the legend open, the camera stays');
+    });
+
+    testWidgets('what lies under the routes stays where it is when the alternatives join', (
+      tester,
+    ) async {
+      final (best, one) = bestFirst('utrillo_motorhome');
+      // Two alternatives, as most trips have: the same one twice will do.
+      final osrm = jsonDecode(one.osrmJson!) as Map<String, dynamic>;
+      final routes = osrm['routes'] as List<dynamic>;
+      final two = LaterRoutes(
+        status: LaterStatus.ok,
+        osrmJson: jsonEncode({
+          ...osrm,
+          'routes': [...routes, ...routes],
+        }),
+        routes: [one.routes.single, one.routes.single.renumbered(1)],
+      );
+      final held = Completer<LaterRoutes>();
+      await openPreview(
+        tester,
+        answers: [best],
+        engine: LineEngine([best]),
+        later: {'token-1': held},
+      );
+      final below = tester.getTopLeft(find.byType(OnTheWayIcon));
+      held.complete(two);
+      await settleShort(tester);
+      expect(find.text('Variante 2'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(OnTheWayIcon)),
+        below,
+        reason: 'a tap meant for "Sur la route" never lands on a card that just came',
+      );
+    });
+
+    testWidgets('alternatives of a preview computed again meanwhile are left out', (tester) async {
+      final (best, later) = bestFirst('utrillo_motorhome');
+      final held = Completer<LaterRoutes>();
+      final van = routeFixture('utrillo_van');
+      final (app, routes) = await openPreview(
+        tester,
+        answers: [best, van],
+        engine: LineEngine([best, van]),
+        later: {'token-1': held},
+      );
+      // Tolls avoided: the routes are asked again, and the van's come.
+      await app
+          .container(tester)
+          .read(routeSettingsControllerProvider.notifier)
+          .setAvoid(const AvoidOptions(tolls: true));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(2));
+      held.complete(later);
+      await settleShort(tester);
+      expect(find.text('Variante 1'), findsNothing, reason: 'they belong to the routes before');
+      expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0]);
+      expect(find.byType(RouteOptionPlaceholder), findsNothing);
+    });
+
+    testWidgets('alternatives already known join a preview opened again at once', (tester) async {
+      final (best, later) = bestFirst('utrillo_motorhome');
+      final (_, routes) = await openPreview(
+        tester,
+        answers: [best],
+        engine: LineEngine([best]),
+        later: {'token-1': later},
+      );
+      expect(find.text('Variante 1'), findsOneWidget);
+      expect(routes.laterAsked, ['token-1']);
+    });
+
     testWidgets('alternatives that do not come leave the best route alone, unsaid', (tester) async {
       final (best, _) = bestFirst('utrillo_motorhome');
       final plan = routeFixture('utrillo_motorhome');
@@ -439,6 +529,7 @@ void main() {
       );
       expect(find.text('Recommandé'), findsOneWidget);
       expect(find.text('Variante 1'), findsNothing);
+      expect(find.byType(RouteOptionPlaceholder), findsNothing, reason: 'the room closed');
       expect(find.text('Pas de connexion'), findsNothing, reason: 'the route stands');
       final start = find.ancestor(
         of: find.text("C'est parti !"),
