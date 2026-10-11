@@ -44,9 +44,9 @@ After=network-online.target
 ConditionPathExists=/srv/routing/current/valhalla.json
 
 [Container]
-# 3.9.1, pinned by the digest of its multi-architecture index (2026-10-11);
+# 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06);
 # keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
-Image=ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de
+Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
 # Six worker threads for the backend's 16 vCPUs, one per engine call the
 # API lets in flight (LUNAWAY_ROUTING_CONCURRENCY, 6): PostgreSQL, the API,
 # Photon and the translation keep ten. A route runs on one thread, so more

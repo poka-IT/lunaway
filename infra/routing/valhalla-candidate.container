@@ -10,7 +10,7 @@ ConditionPathExists=/srv/routing/candidate/valhalla-candidate.json
 
 [Container]
 # Keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
-Image=ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de
+Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
 Exec=valhalla_service /srv/routing/candidate/valhalla-candidate.json 2
 Network=host
 UserNS=auto
