@@ -389,7 +389,8 @@ void main() {
         );
         expect(routes.laterAsked, ['token-1']);
         expect(find.text('Recommandé'), findsOneWidget);
-        expect(find.text('Variante 1'), findsNothing, reason: 'not come yet');
+        // The room kept for them is drawn blank: their card sizes it unseen.
+        expect(find.text('Variante 1').hitTestable(), findsNothing, reason: 'not come yet');
         final start = find.ancestor(
           of: find.text("C'est parti !"),
           matching: find.bySubtype<FilledButton>(),
@@ -449,38 +450,41 @@ void main() {
       expect(SchematicRouteMap.last!.camera, camera, reason: 'the legend open, the camera stays');
     });
 
-    testWidgets('what lies under the routes stays where it is when the alternatives join', (
-      tester,
-    ) async {
-      final (best, one) = bestFirst('utrillo_motorhome');
-      // Two alternatives, as most trips have: the same one twice will do.
-      final osrm = jsonDecode(one.osrmJson!) as Map<String, dynamic>;
-      final routes = osrm['routes'] as List<dynamic>;
-      final two = LaterRoutes(
-        status: LaterStatus.ok,
-        osrmJson: jsonEncode({
-          ...osrm,
-          'routes': [...routes, ...routes],
-        }),
-        routes: [one.routes.single, one.routes.single.renumbered(1)],
-      );
-      final held = Completer<LaterRoutes>();
-      await openPreview(
-        tester,
-        answers: [best],
-        engine: LineEngine([best]),
-        later: {'token-1': held},
-      );
-      final below = tester.getTopLeft(find.byType(OnTheWayIcon));
-      held.complete(two);
-      await settleShort(tester);
-      expect(find.text('Variante 2'), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.byType(OnTheWayIcon)),
-        below,
-        reason: 'a tap meant for "Sur la route" never lands on a card that just came',
-      );
-    });
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('what lies under the routes stays where it is when the alternatives join, '
+          'text at $scale', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final (best, one) = bestFirst('utrillo_motorhome');
+        // Two alternatives, as most trips have: the same one twice will do.
+        final osrm = jsonDecode(one.osrmJson!) as Map<String, dynamic>;
+        final routes = osrm['routes'] as List<dynamic>;
+        final two = LaterRoutes(
+          status: LaterStatus.ok,
+          osrmJson: jsonEncode({
+            ...osrm,
+            'routes': [...routes, ...routes],
+          }),
+          routes: [one.routes.single, one.routes.single.renumbered(1)],
+        );
+        final held = Completer<LaterRoutes>();
+        await openPreview(
+          tester,
+          answers: [best],
+          engine: LineEngine([best]),
+          later: {'token-1': held},
+        );
+        final below = tester.getTopLeft(find.byType(OnTheWayIcon));
+        held.complete(two);
+        await settleShort(tester);
+        expect(find.text('Variante 2'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.byType(OnTheWayIcon)),
+          below,
+          reason: 'a tap meant for "Sur la route" never lands on a card that just came',
+        );
+      });
+    }
 
     testWidgets('alternatives of a preview computed again meanwhile are left out', (tester) async {
       final (best, later) = bestFirst('utrillo_motorhome');

@@ -1003,14 +1003,8 @@ class _Routes extends ConsumerWidget {
         if (plan.alternativesToken != null)
           for (var i = 0; i < _awaited; i++) ...[
             const SizedBox(height: Space.s),
-            // An alternative is likely to use the roads of the best one.
-            RouteOptionPlaceholder(
-              facts: switch (plan.routes.firstOrNull) {
-                final best? =>
-                  best.hasToll || best.hasMotorway || best.hasFerry || best.warnings.isNotEmpty,
-                null => false,
-              },
-            ),
+            if (plan.routes.firstOrNull case final best?)
+              RouteOptionPlaceholder(like: best, units: units),
           ],
         ..._notes(context),
       ],

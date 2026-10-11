@@ -110,9 +110,10 @@ final class FakeRouteService implements RouteService {
     return answer as RoutePlan;
   }
 
-  /// What each token's alternatives are: [LaterRoutes], answered at once as
-  /// an answer kept in memory is, a [Completer] of them to hold them back,
-  /// or an exception to throw. None by default.
+  /// What each token's alternatives are: [LaterRoutes], answered at once
+  /// (sooner even than the completed future a kept answer is, which holds
+  /// the controller to a stricter order), a [Completer] of them to hold them
+  /// back, or an exception to throw. None by default.
   final Map<String, Object> later = {};
 
   /// The tokens asked for, in order.
