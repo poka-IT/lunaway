@@ -3,8 +3,9 @@
 # (docs/deploy.md, "Routing"; plan/research/15-navigation-backend.md, part 5):
 # Podman and the id ranges of UserNS=auto, the pinned Valhalla image, the two
 # Quadlet units (valhalla, valhalla-candidate), lunaway-routing-refresh with
-# its unit and timer, the route cases and the engine's configuration, the
-# build key the graphs are signed with, and /srv/routing on the root disk.
+# its unit and timer, lunaway-routing-warm with its unit and its trips, the
+# route cases and the engine's configuration, the build key the graphs are
+# signed with, and /srv/routing on the root disk.
 #
 # The engine starts once a graph is installed (lunaway-routing-refresh, by
 # hand the first time: sudo systemctl start lunaway-routing-refresh); the
@@ -38,7 +39,10 @@ install_file routing/valhalla.container /etc/containers/systemd/valhalla.contain
 install_file routing/valhalla-candidate.container /etc/containers/systemd/valhalla-candidate.container 0644 && changed=1
 install_file routing/lunaway-routing-refresh.service /etc/systemd/system/lunaway-routing-refresh.service 0644 && changed=1
 install_file routing/lunaway-routing-refresh.timer /etc/systemd/system/lunaway-routing-refresh.timer 0644 && changed=1
+install_file routing/lunaway-routing-warm.service /etc/systemd/system/lunaway-routing-warm.service 0644 && changed=1
 install_file routing/lunaway-routing-refresh /usr/local/sbin/lunaway-routing-refresh 0755 || true
+install_file routing/lunaway-routing-warm /usr/local/sbin/lunaway-routing-warm 0755 || true
+install_file routing/warm-routes.txt /usr/local/share/lunaway/routing/warm-routes.txt 0644 || true
 install_file routing/test-routes.json /usr/local/share/lunaway/routing/test-routes.json 0644 || true
 install_file routing/valhalla.json /usr/local/share/lunaway/routing/valhalla.json 0644 || true
 # The refresh's lock, held to the end of this step: a restart of the engine
@@ -66,6 +70,8 @@ done
 install_file routing/routing-signers /etc/lunaway/routing-signers 0644 || true
 [ "$changed" = 1 ] && systemctl daemon-reload
 
+# The warm-up after each start of the engine (WantedBy=valhalla.service).
+systemctl enable --quiet lunaway-routing-warm.service
 if [ -L /srv/routing/current ]; then
   systemctl enable --quiet --now lunaway-routing-refresh.timer
   if [ "$changed" = 1 ] || [ "$config_changed" = 1 ] || ! systemctl is-active --quiet valhalla; then

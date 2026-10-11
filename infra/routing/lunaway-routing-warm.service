@@ -1,0 +1,45 @@
+# Warms the routing engine after each start of valhalla.service
+# (/usr/local/sbin/lunaway-routing-warm, docs/deploy.md "Routing"): a boot
+# or a restart leaves the graph's pages out of memory when the system
+# reclaimed them. Installed to /etc/systemd/system/ and enabled by the
+# server step routing (infra/server/routing.sh); WantedBy= below starts it
+# with the engine, After= once the engine runs. It sends trips to loopback
+# and reads nothing else.
+[Unit]
+Description=Lunaway routing: warm the engine after it starts
+After=valhalla.service
+Requisite=valhalla.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lunaway-routing-warm http://127.0.0.1:8002
+# Behind the users' routes, which the engine serves meanwhile.
+Nice=10
+CPUWeight=20
+TimeoutStartSec=15min
+DynamicUser=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=valhalla.service

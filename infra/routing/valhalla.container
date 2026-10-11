@@ -47,11 +47,14 @@ ConditionPathExists=/srv/routing/current/valhalla.json
 # 3.9.1, pinned by the digest of its multi-architecture index (2026-10-11);
 # keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
 Image=ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de
-# Four worker threads, a quarter of the backend's 16 vCPUs: PostgreSQL, the
-# API, Photon and the translation keep the rest. A long European route takes
-# 0.4 to 1.2 s of one thread once its tiles are in memory
-# (plan/research/31-routage-europe.md, 3.2).
-Exec=valhalla_service /srv/routing/current/valhalla.json 4
+# Six worker threads for the backend's 16 vCPUs, one per engine call the
+# API lets in flight (LUNAWAY_ROUTING_CONCURRENCY, 6): PostgreSQL, the API,
+# Photon and the translation keep ten. A route runs on one thread, so more
+# threads only serve more routes at once; a long European route takes 0.4
+# to 1.2 s of one thread once its tiles are in memory
+# (plan/research/31-routage-europe.md, 3.2). Four until 2026-10-11, when no
+# route had waited for a call in three days (plan/research/127-routage-serveur.md).
+Exec=valhalla_service /srv/routing/current/valhalla.json 6
 # Host network, bound to 127.0.0.1 by valhalla.json: no port publishing, no
 # firewall rule, and the API reaches it on loopback.
 Network=host
@@ -71,8 +74,13 @@ StopTimeout=2
 # the kernel read the same tiles again and again, 15 GB for those 400
 # routes, and the median rose from 0.60 to 0.84 s
 # (plan/research/31-routage-europe.md, 3.3). 6 GB on the 16 GB backend
-# (cx43) holds the tiles in use and still reclaims them before PostgreSQL's.
-PodmanArgs=--memory=6g --pids-limit=256
+# (cx43) held the tiles in use then. On the cx53, 21 hours after a restart
+# with four threads, the engine sat at its 6 GB, 2.4 GB of it anonymous
+# and 3.8 GB of tiles, had reached the cap 7 765 times and read 2 GB of
+# tiles again (memory.events, workingset_refault_file, 2026-10-11). At
+# 0.6 GB a thread (2.4 GB for four, an estimate), six threads in 8 GB leave
+# the tiles about 4.4 GB.
+PodmanArgs=--memory=8g --pids-limit=256
 
 [Service]
 # Each stop ends in SIGKILL (137), so a plain `systemctl stop valhalla`

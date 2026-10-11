@@ -1,0 +1,56 @@
+#!/bin/bash
+# Warms a routing engine: routes the trips of warm-routes.txt one after the
+# other, so that the tiles of the main roads are read from disk before the
+# users' routes need them (docs/deploy.md, "Routing"). Valhalla maps its
+# graph from the root disk: after a new graph or a reboot, nothing of it is
+# in memory, and a long route took 1.3 to 2.5 s instead of 0.5 to 1.2 s
+# (plan/research/31-routage-europe.md, 3.2). Run by lunaway-routing-refresh
+# on a new graph's candidate engine before the switch (the two engines map
+# the same file, so the switched engine finds its pages in memory), and by
+# lunaway-routing-warm.service after each start of valhalla.service.
+#
+#   lunaway-routing-warm [URL] [ROUTES]
+#     URL      the engine, default http://127.0.0.1:8002
+#     ROUTES   default /usr/local/share/lunaway/routing/warm-routes.txt
+#
+# Prints one line: the trips routed, the seconds they took, the slowest.
+# Exits 0 even when some trips fail: a warm-up never stops what calls it.
+set -uo pipefail
+URL=${1:-http://127.0.0.1:8002}
+ROUTES=${2:-/usr/local/share/lunaway/routing/warm-routes.txt}
+[[ "$URL" =~ ^http://127\.0\.0\.1:[0-9]{2,5}$ ]] || { echo "warm-up: $URL is not an engine on loopback" >&2; exit 2; }
+[ -r "$ROUTES" ] || { echo "warm-up: $ROUTES is missing" >&2; exit 2; }
+
+up=no
+for _ in $(seq 1 90); do
+  if curl -fsS --max-time 2 "$URL/status" >/dev/null 2>&1; then
+    up=yes
+    break
+  fi
+  sleep 2
+done
+[ "$up" = yes ] || { echo "warm-up: $URL does not answer"; exit 0; }
+
+num='^-?[0-9]+(\.[0-9]+)?$'
+routed=0
+failed=0
+times=()
+while read -r lat1 lon1 lat2 lon2 name; do
+  [[ "$lat1" =~ $num && "$lon1" =~ $num && "$lat2" =~ $num && "$lon2" =~ $num ]] || continue
+  # The request the API sends for a route (lunaway-api, routing/valhalla.rs),
+  # without alternatives: the same tiles, edge names and instructions.
+  body=$(printf '{"locations":[{"lat":%s,"lon":%s,"type":"break"},{"lat":%s,"lon":%s,"type":"break"}],"costing":"auto","costing_options":{"auto":{"height":3.3,"width":2.3,"length":7.4,"weight":3.5}},"format":"osrm","shape_format":"polyline6","banner_instructions":true,"voice_instructions":true,"language":"fr-FR"}' \
+    "$lat1" "$lon1" "$lat2" "$lon2")
+  if t=$(curl -fsS -o /dev/null -w '%{time_total}' --max-time 30 -H 'Content-Type: application/json' \
+    --data "$body" "$URL/route" 2>/dev/null); then
+    routed=$((routed + 1))
+    times+=("$t")
+  else
+    failed=$((failed + 1))
+    echo "warm-up: no route for ${name:-a trip}"
+  fi
+done <"$ROUTES"
+printf '%s\n' "${times[@]:-0}" | awk -v url="$URL" -v routed="$routed" -v failed="$failed" '
+  { total += $1; if ($1 > max) max = $1 }
+  END { printf "warm-up of %s: %d trips in %.1f s, the slowest %.2f s, %d failed\n", url, routed, total, max, failed }'
+exit 0

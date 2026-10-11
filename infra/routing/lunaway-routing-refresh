@@ -29,7 +29,8 @@
 #
 # Order: download, check the signature and the sums, unpack, load the
 # restrictions (inactive), serve the new graph on the candidate port and run
-# the route tests, switch `current` by an atomic rename, restart the engine,
+# the route tests, warm it (lunaway-routing-warm, twice), switch `current`
+# by an atomic rename, restart the engine,
 # run the tests again, then activate the restrictions. A failure before the
 # switch changes nothing served; a failure after it switches back. Two
 # graphs stay on disk: the one served and the previous.
@@ -48,6 +49,9 @@ CONFIG=/usr/local/share/lunaway/routing/valhalla.json
 # A signed graph older than this is refused: a replay of an old release.
 MAX_AGE_DAYS=30
 LUNAWAY=/opt/lunaway/current/lunaway
+# Warms an engine with the trips of warm-routes.txt; a server without it
+# (before the routing step installs it) switches cold, as before.
+WARM=/usr/local/sbin/lunaway-routing-warm
 LIVE=http://127.0.0.1:8002
 CANDIDATE=http://127.0.0.1:8003
 ID_RE='^[0-9]{8}T[0-9]{4}Z-[a-z0-9]{2,16}$'
@@ -260,6 +264,15 @@ passed=yes
 wait_for "$CANDIDATE" || passed=no
 if [ "$passed" = yes ]; then
   "$LUNAWAY" routing test-routes --url "$CANDIDATE" --cases "$CASES" || passed=no
+fi
+# The main roads of the new graph read into memory before it serves: both
+# engines map the same file, and its pages stay in memory once the
+# candidate stops. Twice, so the journal shows what the first users would
+# have waited (the first pass, from disk) against a warm engine (the
+# second).
+if [ "$passed" = yes ] && [ -x "$WARM" ]; then
+  "$WARM" "$CANDIDATE" || true
+  "$WARM" "$CANDIDATE" || true
 fi
 systemctl stop valhalla-candidate.service
 if [ "$passed" != yes ]; then
