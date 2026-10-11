@@ -65,7 +65,10 @@ chown postgres:postgres "$confdir/pg_hba.conf"
 install_file systemd/postgresql@18-main.service.d/lunaway.conf "$dropins/lunaway.conf" 0644 && restart=1
 pg_datadir_dropin "$STAGING/postgresql-data-directory.conf"
 install_file "$STAGING/postgresql-data-directory.conf" "$dropins/data-directory.conf" 0644 && restart=1
-if [ "$restart" = 1 ]; then systemctl daemon-reload; fi
+# Resource settings: a daemon-reload applies them to the running cluster.
+units=0
+install_file systemd/postgresql@18-main.service.d/memory.conf "$dropins/memory.conf" 0644 && units=1
+if [ "$restart" = 1 ] || [ "$units" = 1 ]; then systemctl daemon-reload; fi
 
 # Tuning from the memory and cores of this machine (shared_buffers needs a
 # restart, so the file is only rewritten when a value changes). The other

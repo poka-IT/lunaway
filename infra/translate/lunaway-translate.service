@@ -93,8 +93,15 @@ SocketBindAllow=tcp:2324
 # files' pages the unit read fill the rest up to MemoryHigh, which takes
 # them back first. A runaway process is stopped before it takes the page
 # cache of the database, Photon and the routing engine.
+# No swap: the server's swap is compressed memory (zram), and the models'
+# int8 weights barely compress. On 2026-10-11, after a day without a
+# translation, 2.7 GB of them sat in it for 2.3 GB of memory, and the first
+# text of a pair took 70 to 160 ms more while its model came back
+# (plan/research/131-memoire-serveur.md). The models stay resident, under
+# MemoryHigh with 0.7 GB to spare.
 MemoryHigh=4G
 MemoryMax=4608M
+MemorySwapMax=0
 CPUWeight=20
 CPUQuota=400%
 TasksMax=256

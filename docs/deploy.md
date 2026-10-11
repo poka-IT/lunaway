@@ -306,20 +306,53 @@ about 77% as `df` counts it (computed), under the status page's 80%.
 
 ### Memory
 
-32 GB, 31,344 MB visible to the system. At 13:37 UTC on 2026-10-10, before
-the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
+32 GB, 31,344 MiB visible to the system. The swap is 4 GiB of compressed
+memory (zram, zstd, `infra/files/etc/systemd/zram-generator.conf`): nothing
+swapped out reaches a disk, but a page there still takes memory, less its
+compression. `vm.swappiness` is 10 (`infra/files/etc/sysctl.d/90-lunaway.conf`).
 
-| unit | memory | cap |
-|---|---|---|
-| PostgreSQL | 7.5 GB | |
-| `photon@europe` | 3.1 GB (2.68 GB resident; a heap of 2 GB) | `MemoryHigh` 6 GB, `MemoryMax` 7 GB |
-| `photon@morocco` | 0.8 GB (a heap of 512 MB) | the same unit file |
-| `lunaway-translate` | 3.2 GB | `MemoryHigh` 4 GB, `MemoryMax` 4.5 GB |
-| `lunaway-api` | 0.1 GB idle; under route batteries 0.33 GB at most every 30 s, 0.51 GB at the cgroup's peak (jemalloc, 2026-10-11) | `MemoryHigh` 1.5 GB, `MemoryMax` 2 GB, no swap (`MemorySwapMax=0`) |
-| the external feed's crawler | 0.47 GB | |
-| Caddy | 0.11 GB | |
-| Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
-| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 10 GB (`--memory=10g`) since the evening of 2026-10-11, 8 GB that day, 6 GB before |
+**No swap for what a user waits on.** The API, PostgreSQL, Photon and the
+translation server run with `MemorySwapMax=0` since 2026-10-11: the kernel
+can take only their page cache, and swaps the memory of the units nobody
+waits on (the imports and the other jobs, the external feed's crawler,
+Gatus, the tile server, Caddy, journald). The routing engine may swap
+within its container's cap only: its private memory grows with the routes
+it computes and no setting bounds it, so at its cap it goes to zram rather
+than stopping the engine (at 8 GB it had 956 MiB swapped, 2026-10-11).
+On 2026-10-11 at 19:42 UTC the translation server held 0.43 GB in memory
+and 2.8 GB of its models in zram, after a day without a translation: zram
+held 2.78 GiB of pages in 2.27 GiB of memory (`/sys/block/zram0/mm_stat`),
+the models' int8 weights barely compressing, and the first text of a pair
+took 70 to 160 ms more than the next ones. Its cgroup had never reached its
+`MemoryHigh` (`memory.events`, `high 0`): the machine's own reclaim had
+taken pages nobody had touched for a day, swappiness 10 notwithstanding
+(plan/research/131-memoire-serveur.md).
+
+The budget, measured on 2026-10-11 in each unit's cgroup (`memory.stat`;
+"private" is its anonymous and shared memory, the rest is page cache the
+kernel takes back first):
+
+| unit | measured | budget | `MemoryHigh`, `MemoryMax` | swap |
+|---|---|---|---|---|
+| PostgreSQL | shared buffers 3.9 GiB (`shared_buffers` 3,918 MB), its processes 0.1 to 0.3 GiB, the database's page cache from 1.4 to 14.6 GiB | 4.5 GiB besides its page cache, 2 GiB more while an index is built (`maintenance_work_mem`) or three autovacuum workers run (512 MB each) | none | none (`postgresql@18-main.service.d/memory.conf`) |
+| `valhalla` | 3.4 to 3.6 GiB private with six threads, 2.3 GiB of tiles | its cap | container 10 GiB (`--memory=10g`) | within its cap |
+| `photon@europe` | 1.8 to 1.9 GiB private (a heap of 2 GB), 3.5 GiB of the index's pages | 6 GiB | 6 GiB, 7 GiB | none |
+| `photon@morocco` | 0.8 GiB private (a heap of 512 MB) | 1 GiB | the same unit file | none |
+| `lunaway-translate` | 3.1 to 3.3 GB, the 28 models (2026-10-09) | 3.5 GiB | 4 GiB, 4.5 GiB | none |
+| `lunaway-api` | 0.1 to 0.3 GiB between routes; 1.38 GiB with six of the heaviest routes off motorways at once (`memory.peak`); two photo decodes about 1 GB more | 2.5 GiB | 2.5 GiB, 3 GiB | none |
+| the external feed's crawler | 0.12 to 0.44 GiB | 0.6 GiB | 0.45 GiB, 0.6 GiB | yes |
+| Caddy | 0.17 GiB, 0.3 GiB at its peak | 0.3 GiB | none | yes |
+| Gatus, the tile server | 0.07 GiB, 0.1 GiB | 0.5 GiB each | 0.38 GiB, 0.5 GiB | yes |
+| `systemd-journald` | 0.67 GiB, the journals' page cache | | none | yes |
+| a job: an import, the open content's refresh, the packs, a basemap cut | 0.2 to 3 GiB | its cap | 0.25 to 4 GiB, per unit | yes |
+| the kernel: slab, page tables, stacks | 1.1 GiB | 1.2 GiB | | |
+
+Under the normal load, jobs aside, the private memory comes to about
+16 GiB, which leaves about 15 GiB of page cache to the database, the
+routing tiles, Photon's index and the basemap. An import, an index build,
+the API at its peak and two photos at once bring it to about 23 GiB, and
+the page cache to about 8 GiB (computed): the services a user waits on
+keep their memory, and read more of their files from the root disk.
 
 The database, the routing engine and Photon read their files through the
 page cache they share; PostgreSQL's settings ("PostgreSQL on the root
@@ -426,10 +459,12 @@ after a resize retunes them). The other tenants hold about 21 GB at their
 caps (`others` = 21,504 MB): the routing engine 6 GB, an import reading an
 extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
 1.5 GB, and since the merge Photon's two JVMs about 3.5 GB, the translation
-server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB since
-2026-10-11 are not in it: `others` only sets `effective_cache_size`, a hint
-to the planner, and a new value restarts PostgreSQL; it follows at the next
-retune. Their page cache is the database's too, so PostgreSQL keeps a
+server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB and
+the API's 3 GB since 2026-10-11 are not in it: `others` only sets
+`effective_cache_size`, a hint to the planner, and a new value restarts
+PostgreSQL; it follows at the next retune. The cluster has no swap
+(`memory.conf`, "Memory"), applied by `postgres.sh` with a daemon-reload
+and no restart. Their page cache is the database's too, so PostgreSQL keeps a
 smaller share for itself than on a server of its own:
 
 | setting | rule | 32 GB (cx53), 31,344 MB visible |
@@ -3348,7 +3383,9 @@ The heap holds OpenSearch's own structures; the index is read through the
 page cache, which the database and the routing engine share. Each instance
 runs under `MemoryHigh` 6 GB and `MemoryMax` 7 GB: the kernel takes back
 that cgroup's pages first when it reaches `MemoryHigh`, so the index's
-48 GB of pages do not push the database's out. Europe answered as fast
+48 GB of pages do not push the database's out. Neither instance swaps
+(`MemorySwapMax=0`, "Memory"): the heap is fixed and the garbage collector
+reads all of it. Europe answered as fast
 under a 7 GB cap with a 2 GB heap as under 15 GB with 4 GB (the table
 below). At 13:37 UTC on 2026-10-10: `photon@europe` 3.1 GB in its cgroup
 (2.68 GB resident), `photon@morocco` 0.8 GB.
@@ -3459,7 +3496,8 @@ run on the server since 2026-10-10:
   127.0.0.1:2324 for Caddy and the health probe, connects to nothing. CPU
   weight 20 against the default 100 of the API, PostgreSQL, the routing
   engine and Photon, four of the sixteen cores at most (`CPUQuota=400%`),
-  4.5 GB of memory at most (`MemoryHigh` 4 GB, `MemoryMax` 4.5 GB). The
+  4.5 GB of memory at most (`MemoryHigh` 4 GB, `MemoryMax` 4.5 GB) and no
+  swap (`MemorySwapMax=0`): the models stay in memory ("Memory"). The
   models' installer hides `/srv/data`, `/var/lib/postgresql`,
   `/etc/lunaway` and `/var/backups`.
 
