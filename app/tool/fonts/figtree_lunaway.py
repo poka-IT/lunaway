@@ -89,8 +89,7 @@ def add_thin_space(font):
 
     # The phantom points carry the advance for renderers that read gvar.
     font["gvar"].variations[THIN] = [
-        TupleVariation(dict(v.axes), [(round(x / 2), round(y / 2)) if (x, y) != (0, 0) else (0, 0)
-                                      for x, y in v.coordinates])
+        TupleVariation(dict(v.axes), [(round(x / 2), round(y / 2)) for x, y in v.coordinates])
         for v in font["gvar"].variations.get(space, [])
     ]
 

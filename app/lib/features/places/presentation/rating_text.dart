@@ -39,7 +39,15 @@ class RatingText extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final muted = LunaType.number(size, weight: 400, color: scheme.onSurfaceVariant);
+    // A rating is read once and never changes in place, so its figures are
+    // proportional, not the theme's tabular ones: "1734" stays as narrow as
+    // the line the head of a card keeps for it while the source is read.
+    const figures = [FontFeature.proportionalFigures()];
+    final muted = LunaType.number(
+      size,
+      weight: 400,
+      color: scheme.onSurfaceVariant,
+    ).copyWith(fontFeatures: figures);
     final label = switch (externalSource) {
       _? => t.place.externalRatingsLabel(n: count),
       null when namedLunaway => t.place.lunawayRatingsLabel(n: count),
@@ -63,7 +71,11 @@ class RatingText extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: t.ratingValue(average),
-                    style: LunaType.number(size, weight: 540, color: scheme.onSurface),
+                    style: LunaType.number(
+                      size,
+                      weight: 540,
+                      color: scheme.onSurface,
+                    ).copyWith(fontFeatures: figures),
                   ),
                   if (label != null) ...[
                     TextSpan(text: ' (', style: muted),

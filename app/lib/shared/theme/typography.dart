@@ -7,9 +7,10 @@ import 'package:flutter/material.dart';
 /// derivative (tool/fonts/) whose l has a tail, so "Il", "Ille" and "11 l"
 /// do not read as identical bars.
 ///
-/// The weights are set on the strokes of Atkinson Hyperlegible Next, the
-/// face the app was read in until 2026-10: its regular stem is that of
-/// Figtree at 420, so text read at length keeps the same ink.
+/// The text weight is that of a face drawn for low vision: at 420 the stem
+/// and the ink of Figtree match the regular of Atkinson Hyperlegible Next,
+/// which a reader at arm's length needs; Figtree's own 400 is a little
+/// thinner. The other weights keep their distance from it.
 abstract final class LunaType {
   static const family = 'Figtree';
 
@@ -27,10 +28,10 @@ abstract final class LunaType {
   /// stand in columns.
   static const List<FontFeature> figures = [FontFeature.tabularFigures()];
 
-  /// A style at [size] and weight [weight] (100 to 900, any value). The
-  /// tracking is Figtree's own at the sizes of text, opened a little at the
-  /// smallest and closed a little from the titles up, where its large
-  /// sizes read better.
+  /// A style at [size] and weight [weight] (300 to 900, any value). The
+  /// tracking is Figtree's own at the sizes of text, whose spacing is drawn
+  /// for them, and closes a little from the titles up, where its large sizes
+  /// read better.
   static TextStyle style(double size, double weight, {double height = 1.2, double? spacing}) =>
       TextStyle(
         fontFamily: family,
@@ -51,9 +52,7 @@ abstract final class LunaType {
       ? -0.25
       : size >= 19
       ? -0.1
-      : size >= 14
-      ? 0
-      : 0.15;
+      : 0;
 
   /// The scale, a notch above the Material defaults for the text read most:
   /// the app is read at arm's length, often by older eyes. Every size still
@@ -77,12 +76,15 @@ abstract final class LunaType {
       bodySmall: style(size(13.5, 13), regular, height: 1.38),
       labelLarge: style(size(15.5, 14.5), strong, height: 1.25),
       labelMedium: style(size(13.5, 13), strong, height: 1.25),
+      // A touch open at the smallest size, no more: the map's credit, in
+      // this style, then keeps "OpenStreetMap" on one line in the room left
+      // of the guidance's vehicle at large text sizes (languages_test).
       labelSmall: style(12, strong, height: 1.25, spacing: 0.1),
     ).apply(bodyColor: onSurface, displayColor: onSurface);
   }
 
-  /// A prominent number (a distance, a height, a count), a little heavier
-  /// than the text around it.
+  /// A prominent number (a distance, a height, a count), by default a
+  /// little heavier than the text around it.
   static TextStyle number(double size, {double weight = 500, Color? color}) =>
       style(size, weight, height: 1.1).copyWith(color: color);
 }

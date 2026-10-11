@@ -1363,7 +1363,7 @@ class _DetailsSkeleton extends StatelessWidget {
           const Row(
             children: [
               Skeleton(width: 52, height: 52, radius: 16),
-              SizedBox(width: Space.ml),
+              SizedBox(width: Space.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
