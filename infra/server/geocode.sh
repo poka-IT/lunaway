@@ -60,6 +60,15 @@ for instance in europe morocco; do
     systemctl enable --quiet "photon@$instance"
     if [ "$changed" = 1 ] || ! systemctl is-active --quiet "photon@$instance"; then
       systemctl restart "photon@$instance"
+      # Each instance's embedded OpenSearch takes the first free port from
+      # 9201: the next one, started before this one has bound it, takes the
+      # same and fails once (BindException, 2026-10-10 and 2026-10-11, 15 s
+      # without Morocco's addresses). The next waits until this one answers.
+      port="$(sed -n 's/^PHOTON_PORT=//p' "/usr/local/share/lunaway/geocode/$instance.env")"
+      for _ in $(seq 1 60); do
+        curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/status" 2>/dev/null && break
+        sleep 1
+      done
     fi
     log "$instance: $(readlink "/srv/photon/$instance/current") of $(cat "/srv/photon/$instance/current/INSTALLED_AT" 2>/dev/null || echo '?'), $(systemctl is-active "photon@$instance")"
   else

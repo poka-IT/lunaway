@@ -463,8 +463,9 @@ server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB and
 the API's 3 GB since 2026-10-11 are not in it: `others` only sets
 `effective_cache_size`, a hint to the planner, and a new value restarts
 PostgreSQL; it follows at the next retune. The cluster has no swap
-(`memory.conf`, "Memory"), applied by `postgres.sh` with a daemon-reload
-and no restart. Their page cache is the database's too, so PostgreSQL keeps a
+(`memory.conf`, "Memory"), which `postgres.sh` gives the running cluster
+with `systemctl set-property --runtime` and no restart: a daemon-reload
+left its cgroup's `memory.swap.max` at `max` on 2026-10-11. Their page cache is the database's too, so PostgreSQL keeps a
 smaller share for itself than on a server of its own:
 
 | setting | rule | 32 GB (cx53), 31,344 MB visible |

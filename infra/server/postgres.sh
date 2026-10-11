@@ -65,10 +65,17 @@ chown postgres:postgres "$confdir/pg_hba.conf"
 install_file systemd/postgresql@18-main.service.d/lunaway.conf "$dropins/lunaway.conf" 0644 && restart=1
 pg_datadir_dropin "$STAGING/postgresql-data-directory.conf"
 install_file "$STAGING/postgresql-data-directory.conf" "$dropins/data-directory.conf" 0644 && restart=1
-# Resource settings: a daemon-reload applies them to the running cluster.
+# Resource settings, which apply without a restart.
 units=0
 install_file systemd/postgresql@18-main.service.d/memory.conf "$dropins/memory.conf" 0644 && units=1
 if [ "$restart" = 1 ] || [ "$units" = 1 ]; then systemctl daemon-reload; fi
+# A daemon-reload leaves the running cluster's cgroup as it was (systemd
+# 257: memory.swap.max stayed at max on 2026-10-11): its lines go to the
+# running unit as well, until its next start reads the file.
+mapfile -t memory_settings < <(sed -n 's/^\(Memory[A-Za-z]*=[^[:space:]]*\)[[:space:]]*$/\1/p' "$dropins/memory.conf")
+if [ "${#memory_settings[@]}" -gt 0 ] && systemctl is-active --quiet postgresql@18-main; then
+  systemctl set-property --runtime postgresql@18-main.service "${memory_settings[@]}"
+fi
 
 # Tuning from the memory and cores of this machine (shared_buffers needs a
 # restart, so the file is only rewritten when a value changes). The other
