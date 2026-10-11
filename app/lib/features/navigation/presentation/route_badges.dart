@@ -387,14 +387,14 @@ Future<Uint8List> routeBadgePng(RouteBadge badge, double ratio) async {
 final Map<double, Future<Map<String, Uint8List>>> _drawn = {};
 
 /// Every badge as a PNG at [ratio], drawn once per density and run: a new
-/// style or a second map reuses them.
+/// style or a second map reuses them. All asked at once: each one waits for
+/// the thread that rasterises, and drawn one after the other the badges
+/// held the first route of a run 0.4 to 1.3 s on the emulator when the
+/// preview opened over the main map (`plan/research/125-calcul-itineraire.md`).
 Future<Map<String, Uint8List>> routeBadgePngs(double ratio) => _drawn[ratio] ??= () async {
   try {
-    final out = <String, Uint8List>{};
-    for (final b in RouteBadge.all) {
-      out[b.id] = await routeBadgePng(b, ratio);
-    }
-    return out;
+    final pngs = await Future.wait([for (final b in RouteBadge.all) routeBadgePng(b, ratio)]);
+    return {for (final (i, b) in RouteBadge.all.indexed) b.id: pngs[i]};
   } on Object {
     // A drawing that failed is tried again by the next map.
     _drawn.remove(ratio)?.ignore();

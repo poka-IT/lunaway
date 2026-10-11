@@ -6,7 +6,6 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
-import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/shared/map/sprites.dart';
@@ -102,7 +101,7 @@ Future<void> _wait(WidgetTester tester, Duration real) async {
 
 void main() {
   setUpAll(() async {
-    await routeBadgePngs(_ratio);
+    await routeMapImages(_ratio);
     await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: BlankAssets());
   });
 

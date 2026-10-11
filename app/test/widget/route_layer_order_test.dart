@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
-import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
@@ -186,7 +185,7 @@ void main() {
   // any test's clock: a future kept from one test's clock never completes
   // in the next. The pins' do not matter here.
   setUpAll(() async {
-    await routeBadgePngs(_ratio);
+    await routeMapImages(_ratio);
     await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: BlankAssets());
   });
 

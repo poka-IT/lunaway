@@ -1068,6 +1068,30 @@ abstract final class RouteLayers {
   static List<String> layersOf(String source) => [haloOf(source), badgesOf(source), sideOf(source)];
 }
 
+/// The images a route map adds to its style: the vehicle's arrow, the head
+/// of the maneuver's arrow, every badge.
+typedef RouteMapImages = ({Uint8List arrow, Uint8List head, Map<String, Uint8List> badges});
+
+final Map<double, Future<RouteMapImages>> _images = {};
+
+/// The images of the route maps at [ratio], drawn once per density and
+/// run. A map asks for them as it is built, so they are drawn while its
+/// style loads rather than after.
+Future<RouteMapImages> routeMapImages(double ratio) => _images[ratio] ??= () async {
+  try {
+    final (arrow, head, badges) = await (
+      vehicleArrowPng(ratio),
+      arrowHeadPng(ratio),
+      routeBadgePngs(ratio),
+    ).wait;
+    return (arrow: arrow, head: head, badges: badges);
+  } on Object {
+    // A drawing that failed is tried again by the next map.
+    _images.remove(ratio)?.ignore();
+    rethrow;
+  }
+}();
+
 /// The vehicle's arrow, drawn once per screen density: a lantern-amber
 /// chevron with a navy rim, pointing north (the layer turns it).
 Future<Uint8List> vehicleArrowPng(double ratio) async {
