@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -293,10 +294,33 @@ final class PackOutlines {
     return rings.any((ring) => _inside(ring, point.lon, point.lat));
   }
 
-  /// Whether some outline holds [point]: outside them all, nothing of the
-  /// place downloads, neither its map nor its places.
+  /// Whether some outline holds [point].
   bool holds(LatLng point) =>
       _rings.values.any((rings) => rings.any((ring) => _inside(ring, point.lon, point.lat)));
+
+  /// Whether some outline holds a point of the area around [center]: the
+  /// view's [bounds], widened to [nearDegrees] of latitude on each side of
+  /// the centre at least, read at its centre, its corners and the middles
+  /// of its sides. The outlines reach only 3 to 8 km out to sea, so the
+  /// middle of a bay (Douarnenez, the Pertuis, the Seine estuary) lies
+  /// outside them all; its shore is within reach.
+  bool near(LatLng center, GeoBounds bounds) {
+    final lonHalf = nearDegrees / math.max(0.2, math.cos(center.lat * math.pi / 180));
+    final south = math.max<double>(-90, math.min(bounds.south, center.lat - nearDegrees));
+    final north = math.min<double>(90, math.max(bounds.north, center.lat + nearDegrees));
+    final west = math.max<double>(-180, math.min(bounds.west, center.lon - lonHalf));
+    final east = math.min<double>(180, math.max(bounds.east, center.lon + lonHalf));
+    for (final lat in [center.lat, south, north]) {
+      for (final lon in [center.lon, west, east]) {
+        if (holds(LatLng(lat, lon))) return true;
+      }
+    }
+    return false;
+  }
+
+  /// How far [near] looks around the centre at least: 0.15 degree of
+  /// latitude, about 17 km, wider than the bays of the French coast.
+  static const nearDegrees = 0.15;
 
   /// Even-odd ray casting.
   static bool _inside(List<(double, double)> ring, double x, double y) {

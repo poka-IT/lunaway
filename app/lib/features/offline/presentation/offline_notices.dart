@@ -82,7 +82,7 @@ class _OfflineLine extends ConsumerWidget {
     // A country the offline maps leave out: no download would help, and the
     // last pack still drawn is not this area's.
     final onlineOnly = supported && ref.watch(viewOnlineOnlyProvider);
-    final mapHere = pack != null && !onlineOnly;
+    final mapDrawn = pack != null && !onlineOnly;
     final text = onlineOnly
         ? t.offlineMaps.noticeOnlineOnly
         : pack != null
@@ -96,8 +96,10 @@ class _OfflineLine extends ConsumerWidget {
         : supported
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
-    final icon = mapHere ? OfflineIcons.ready : OfflineIcons.offline;
-    // Opened from the map: a page over it, written in the map's order.
+    final icon = mapDrawn ? OfflineIcons.ready : OfflineIcons.offline;
+    // Opened from the map: a page over it, written in the map's order. Over
+    // an area online only too: the page lists what the device holds and what
+    // does download.
     final open = supported
         ? () => ref.read(mapFlowProvider.notifier).openPage(AppRoutes.offlineMaps)
         : null;
@@ -144,7 +146,7 @@ class _OfflineLine extends ConsumerWidget {
           text: text,
           icon: icon,
           // A downloaded map for the view is the milder state.
-          level: mapHere ? 1 : 2,
+          level: mapDrawn ? 1 : 2,
           look: line,
           tellsItself: true,
         ),

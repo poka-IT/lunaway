@@ -230,6 +230,31 @@ void main() {
     expect(find.text(t.offlineMaps.noticeOutside), findsNothing, reason: 'no download would help');
   });
 
+  testWidgets('offline, a view moved from Ajaccio to the middle of its gulf, outside every '
+      'outline, still names Corsica', (tester) async {
+    final map = FakeMap()
+      ..viewport = const MapViewport(
+        bounds: GeoBounds(south: 41.8, west: 8.6, north: 42, east: 8.9),
+        center: LatLng(41.919, 8.738),
+        zoom: 12,
+      );
+    final app = await pumpLunaway(tester, map: map, packFiles: _withCorsica(), reachable: false);
+    await settleShort(tester);
+    app
+        .container(tester)
+        .read(viewportProvider.notifier)
+        .update(
+          const MapViewport(
+            bounds: GeoBounds(south: 41.835, west: 8.64, north: 41.865, east: 8.66),
+            center: LatLng(41.85, 8.65),
+            zoom: 13,
+          ),
+        );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsOneWidget);
+    expect(find.text(t.offlineMaps.noticeOnlineOnly), findsNothing);
+  });
+
   testWidgets('offline, the line folds into a chip at a swipe up and opens again from it', (
     tester,
   ) async {

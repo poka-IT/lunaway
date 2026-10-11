@@ -139,52 +139,114 @@ void main() {
     });
   });
 
-  group('a view outside every offline map', () {
-    /// A container whose outlines are [outlines], once read.
-    Future<ProviderContainer> withOutlines(PackOutlines outlines) async {
+  group('a view far from every offline map', () {
+    /// A container whose outlines are [outlines], once read, and whose
+    /// device holds [installed].
+    Future<ProviderContainer> withOutlines(
+      PackOutlines outlines, {
+      List<PackInfo> installed = const [],
+    }) async {
+      final files = MemoryPackFiles()
+        ..index = jsonEncode({
+          'installed': [
+            for (final p in installed) InstalledPack.from(p, DateTime.utc(2026, 10, 6)).toJson(),
+          ],
+          'transfers': <Object>[],
+        });
+      for (final p in installed) {
+        files.files[p.fileName] = const [1];
+      }
       final c = ProviderContainer.test(
-        overrides: [packOutlinesProvider.overrideWith((ref) async => outlines)],
+        overrides: [
+          packOutlinesProvider.overrideWith((ref) async => outlines),
+          packFilesProvider.overrideWithValue(files),
+        ],
       );
       await c.read(packOutlinesProvider.future);
+      await c.read(offlinePacksProvider.future);
       return c;
     }
 
+    /// The view of a phone at zoom 12 around [center], 0.03 degree high.
     void look(ProviderContainer c, LatLng center) => c
         .read(viewportProvider.notifier)
         .update(
           MapViewport(
             bounds: GeoBounds(
-              south: center.lat - 0.1,
-              west: center.lon - 0.1,
-              north: center.lat + 0.1,
-              east: center.lon + 0.1,
+              south: center.lat - 0.015,
+              west: center.lon - 0.01,
+              north: center.lat + 0.015,
+              east: center.lon + 0.01,
             ),
             center: center,
-            zoom: 10,
+            zoom: 12,
           ),
         );
 
-    test('lies in a country the offline maps leave out, or at sea', () {
-      expect(_outlines.holds(const LatLng(41.01, 28.97)), isFalse, reason: 'Istanbul');
-      expect(_outlines.holds(const LatLng(45.76, 21.23)), isFalse, reason: 'Timișoara');
-      expect(_outlines.holds(const LatLng(45, -20)), isFalse, reason: 'the open Atlantic');
-      expect(_outlines.holds(const LatLng(31.63, -7.99)), isTrue, reason: 'Marrakech');
-      expect(_outlines.holds(const LatLng(27.15, -13.2)), isTrue, reason: 'Laayoune');
-      expect(_outlines.holds(const LatLng(48.39, -4.49)), isTrue, reason: 'Brest');
+    bool onlineOnly(ProviderContainer c, LatLng center) {
+      look(c, center);
+      return c.read(viewOnlineOnlyProvider);
+    }
+
+    test('is online only in a country the offline maps leave out, and on the open sea', () async {
+      final c = await withOutlines(_outlines);
+      for (final (name, at) in [
+        ('Istanbul', const LatLng(41.01, 28.97)),
+        ('Timișoara', const LatLng(45.76, 21.23)),
+        ('Budapest', const LatLng(47.50, 19.04)),
+        ('the open Atlantic', const LatLng(45, -20)),
+      ]) {
+        expect(onlineOnly(c, at), isTrue, reason: name);
+      }
     });
 
-    test('is online only, read from the centre of the view', () async {
+    test('is not online only in a region, nor in the bays its outline leaves out', () async {
       final c = await withOutlines(_outlines);
-      look(c, const LatLng(41.01, 28.97));
-      expect(c.read(viewOnlineOnlyProvider), isTrue, reason: 'Istanbul');
-      look(c, const LatLng(31.63, -7.99));
-      expect(c.read(viewOnlineOnlyProvider), isFalse, reason: 'Marrakech');
+      for (final (name, at) in [
+        ('Marrakech', const LatLng(31.63, -7.99)),
+        ('Laayoune', const LatLng(27.15, -13.2)),
+        ('Brest', const LatLng(48.39, -4.49)),
+      ]) {
+        expect(onlineOnly(c, at), isFalse, reason: name);
+      }
+      // The outlines reach 3 to 8 km out to sea: these lie outside them all,
+      // their shore within reach.
+      for (final (name, at) in [
+        ('the Bay of Douarnenez', const LatLng(48.15, -4.40)),
+        ('the Bay of Saint-Brieuc', const LatLng(48.60, -2.70)),
+        ('the Bay of Quiberon', const LatLng(47.47, -3.03)),
+        ('the Bay of Mont-Saint-Michel', const LatLng(48.66, -1.60)),
+        ('the Seine estuary', const LatLng(49.45, 0.10)),
+        ('the Pertuis Breton', const LatLng(46.27, -1.40)),
+        ("the Pertuis d'Antioche", const LatLng(46.07, -1.30)),
+        ('off Nice', const LatLng(43.655, 7.27)),
+        ('off Sète', const LatLng(43.36, 3.75)),
+      ]) {
+        expect(_outlines.holds(at), isFalse, reason: '$name, outside the outlines');
+        expect(onlineOnly(c, at), isFalse, reason: name);
+      }
+    });
+
+    test('is not online only under a pack on the device this build has no outline of', () async {
+      final romania = PackInfo(
+        id: 'ro',
+        names: const {'en': 'Romania'},
+        country: 'ro',
+        bounds: const GeoBounds(south: 43.6, west: 20.2, north: 48.3, east: 29.7),
+        url: 'ro-20261005-00000000.pmtiles',
+        size: 1,
+        sha256: 'a' * 64,
+        build: '20261005',
+        region: false,
+      );
+      final c = await withOutlines(_outlines, installed: [romania]);
+      expect(onlineOnly(c, const LatLng(45.76, 21.23)), isFalse, reason: 'its map is drawn');
+      expect(onlineOnly(c, const LatLng(41.01, 28.97)), isTrue, reason: 'Istanbul, outside it');
     });
 
     test('says nothing without outlines', () async {
       final c = await withOutlines(PackOutlines.empty);
-      look(c, const LatLng(41.01, 28.97));
-      expect(c.read(viewOnlineOnlyProvider), isFalse);
+      expect(onlineOnly(c, const LatLng(41.01, 28.97)), isFalse);
     });
   });
 

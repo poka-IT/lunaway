@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -739,17 +740,31 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
   }
 }
 
-/// Whether the centre of the map's view lies outside every offline map: a
-/// country the offline maps leave out (Turkey, Romania), or the open sea.
-/// Neither its map nor its places download, so offline the app says the
-/// area is online only rather than offer a download. False until the
-/// outlines are read.
+/// Whether the map's view lies far from every offline map: a country the
+/// offline maps leave out (Turkey, Romania), or the open sea, with no
+/// outline within the view nor about 17 km of its centre
+/// ([PackOutlines.near]). Neither its map nor its places download, so
+/// offline the app says the area is online only rather than offer a
+/// download. A few islands whose places sync with their country lie outside
+/// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
+/// with Greece): there the places kept show, under the same words. False
+/// until the outlines are read, and under a pack on the device, one this
+/// build has no outline of included (read by its box).
 @riverpod
 bool viewOnlineOnly(Ref ref) {
   final outlines = ref.watch(packOutlinesProvider).value;
   if (outlines == null || outlines.ids.isEmpty) return false;
   final view = ref.watch(viewportProvider) ?? initialViewport;
-  return !outlines.holds(view.center);
+  final installed =
+      ref.watch(offlinePacksProvider.select((maps) => maps.value?.installed)) ?? const {};
+  final drawn = packAt(
+    installed.values,
+    view.center,
+    outlines: outlines,
+    id: (p) => p.id,
+    bounds: (p) => p.bounds,
+  );
+  return drawn == null && !outlines.near(view.center, view.bounds);
 }
 
 /// The places and the saved points of the favourites, for the packs to

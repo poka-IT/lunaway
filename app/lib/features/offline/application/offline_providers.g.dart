@@ -547,28 +547,43 @@ abstract class _$ActiveOfflinePack extends $Notifier<InstalledPack?> {
   }
 }
 
-/// Whether the centre of the map's view lies outside every offline map: a
-/// country the offline maps leave out (Turkey, Romania), or the open sea.
-/// Neither its map nor its places download, so offline the app says the
-/// area is online only rather than offer a download. False until the
-/// outlines are read.
+/// Whether the map's view lies far from every offline map: a country the
+/// offline maps leave out (Turkey, Romania), or the open sea, with no
+/// outline within the view nor about 17 km of its centre
+/// ([PackOutlines.near]). Neither its map nor its places download, so
+/// offline the app says the area is online only rather than offer a
+/// download. A few islands whose places sync with their country lie outside
+/// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
+/// with Greece): there the places kept show, under the same words. False
+/// until the outlines are read, and under a pack on the device, one this
+/// build has no outline of included (read by its box).
 
 @ProviderFor(viewOnlineOnly)
 final viewOnlineOnlyProvider = ViewOnlineOnlyProvider._();
 
-/// Whether the centre of the map's view lies outside every offline map: a
-/// country the offline maps leave out (Turkey, Romania), or the open sea.
-/// Neither its map nor its places download, so offline the app says the
-/// area is online only rather than offer a download. False until the
-/// outlines are read.
+/// Whether the map's view lies far from every offline map: a country the
+/// offline maps leave out (Turkey, Romania), or the open sea, with no
+/// outline within the view nor about 17 km of its centre
+/// ([PackOutlines.near]). Neither its map nor its places download, so
+/// offline the app says the area is online only rather than offer a
+/// download. A few islands whose places sync with their country lie outside
+/// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
+/// with Greece): there the places kept show, under the same words. False
+/// until the outlines are read, and under a pack on the device, one this
+/// build has no outline of included (read by its box).
 
 final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
-  /// Whether the centre of the map's view lies outside every offline map: a
-  /// country the offline maps leave out (Turkey, Romania), or the open sea.
-  /// Neither its map nor its places download, so offline the app says the
-  /// area is online only rather than offer a download. False until the
-  /// outlines are read.
+  /// Whether the map's view lies far from every offline map: a country the
+  /// offline maps leave out (Turkey, Romania), or the open sea, with no
+  /// outline within the view nor about 17 km of its centre
+  /// ([PackOutlines.near]). Neither its map nor its places download, so
+  /// offline the app says the area is online only rather than offer a
+  /// download. A few islands whose places sync with their country lie outside
+  /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
+  /// with Greece): there the places kept show, under the same words. False
+  /// until the outlines are read, and under a pack on the device, one this
+  /// build has no outline of included (read by its box).
   ViewOnlineOnlyProvider._()
     : super(
         from: null,
@@ -602,7 +617,7 @@ final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
   }
 }
 
-String _$viewOnlineOnlyHash() => r'abde9cb4638679fb0fde7eaad1ad8e6adc16699d';
+String _$viewOnlineOnlyHash() => r'959232bbaf3892234fbc833132ec5f7ff2e400c7';
 
 /// The places and the saved points of the favourites, for the packs to
 /// suggest.
