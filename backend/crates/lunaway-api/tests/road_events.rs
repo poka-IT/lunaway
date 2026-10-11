@@ -354,7 +354,7 @@ async fn a_best_route_sent_alone_is_computed_again_around_its_closure_and_the_al
     // asked with its alternatives, the first answer's best route met
     // closures and an alternative of it was sent as it stood, 912 km;
     // asked alone, the best route was computed again around its closures
-    // only, 873 km and 22 minutes less.
+    // only, 873 km and 22 minutes less. Both now run, the faster is kept.
     seed_graph(&pool).await;
     read(&pool, "dir", chrono::Duration::minutes(5)).await;
     store(
@@ -387,12 +387,17 @@ query Route($input: RouteInput!) { route(input: $input) { status recalculations 
     assert_eq!(shapes(&r["osrmJson"]), [detour.as_str()]);
     assert_eq!(asked.lock().unwrap().len(), 1);
 
-    // The best route first: computed again around the closure alone.
-    let (url, asked) = engine(vec![
+    // The best route first: computed again around the closure alone, and
+    // today's request beside it; the recalculation is the faster, as on
+    // trip 83, and its alternatives follow around the same ring.
+    let mut today = osrm_of(&[ROUTE_UNDER, &detour]);
+    today["routes"][1]["duration"] = 900.0.into();
+    let (url, asked) = kind_engine(
         osrm(ROUTE_UNDER),
         osrm(ROUTE_AROUND),
+        today,
         osrm_of(&[ROUTE_AROUND, &detour]),
-    ])
+    )
     .await;
     let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
     let body = gql(&app, None, later_query, wanting_two).await;
@@ -410,13 +415,69 @@ query Alternatives($token: String!) {
     assert_eq!(a["status"], "OK", "{body}");
     assert_eq!(shapes(&a["osrmJson"]), [detour.as_str()]);
     let asked = asked.lock().unwrap();
-    assert_eq!(asked.len(), 3);
-    assert!(asked[0].get("alternates").is_none() && asked[1].get("alternates").is_none());
-    assert_eq!(asked[2]["alternates"], 2);
     assert_eq!(
-        asked[2]["exclude_polygons"], asked[1]["exclude_polygons"],
+        asked.len(),
+        4,
+        "alone, around, today's beside it, the alternatives"
+    );
+    let ring = asked
+        .iter()
+        .find(|b| b.get("alternates").is_none() && b.get("exclude_polygons").is_some())
+        .map(|b| b["exclude_polygons"].clone())
+        .unwrap();
+    let after = asked
+        .iter()
+        .find(|b| b.get("alternates").is_some() && b.get("exclude_polygons").is_some())
+        .unwrap();
+    assert_eq!(
+        after["exclude_polygons"], ring,
         "the alternatives go round the closure the best route went round"
     );
+}
+
+/// What a fake engine answering by the kind of call records, and its
+/// answers: the best route alone, around rings, today's request with
+/// alternatives, and the alternatives around rings.
+#[derive(Clone)]
+struct Kinds {
+    asked: Arc<Mutex<Vec<Value>>>,
+    answers: Arc<[Value; 4]>,
+}
+
+async fn by_kind(State(k): State<Kinds>, Json(body): Json<Value>) -> Json<Value> {
+    let ringed = body.get("exclude_polygons").is_some();
+    let n = match (body.get("alternates").is_some(), ringed) {
+        (false, false) => 0,
+        (false, true) => 1,
+        (true, false) => 2,
+        (true, true) => 3,
+    };
+    k.asked.lock().unwrap().push(body);
+    Json(k.answers[n].clone())
+}
+
+async fn kind_engine(
+    alone: Value,
+    around: Value,
+    today: Value,
+    later: Value,
+) -> (String, Arc<Mutex<Vec<Value>>>) {
+    let k = Kinds {
+        asked: Arc::new(Mutex::new(Vec::new())),
+        answers: Arc::new([alone, around, today, later]),
+    };
+    let asked = Arc::clone(&k.asked);
+    let app = Router::new()
+        .route("/route", post(by_kind))
+        .route(
+            "/status",
+            get(|| async { Json(json!({"version": "3.9.0"})) }),
+        )
+        .with_state(k);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, asked)
 }
 
 #[sqlx::test(migrations = "../../migrations")]

@@ -473,3 +473,124 @@ async fn a_best_route_left_without_a_safe_way_is_asked_again_with_its_alternativ
     assert!(asked[0].get("alternates").is_none() && asked[1].get("alternates").is_none());
     assert_eq!(asked[2]["alternates"], 2);
 }
+
+/// What a fake engine that answers by the kind of call records, and its
+/// answers: the best route alone at first, then around a ring, then with
+/// alternatives.
+#[derive(Clone)]
+struct ByKind {
+    asked: Arc<Mutex<Vec<Value>>>,
+    alone: Value,
+    around: Value,
+    with_alternatives: Value,
+}
+
+async fn by_kind(State(k): State<ByKind>, Json(body): Json<Value>) -> Json<Value> {
+    let answer = if body.get("alternates").is_some() {
+        k.with_alternatives.clone()
+    } else if body.get("exclude_polygons").is_some() {
+        k.around.clone()
+    } else {
+        k.alone.clone()
+    };
+    k.asked.lock().unwrap().push(body);
+    Json(answer)
+}
+
+/// `osrm` with each route timed as given, seconds.
+fn timed(routes: &[(&str, f64)]) -> Value {
+    let geometries: Vec<&str> = routes.iter().map(|(g, _)| *g).collect();
+    let mut answer = osrm(&geometries);
+    for (r, (_, s)) in answer["routes"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .zip(routes)
+    {
+        r["duration"] = (*s).into();
+    }
+    answer
+}
+
+async fn kind_engine(around_s: f64, detour_s: f64) -> (String, Arc<Mutex<Vec<Value>>>) {
+    let detour = detour();
+    let k = ByKind {
+        asked: Arc::new(Mutex::new(Vec::new())),
+        alone: timed(&[(ROUTE_UNDER, 40.0)]),
+        around: timed(&[(ROUTE_AROUND, around_s)]),
+        with_alternatives: timed(&[(ROUTE_UNDER, 40.0), (&detour, detour_s)]),
+    };
+    let asked = Arc::clone(&k.asked);
+    let app = Router::new()
+        .route("/route", post(by_kind))
+        .route(
+            "/status",
+            get(|| async { Json(json!({"version": "3.9.1"})) }),
+        )
+        .with_state(k);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, asked)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_blocked_alone_races_the_trip_asked_with_its_alternatives(pool: PgPool) {
+    seed(&pool).await;
+    // A 3.3 m motorhome: alone, the engine's best route runs under the
+    // 2.7 m bridge. Computed again around it, it takes ROUTE_AROUND; asked
+    // with its alternatives as today, the detour of that answer is safe.
+    // Each way wins once, by its time.
+    for (around_s, detour_s, kept, follows) in [
+        (150.0, 200.0, ROUTE_AROUND.to_owned(), true),
+        (250.0, 200.0, detour(), false),
+    ] {
+        let (url, asked) = kind_engine(around_s, detour_s).await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+        let (_, body) = gql(&app, LATER_QUERY, wanting_two(3.3)).await;
+        let r = &body["data"]["route"];
+        assert_eq!(r["status"], "OK", "{body}");
+        assert_eq!(
+            shapes(&r["osrmJson"]),
+            [kept.as_str()],
+            "the faster safe best route of the two ways: {around_s} s around, {detour_s} s today"
+        );
+        assert_eq!(
+            r["alternativesToken"].is_string(),
+            follows,
+            "today's answer brings its alternatives with it; the recalculation's follow"
+        );
+        let asked = asked.lock().unwrap().clone();
+        assert!(
+            asked.iter().any(|b| b.get("exclude_polygons").is_some()),
+            "the recalculation ran"
+        );
+        assert!(
+            asked
+                .iter()
+                .any(|b| b.get("alternates").is_some() && b.get("exclude_polygons").is_none()),
+            "today's request ran beside it"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_safe_alone_makes_one_call(pool: PgPool) {
+    seed(&pool).await;
+    let (url, asked) = kind_engine(150.0, 200.0).await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    // A 2.5 m van passes under the bridge: the first call stands.
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(2.5)).await;
+    assert_eq!(shapes(&body["data"]["route"]["osrmJson"]), [ROUTE_UNDER]);
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let _ = alternatives(&app, &token).await;
+    let asked = asked.lock().unwrap();
+    assert_eq!(
+        asked.len(),
+        2,
+        "the best route, then its alternatives: no race"
+    );
+}

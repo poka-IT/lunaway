@@ -357,6 +357,17 @@ pub(crate) struct Spent {
     pub(crate) limits: Duration,
 }
 
+impl std::ops::AddAssign for Spent {
+    fn add_assign(&mut self, other: Self) {
+        self.queue += other.queue;
+        self.engine += other.engine;
+        self.engine_calls += other.engine_calls;
+        self.corridor += other.corridor;
+        self.check += other.check;
+        self.limits += other.limits;
+    }
+}
+
 /// The engine and its share of the server.
 pub(crate) struct Routing {
     engine: Option<Engine>,
@@ -766,9 +777,13 @@ impl Routing {
             ..Work::default()
         };
         let result = tokio::time::timeout_at(deadline, async {
-            let first = self
-                .route_within(pool, graph_id, request, fresh, deadline, &mut work)
-                .await;
+            let first = if request.later {
+                self.route_later(pool, graph_id, request, fresh, deadline, &mut work)
+                    .await
+            } else {
+                self.route_within(pool, graph_id, request, fresh, deadline, &mut work)
+                    .await
+            };
             let first = match first {
                 // The restrictions excluded ahead led the trip where no safe
                 // way remained: asked again without them, it ends as it
@@ -789,11 +804,11 @@ impl Routing {
             // A best route asked alone has no alternative to fall back on:
             // a trip left without a safe one is asked once more with its
             // alternatives, as a request without the token is, one of which
-            // may be safe where no recalculation of the best one was. When
-            // that finds none, fails or runs out of time, the first answer
-            // stands.
+            // may be safe where no recalculation of the best one was, unless
+            // that request ran beside the recalculation already. When it
+            // finds none, fails or runs out of time, the first answer stands.
             let first = match first {
-                first @ Outcome::NoSafeRoute { .. } if request.later => {
+                first @ Outcome::NoSafeRoute { .. } if request.later && !work.at_once_tried => {
                     let mut at_once = request.clone();
                     at_once.later = false;
                     let again =
@@ -845,6 +860,76 @@ impl Routing {
             engine_answered: work.answered,
             spent: work.spent,
             later,
+        }
+    }
+
+    /// The best route of `request` asked alone ([`RouteRequest::later`]).
+    /// When the check blocks it at its first call, today's request with
+    /// its alternatives (one call, a route of which may be safe as it
+    /// stands) runs beside the recalculation around the blockers, and the
+    /// fastest safe best route of the two is kept, the shorter at the same
+    /// time: on 4 trips of 120 the recalculation alone came out 22 to 24
+    /// minutes faster three times and 8 minutes slower once
+    /// (`plan/research/130-alternatives-apres.md`). The recalculation takes
+    /// its engine slot first; today's request waits [`AT_ONCE_SLOT_WAIT`] at
+    /// most for one, and does without. A trip whose first call is safe, most
+    /// of them, makes one call.
+    async fn route_later(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        request: &RouteRequest,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        work: &mut Work,
+    ) -> Result<Outcome, RouteError> {
+        let (told, blocked) = tokio::sync::oneshot::channel::<Known>();
+        work.blocked = Some(told);
+        let limits = work.limits;
+        let without_ahead = work.without_ahead;
+        let mut at_once = request.clone();
+        at_once.later = false;
+        let alone = self.route_within(pool, graph_id, request, fresh, deadline, work);
+        let beside = async {
+            // Not told: the first call was safe, or failed.
+            let known = blocked.await.ok()?;
+            let mut other = Work {
+                known,
+                limits,
+                without_ahead,
+                slot_wait: Some(AT_ONCE_SLOT_WAIT),
+                ..Work::default()
+            };
+            let r = self
+                .route_within(pool, graph_id, &at_once, fresh, deadline, &mut other)
+                .await;
+            Some((r, other))
+        };
+        let (alone, beside) = tokio::join!(alone, beside);
+        let Some((at_once, other)) = beside else {
+            return alone;
+        };
+        work.at_once_tried = true;
+        work.answered |= other.answered;
+        work.spent += other.spent;
+        let (alone_s, at_once_s) = (best_time(&alone), best_time(&at_once));
+        let keep_at_once = match (alone_s, at_once_s) {
+            (Some(a), Some(b)) => b < a,
+            (None, Some(_)) => true,
+            _ => false,
+        };
+        tracing::info!(
+            alone_s = ?alone_s.map(|(s, _)| s.round()),
+            at_once_s = ?at_once_s.map(|(s, _)| s.round()),
+            kept = if keep_at_once { "at_once" } else { "alone" },
+            "a best route blocked alone was raced against the trip asked with its alternatives"
+        );
+        if keep_at_once {
+            // Its alternatives came with it: none are asked afterwards.
+            work.found = None;
+            at_once
+        } else {
+            alone
         }
     }
 
@@ -1216,6 +1301,10 @@ impl Routing {
             valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid)
         };
         work.found = None;
+        // Dropped with this call when it is not told: today's request then
+        // never starts beside it.
+        let mut blocked = work.blocked.take();
+        let slot_wait = work.slot_wait.unwrap_or(self.queue_wait);
         if !work.without_ahead {
             for centre in self.ahead(graph_id, &request.stops, &dims) {
                 if centres.iter().all(|c| c.distance_m(centre) >= RING_M / 2.0) {
@@ -1240,12 +1329,21 @@ impl Routing {
             // limits traced: the memory of the answers in hand stays bounded
             // by the slots.
             let waited = std::time::Instant::now();
-            let slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
+            let slot = tokio::time::timeout(slot_wait, self.slots.acquire())
                 .await
                 .map_err(|_| RouteError::Busy)?
                 .map_err(|_| RouteError::Busy)?;
             let called = std::time::Instant::now();
             work.spent.queue += called - waited;
+            // The best route alone was blocked at the first call, and its
+            // recalculation now holds a slot: today's request may start
+            // beside it, with what the first check read.
+            if attempt > 0
+                && let Some(told) = blocked.take()
+            {
+                // Its receiver gone, nothing waits for the news.
+                let _ = told.send(work.known.clone());
+            }
             let answer = engine.route(&body).await;
             work.spent.engine += called.elapsed();
             work.spent.engine_calls += 1;
@@ -1451,6 +1549,20 @@ impl Routing {
             event_blockers: distinct_events(event_blockers),
             recalculations: calls.saturating_sub(1),
         })
+    }
+}
+
+/// Longest today's request with its alternatives waits for an engine slot
+/// beside the recalculation of a best route blocked alone: past it, the
+/// recalculation alone answers.
+const AT_ONCE_SLOT_WAIT: Duration = Duration::from_millis(200);
+
+/// The duration and the length of the best route of `outcome`, when it found
+/// one: the faster wins, the shorter at the same time.
+fn best_time(outcome: &Result<Outcome, RouteError>) -> Option<(f64, f64)> {
+    match outcome {
+        Ok(Outcome::Found { routes, .. }) => routes.first().map(|r| (r.duration_s, r.distance_m)),
+        _ => None,
     }
 }
 
@@ -1762,6 +1874,16 @@ struct Work {
     /// For a request asked [`RouteRequest::later`]: the engine body that
     /// gave the routes found, and the best route's shape.
     found: Option<(Value, String)>,
+    /// Told, with what the corridor queries found so far, once the best
+    /// route asked alone was blocked at its first call and its
+    /// recalculation holds an engine slot ([`Routing::route_later`]).
+    blocked: Option<tokio::sync::oneshot::Sender<Known>>,
+    /// How long an engine slot is waited for, when not
+    /// [`Routing::queue_wait`].
+    slot_wait: Option<Duration>,
+    /// Whether today's request with its alternatives ran beside the
+    /// recalculation of a best route blocked alone.
+    at_once_tried: bool,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -1776,7 +1898,7 @@ type Checked = (CheckedRoute, Vec<Met>, Vec<EventHit>);
 /// thousand rows for the request's life, under its engine slot, and the
 /// segments of the stretches: 40 bytes each, 4 to 6 MB for a trip of
 /// 3 000 km and its alternatives.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Known {
     /// The stretches queried, each exactly as it was: a stretch only
     /// covered by an earlier one is not among them, so the margin is never
