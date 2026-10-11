@@ -1122,6 +1122,7 @@ impl Routing {
                 tracing::info!(
                     attempt,
                     blockers = blockers.len(),
+                    on_points = on_points(&blockers),
                     road_events = event_blockers.len(),
                     snapped_m = ?distances,
                     "a recalculation met only limits already excluded"
@@ -1132,6 +1133,7 @@ impl Routing {
             tracing::info!(
                 attempt,
                 blockers = blockers.len(),
+                on_points = on_points(&blockers),
                 road_events = event_blockers.len(),
                 exclusions = exclusions.len(),
                 snapped_m = ?distances,
@@ -1248,6 +1250,18 @@ fn snap_distances(osrm: &Value) -> Vec<f64> {
 /// The restrictions that blocked an attempt, by their external ids and where
 /// along the route, at debug level only: one beside a stop tells where the
 /// trip starts or ends, and the logs of production keep no user's location.
+/// How many of `blockers` stand on a point (a bar mapped on a node, a
+/// community report) rather than along a road: the journal's count of what
+/// a recalculation met, the graph build carrying the nodes' limits since
+/// 2026-10-11 (`plan/research/127-routage-serveur.md`). A count, never an
+/// id or a position.
+fn on_points(blockers: &[Met]) -> usize {
+    blockers
+        .iter()
+        .filter(|m| m.restriction.geometry.len() == 1)
+        .count()
+}
+
 fn log_limits(blockers: &[Met]) {
     if tracing::enabled!(tracing::Level::DEBUG) {
         let limits: Vec<(&str, f64)> = blockers
@@ -2166,6 +2180,22 @@ mod tests {
                 middle: at,
             },
         }
+    }
+
+    #[test]
+    fn the_journal_counts_the_blockers_on_a_point_apart() {
+        let p = |lat: f64, lon: f64| Position::new(lat, lon).unwrap();
+        let blockers = [
+            bar(vec![p(43.3, 5.38)]),
+            bar(vec![p(43.3, 5.38), p(43.301, 5.381)]),
+            bar(vec![p(45.0, 1.0)]),
+        ];
+        assert_eq!(
+            on_points(&blockers),
+            2,
+            "a bar mapped on a node is one point; a road's limit is a line"
+        );
+        assert_eq!(on_points(&[]), 0);
     }
 
     #[test]
