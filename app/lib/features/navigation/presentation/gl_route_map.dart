@@ -141,10 +141,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
   bool _cameraMoving = false;
 
   /// Native maps take each frame over a platform channel: 30 a second keeps
-  /// the glide smooth without queueing calls. A thirtieth of a second
-  /// exactly (two refreshes at 60 Hz, three at 90, four at 120): 33 ms
-  /// drifted against the screen's refresh by one refresh every 50 frames.
-  static const Duration _frameGap = Duration(microseconds: 33333);
+  /// the glide smooth without queueing calls.
+  static const Duration _frameGap = Duration(milliseconds: 33);
 
   /// A fix this far from the drawn vehicle is a jump (a new route from
   /// elsewhere), not a move to glide through.
@@ -203,6 +201,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
     _stopHover?.call();
     _richPasses.dispose();
     _stopFrames();
+    _idleLater?.cancel();
     super.dispose();
   }
 
@@ -873,17 +872,27 @@ class _GlRouteMapState extends State<GlRouteMap> {
   /// The rich marks the last [_sync] saw.
   RouteMapRich? _richAsked;
 
-  /// When the map's going idle last asked for the marks again.
+  /// When the map's going idle last asked for the marks again, and the
+  /// pass set for the end of that while.
   final _idlePasses = Stopwatch();
+  Timer? _idleLater;
 
   /// The map has drawn all it was loading. Parked, no fix asks for the
   /// rich marks again ([_sync]): the places of tiles that came after the
-  /// last pass are read now, at most once per [tilePlacesKept]. Not while
-  /// the glide runs, whose frames may leave the map idle between two and
-  /// would query the map at each.
+  /// last pass are read now, at most once per [tilePlacesKept], an idle
+  /// within that while answered at its end. Not while the glide runs,
+  /// whose frames may leave the map idle between two and would query the
+  /// map at each.
   void _onMapIdle() {
-    if (_framing || !_ready || !mounted) return;
-    if (_idlePasses.isRunning && _idlePasses.elapsed < tilePlacesKept) return;
+    if (_framing || !_ready || !mounted || _idleLater != null) return;
+    final since = _idlePasses.isRunning ? _idlePasses.elapsed : tilePlacesKept;
+    if (since < tilePlacesKept) {
+      _idleLater = Timer(tilePlacesKept - since, () {
+        _idleLater = null;
+        _onMapIdle();
+      });
+      return;
+    }
     _idlePasses
       ..reset()
       ..start();

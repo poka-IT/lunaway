@@ -202,6 +202,25 @@ void main() {
       expect(session().voice, VoiceReadiness.ready);
     });
 
+    test('a voice still downloading at the return is looked for once more a while later', () {
+      fakeAsync((async) {
+        final back = ReturningApp();
+        final missing = RecordingVoice(readiness: VoiceReadiness.missingData);
+        unawaited(start(routeFixture('limoges_drive'), foreground: back, withVoice: missing));
+        async.elapse(const Duration(seconds: 1));
+        unawaited(container.read(guidanceControllerProvider.notifier).installVoices());
+        async.elapse(const Duration(seconds: 1));
+        // Back from the installer while the pack still downloads.
+        back.comeBack();
+        async.elapse(const Duration(seconds: 1));
+        expect(session().voice, VoiceReadiness.missingData);
+        missing.readiness = VoiceReadiness.ready;
+        async.elapse(voiceLookGap);
+        expect(session().voice, VoiceReadiness.ready);
+        container.read(guidanceControllerProvider.notifier).stop();
+      });
+    });
+
     test('a return soon after the last look asks the engines nothing', () async {
       final back = ReturningApp();
       final missing = RecordingVoice(readiness: VoiceReadiness.none);

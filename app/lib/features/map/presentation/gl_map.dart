@@ -80,9 +80,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   /// Whether the map is on screen. A page pushed over it (the route's
   /// preview, the guidance) leaves it built underneath, its ticker mode
-  /// off: there it draws nothing and follows no position. Measured on the
-  /// emulator, its position shown before a guidance kept it drawing under
-  /// the guidance's own map, 86 % of a core while parked
+  /// off: there it follows no position, and on Android its engine stops
+  /// drawing (the plugin's pause on iOS leaves the frame rate as it is).
+  /// Measured on the emulator, its position shown before a guidance kept
+  /// it drawing under the guidance's own map, 86 % of a core while parked
   /// (`plan/research/117-voix-energie-android.md`).
   bool _onScreen = true;
 

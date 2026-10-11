@@ -770,7 +770,10 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     if (voice == null || s == null) return;
     _lastVoiceLook = ref.read(clockProvider)();
+    final fromInstaller = _installerOpened;
     _installerOpened = false;
+    _voiceLookLater?.cancel();
+    _voiceLookLater = null;
     VoiceReadiness readiness;
     try {
       readiness = await voice.prepare(s.plan.applied.language, fresh: true);
@@ -781,7 +784,21 @@ class GuidanceController extends _$GuidanceController {
     if (!_current(generation)) return;
     _speech?.ready = readiness == VoiceReadiness.ready;
     state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
+    // A voice pack goes on downloading once the user has left its
+    // installer: looked for once more a while later, the driver back in
+    // the app and not leaving it again.
+    if (fromInstaller && readiness != VoiceReadiness.ready) {
+      _voiceLookLater = Timer(voiceLookGap, () {
+        _voiceLookLater = null;
+        if (_current(generation) && state!.voice != VoiceReadiness.ready) {
+          unawaited(_lookForVoiceAgain(generation));
+        }
+      });
+    }
   }
+
+  /// The look set for a while after a return from the installer.
+  Timer? _voiceLookLater;
 
   /// The position the device knew a moment ago, taken as the first fix:
   /// the first instruction shows with its distance, and the camera follows
@@ -1006,6 +1023,8 @@ class GuidanceController extends _$GuidanceController {
     unawaited(_returns?.cancel());
     _returns = null;
     _lastVoiceLook = null;
+    _voiceLookLater?.cancel();
+    _voiceLookLater = null;
     _installerOpened = false;
     _arrivalWake?.cancel();
     _arrivalWake = null;

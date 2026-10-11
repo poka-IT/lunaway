@@ -280,8 +280,8 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         engine.tts?.shutdown()
         engine.tts = null
         engine.status = null
-        // A question stuck in the engine ends with its binder; the thread
-        // goes with it.
+        // No new question goes to it; one still running ends when the
+        // engine answers or its process goes (shutdown interrupts nothing).
         engine.lists.shutdown()
         val waiting = engine.waiting.toList()
         engine.waiting.clear()
