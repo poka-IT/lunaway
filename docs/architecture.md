@@ -664,13 +664,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   drawn and ready for "C'est parti !" at once, and its alternatives join
   it when `routeAlternatives` answers (`RoutePlan.withAlternatives`),
   where the camera already stands (it framed the routes that came at
-  once; one of them chosen, on the map or by its card, joins the frame
-  and the camera eases out to take it in), with the route chosen kept,
-  in the room the panel kept for two
+  once), with the route chosen kept, in the room the panel kept for two
   cards (`RouteOptionPlaceholder`, sized by an unseen copy of the best
   route's card), so nothing under them moves; when they do not come,
-  nothing says so and the room closes. The guidance reads such an alternative in its own OSRM answer
-  (`RoutePlan.osrmOf`).
+  nothing says so and the room closes. An alternative that came after,
+  once chosen on the map or by its card, joins the frame while the plan
+  shows (`RoutePreview.framedLater`): the camera eases out to take it in,
+  and choosing a route already in view moves nothing. The guidance reads
+  such an alternative in its own OSRM answer (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
   (`core/http/app_http_client_io.dart`). A mobile network or a move from

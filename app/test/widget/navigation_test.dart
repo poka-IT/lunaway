@@ -477,16 +477,13 @@ void main() {
         expect(line(1).every(chosen.bounds.contains), isTrue, reason: 'the camera took it in');
         expect(line(0).every(chosen.bounds.contains), isTrue, reason: 'the best route too');
 
-        // The best route chosen on the map: the view it framed alone.
-        SchematicRouteMap.last!.onLineTap!(0);
-        await settleShort(tester);
-        expect(camera().bounds, framed.bounds);
-
-        // The alternative chosen on the map.
-        SchematicRouteMap.last!.onLineTap!(1);
-        await settleShort(tester);
-        expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, 1);
-        expect(camera().bounds, chosen.bounds);
+        // Both in view from now on: choosing either on the map moves nothing.
+        for (final index in [0, 1]) {
+          SchematicRouteMap.last!.onLineTap!(index);
+          await settleShort(tester);
+          expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, index);
+          expect(camera(), chosen, reason: 'route $index chosen again, the camera stays');
+        }
       });
     }
 

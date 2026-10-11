@@ -485,13 +485,14 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     // choosing one keeps the same bounds: the camera moves only when the
     // legend open by itself grows (LegendFit), until the user takes the
     // map. The alternatives that come after the best route join the map
-    // where the camera already stands: the user may be reading it. One of
-    // them chosen, on the map or by its card, joins the bounds, and the
-    // camera eases out to take it in: it may reach out of the view the
-    // best route framed (the engines animate every new fit).
+    // where the camera already stands: the user may be reading it. Such an
+    // alternative, once chosen on the map or by its card, joins the bounds
+    // while this plan shows (RoutePreview.framedLater): it may reach out of
+    // the view the best route framed, and the camera eases out to take it
+    // in (the engines animate every new fit).
     final routeBounds = [
       for (final r in plan?.routes ?? const <RouteOption>[])
-        if (!(plan?.cameLater(r) ?? false) || r.index == p?.selected)
+        if (!(plan?.cameLater(r) ?? false) || (p?.framedLater.contains(r.index) ?? false))
           if (r.bounds case final b?) ...[LatLng(b.south, b.west), LatLng(b.north, b.east)],
     ];
     final bounds = routeBounds.isNotEmpty
