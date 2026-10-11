@@ -1144,6 +1144,7 @@ class _Translations$accountImport$es extends Translations$accountImport$en {
 	@override String get failed => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
 	@override String get refused => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.';
 	@override String get replaceFailed => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
+	@override String replaceUnfinished({required Object current}) => '«${current}» ya ha dejado este dispositivo, pero la sustitución no ha terminado. Vuelve a intentarlo.';
 	@override String get unsettled => 'Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.';
 	@override String get tooMany => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.';
 	@override String merged({required Object name}) => 'Cuentas fusionadas: usas «${name}».';
@@ -4690,6 +4691,7 @@ extension on TranslationsEs {
 			'accountImport.failed' => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
 			'accountImport.refused' => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.',
 			'accountImport.replaceFailed' => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '«${current}» ya ha dejado este dispositivo, pero la sustitución no ha terminado. Vuelve a intentarlo.',
 			'accountImport.unsettled' => 'Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.',
 			'accountImport.tooMany' => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.',
 			'accountImport.merged' => ({required Object name}) => 'Cuentas fusionadas: usas «${name}».',
@@ -5041,9 +5043,9 @@ extension on TranslationsEs {
 			'poi.kind.speechTherapist' => 'Logopeda',
 			'poi.kind.alternativeMedicine' => 'Osteópata, terapias naturales',
 			'poi.kind.optician' => 'Óptica',
-			'poi.kind.hearingAids' => 'Audífonos',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.hearingAids' => 'Audífonos',
 			'poi.kind.medicalSupply' => 'Ortopedia',
 			'poi.kind.hairdresser' => 'Peluquería',
 			'poi.kind.beauty' => 'Centro de estética',

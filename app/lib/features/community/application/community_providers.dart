@@ -193,8 +193,11 @@ class OutboxRunner extends _$OutboxRunner {
   }
 
   Future<void> _claim(Account account) async {
+    final switcher = ref.read(accountSwitchProvider);
     try {
-      if (await ref.read(accountSwitchProvider).claimMerged(account)) await kick();
+      // Held: a pass that read an entry before it changed hands would fail
+      // it as another account's. The hold's end sends what is due.
+      await holding(() => switcher.claimMerged(account));
     } on Object catch (e) {
       // The entries keep waiting; the next account change claims them.
       _log.warning('outbox: the merged account not claimed: ${e.runtimeType}');

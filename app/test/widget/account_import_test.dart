@@ -9,7 +9,10 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/account/presentation/account_import.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -417,6 +420,106 @@ void main() {
     await held;
     await settleShort(tester, const Duration(seconds: 2));
     expect(reads(), before + 2, reason: 'the switch done, the favourites sync again');
+  });
+
+  testWidgets('no pass of the outbox starts while the device changes accounts', (tester) async {
+    final api = FakeApi();
+    final app = await pumpLunaway(tester, api: api, signedIn: true);
+    await settleShort(tester, const Duration(seconds: 2));
+    final container = app.container(tester);
+    final runner = container.read(outboxRunnerProvider.notifier);
+    final store = container.read(outboxStoreProvider);
+    final id = (container.read(accountControllerProvider) as SignedIn).account.id;
+    int confirms() => api.operations.where((o) => o == 'Confirm').length;
+    Future<void> confirm(String placeId) => store.add(
+      ContributionKind.confirm,
+      placeId: placeId,
+      payload: {'placeId': placeId, 'status': 'STILL_OK'},
+      accountId: id,
+    );
+    api.hold = Completer<void>();
+    await confirm(lakeArea.id);
+    unawaited(runner.kick());
+    await tester.pump();
+    final switching = Completer<void>();
+    var inside = false;
+    final held = runner.holding(() async {
+      inside = true;
+      await switching.future;
+    });
+    api.hold!.complete();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(inside, isTrue, reason: 'the switch runs once the pass under way has ended');
+    expect(confirms(), 1);
+
+    await confirm(campsite.id);
+    unawaited(runner.kick());
+    await tester.pump(const Duration(seconds: 1));
+    expect(confirms(), 1, reason: 'what is queued meanwhile waits for the switch to end');
+
+    switching.complete();
+    await held;
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(confirms(), 2, reason: 'the switch done, the outbox sends what waits');
+  });
+
+  /// The device held an account merged from elsewhere into the account
+  /// [intoId], with a contribution waiting, and has just signed out of the
+  /// one it then made: the account of the recovery card comes next.
+  Future<(TestApp, PendingContribution)> mergedAway(
+    WidgetTester tester,
+    FakeApi api, {
+    required String Function(Account account) intoId,
+  }) async {
+    final app = await pumpLunaway(tester, api: api, signedIn: true);
+    await settleShort(tester, const Duration(seconds: 2));
+    final container = app.container(tester);
+    final account = (container.read(accountControllerProvider) as SignedIn).account;
+    await container.read(accountControllerProvider.notifier).signOut();
+    await settleShort(tester);
+    const gone = '01990000-0000-7000-8000-0000000000aa';
+    final entry = await container
+        .read(outboxStoreProvider)
+        .add(
+          ContributionKind.confirm,
+          placeId: lakeArea.id,
+          payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+          accountId: gone,
+        );
+    await app.secrets.write(
+      'merged_from',
+      jsonEncode({'from': gone, 'into': account.pseudonym, 'intoId': intoId(account)}),
+    );
+    await container
+        .read(accountControllerProvider.notifier)
+        .recover(FakeApi.recoveryCode, revokeOthers: false);
+    await settleShort(tester, const Duration(seconds: 2));
+    return (app, entry!);
+  }
+
+  testWidgets('what waited for the account the device went into leaves once it comes', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final (app, entry) = await mergedAway(tester, api, intoId: (a) => a.id);
+    final store = app.container(tester).read(outboxStoreProvider);
+    expect(await store.byId(entry.id), isNull, reason: 'sent under the account it went into');
+    expect(api.operations, contains('Confirm'));
+  });
+
+  testWidgets('a namesake of the account the device went into takes nothing of it', (tester) async {
+    final api = FakeApi();
+    final (app, entry) = await mergedAway(
+      tester,
+      api,
+      intoId: (_) => '01990000-0000-7000-8000-0000000000bb',
+    );
+    final store = app.container(tester).read(outboxStoreProvider);
+    final left = await store.byId(entry.id);
+    expect(left?.state, OutboxState.failed, reason: 'another account came: it never leaves');
+    expect(left?.errorCode, OutboxError.otherAccount);
+    expect(api.operations, isNot(contains('Confirm')));
   });
 
   testWidgets("the card of the device's own account is said on the field", (tester) async {

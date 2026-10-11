@@ -76,6 +76,84 @@ void main() {
 
   Future<String> currentId() async => (await service.restore())!.account.id;
 
+  /// The device's service and switch over [store], beside the ones of
+  /// [setUp]: the same storage underneath, with its failures.
+  (AccountService, AccountSwitch) over(SecretStore store) {
+    final device = AccountService(
+      client: GraphQLClient(
+        endpoint: Uri.parse('$testApiBase/graphql'),
+        httpClient: api.client(MockClient((_) async => http.Response('', 404))),
+        userAgent: 'Lunaway/test (+https://lunaway.net)',
+      ),
+      keys: SoftwareDeviceKeys(store),
+      secrets: store,
+      locale: () => 'fr',
+      clock: () => testNow,
+    );
+    return (
+      device,
+      AccountSwitch(
+        service: device,
+        outbox: outbox,
+        favorites: accounts.favorites,
+        deviceHasHome: () async => false,
+        forgetHome: () async {},
+      ),
+    );
+  }
+
+  test(
+    'a merge the server made and the device could not keep is finished here, not asked again',
+    () async {
+      final store = _Breakable(secrets)..refused.add('device_key');
+      final (device, switcher) = over(store);
+      final oldId = await currentId();
+      final imported = await switcher.import(FakeApi.otherRecoveryCode);
+      await expectLater(
+        switcher.merge(imported, currentId: oldId),
+        throwsA(isA<MergeUnsettledException>()),
+        reason: 'made on the server, unfinished here: the sheet keeps it uncertain',
+      );
+      expect(api.merged, isTrue);
+      store.refused.clear();
+      final merges = api.operations.where((o) => o == 'MergeAccount').length;
+      expect(await switcher.settle(imported, currentId: oldId), isTrue);
+      expect(
+        api.operations.where((o) => o == 'MergeAccount').length,
+        merges,
+        reason: 'the keys may be half switched: the device ends what the server did',
+      );
+      expect((await device.restore())!.account.id, FakeApi.otherId);
+      expect((await keys.load())!.publicJwk, imported.key.publicJwk);
+    },
+  );
+
+  test('a replacement that failed after leaving ends when tried again, leaving once', () async {
+    final store = _Breakable(secrets)..refused.add('device_key');
+    final (device, switcher) = over(store);
+    final imported = await switcher.import(FakeApi.otherRecoveryCode);
+    await expectLater(switcher.replace(imported), throwsA(anything));
+    expect(api.forgotten, ['current']);
+    expect(switcher.left, isTrue, reason: 'only the replacement can end now');
+    store.refused.clear();
+    await switcher.replace(imported);
+    expect(api.forgotten, ['current'], reason: 'the account was left once');
+    expect(switcher.left, isFalse);
+    expect((await device.restore())!.account.id, FakeApi.otherId);
+  });
+
+  test('once the device left its account for another, no sign-in says it was lost', () async {
+    await accounts.import(FakeApi.otherRecoveryCode);
+    await service.leaveForReplace();
+    final events = <AccountEvent>[];
+    final sub = service.events.listen(events.add);
+    addTearDown(sub.cancel);
+    await expectLater(service.run(myAccountOperation), throwsA(isA<AccountChangedException>()));
+    await Future<void>.delayed(Duration.zero);
+    expect(events, isEmpty, reason: 'the switch under way is no account lost');
+    expect(await keys.load(), isNotNull, reason: 'the key goes with the switch, not before it');
+  });
+
   test('the text both keys sign is the one the server checks', () {
     const absorbed = PublicJwk(x: 'ax', y: 'ay');
     const into = PublicJwk(x: 'bx', y: 'by');
@@ -351,4 +429,25 @@ void main() {
     await gone;
     expect(await device.restore(), isNull, reason: 'the device forgot the merged account');
   });
+}
+
+/// The device's protected storage, refusing to write the slots in
+/// [refused] (a keychain locked, IndexedDB refused).
+final class _Breakable implements SecretStore {
+  new(this.inner);
+
+  final MemorySecretStore inner;
+  final refused = <String>{};
+
+  @override
+  Future<String?> read(String key) => inner.read(key);
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (refused.contains(key)) throw StateError('storage refused');
+    await inner.write(key, value);
+  }
+
+  @override
+  Future<void> delete(String key) => inner.delete(key);
 }

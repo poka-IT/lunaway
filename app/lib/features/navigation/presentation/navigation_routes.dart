@@ -178,8 +178,6 @@ class _LeavesForMap extends ConsumerWidget {
   );
 }
 
-/// The preview of a link: a place it names is read on the device, for its
-/// exact spot; the link's rounded point stands for a place not held here.
 /// The route home: the target the app opened it with ([opened]), else the
 /// home kept on this device (the link reloaded or typed); a device without
 /// a home has no target, as a link without a point.
@@ -207,6 +205,8 @@ class _HomePreview extends ConsumerWidget {
   }
 }
 
+/// The preview of a link: a place it names is read on the device, for its
+/// exact spot; the link's rounded point stands for a place not held here.
 class _LinkedPreview extends ConsumerWidget {
   const new({required this.target});
 

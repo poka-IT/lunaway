@@ -195,6 +195,10 @@ class HomeCard extends ConsumerWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
                 ),
               ),
+              TextButton(
+                onPressed: () => ref.invalidate(userHomeProvider),
+                child: Text(t.common.retry),
+              ),
             ],
           ),
         ),

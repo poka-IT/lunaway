@@ -1454,6 +1454,7 @@
     "failed": "Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.",
     "refused": "De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.",
     "replaceFailed": "Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.",
+    "replaceUnfinished": "“$current” heeft dit apparaat al verlaten, maar het vervangen is nog niet klaar. Probeer het opnieuw.",
     "unsettled": "Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.",
     "tooMany": "Te veel samenvoegingen op dit moment. Probeer het later opnieuw.",
     "merged": "Accounts samengevoegd: je gebruikt “$name”.",

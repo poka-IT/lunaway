@@ -1454,6 +1454,7 @@
     "failed": "La fusion n'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.",
     "refused": "Le serveur refuse cette fusion. Les deux comptes restent tels quels.",
     "replaceFailed": "Le remplacement n'a pas pu se terminer. Rien n'a changé sur cet appareil. Réessayez quand le réseau répond.",
+    "replaceUnfinished": "« $current » a déjà quitté cet appareil, mais le remplacement n'est pas fini. Réessayez.",
     "unsettled": "La fusion a peut-être eu lieu : le serveur n'a pas encore répondu. Rien n'est perdu. Réessayez quand le réseau répond.",
     "tooMany": "Trop de fusions pour l'instant. Réessayez plus tard.",
     "merged": "Comptes fusionnés : vous utilisez « $name ».",

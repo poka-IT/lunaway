@@ -224,13 +224,18 @@ class FavoritesSyncController extends _$FavoritesSyncController {
     });
     // The home goes with the lists: a change of it is a change to sync.
     var firstHome = true;
-    _homeChanges = ref.read(homeRepositoryProvider).watch().listen((_) {
-      if (firstHome) {
-        firstHome = false;
-        return;
-      }
-      _schedule(debounce);
-    });
+    _homeChanges = ref.read(homeRepositoryProvider).watch().listen(
+      (_) {
+        if (firstHome) {
+          firstHome = false;
+          return;
+        }
+        _schedule(debounce);
+      },
+      // The storage refused the read: the favourites say it
+      // (`HomeCard`); the next sync reads the home again.
+      onError: (Object e) => _log.info('the home not watched: ${e.runtimeType}'),
+    );
     _schedule(Duration.zero);
   }
 

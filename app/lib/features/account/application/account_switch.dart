@@ -71,11 +71,28 @@ final class AccountSwitch {
   }
 
   Future<MergeResult> _merge(ImportedAccount imported, String currentId) async {
-    final (target, result) = await service.mergeOnServer(imported);
-    await outbox.reassign(from: currentId, to: result.account.id);
-    await service.adopt(target, result.account);
-    return result;
+    var landed = _landed;
+    if (landed == null || !identical(landed.imported, imported)) {
+      final (target, result) = await service.mergeOnServer(imported);
+      landed = (imported: imported, target: target, result: result);
+      _landed = landed;
+    }
+    try {
+      await outbox.reassign(from: currentId, to: landed.result.account.id);
+      await service.adopt(landed.target, landed.result.account);
+    } on Object catch (e) {
+      // Made on the server, unfinished here (the device's storage refused):
+      // the account the device holds is gone, and the device finishes the
+      // switch at the next try, without asking the server again with keys
+      // it may have half changed.
+      throw MergeUnsettledException(e);
+    }
+    _landed = null;
+    return landed.result;
   }
+
+  /// A merge the server made whose end on the device failed.
+  ({ImportedAccount imported, ImportedAccount target, MergeResult result})? _landed;
 
   /// After a merge whose answer did not come: when the server made it, the
   /// device finishes it as [merge] would and returns true; when it did
@@ -83,11 +100,19 @@ final class AccountSwitch {
   /// not answer.
   Future<bool> settle(ImportedAccount imported, {required String currentId}) async {
     await _waitForMerge();
+    if (identical(_landed?.imported, imported)) {
+      await _merge(imported, currentId);
+      return true;
+    }
     if (!await service.mergeLanded(imported)) return false;
     await outbox.reassign(from: currentId, to: imported.account.id);
     await service.adopt(imported, imported.account);
     return true;
   }
+
+  /// The device's key left its account for [replace], which did not end:
+  /// only the replacement can finish what it began.
+  bool get left => service.left;
 
   /// Takes [imported] in place of the device's account, without merging:
   /// the device leaves the account first (its key detached on the server,

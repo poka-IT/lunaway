@@ -1454,6 +1454,7 @@
     "failed": "Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.",
     "refused": "Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.",
     "replaceFailed": "Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.",
+    "replaceUnfinished": "„$current“ hat dieses Gerät bereits verlassen, aber das Ersetzen ist nicht abgeschlossen. Versuchen Sie es erneut.",
     "unsettled": "Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.",
     "tooMany": "Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.",
     "merged": "Konten zusammengeführt: Sie verwenden „$name“.",

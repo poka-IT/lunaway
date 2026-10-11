@@ -2432,6 +2432,9 @@ class Translations$accountImport$en {
 	/// en: 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.'
 	String get replaceFailed => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.';
 
+	/// en: '“$current” has already left this device, but the replacement is not finished. Try again.'
+	String replaceUnfinished({required Object current}) => '“${current}” has already left this device, but the replacement is not finished. Try again.';
+
 	/// en: 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.'
 	String get unsettled => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.';
 
@@ -8783,6 +8786,7 @@ extension on Translations {
 			'accountImport.failed' => 'The merge could not finish. Your data stays on this device. Try again once the network answers.',
 			'accountImport.refused' => 'The server refuses this merge. Both accounts stay as they are.',
 			'accountImport.replaceFailed' => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '“${current}” has already left this device, but the replacement is not finished. Try again.',
 			'accountImport.unsettled' => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.',
 			'accountImport.tooMany' => 'Too many merges for now. Try again later.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts merged: you are using “${name}”.',
@@ -9134,9 +9138,9 @@ extension on Translations {
 			'poi.kind.speechTherapist' => 'Speech therapist',
 			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
 			'poi.kind.optician' => 'Optician',
-			'poi.kind.hearingAids' => 'Hearing aids',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',
 			'poi.kind.hairdresser' => 'Hairdresser',
 			'poi.kind.beauty' => 'Beauty salon',

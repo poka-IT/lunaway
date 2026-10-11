@@ -1454,6 +1454,7 @@
     "failed": "L'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.",
     "refused": "Il server rifiuta questa unione. Entrambi gli account restano come sono.",
     "replaceFailed": "La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.",
+    "replaceUnfinished": "«$current» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.",
     "unsettled": "L'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.",
     "tooMany": "Troppe unioni per ora. Riprova più tardi.",
     "merged": "Account uniti: stai usando «$name».",

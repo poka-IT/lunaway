@@ -1144,6 +1144,7 @@ class _Translations$accountImport$fr extends Translations$accountImport$en {
 	@override String get failed => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.';
 	@override String get refused => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.';
 	@override String get replaceFailed => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.';
+	@override String replaceUnfinished({required Object current}) => '« ${current} » a déjà quitté cet appareil, mais le remplacement n\'est pas fini. Réessayez.';
 	@override String get unsettled => 'La fusion a peut-être eu lieu : le serveur n\'a pas encore répondu. Rien n\'est perdu. Réessayez quand le réseau répond.';
 	@override String get tooMany => 'Trop de fusions pour l\'instant. Réessayez plus tard.';
 	@override String merged({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».';
@@ -4690,6 +4691,7 @@ extension on TranslationsFr {
 			'accountImport.failed' => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.',
 			'accountImport.refused' => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.',
 			'accountImport.replaceFailed' => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '« ${current} » a déjà quitté cet appareil, mais le remplacement n\'est pas fini. Réessayez.',
 			'accountImport.unsettled' => 'La fusion a peut-être eu lieu : le serveur n\'a pas encore répondu. Rien n\'est perdu. Réessayez quand le réseau répond.',
 			'accountImport.tooMany' => 'Trop de fusions pour l\'instant. Réessayez plus tard.',
 			'accountImport.merged' => ({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».',
@@ -5041,9 +5043,9 @@ extension on TranslationsFr {
 			'poi.kind.speechTherapist' => 'Orthophoniste',
 			'poi.kind.alternativeMedicine' => 'Ostéopathe, médecines douces',
 			'poi.kind.optician' => 'Opticien',
-			'poi.kind.hearingAids' => 'Audioprothésiste',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.hearingAids' => 'Audioprothésiste',
 			'poi.kind.medicalSupply' => 'Matériel médical',
 			'poi.kind.hairdresser' => 'Coiffeur',
 			'poi.kind.beauty' => 'Institut de beauté',

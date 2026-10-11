@@ -296,6 +296,8 @@ final class AccountService {
   }) async {
     final generation = _generation;
     var session = await _current();
+    // Read while the device changed accounts: a session of either.
+    if (generation != _generation) throw const AccountChangedException();
     if (session == null || (fresh && clock().difference(session.openedAt) > freshFor)) {
       session = await _renew(generation, create: create, replacing: session);
     }
@@ -742,6 +744,9 @@ final class AccountService {
   /// The device's key was detached from its account by [leaveForReplace],
   /// and the device has not switched yet.
   bool _left = false;
+
+  /// [_left], for the replacement to say what remains to do.
+  bool get left => _left;
 
   /// Gives up [imported]: its new key is detached from it, and the device
   /// keeps the account it held. Nothing once [imported] was adopted or

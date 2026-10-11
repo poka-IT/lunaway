@@ -1454,6 +1454,7 @@
     "failed": "La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
     "refused": "El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.",
     "replaceFailed": "La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
+    "replaceUnfinished": "«$current» ya ha dejado este dispositivo, pero la sustitución no ha terminado. Vuelve a intentarlo.",
     "unsettled": "Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.",
     "tooMany": "Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.",
     "merged": "Cuentas fusionadas: usas «$name».",

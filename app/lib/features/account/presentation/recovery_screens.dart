@@ -419,13 +419,12 @@ class _QrPainter extends CustomPainter {
 /// on a photo of the card. The code is checked here first, so a typo never
 /// spends one of the server's five attempts an hour.
 ///
-/// With [importing], the device already holds an account: the one of the
+/// When the device already holds an account, whichever address led here
+/// (the profile's recovery or "use another account"), the account of the
 /// code opens beside it, and a sheet then asks what becomes of the two
 /// (`chooseForImported`).
 class RecoverScreen extends ConsumerStatefulWidget {
-  const new({this.importing = false, super.key});
-
-  final bool importing;
+  const new({super.key});
 
   @override
   ConsumerState<RecoverScreen> createState() => _RecoverScreenState();
@@ -438,10 +437,10 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   /// The server's answer about the code typed, until it changes.
   String? _refused;
 
-  /// An account opens beside the device's: asked to, and the device holds
-  /// one. Without one (an address typed on the web), the code brings its
-  /// account as a recovery does.
-  bool _importing(AccountState account) => widget.importing && account is! NoAccount;
+  /// An account opens beside the device's whenever the device holds one:
+  /// the user then chooses what becomes of the two. Without one, the code
+  /// brings its account as a recovery does.
+  bool _importing(AccountState account) => account is SignedIn;
 
   @override
   void dispose() {
@@ -482,8 +481,12 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     if (code == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
+    final held = ref.read(accountControllerProvider);
+    // Still read from the device's storage: neither a recovery nor an
+    // import is chosen blind (a few milliseconds at launch).
+    if (held is AccountLoading) return;
     try {
-      if (_importing(ref.read(accountControllerProvider))) {
+      if (_importing(held)) {
         await _import(code);
         return;
       }

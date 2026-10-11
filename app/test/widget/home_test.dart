@@ -104,6 +104,28 @@ Future<void> _openTab(WidgetTester tester, String label) async {
 
 Finder _inCard(Finder f) => find.descendant(of: find.byType(HomeCard), matching: f);
 
+/// A home the device's storage refuses to read while [broken], and finds
+/// none of after.
+final class _FailingHome implements HomeRepository {
+  bool broken = true;
+
+  @override
+  Stream<SavedPoint?> watch() =>
+      broken ? Stream.error(StateError('storage refused')) : Stream.value(null);
+
+  @override
+  Future<SavedPoint?> read() async => throw StateError('storage refused');
+
+  @override
+  Future<void> set(SavedPoint point) async => throw StateError('storage refused');
+
+  @override
+  Future<void> clear() async => throw StateError('storage refused');
+
+  @override
+  Future<void> clearLocal() async => throw StateError('storage refused');
+}
+
 void main() {
   setUp(() => LocaleSettings.setLocale(AppLocale.fr));
 
@@ -139,6 +161,24 @@ void main() {
     await settleShort(tester);
     expect(find.byType(RoutePreviewScreen), findsOneWidget);
     expect(find.text('Vers Domicile'), findsOneWidget);
+  });
+
+  testWidgets('a home the device cannot read says so above the lists, with a retry', (
+    tester,
+  ) async {
+    final failing = _FailingHome();
+    await pumpLunaway(tester, overrides: [homeRepositoryProvider.overrideWithValue(failing)]);
+    await _openTab(tester, 'Favoris');
+    expect(_inCard(find.text(t.home.error)), findsOneWidget);
+    expect(find.text('Mes favoris'), findsWidgets, reason: 'the lists show all the same');
+    failing.broken = false;
+    await tester.tap(_inCard(find.text(t.common.retry)));
+    await settleShort(tester);
+    expect(
+      _inCard(find.text(t.home.setTitle)),
+      findsOneWidget,
+      reason: 'read again, the device has no home: the way to set one',
+    );
   });
 
   testWidgets('choosing the home on the map ends with the card of the point closed', (

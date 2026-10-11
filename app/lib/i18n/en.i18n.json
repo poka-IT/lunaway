@@ -1454,6 +1454,7 @@
     "failed": "The merge could not finish. Your data stays on this device. Try again once the network answers.",
     "refused": "The server refuses this merge. Both accounts stay as they are.",
     "replaceFailed": "The replacement could not finish. Nothing changed on this device. Try again once the network answers.",
+    "replaceUnfinished": "“$current” has already left this device, but the replacement is not finished. Try again.",
     "unsettled": "The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.",
     "tooMany": "Too many merges for now. Try again later.",
     "merged": "Accounts merged: you are using “$name”.",

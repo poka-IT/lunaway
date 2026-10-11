@@ -60,6 +60,13 @@ Future<void> chooseForImported(
   final controller = ref.read(accountControllerProvider.notifier);
   final switcher = ref.read(accountSwitchProvider);
   final outboxStore = ref.read(outboxStoreProvider);
+  // Read now: an import ended with no one left to ask still holds them.
+  final favorites = ref.read(favoritesSyncControllerProvider.notifier);
+  final outboxRunner = ref.read(outboxRunnerProvider.notifier);
+  // Kept across the sheet's openings: the card's detour closes it.
+  final progress = ImportProgress();
+  Future<void> giveUp() =>
+      favorites.holding(() => outboxRunner.holding(() => _giveUp(controller, imported, progress)));
   final start = ref.read(accountControllerProvider);
   if (start is! SignedIn) {
     await controller.cancelImport(imported);
@@ -69,12 +76,10 @@ Future<void> chooseForImported(
   final homeWins = await switcher.importedHomeWins(imported);
   final outbox = await outboxStore.all();
   final waiting = outbox.where((e) => e.state != OutboxState.failed).length;
-  // Kept across the sheet's openings: the card's detour closes it.
-  final progress = ImportProgress();
   var replacing = false;
   for (;;) {
     if (!context.mounted) {
-      await _giveUp(controller, imported, progress);
+      await giveUp();
       return;
     }
     final state = ref.read(accountControllerProvider);
@@ -113,32 +118,41 @@ Future<void> chooseForImported(
           MaterialPageRoute<void>(builder: (_) => const RecoveryCardScreen(returns: true)),
         );
         replacing = true;
-      case ImportOutcome.cancelled || null:
-        // The sheet closes this way only once nothing is uncertain.
+      case ImportOutcome.cancelled:
+        // The sheet's "Annuler" closes it once nothing is uncertain.
         await controller.cancelImport(imported);
         showMessage(messenger, t.accountImport.cancelled(name: current.pseudonym));
         router.go(AppRoutes.profile);
+        return;
+      case null:
+        // The sheet removed with the pages under it (an address typed in a
+        // browser): nobody chose.
+        await giveUp();
         return;
     }
   }
 }
 
 /// The import ends with no one left to ask (the page closed under the
-/// card's detour): a merge that may have been made is finished when the
-/// server says it was, else the device keeps its account. Unanswered, the
-/// import is given up all the same: the device's key then says, at its
-/// next sign-in, where its account went if it did.
+/// sheet or the card's detour): a replacement under way is finished, a
+/// merge that may have been made is finished when the server says it was,
+/// else the device keeps its account. Unanswered, the import is given up
+/// all the same: the device's key then says, at its next sign-in, where its
+/// account went if it did.
 Future<void> _giveUp(
   AccountController controller,
   ImportedAccount imported,
   ImportProgress progress,
 ) async {
-  if (progress.uncertain) {
-    try {
-      if (await controller.settleImport(imported)) return;
-    } on Object catch (e) {
-      _log.info('the merge is still unsettled: ${e.runtimeType}');
+  try {
+    if (progress.left) {
+      await controller.replace(imported);
+      return;
     }
+    if (progress.uncertain && await controller.settleImport(imported)) return;
+  } on Object catch (e) {
+    _log.info('the import did not end: ${e.runtimeType}');
+    if (progress.left) return;
   }
   await controller.cancelImport(imported);
 }
@@ -152,6 +166,10 @@ final class ImportProgress {
 
   /// The server refused the merge for good: asked again, it refuses again.
   bool refused = false;
+
+  /// A replacement detached the device's key from its account and failed
+  /// after: only the replacement, tried again, can end.
+  bool left = false;
 }
 
 /// The settling of an uncertain merge did not answer.
@@ -220,7 +238,16 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
     final controller = ref.read(accountControllerProvider.notifier);
     final favorites = ref.read(favoritesSyncControllerProvider.notifier);
     final outbox = ref.read(outboxRunnerProvider.notifier);
+    final switcher = ref.read(accountSwitchProvider);
     final progress = _progress;
+    // A replacement that failed: before the device left its account,
+    // nothing changed; after, only the replacement can end.
+    String replaceFailure() {
+      if (!switcher.left) return t.accountImport.replaceFailed;
+      progress.left = true;
+      return t.accountImport.replaceUnfinished(current: widget.current.pseudonym);
+    }
+
     setState(() {
       _busy = true;
       _failure = null;
@@ -268,13 +295,13 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
         progress.refused = true;
         _failed(t.accountImport.refused);
       } else {
-        _failed(merging ? t.accountImport.failed : t.accountImport.replaceFailed);
+        _failed(merging ? t.accountImport.failed : replaceFailure());
       }
     } on Object catch (e) {
-      // Offline before the merge left, or the replacement unanswered:
-      // nothing was made.
+      // Offline before the merge left, or the replacement unanswered or
+      // refused by the device's storage.
       _log.info('the account import did not finish: ${e.runtimeType}');
-      _failed(merging ? t.accountImport.failed : t.accountImport.replaceFailed);
+      _failed(merging ? t.accountImport.failed : replaceFailure());
     }
   }
 
@@ -307,6 +334,7 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       child: Text(text, style: theme.textTheme.bodyLarge?.copyWith(color: color)),
     );
     final failure = _failure;
+    final left = _progress.left;
     final choose = <Widget>[
       Semantics(
         header: true,
@@ -360,45 +388,51 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       if (widget.waiting > 0) line(t.accountImport.replacePending(n: widget.waiting)),
       if (failure != null) line(failure, color: scheme.error),
       const SizedBox(height: Space.m),
-      OutlinedButton.icon(
-        // After a merge that may have been made, the account left may be
-        // gone: no card of it until the server says.
-        onPressed: _busy || _progress.uncertain
-            ? null
-            : () => Navigator.of(context).pop(ImportOutcome.card),
-        icon: const Icon(AppIcons.recoveryCard),
-        label: Text(t.accountImport.card(current: current)),
-        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-      ),
-      const SizedBox(height: Space.s),
+      // Once the device left its account, only the replacement can end:
+      // no card of an account it left, no way back to a choice it made.
+      if (!left) ...[
+        OutlinedButton.icon(
+          // After a merge that may have been made, the account left may be
+          // gone: no card of it until the server says.
+          onPressed: _busy || _progress.uncertain
+              ? null
+              : () => Navigator.of(context).pop(ImportOutcome.card),
+          icon: const Icon(AppIcons.recoveryCard),
+          label: Text(t.accountImport.card(current: current)),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        ),
+        const SizedBox(height: Space.s),
+      ],
       BusyButton(
         onPressed: _busy ? null : _replace,
         busy: _busy,
-        label: Text(t.accountImport.replaceConfirm),
+        label: Text(left ? t.common.retry : t.accountImport.replaceConfirm),
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
           backgroundColor: scheme.error,
           foregroundColor: scheme.onError,
         ),
       ),
-      const SizedBox(height: Space.s),
-      TextButton(
-        onPressed: _busy
-            ? null
-            : () => setState(() {
-                _replacing = false;
-                _failure = null;
-              }),
-        child: Text(t.accountImport.back),
-      ),
+      if (!left) ...[
+        const SizedBox(height: Space.s),
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () => setState(() {
+                  _replacing = false;
+                  _failure = null;
+                }),
+          child: Text(t.accountImport.back),
+        ),
+      ],
     ];
     return PopScope(
       // The system back gives up, as "Annuler" does: never while the server
-      // is asked, and after a merge that may have been made, by asking
-      // first.
-      canPop: !_busy && !_progress.uncertain,
+      // is asked, after a merge that may have been made by asking first,
+      // and never once the device left its account.
+      canPop: !_busy && !_progress.uncertain && !left,
       onPopInvokedWithResult: (popped, _) {
-        if (!popped && !_busy) unawaited(_cancel());
+        if (!popped && !_busy && !left) unawaited(_cancel());
       },
       child: SafeArea(
         top: false,

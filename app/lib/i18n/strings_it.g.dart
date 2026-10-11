@@ -1144,6 +1144,7 @@ class _Translations$accountImport$it extends Translations$accountImport$en {
 	@override String get failed => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.';
 	@override String get refused => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.';
 	@override String get replaceFailed => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.';
+	@override String replaceUnfinished({required Object current}) => '«${current}» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.';
 	@override String get unsettled => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.';
 	@override String get tooMany => 'Troppe unioni per ora. Riprova più tardi.';
 	@override String merged({required Object name}) => 'Account uniti: stai usando «${name}».';
@@ -4690,6 +4691,7 @@ extension on TranslationsIt {
 			'accountImport.failed' => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.',
 			'accountImport.refused' => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.',
 			'accountImport.replaceFailed' => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '«${current}» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.',
 			'accountImport.unsettled' => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.',
 			'accountImport.tooMany' => 'Troppe unioni per ora. Riprova più tardi.',
 			'accountImport.merged' => ({required Object name}) => 'Account uniti: stai usando «${name}».',
@@ -5041,9 +5043,9 @@ extension on TranslationsIt {
 			'poi.kind.speechTherapist' => 'Logopedista',
 			'poi.kind.alternativeMedicine' => 'Osteopata, medicina alternativa',
 			'poi.kind.optician' => 'Ottico',
-			'poi.kind.hearingAids' => 'Apparecchi acustici',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.hearingAids' => 'Apparecchi acustici',
 			'poi.kind.medicalSupply' => 'Sanitaria',
 			'poi.kind.hairdresser' => 'Parrucchiere',
 			'poi.kind.beauty' => 'Centro estetico',
