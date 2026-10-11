@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT a.id, a.pseudonym FROM merged_keys m JOIN accounts a ON a.id = m.into_account\n        WHERE m.key_hash = sha256($1)\n        ",
+  "query": "\n        SELECT a.id, a.pseudonym, a.banned_at IS NOT NULL AS \"banned!\"\n        FROM merged_keys m JOIN accounts a ON a.id = m.into_account\n        WHERE m.key_hash = sha256($1)\n        ",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,12 @@
             "name": "pseudonym"
           }
         }
+      },
+      {
+        "ordinal": 2,
+        "name": "banned!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -33,8 +39,9 @@
     },
     "nullable": [
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "55db041d4fb30110acb3973d7e20c0ba10aa686b64e3679eb79a0e413d65323f"
+  "hash": "374a295401c57db40525b8e29ce3bb06374c70c0a34901e54a139c6e5d92fb58"
 }

@@ -61,6 +61,15 @@ async fn merge(app: &axum::Router, token: &str, absorbed: &Device, into: &Device
     .await
 }
 
+/// The reason of a refused proof, once its code is checked: no sign-in
+/// again mends a signature.
+fn bad_proof(body: &Value) -> &str {
+    assert_eq!(code(body), "INVALID_INPUT", "{body}");
+    body["errors"][0]["extensions"]["reason"]
+        .as_str()
+        .unwrap_or_default()
+}
+
 async fn exists(pool: &PgPool, id: Uuid) -> bool {
     lunaway_db::accounts::account(pool, id)
         .await
@@ -364,8 +373,8 @@ async fn a_merge_needs_both_keys_and_a_recent_sign_in(pool: PgPool) {
     )
     .await;
     assert_eq!(
-        code(&forged),
-        "UNAUTHENTICATED",
+        bad_proof(&forged),
+        "BAD_PROOF",
         "a stolen key id alone is not a proof"
     );
 
@@ -379,7 +388,7 @@ async fn a_merge_needs_both_keys_and_a_recent_sign_in(pool: PgPool) {
         send(&nonce, a.sign(&m), a.sign(&m), a.jwk()),
     )
     .await;
-    assert_eq!(code(&token_only), "UNAUTHENTICATED");
+    assert_eq!(bad_proof(&token_only), "BAD_PROOF");
 
     // A sign-in signature replayed as a merge proof.
     let (nonce, sign_in_text) = challenge(&app).await;
@@ -395,7 +404,7 @@ async fn a_merge_needs_both_keys_and_a_recent_sign_in(pool: PgPool) {
         ),
     )
     .await;
-    assert_eq!(code(&replayed), "UNAUTHENTICATED");
+    assert_eq!(bad_proof(&replayed), "BAD_PROOF");
 
     // The direction is signed: a proof to merge B into A does not merge A
     // into B.
@@ -408,7 +417,7 @@ async fn a_merge_needs_both_keys_and_a_recent_sign_in(pool: PgPool) {
         send(&nonce, a.sign(&other_way), b.sign(&other_way), a.jwk()),
     )
     .await;
-    assert_eq!(code(&turned), "UNAUTHENTICATED");
+    assert_eq!(bad_proof(&turned), "BAD_PROOF");
 
     // A key of the signed-in account itself.
     let refused = merge(&app, &b_token, &b, &b).await;
@@ -556,29 +565,490 @@ async fn merges_are_limited_per_account(pool: PgPool) {
     assert_eq!(code(&second), "RATE_LIMITED");
 }
 
+const FORGET: &str = "mutation { signOut(forgetDevice: true) }";
+
+async fn keys_of(pool: &PgPool, account: Uuid) -> i64 {
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM device_keys WHERE account_id = $1"#,
+        account
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
 #[sqlx::test(migrations = "../../migrations")]
-async fn an_import_cancelled_detaches_the_new_key(pool: PgPool) {
+async fn a_device_leaving_an_account_detaches_its_key(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();
     let app = app(&pool, config(media.path()));
     let phone = Device::new(1);
     let (token, id) = sign_in(&app, &phone).await;
-    let forgot = gql(
+    gql(
         &app,
         Some(&token),
-        "mutation { signOut(forgetDevice: true) }",
+        "mutation { createRecoveryCode { code } }",
         json!({}),
     )
     .await;
+    // A stolen token alone does not detach the device.
+    sqlx::query!("UPDATE sessions SET created_at = now() - interval '1 hour'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let stale = gql(&app, Some(&token), FORGET, json!({})).await;
+    assert_eq!(
+        stale["errors"][0]["extensions"]["reason"], "FRESH_SIGN_IN",
+        "detaching a device needs a recent signed sign-in"
+    );
+    assert_eq!(keys_of(&pool, id).await, 1);
+
+    let (fresh, _) = sign_in(&app, &phone).await;
+    let forgot = gql(&app, Some(&fresh), FORGET, json!({})).await;
     assert_eq!(ok(&forgot)["signOut"], true);
-    let keys: i64 = sqlx::query_scalar!(
-        r#"SELECT count(*) AS "n!" FROM device_keys WHERE account_id = $1"#,
-        id
+    assert_eq!(
+        keys_of(&pool, id).await,
+        0,
+        "the account no longer lists the device"
+    );
+    assert!(
+        exists(&pool, id).await,
+        "its recovery card still opens it: the account stays"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_account_left_without_any_way_in_is_deleted(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let journal_dir = dir.path().join("account-deletions");
+    let app = app(&pool, journaled(media.path(), &journal_dir));
+    let (token, id) = sign_in(&app, &Device::new(1)).await;
+    gql(
+        &app,
+        Some(&token),
+        &set_home_query(),
+        json!({"h": town_hall()}),
+    )
+    .await;
+    let forgot = gql(&app, Some(&token), FORGET, json!({})).await;
+    assert_eq!(ok(&forgot)["signOut"], true);
+    assert!(
+        !exists(&pool, id).await,
+        "no key and no recovery card: nothing could open it, so its home and lists do not stay"
+    );
+    let journal = DeletionJournal::new(&journal_dir);
+    assert_eq!(
+        journal
+            .read()
+            .unwrap()
+            .entries
+            .iter()
+            .map(|e| e.account)
+            .collect::<Vec<_>>(),
+        [id],
+        "deleted as deleteAccount deletes, journal included"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_granted_level_is_not_carried(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    // The store reviewers' demo account: level 2 granted, its code shared.
+    let code = lunaway_auth::RecoveryCode::generate().unwrap();
+    let text = code.display();
+    let demo =
+        lunaway_db::accounts::create_granted(&pool, "Démo des boutiques", 2, &code.hash().unwrap())
+            .await
+            .unwrap();
+    let (b_token, b_id) = sign_in(&app, &Device::new(2)).await;
+    let phone = Device::new(3);
+    let (nonce, signed) = challenge(&app).await;
+    let recovered = gql(
+        &app,
+        None,
+        "mutation($code: String!, $jwk: String!, $nonce: String!, $sig: String!) {
+          recoverAccount(code: $code, publicKeyJwk: $jwk, nonce: $nonce, signature: $sig) { token }
+        }",
+        json!({"code": text, "jwk": phone.jwk(), "nonce": nonce, "sig": phone.sign(&signed)}),
+    )
+    .await;
+    ok(&recovered);
+    let merged = merge(&app, &b_token, &phone, &Device::new(2)).await;
+    assert_eq!(
+        ok(&merged)["mergeAccount"]["account"]["trustLevel"],
+        1,
+        "a level the administration gave another account is not this one's"
+    );
+    let granted: i16 =
+        sqlx::query_scalar!("SELECT granted_level FROM accounts WHERE id = $1", b_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(granted, 0);
+    assert!(!exists(&pool, demo.id).await);
+}
+
+const POIS: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/osm_poi_sample.json");
+
+async fn points(pool: &PgPool) -> (Uuid, Uuid) {
+    let at = chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 10, 5, 22, 0, 0).unwrap();
+    let parsed = lunaway_ingest::poi_osm::parse(POIS, at).unwrap();
+    lunaway_ingest::store::store_pois(pool, &lunaway_domain::SourceId::OSM, &parsed.points)
+        .await
+        .unwrap();
+    let named = |name: &'static str| async move {
+        sqlx::query_scalar!("SELECT id FROM pois WHERE name = $1", name)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    };
+    (
+        named("Maison Bochard").await,
+        named("Boulangerie Randot").await,
+    )
+}
+
+async fn count(pool: &PgPool, sql: String, account: Uuid) -> i64 {
+    sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
+        .bind(account)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+/// Every table that names an account, with a row of the absorbed account:
+/// after the merge each row is the target's, or folded, or gone on
+/// purpose. Two reviews of one family of places and of one point fold;
+/// the stricter moderation and the reports follow the kept review; the
+/// reports, mutes and endorsements between the two accounts go; a keyed
+/// contribution sent again after the merge finds what it made.
+#[sqlx::test(migrations = "../../migrations")]
+async fn every_row_of_the_absorbed_account_finds_its_place(pool: PgPool) {
+    seeded(&pool).await;
+    let (shop, other_shop) = points(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, merging_config(media.path()));
+    let p = place_named(&pool, "Aire Val-du-Layon").await;
+    let q = place_named(&pool, "Camping municipal du Port").await;
+    let r = another_place(&pool, &[p, q]).await;
+    let s = another_place(&pool, &[p, q, r]).await;
+    let (a, b, c) = (Device::new(1), Device::new(2), Device::new(3));
+    let (a_token, a_id) = sign_in(&app, &a).await;
+    let (b_token, b_id) = sign_in(&app, &b).await;
+    let (c_token, c_id) = sign_in(&app, &c).await;
+
+    // Reviews: one place both reviewed, one family of places (r merged
+    // into s since), one point both rated, one point only A rated.
+    let a_on_p = ok(&gql(
+        &app,
+        Some(&a_token),
+        REVIEW,
+        json!({"id": p, "text": "Bruyant le samedi soir, sinon correct."}),
+    )
+    .await)["review"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    rate(&app, &b_token, p, 4).await;
+    rate(&app, &a_token, r, 2).await;
+    rate(&app, &b_token, s, 5).await;
+    sqlx::query!(
+        "UPDATE places SET deleted_at = now(), merged_into = $2 WHERE id = $1",
+        r,
+        s
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    for (token, poi, stars) in [
+        (&a_token, shop, 3),
+        (&b_token, shop, 5),
+        (&a_token, other_shop, 4),
+    ] {
+        ok(&gql(
+            &app,
+            Some(token),
+            "mutation($id: UUID!, $s: Int!) { ratePoi(poiId: $id, stars: $s) { id } }",
+            json!({"id": poi, "s": stars}),
+        )
+        .await);
+    }
+    // A's review of p is held: hidden, reported by C, in the queue.
+    sqlx::query!(
+        "UPDATE reviews SET status = 'hidden' WHERE id = $1",
+        Uuid::parse_str(&a_on_p).unwrap()
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    ok(&gql(
+        &app,
+        Some(&c_token),
+        "mutation($id: UUID!) { reportContent(target: REVIEW, id: $id, reason: OFFENSIVE) }",
+        json!({"id": a_on_p}),
+    )
+    .await);
+    // A third party's review, reported by both; and B reporting A's.
+    let c_review = ok(&gql(
+        &app,
+        Some(&c_token),
+        REVIEW,
+        json!({"id": q, "text": "Emplacements larges et calmes."}),
+    )
+    .await)["review"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    for token in [&a_token, &b_token] {
+        ok(&gql(
+            &app,
+            Some(token),
+            "mutation($id: UUID!) { reportContent(target: REVIEW, id: $id, reason: SPAM) }",
+            json!({"id": c_review}),
+        )
+        .await);
+    }
+    ok(&gql(
+        &app,
+        Some(&b_token),
+        "mutation($id: UUID!) { reportContent(target: REVIEW, id: $id, reason: SPAM) }",
+        json!({"id": a_on_p}),
+    )
+    .await);
+    // Between the two accounts: a mute and a sponsorship.
+    mute(&app, &a_token, b_id).await;
+    sqlx::query!(
+        "INSERT INTO account_endorsements (account_id, kind, by_account_id) VALUES ($1, 'sponsor', $2)",
+        a_id,
+        b_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    // The other contributions: a confirmation, an issue sent with its key, a
+    // "still there?" of a point, a photo, a proposal.
+    ok(&gql(
+        &app,
+        Some(&a_token),
+        "mutation($id: UUID!) { confirm(placeId: $id, status: STILL_OK) { id } }",
+        json!({"id": q}),
+    )
+    .await);
+    let issue = "mutation($id: UUID!, $key: String) {
+        reportIssue(placeId: $id, kind: SERVICE_BROKEN, idempotencyKey: $key) { id }
+    }";
+    let sent = ok(&gql(
+        &app,
+        Some(&a_token),
+        issue,
+        json!({"id": q, "key": "outbox-0001"}),
+    )
+    .await)["reportIssue"]["id"]
+        .clone();
+    ok(&gql(
+        &app,
+        Some(&a_token),
+        "mutation($id: UUID!) { confirmPoi(poiId: $id, stillThere: true) { id } }",
+        json!({"id": shop}),
+    )
+    .await);
+    sqlx::query!(
+        r#"
+        INSERT INTO photos (id, place_id, account_id, path, thumb_path, width, height,
+                            thumb_width, thumb_height, thumbhash, status)
+        VALUES ($1, $2, $3, $4, $4, 10, 10, 10, 10, '\x01', 'published')
+        "#,
+        Uuid::now_v7(),
+        q,
+        a_id,
+        format!("photos/ab/cd/{}.webp", "e".repeat(64)),
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        "INSERT INTO place_submissions (id, account_id, kind, place_id, payload, status) VALUES ($1, $2, 'edit', $3, '{}', 'proposed')",
+        Uuid::now_v7(),
+        a_id,
+        q
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    ok(&merge(&app, &b_token, &a, &b).await);
+
+    for table in [
+        "reviews",
+        "poi_reviews",
+        "photos",
+        "confirmations",
+        "issue_reports",
+        "place_submissions",
+        "poi_confirmations",
+        "favorite_lists",
+        "idempotency_keys",
+        "moderation_queue",
+    ] {
+        let left = count(
+            &pool,
+            format!("SELECT count(*) FROM {table} WHERE account_id = $1"),
+            a_id,
+        )
+        .await;
+        assert_eq!(left, 0, "{table} keeps no row of the merged account");
+    }
+    for (table, n) in [
+        ("photos", 1),
+        ("confirmations", 1),
+        ("issue_reports", 1),
+        ("place_submissions", 1),
+        ("poi_confirmations", 1),
+    ] {
+        let moved = count(
+            &pool,
+            format!("SELECT count(*) FROM {table} WHERE account_id = $1"),
+            b_id,
+        )
+        .await;
+        assert_eq!(moved, n, "{table} changed author");
+    }
+    // Folded: one review per family of places and per point.
+    let b_reviews = sqlx::query!(
+        "SELECT place_id, status, stars FROM reviews WHERE account_id = $1 ORDER BY place_id",
+        b_id
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        b_reviews.len(),
+        2,
+        "p once, the family of r and s once: {b_reviews:?}"
+    );
+    let on_p = b_reviews.iter().find(|x| x.place_id == p).unwrap();
+    assert_eq!(on_p.stars, 4, "the kept review is the target's");
+    assert_eq!(
+        on_p.status, "hidden",
+        "a merge never lifts a moderation decision: the stricter status stays"
+    );
+    let on_s = b_reviews.iter().find(|x| x.place_id == s).unwrap();
+    assert_eq!(on_s.stars, 5);
+    let b_points: Vec<(Uuid, i16)> = sqlx::query_as(
+        "SELECT poi_id, stars FROM poi_reviews WHERE account_id = $1 ORDER BY poi_id",
+    )
+    .bind(b_id)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let mut expected = vec![(shop, 5), (other_shop, 4)];
+    expected.sort();
+    assert_eq!(
+        b_points, expected,
+        "the shared point keeps the target's rating"
+    );
+    // Moderation follows the kept review: C's report and the queue entry.
+    let b_on_p = sqlx::query_scalar!(
+        "SELECT id FROM reviews WHERE account_id = $1 AND place_id = $2",
+        b_id,
+        p
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(keys, 0, "the account no longer lists the device");
-    assert!(exists(&pool, id).await, "the account itself stays");
+    let reporters: Vec<Uuid> = sqlx::query_scalar!(
+        "SELECT reporter_id FROM content_reports WHERE target_id = $1",
+        b_on_p
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        reporters,
+        [c_id],
+        "C's report follows; B's report of A's review went"
+    );
+    // Two reports of one target by one person: one stays.
+    let on_c: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM content_reports WHERE target_id = $1"#,
+        Uuid::parse_str(&c_review).unwrap()
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(on_c, 1, "the person reported it once");
+    // Between the two accounts: nothing left.
+    let between: i64 = sqlx::query_scalar!(
+        r#"SELECT (SELECT count(*) FROM muted_authors WHERE account_id = $1 OR muted_id = $1)
+              + (SELECT count(*) FROM account_endorsements
+                 WHERE account_id = $1 OR by_account_id = $1) AS "n!""#,
+        b_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(between, 0, "a person neither mutes nor sponsors itself");
+    // The issue sent again with its key, as the device's outbox would.
+    let again = ok(&gql(
+        &app,
+        Some(&b_token),
+        issue,
+        json!({"id": q, "key": "outbox-0001"}),
+    )
+    .await)["reportIssue"]["id"]
+        .clone();
+    assert_eq!(
+        again, sent,
+        "the key moved: the same request finds what it made"
+    );
+}
+
+/// A table that names an account and that neither the merge nor the
+/// deletion of an account knows would keep rows of an account merged or
+/// deleted, or block its deletion.
+#[sqlx::test(migrations = "../../migrations")]
+async fn every_table_naming_an_account_is_known_to_the_merge(pool: PgPool) {
+    let found: Vec<String> = sqlx::query_scalar!(
+        r#"
+        SELECT c.conrelid::regclass::text || '.' || a.attname AS "column!"
+        FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+        WHERE c.contype = 'f' AND c.confrelid = 'accounts'::regclass
+        ORDER BY 1
+        "#
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let known = [
+        "account_endorsements.account_id",
+        "account_endorsements.by_account_id",
+        "confirmations.account_id",
+        "content_reports.reporter_id",
+        "device_keys.account_id",
+        "favorite_homes.account_id",
+        "favorite_lists.account_id",
+        "idempotency_keys.account_id",
+        "issue_reports.account_id",
+        "merged_keys.into_account",
+        "moderation_queue.account_id",
+        "muted_authors.account_id",
+        "muted_authors.muted_id",
+        "photos.account_id",
+        "place_submissions.account_id",
+        "poi_confirmations.account_id",
+        "poi_reviews.account_id",
+        "recovery_codes.account_id",
+        "reviews.account_id",
+        "road_event_reports.account_id",
+        "sessions.account_id",
+    ];
+    assert_eq!(
+        found, known,
+        "a new reference to accounts: handle it in merge::merge_accounts and \
+         accounts::delete_account, then list it here"
+    );
 }
 
 fn journaled(media: &std::path::Path, journal: &std::path::Path) -> ApiConfig {
@@ -677,6 +1147,47 @@ async fn a_merge_is_journaled_and_made_again_after_a_restore(pool: PgPool) {
     .await
     .unwrap();
     assert_eq!(home, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_restore_older_than_the_account_merged_into_keeps_the_other(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let journal_dir = dir.path().join("account-deletions");
+    let app = app(&pool, journaled(media.path(), &journal_dir));
+    let journal = DeletionJournal::new(&journal_dir);
+    // Y merged into X, X made after the dump: the restored database holds
+    // Y and not X. Through A then B into C, B made after the dump too.
+    let (y_token, y_id) = sign_in(&app, &Device::new(1)).await;
+    gql(
+        &app,
+        Some(&y_token),
+        &set_home_query(),
+        json!({"h": town_hall()}),
+    )
+    .await;
+    let (_, a_id) = sign_in(&app, &Device::new(2)).await;
+    let (_, c_id) = sign_in(&app, &Device::new(3)).await;
+    let (x_id, b_id) = (Uuid::now_v7(), Uuid::now_v7());
+    journal.record_merge(y_id, x_id, Utc::now()).await.unwrap();
+    journal.record_merge(a_id, b_id, Utc::now()).await.unwrap();
+    journal.record_merge(b_id, c_id, Utc::now()).await.unwrap();
+
+    let replayed = deletions::replay(&pool, &journal, false, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        replayed.kept,
+        [y_id],
+        "the journal never asked to erase Y: an operator decides"
+    );
+    assert!(exists(&pool, y_id).await, "Y keeps its home and its data");
+    assert_eq!(
+        (replayed.merged, exists(&pool, a_id).await),
+        (1, false),
+        "A follows its merges to C, which holds them now"
+    );
+    assert!(exists(&pool, c_id).await);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

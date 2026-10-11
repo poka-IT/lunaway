@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM moderation_queue q\n        WHERE q.kind = 'reported_content' AND q.status = 'open' AND q.target_id = ANY($1)\n          AND NOT EXISTS (SELECT 1 FROM content_reports c\n                          WHERE c.target_id = q.target_id AND c.dismissed_at IS NULL)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e1e9d124b038c57433ea3b5cb7cf0ad5f116eedf07cab3779efcd2df42038c70"
+}

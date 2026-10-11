@@ -214,15 +214,18 @@ async fn level_of(
         // own and it counts, which is what the next level says it needs.
         Some(c) if c < ruled => {
             let level = c.max(stats.granted_level);
-            let next = NextLevel {
-                level: level + 1,
-                missing: vec![Requirement::Contributions {
-                    current: stats.contributions,
-                    needed: stats.contributions.saturating_add(1),
-                }],
-                instead: None,
-            };
-            (level, Some(next))
+            let next = level
+                .checked_add(1)
+                .filter(|l| *l <= trust::MAX_LEVEL)
+                .map(|l| NextLevel {
+                    level: l,
+                    missing: vec![Requirement::Contributions {
+                        current: stats.contributions,
+                        needed: stats.contributions.saturating_add(1),
+                    }],
+                    instead: None,
+                });
+            (level, next)
         }
         _ => (ruled, trust::next_level(&stats, thresholds)),
     };

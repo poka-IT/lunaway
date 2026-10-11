@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name FROM favorite_lists WHERE account_id = $1 ORDER BY created_at, id",
+  "query": "\n        SELECT id, name FROM favorite_lists WHERE account_id = $1\n        ORDER BY created_at, id FOR UPDATE\n        ",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "bb3a1fd3966d11725ad477d32c81fd747b2a5579d70beaa91c5bfe7bd1b7c6de"
+  "hash": "6d21eb388308f754580686c400484f9fe0674b21c8ade835293617113e343391"
 }

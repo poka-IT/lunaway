@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO place_submissions (id, account_id, kind, place_id, payload, status) VALUES ($1, $2, 'edit', $3, '{}', 'proposed')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1eaf0cab464451cf9773168990b65ca3fa65b0c5f414dcbaf3d0990b175f373f"
+}

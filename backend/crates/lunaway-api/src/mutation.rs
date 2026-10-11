@@ -8,7 +8,7 @@ use async_graphql::{Context, ErrorExtensions, Object, Result};
 use chrono::{NaiveDate, Utc};
 use lunaway_auth::{DevicePublicKey, Locale, RecoveryCode, challenge_message, merge_message};
 use lunaway_db::{
-    accounts::{self, Endorsement},
+    accounts::{self, Endorsement, Forgotten},
     community::{self as contributions, ReportOutcome, ReviewWrite},
     home,
     idempotency::{self, Key, Once, Operation, Seen},
@@ -42,8 +42,8 @@ use crate::{
         PlaceDetailsInput, PlaceSubmission, RecoveryCodeResult, Review, SignInResult,
     },
     error::{
-        forbidden, internal, invalid_input, merged_key, not_found, quota_spent, unauthenticated,
-        unavailable, unknown_key,
+        bad_proof, forbidden, internal, invalid_input, merged_key, not_found, quota_spent,
+        unauthenticated, unavailable, unknown_key,
     },
     poi_review_types::PoiReview,
     poi_types::{NewVendingMachineInput, PoiConfirmation},
@@ -419,16 +419,22 @@ async fn open_session_for(
         {
             return Err(forbidden("this account is banned"));
         }
+        let merged = merge::merged_into(pool, &key.sec1_uncompressed())
+            .await
+            .map_err(|e| internal(&e))?;
+        // The key of an account merged into one banned since opens no new
+        // account, as the banned account's own keys do not.
+        if create && merged.as_ref().is_some_and(|m| m.banned) {
+            return Err(forbidden("this account is banned"));
+        }
         if !create {
             // A device of an account merged into another hears where it
-            // went, so it can offer that account's recovery card.
-            if let Some((_, into)) = merge::merged_into(pool, &key.sec1_uncompressed())
-                .await
-                .map_err(|e| internal(&e))?
-            {
-                return Err(merged_key(&into));
-            }
-            return Err(unknown_key());
+            // went, so it can offer that account's recovery card; not when
+            // that account is banned, whose card opens nothing.
+            return Err(match merged {
+                Some(m) if !m.banned => merged_key(&m.pseudonym),
+                _ => unknown_key(),
+            });
         }
         quota(
             ctx,
@@ -492,19 +498,23 @@ fn check_signed_challenge(
 ) -> Result<DevicePublicKey> {
     let key = DevicePublicKey::from_jwk_json(public_key_jwk)
         .map_err(|e| invalid_input(format!("publicKeyJwk: {e}")))?;
-    answer_challenge(ctx, nonce, || {
-        key.verify(challenge_message(nonce).as_bytes(), signature)
-    })?;
+    answer_challenge(
+        ctx,
+        nonce,
+        || key.verify(challenge_message(nonce).as_bytes(), signature),
+        unauthenticated,
+    )?;
     Ok(key)
 }
 
 /// Answers the challenge `nonce` with what `verify` checks: the nonce must
-/// be one of ours and unexpired, `verify` must pass, and only then is the
-/// nonce spent, so it answers one request.
+/// be one of ours and unexpired, `verify` must pass (else `refused`), and
+/// only then is the nonce spent, so it answers one request.
 fn answer_challenge(
     ctx: &Context<'_>,
     nonce: &str,
     verify: impl FnOnce() -> Result<(), lunaway_auth::AuthError>,
+    refused: fn() -> async_graphql::Error,
 ) -> Result<()> {
     let challenges = &state(ctx).challenges;
     let used = || invalid_input("nonce: unknown, used or expired; ask authChallenge for a new one");
@@ -514,7 +524,7 @@ fn answer_challenge(
         }
         _ => used(),
     })?;
-    verify().map_err(|_| unauthenticated())?;
+    verify().map_err(|_| refused())?;
     challenges.answer(checked).map_err(|r| match r {
         ChallengeRefusal::Full => {
             quota_spent("sign-ins at once", std::time::Duration::from_secs(30))
@@ -618,23 +628,37 @@ impl MutationRoot {
     /// opened it is detached from the account as well, with all its
     /// sessions: the device is leaving this account for good (another
     /// account imported in its place, or an import cancelled), and the
-    /// account's list of devices no longer shows it.
+    /// account's list of devices no longer shows it. That needs a session
+    /// opened in the last ten minutes, as detaching any device does. When
+    /// the key is the account's last and the account has no recovery code,
+    /// nothing could ever open it again: it is deleted, as `deleteAccount`
+    /// deletes, journal included.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn sign_out(
         &self,
         ctx: &Context<'_>,
         #[graphql(default = false)] forget_device: bool,
     ) -> Result<bool> {
-        let viewer = auth::require(ctx).await?;
-        let (pool, _permit) = db(ctx).await?;
-        if forget_device {
-            return accounts::forget_device(pool, viewer.id(), viewer.device_key_id)
+        if !forget_device {
+            let viewer = auth::require(ctx).await?;
+            let (pool, _permit) = db(ctx).await?;
+            return accounts::delete_session(pool, &viewer.token_hash)
                 .await
                 .map_err(|e| internal(&e));
         }
-        accounts::delete_session(pool, &viewer.token_hash)
-            .await
-            .map_err(|e| internal(&e))
+        let viewer = auth::require_fresh(ctx).await?;
+        account_quota(ctx, &viewer, Action::Account, "account changes")?;
+        let forgotten = {
+            let (pool, _permit) = db(ctx).await?;
+            accounts::forget_device(pool, viewer.id(), viewer.device_key_id)
+                .await
+                .map_err(|e| internal(&e))?
+        };
+        match forgotten {
+            Forgotten::Detached => Ok(true),
+            Forgotten::Gone => Ok(false),
+            Forgotten::LastWay => delete_account_of(ctx, viewer.id()).await,
+        }
     }
 
     /// A new recovery code for the paper card; it replaces the earlier one.
@@ -1750,7 +1774,11 @@ impl MutationRoot {
     /// deletes it: its favourite lists (joined by name), home (when this
     /// account has none), mutes, contributions and their author all move
     /// here, in one transaction. Where both hold the same (a list of one
-    /// name, a review of one place, a home), this account's stays.
+    /// name, a review of one place, a home), this account's stays; a review
+    /// folded into this account's keeps the stricter moderation of the two.
+    /// A level the administration granted the merged account is not
+    /// carried, and this account's level shows no more than the higher of
+    /// the two until its next contribution.
     ///
     /// Proof that the caller holds both accounts: a session opened in the
     /// last ten minutes (`FRESH_SIGN_IN` otherwise), and both device keys
@@ -1758,12 +1786,14 @@ impl MutationRoot {
     /// `authChallenge`, `absorbed` the RFC 7638 thumbprint of
     /// `absorbedKeyJwk`, a key of the account merged, `into` the
     /// thumbprint of this session's key): `absorbedSignature` by the
-    /// first, `signature` by the second. A banned account is never merged
-    /// (`FORBIDDEN`). The deletion is journaled with the account it went
-    /// into, so a restored backup merges it again (`UNAVAILABLE` when the
-    /// journal cannot be written; nothing changed). Asked again after it
-    /// succeeded, it answers the same. 3 a day per account, 5 an hour per
-    /// client.
+    /// first, `signature` by the second; a signature that does not verify
+    /// answers `INVALID_INPUT` with `reason` `BAD_PROOF`. A banned account
+    /// is never merged (`FORBIDDEN`). The deletion is journaled with the
+    /// account it went into, so a restored backup merges it again
+    /// (`UNAVAILABLE` when the journal cannot be written; nothing
+    /// changed). Asked again after it succeeded, it answers with the
+    /// account; its `home` then says only whether the account has one
+    /// (`KEPT` or `NONE`). 3 a day per account, 5 an hour per client.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn merge_account(
         &self,
@@ -1787,10 +1817,15 @@ impl MutationRoot {
             DevicePublicKey::from_sec1(&sec1).map_err(|e| internal(&e))?
         };
         let message = merge_message(&nonce, &absorbed_key.thumbprint(), &into_key.thumbprint());
-        answer_challenge(ctx, &nonce, || {
-            absorbed_key.verify(message.as_bytes(), &absorbed_signature)?;
-            into_key.verify(message.as_bytes(), &signature)
-        })?;
+        answer_challenge(
+            ctx,
+            &nonce,
+            || {
+                absorbed_key.verify(message.as_bytes(), &absorbed_signature)?;
+                into_key.verify(message.as_bytes(), &signature)
+            },
+            bad_proof,
+        )?;
         let absorbed = {
             let (pool, permit) = db(ctx).await?;
             match accounts::key_by_thumbprint(pool, &absorbed_key.thumbprint())
@@ -1804,7 +1839,7 @@ impl MutationRoot {
                     let into = merge::merged_into(pool, &absorbed_key.sec1_uncompressed())
                         .await
                         .map_err(|e| internal(&e))?;
-                    if into.is_some_and(|(id, _)| id == viewer.id()) {
+                    if into.is_some_and(|m| m.account == viewer.id()) {
                         let home = home::home(pool, viewer.id())
                             .await
                             .map_err(|e| internal(&e))?;
@@ -1871,7 +1906,7 @@ impl MutationRoot {
         tracing::info!(
             lists = merged.lists,
             reviews = merged.reviews,
-            reviews_dropped = merged.reviews_dropped,
+            reviews_folded = merged.reviews_folded,
             photos = merged.photos,
             "accounts merged"
         );
@@ -1893,7 +1928,7 @@ impl MutationRoot {
 
     /// Detaches one of the caller's other device keys and ends its sessions
     /// (a lost phone); `myAccount { devices }` lists them. The current
-    /// device cannot detach itself: `signOut` ends its session. Needs a
+    /// device detaches itself with `signOut(forgetDevice: true)`. Needs a
     /// session opened in the last ten minutes.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn revoke_device(&self, ctx: &Context<'_>, id: Uuid) -> Result<bool> {

@@ -90,6 +90,15 @@ pub(crate) fn unknown_key() -> Error {
     })
 }
 
+/// A signature of an account merge that does not verify: no sign-in again
+/// mends it, so not `UNAUTHENTICATED`.
+pub(crate) fn bad_proof() -> Error {
+    Error::new("the merge's signatures do not verify").extend_with(|_, e| {
+        e.set("code", INVALID_INPUT);
+        e.set("reason", "BAD_PROOF");
+    })
+}
+
 /// [`unknown_key`] for a key whose account was merged into the account
 /// named `pseudonym`: the same code and reason, so an app that predates
 /// merges forgets the account as it would a deleted one, and

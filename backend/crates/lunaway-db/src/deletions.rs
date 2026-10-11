@@ -17,7 +17,7 @@
 //! older than every backup that could be restored.
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
 };
 
@@ -330,35 +330,101 @@ pub struct Imported {
 pub struct Replayed {
     /// Distinct accounts the journal names.
     pub accounts: usize,
-    /// Of them, those found in the database and deleted again.
+    /// Of them, those found in the database and deleted again, merged
+    /// ones included.
     pub deleted: usize,
     /// Of the deleted, those merged again into the account they had gone
     /// into.
     pub merged: usize,
+    /// Merged accounts left as they are: the account they went into is
+    /// not in this database (made after the dump), or banned, and the
+    /// journal never says it was deleted. Their data is the person's: an
+    /// operator decides.
+    pub kept: Vec<Uuid>,
+    /// Merges the database refused (logged): run again, or decide.
+    pub failed: Vec<Uuid>,
     /// Lines that did not read.
     pub unreadable: usize,
     /// Photo files no row refers to any more (the caller removes them).
     pub orphan_files: Vec<String>,
 }
 
+/// What the journal finally says of one account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Fate {
+    /// Deleted: its own deletion, or merged into an account deleted since.
+    Deleted,
+    /// Merged, at the end of its chain of merges, into this account.
+    MergedInto(Uuid),
+}
+
+/// The last word of the journal on each account, in the order of their
+/// deletions. A plain deletion beats a merge (an erasure was asked); a
+/// merge follows the account it went into through its own later merge, to
+/// the account that holds the history now, or to a deletion.
+fn fates(entries: Vec<Entry>) -> Vec<(Uuid, Fate)> {
+    let mut entries = entries;
+    // The journal's files are days, and an imported copy lands at their
+    // end: the time of each line orders them.
+    entries.sort_by_key(|e| e.deleted_at);
+    let mut order = Vec::new();
+    let mut line: HashMap<Uuid, Option<Uuid>> = HashMap::new();
+    for e in entries {
+        match line.get(&e.account) {
+            None => {
+                order.push(e.account);
+                line.insert(e.account, e.merged_into);
+            }
+            // A deletion after a merge line: the erasure stands.
+            Some(Some(_)) if e.merged_into.is_none() => {
+                line.insert(e.account, None);
+            }
+            Some(_) => {}
+        }
+    }
+    order
+        .into_iter()
+        .map(|account| {
+            let mut seen = BTreeSet::from([account]);
+            let mut at = line.get(&account).copied().flatten();
+            let fate = loop {
+                let Some(into) = at else {
+                    break Fate::Deleted;
+                };
+                match line.get(&into) {
+                    Some(None) => break Fate::Deleted,
+                    // Merged further, unless the chain comes back on itself.
+                    Some(Some(next)) if !seen.contains(next) => {
+                        seen.insert(into);
+                        at = Some(*next);
+                    }
+                    Some(Some(_)) | None => break Fate::MergedInto(into),
+                }
+            };
+            (account, fate)
+        })
+        .collect()
+}
+
 /// Deletes again every account the journal names that the database still
 /// holds, as `deleteAccount` did; an account that ended in a merge is
-/// merged again into the account it went into, so the person finds their
-/// lists, home and contributions there. The lines are replayed in the
-/// order written: an account merged into one that was merged further, or
-/// deleted, later, follows the same path again. A merge that cannot be
-/// made again (the target gone or banned) deletes the account, as the
-/// merge did. Run after a restore, before the API serves the restored
-/// database. With `dry_run`, counts them only. A journal that names no
-/// deletion is refused unless `allow_empty`: after the loss of the data
-/// volume, a journal not put back from its copy would bring every deletion
-/// since the dump back.
+/// merged again into the account that holds its history now, so the person
+/// finds their lists, home and contributions there. The accounts are
+/// replayed in the order of their deletions ([`fates`]). A merged account
+/// whose target this database does not hold, or holds banned, stays as it
+/// is ([`Replayed::kept`]): the journal never asked to erase it. Run after
+/// a restore, before the API serves the restored database. With `dry_run`,
+/// counts them only. A journal that names no deletion is refused unless
+/// `allow_empty`: after the loss of the data volume, a journal not put
+/// back from its copy would bring every deletion since the dump back.
 ///
 /// # Errors
 ///
-/// [`DeleteError`] when the journal cannot be read or names no deletion, or the
-/// database fails; the accounts deleted before the failure stay deleted,
-/// and running it again finishes the work.
+/// [`DeleteError`] when the journal cannot be read or names no deletion, or a
+/// deletion fails in the database; the accounts deleted before the failure
+/// stay deleted, and running it again finishes the work. A merge the
+/// database refuses is counted in [`Replayed::failed`] and the replay goes
+/// on.
 pub async fn replay(
     pool: &PgPool,
     journal: &DeletionJournal,
@@ -369,39 +435,50 @@ pub async fn replay(
     if read.entries.is_empty() && !allow_empty {
         return Err(JournalError::Empty(journal.dir().to_owned()).into());
     }
-    // Each account once, at its first line: a journal imported twice, or
-    // replayed after a partial run, names some twice.
-    let mut seen = BTreeSet::new();
-    let entries: Vec<Entry> = read
-        .entries
-        .into_iter()
-        .filter(|e| seen.insert(e.account))
-        .collect();
+    let fates = fates(read.entries);
     let mut out = Replayed {
-        accounts: entries.len(),
+        accounts: fates.len(),
         unreadable: read.unreadable,
         ..Replayed::default()
     };
-    for entry in entries {
-        if dry_run {
-            if accounts::account(pool, entry.account).await?.is_some() {
-                out.deleted += 1;
-            }
+    for (account, fate) in fates {
+        if accounts::account(pool, account).await?.is_none() {
             continue;
         }
-        if let Some(into) = entry.merged_into {
-            match merge::merge_accounts(pool, entry.account, into).await? {
-                Ok(_) => {
+        match fate {
+            Fate::Deleted => {
+                if dry_run {
+                    out.deleted += 1;
+                } else if let Some(d) = accounts::delete_account(pool, account).await? {
+                    out.deleted += 1;
+                    out.orphan_files.extend(d.orphan_files);
+                }
+            }
+            Fate::MergedInto(into) => {
+                let target = accounts::account(pool, into).await?;
+                if target.is_none_or(|t| t.banned_at.is_some()) {
+                    out.kept.push(account);
+                    continue;
+                }
+                if dry_run {
                     out.deleted += 1;
                     out.merged += 1;
                     continue;
                 }
-                Err(MergeRefusal::Missing | MergeRefusal::Banned | MergeRefusal::Same) => {}
+                match merge::merge_accounts(pool, account, into).await {
+                    Ok(Ok(_)) => {
+                        out.deleted += 1;
+                        out.merged += 1;
+                    }
+                    Ok(Err(MergeRefusal::Missing | MergeRefusal::Banned | MergeRefusal::Same)) => {
+                        out.kept.push(account);
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "a merge could not be made again; left as it is");
+                        out.failed.push(account);
+                    }
+                }
             }
-        }
-        if let Some(d) = accounts::delete_account(pool, entry.account).await? {
-            out.deleted += 1;
-            out.orphan_files.extend(d.orphan_files);
         }
     }
     out.orphan_files.sort();
@@ -568,6 +645,66 @@ mod tests {
             [(a, None), (b, Some(c))],
             "a merge keeps the account it went into through the copy"
         );
+    }
+
+    fn line(account: Uuid, hour: u32, merged_into: Option<Uuid>) -> Entry {
+        Entry {
+            account,
+            deleted_at: at(6, hour),
+            merged_into,
+        }
+    }
+
+    #[test]
+    fn each_account_s_fate_follows_its_merges_to_the_account_that_holds_them_now() {
+        let (a, b, c, d, e) = (
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+        );
+        // An imported copy lands at the end of its day's file: b's line,
+        // written last, is the earliest.
+        let fates = fates(vec![
+            line(a, 3, Some(b)),
+            line(d, 4, Some(e)),
+            line(e, 5, None),
+            line(c, 6, None),
+            line(c, 7, Some(d)),
+            line(b, 2, Some(c)),
+        ]);
+        assert_eq!(
+            fates,
+            [
+                (b, Fate::Deleted),
+                (a, Fate::Deleted),
+                (d, Fate::Deleted),
+                (e, Fate::Deleted),
+                (c, Fate::Deleted),
+            ],
+            "b went into c, which was erased: so did what a and b held; d went into e, erased"
+        );
+        let (f, g, h) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+        assert_eq!(
+            fates_of(vec![line(f, 1, Some(g)), line(g, 2, Some(h))]),
+            [(f, Fate::MergedInto(h)), (g, Fate::MergedInto(h))],
+            "f's history is in h now, through g"
+        );
+        assert_eq!(
+            fates_of(vec![line(f, 1, Some(g)), line(f, 2, None)]),
+            [(f, Fate::Deleted)],
+            "an erasure asked after a merge line stands"
+        );
+        assert_eq!(
+            fates_of(vec![line(f, 1, Some(g)), line(g, 2, Some(f))]),
+            [(f, Fate::MergedInto(g)), (g, Fate::MergedInto(f))],
+            "a chain that comes back on itself ends"
+        );
+    }
+
+    fn fates_of(entries: Vec<Entry>) -> Vec<(Uuid, Fate)> {
+        fates(entries)
     }
 
     #[test]

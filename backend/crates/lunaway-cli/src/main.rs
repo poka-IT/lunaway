@@ -2824,10 +2824,11 @@ async fn accounts(
             if dry_run {
                 println!(
                     "journal {}: {} accounts, {} of them still in this database \
-                     (nothing deleted: dry run), {} unreadable lines",
+                     (nothing deleted: dry run; {} would be merged again), {} unreadable lines",
                     journal.dir().display(),
                     r.accounts,
                     r.deleted,
+                    r.merged,
                     r.unreadable
                 );
             } else {
@@ -2841,6 +2842,14 @@ async fn accounts(
                     r.unreadable
                 );
                 remove_files(media, &r.orphan_files).await?;
+            }
+            // Merged accounts whose target this database lacks or bans: the
+            // journal never asked to erase them, an operator decides.
+            for id in &r.kept {
+                println!("kept, its target missing or banned: {id}");
+            }
+            for id in &r.failed {
+                println!("merge refused by the database (see the log), left as it is: {id}");
             }
         }
     }

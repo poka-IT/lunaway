@@ -553,21 +553,60 @@ pub async fn device_public_key(pool: &PgPool, id: Uuid) -> Result<Option<Vec<u8>
     )
 }
 
+/// What detaching a device key did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Forgotten {
+    /// The key and its sessions went.
+    Detached,
+    /// Nothing done: it is the account's last key and the account has no
+    /// recovery code, so without the key nothing could open it again. The
+    /// caller deletes the account rather than keep what it holds out of
+    /// anyone's reach.
+    LastWay,
+    /// No such key on this account.
+    Gone,
+}
+
 /// Detaches the device key `id` from `account`: the key and its sessions
-/// go (`signOut(forgetDevice: true)`). Returns whether it went.
+/// go (`signOut(forgetDevice: true)`), unless it is the last way into the
+/// account ([`Forgotten::LastWay`]).
 ///
 /// # Errors
 ///
-/// [`DbError`] when the statement fails.
-pub async fn forget_device(pool: &PgPool, account: Uuid, id: Uuid) -> Result<bool, DbError> {
-    let done = sqlx::query!(
+/// [`DbError`] when a statement fails.
+pub async fn forget_device(pool: &PgPool, account: Uuid, id: Uuid) -> Result<Forgotten, DbError> {
+    let mut tx = pool.begin().await?;
+    // The account's keys and code are counted against its locked row, so
+    // two devices leaving at once cannot both see the other one stay.
+    sqlx::query!("SELECT id FROM accounts WHERE id = $1 FOR UPDATE", account)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let ways = sqlx::query!(
+        r#"
+        SELECT (SELECT count(*) FROM device_keys WHERE account_id = $1 AND id <> $2) AS "others!",
+               EXISTS (SELECT 1 FROM recovery_codes WHERE account_id = $1) AS "card!",
+               EXISTS (SELECT 1 FROM device_keys WHERE account_id = $1 AND id = $2) AS "mine!"
+        "#,
+        account,
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if !ways.mine {
+        return Ok(Forgotten::Gone);
+    }
+    if ways.others == 0 && !ways.card {
+        return Ok(Forgotten::LastWay);
+    }
+    sqlx::query!(
         "DELETE FROM device_keys WHERE id = $1 AND account_id = $2",
         id,
         account
     )
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
-    Ok(done.rows_affected() > 0)
+    tx.commit().await?;
+    Ok(Forgotten::Detached)
 }
 
 /// Stores the level the rules computed. A new level queues what counts the
@@ -805,6 +844,19 @@ pub async fn delete_account(
             r#"
             INSERT INTO banned_keys (key_hash, banned_at)
             SELECT sha256(public_key), $2 FROM device_keys WHERE account_id = $1
+            ON CONFLICT (key_hash) DO NOTHING
+            "#,
+            account,
+            banned_at,
+        )
+        .execute(&mut *tx)
+        .await?;
+        // So do the keys of the accounts merged into it, which otherwise
+        // leave with it (`merged_keys`) and would open new accounts.
+        sqlx::query!(
+            r#"
+            INSERT INTO banned_keys (key_hash, banned_at)
+            SELECT key_hash, $2 FROM merged_keys WHERE into_account = $1
             ON CONFLICT (key_hash) DO NOTHING
             "#,
             account,

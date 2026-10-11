@@ -2258,7 +2258,11 @@ type Mutation {
 	opened it is detached from the account as well, with all its
 	sessions: the device is leaving this account for good (another
 	account imported in its place, or an import cancelled), and the
-	account's list of devices no longer shows it.
+	account's list of devices no longer shows it. That needs a session
+	opened in the last ten minutes, as detaching any device does. When
+	the key is the account's last and the account has no recovery code,
+	nothing could ever open it again: it is deleted, as `deleteAccount`
+	deletes, journal included.
 	"""
 	signOut(forgetDevice: Boolean! = false): Boolean!
 	"""
@@ -2513,7 +2517,11 @@ type Mutation {
 	deletes it: its favourite lists (joined by name), home (when this
 	account has none), mutes, contributions and their author all move
 	here, in one transaction. Where both hold the same (a list of one
-	name, a review of one place, a home), this account's stays.
+	name, a review of one place, a home), this account's stays; a review
+	folded into this account's keeps the stricter moderation of the two.
+	A level the administration granted the merged account is not
+	carried, and this account's level shows no more than the higher of
+	the two until its next contribution.
 	
 	Proof that the caller holds both accounts: a session opened in the
 	last ten minutes (`FRESH_SIGN_IN` otherwise), and both device keys
@@ -2521,18 +2529,20 @@ type Mutation {
 	`authChallenge`, `absorbed` the RFC 7638 thumbprint of
 	`absorbedKeyJwk`, a key of the account merged, `into` the
 	thumbprint of this session's key): `absorbedSignature` by the
-	first, `signature` by the second. A banned account is never merged
-	(`FORBIDDEN`). The deletion is journaled with the account it went
-	into, so a restored backup merges it again (`UNAVAILABLE` when the
-	journal cannot be written; nothing changed). Asked again after it
-	succeeded, it answers the same. 3 a day per account, 5 an hour per
-	client.
+	first, `signature` by the second; a signature that does not verify
+	answers `INVALID_INPUT` with `reason` `BAD_PROOF`. A banned account
+	is never merged (`FORBIDDEN`). The deletion is journaled with the
+	account it went into, so a restored backup merges it again
+	(`UNAVAILABLE` when the journal cannot be written; nothing
+	changed). Asked again after it succeeded, it answers with the
+	account; its `home` then says only whether the account has one
+	(`KEPT` or `NONE`). 3 a day per account, 5 an hour per client.
 	"""
 	mergeAccount(absorbedKeyJwk: String!, nonce: String!, absorbedSignature: String!, signature: String!): MergeAccountResult!
 	"""
 	Detaches one of the caller's other device keys and ends its sessions
 	(a lost phone); `myAccount { devices }` lists them. The current
-	device cannot detach itself: `signOut` ends its session. Needs a
+	device detaches itself with `signOut(forgetDevice: true)`. Needs a
 	session opened in the last ten minutes.
 	"""
 	revokeDevice(id: UUID!): Boolean!
