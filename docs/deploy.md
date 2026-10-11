@@ -319,7 +319,7 @@ the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
 | the external feed's crawler | 0.47 GB | |
 | Caddy | 0.11 GB | |
 | Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
-| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 8 GB (`--memory=8g`) since 2026-10-11, 6 GB before |
+| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 10 GB (`--memory=10g`) since the evening of 2026-10-11, 8 GB that day, 6 GB before |
 
 The database, the routing engine and Photon read their files through the
 page cache they share; PostgreSQL's settings ("PostgreSQL on the root
@@ -329,7 +329,13 @@ The engine's cap rose from 6 to 8 GB with its threads, from four to six
 (plan/research/127-routage-serveur.md). On 2026-10-11, 21 hours after a
 restart with four threads, it sat at its 6 GB, 2.4 GB anonymous and 3.8 GB
 of tiles, had reached the cap 7,765 times and read 2 GB of tiles again
-(`memory.events`, `workingset_refault_file` of its cgroup).
+(`memory.events`, `workingset_refault_file` of its cgroup). At 8 GB, from
+15:34 to 16:59 the same day, it reached the cap 7,925 times and read
+2.1 GB again while the restrictions kept ahead were computed and route
+batteries ran, its anonymous part up to 3.5 GB; the cap went to 10 GB
+(plan/research/129-paquets-routage-suites.md). Past the anonymous part,
+what the engine holds is page cache the kernel takes back under the
+machine's pressure.
 
 ### The data volume
 
@@ -420,7 +426,7 @@ after a resize retunes them). The other tenants hold about 21 GB at their
 caps (`others` = 21,504 MB): the routing engine 6 GB, an import reading an
 extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
 1.5 GB, and since the merge Photon's two JVMs about 3.5 GB, the translation
-server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 8 GB since
+server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB since
 2026-10-11 are not in it: `others` only sets `effective_cache_size`, a hint
 to the planner, and a new value restarts PostgreSQL; it follows at the next
 retune. Their page cache is the database's too, so PostgreSQL keeps a

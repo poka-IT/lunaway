@@ -77,10 +77,15 @@ StopTimeout=2
 # (cx43) held the tiles in use then. On the cx53, 21 hours after a restart
 # with four threads, the engine sat at its 6 GB, 2.4 GB of it anonymous
 # and 3.8 GB of tiles, had reached the cap 7 765 times and read 2 GB of
-# tiles again (memory.events, workingset_refault_file, 2026-10-11). At
-# 0.6 GB a thread (2.4 GB for four, an estimate), six threads in 8 GB leave
-# the tiles about 4.4 GB.
-PodmanArgs=--memory=8g --pids-limit=256
+# tiles again (memory.events, workingset_refault_file, 2026-10-11). Six
+# threads in 8 GB, on the graph carrying the nodes' limits: from 15:34 to
+# 16:59 the cap was reached 7 925 times and 2.1 GB of tiles read again,
+# while the restrictions kept ahead were computed (891 routes across
+# Europe) and route batteries ran, the anonymous part up to 3.5 GB while
+# long trips off motorways looked for alternatives. 10 GB leave the tiles 6.5 GB; past
+# the anonymous part they are page cache, which the kernel takes back
+# under the machine's pressure (plan/research/129-paquets-routage-suites.md).
+PodmanArgs=--memory=10g --pids-limit=256
 
 [Service]
 # Each stop ends in SIGKILL (137), so a plain `systemctl stop valhalla`
