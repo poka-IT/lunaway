@@ -4931,6 +4931,9 @@ class Translations$navigation$guidance$en {
 	/// en: 'The $language voice is not downloaded yet.'
 	String missingVoice({required Object language}) => 'The ${language} voice is not downloaded yet.';
 
+	/// en: 'The $language voice is not yet downloaded in “$engine”.'
+	String missingVoiceIn({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.';
+
 	/// en: 'Install'
 	String get installVoice => 'Install';
 
@@ -8140,6 +8143,7 @@ extension on Translations {
 			'navigation.guidance.limit' => 'Limit',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'No ${language} voice on this device: instructions on screen only.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'The ${language} voice is not downloaded yet.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.',
 			'navigation.guidance.installVoice' => 'Install',
 			'navigation.guidance.voiceSettingsIos' => 'Settings, Accessibility, Spoken Content, Voices',
 			'navigation.guidance.notificationTitle' => 'Lunaway is guiding you',
@@ -8444,9 +8448,9 @@ extension on Translations {
 			'translation.translating' => 'Translating',
 			'translation.showOriginal' => 'Show original',
 			'translation.showTranslation' => 'Show translation',
-			'translation.from.fr' => 'Automatically translated from French',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.fr' => 'Automatically translated from French',
 			'translation.from.en' => 'Automatically translated from English',
 			'translation.from.de' => 'Automatically translated from German',
 			'translation.from.es' => 'Automatically translated from Spanish',
@@ -8958,9 +8962,9 @@ extension on Translations {
 			'poi.kind.sports' => 'Sports shop',
 			'poi.kind.fishingHunting' => 'Fishing and hunting',
 			'poi.kind.bicycleShop' => 'Bike shop',
-			'poi.kind.boatShop' => 'Boat shop',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.boatShop' => 'Boat shop',
 			'poi.kind.florist' => 'Florist',
 			'poi.kind.gardenCentre' => 'Garden centre',
 			'poi.kind.hardware' => 'DIY and hardware',

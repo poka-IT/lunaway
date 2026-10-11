@@ -884,6 +884,7 @@
       "limit": "Limiet",
       "noVoice": "Geen stem in het $language op dit apparaat: instructies alleen op het scherm.",
       "missingVoice": "De stem in het $language is nog niet gedownload.",
+      "missingVoiceIn": "De stem in het $language is nog niet gedownload in “$engine”.",
       "installVoice": "Installeren",
       "voiceSettingsIos": "Instellingen, Toegankelijkheid, Gesproken materiaal, Stemmen",
       "notificationTitle": "Lunaway wijst je de weg",

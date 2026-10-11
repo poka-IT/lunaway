@@ -2260,6 +2260,7 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get limit => 'Limite';
 	@override String noVoice({required Object language}) => 'Nessuna voce in ${language} su questo dispositivo: istruzioni solo sullo schermo.';
 	@override String missingVoice({required Object language}) => 'La voce in ${language} non è ancora scaricata.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'La voce in ${language} non è ancora scaricata in «${engine}».';
 	@override String get installVoice => 'Installa';
 	@override String get voiceSettingsIos => 'Impostazioni, Accessibilità, Contenuto letto ad alta voce, Voci';
 	@override String get notificationTitle => 'Lunaway ti sta guidando';
@@ -4149,6 +4150,7 @@ extension on TranslationsIt {
 			'navigation.guidance.limit' => 'Limite',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Nessuna voce in ${language} su questo dispositivo: istruzioni solo sullo schermo.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'La voce in ${language} non è ancora scaricata.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'La voce in ${language} non è ancora scaricata in «${engine}».',
 			'navigation.guidance.installVoice' => 'Installa',
 			'navigation.guidance.voiceSettingsIos' => 'Impostazioni, Accessibilità, Contenuto letto ad alta voce, Voci',
 			'navigation.guidance.notificationTitle' => 'Lunaway ti sta guidando',
@@ -4453,9 +4455,9 @@ extension on TranslationsIt {
 			'translation.translating' => 'Traduzione in corso',
 			'translation.showOriginal' => 'Mostra l\'originale',
 			'translation.showTranslation' => 'Mostra la traduzione',
-			'translation.from.fr' => 'Tradotto automaticamente dal francese',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.fr' => 'Tradotto automaticamente dal francese',
 			'translation.from.en' => 'Tradotto automaticamente dall\'inglese',
 			'translation.from.de' => 'Tradotto automaticamente dal tedesco',
 			'translation.from.es' => 'Tradotto automaticamente dallo spagnolo',
@@ -4967,9 +4969,9 @@ extension on TranslationsIt {
 			'poi.kind.sports' => 'Articoli sportivi',
 			'poi.kind.fishingHunting' => 'Caccia e pesca',
 			'poi.kind.bicycleShop' => 'Negozio di bici',
-			'poi.kind.boatShop' => 'Nautica',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.boatShop' => 'Nautica',
 			'poi.kind.florist' => 'Fioraio',
 			'poi.kind.gardenCentre' => 'Garden center',
 			'poi.kind.hardware' => 'Ferramenta, fai da te',

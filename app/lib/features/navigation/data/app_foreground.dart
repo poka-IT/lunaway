@@ -8,11 +8,26 @@ import 'package:flutter/widgets.dart';
 abstract interface class AppForeground {
   /// Completes when the app is in front: at once when it already is.
   Future<void> resumed();
+
+  /// An event each time the app comes back in front, from another app (a
+  /// voice installer, the system's settings) or a dialog over it.
+  Stream<void> returns();
 }
 
 /// [AppForeground] from the app's lifecycle.
 final class LifecycleAppForeground implements AppForeground {
   const new();
+
+  @override
+  Stream<void> returns() {
+    AppLifecycleListener? listener;
+    late final StreamController<void> events;
+    events = StreamController<void>(
+      onListen: () => listener = AppLifecycleListener(onResume: () => events.add(null)),
+      onCancel: () => listener?.dispose(),
+    );
+    return events.stream;
+  }
 
   @override
   Future<void> resumed() async {

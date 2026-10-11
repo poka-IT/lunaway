@@ -32,19 +32,42 @@ final class VehicleMotion {
   /// tunnel) is not reached at a crawl.
   static const maxGlide = Duration(milliseconds: 1500);
 
+  /// Below this speed, metres per second, the vehicle is parked (a slow
+  /// walk is 1.4).
+  static const parkedMps = 1.0;
+
+  /// A parked vehicle's fix within this of where it is drawn, metres, is
+  /// the receiver wandering: the vehicle stays, and the map draws nothing
+  /// (each glide redrew it 30 times a second, parked as on the road).
+  static const parkedWanderM = 12.0;
+
   /// The fix the vehicle glides to.
   LatLng? get target => _to;
 
   /// Whether the drawn vehicle is still on its way to [target] at [now].
   bool movingAt(Duration now) => _to != null && now - _start < _length;
 
-  /// A new fix at [now], the time of the frame clock. The first fix is
-  /// drawn where it is; a [jump] (a new route, the vehicle far away)
-  /// too.
-  void retarget(LatLng position, double? course, Duration now, {bool jump = false}) {
+  /// A new fix at [now], the time of the frame clock, at [speedMps] when
+  /// known. The first fix is drawn where it is; a [jump] (a new route, the
+  /// vehicle far away) too.
+  void retarget(
+    LatLng position,
+    double? course,
+    Duration now, {
+    bool jump = false,
+    double? speedMps,
+  }) {
     // The same fix again (a map rebuilt for another reason) changes
     // nothing: restarting would cut the glide short and lurch.
     if (!jump && position == _to && (course ?? _toCourse) == _toCourse) return;
+    final to = _to;
+    if (!jump &&
+        to != null &&
+        speedMps != null &&
+        speedMps < parkedMps &&
+        position.distanceTo(to) < parkedWanderM) {
+      return;
+    }
     final (shown, shownCourse) = at(now);
     final last = _lastTarget;
     _lastTarget = now;

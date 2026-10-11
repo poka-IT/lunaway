@@ -2260,6 +2260,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get limit => 'Limiet';
 	@override String noVoice({required Object language}) => 'Geen stem in het ${language} op dit apparaat: instructies alleen op het scherm.';
 	@override String missingVoice({required Object language}) => 'De stem in het ${language} is nog niet gedownload.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'De stem in het ${language} is nog niet gedownload in “${engine}”.';
 	@override String get installVoice => 'Installeren';
 	@override String get voiceSettingsIos => 'Instellingen, Toegankelijkheid, Gesproken materiaal, Stemmen';
 	@override String get notificationTitle => 'Lunaway wijst je de weg';
@@ -4149,6 +4150,7 @@ extension on TranslationsNl {
 			'navigation.guidance.limit' => 'Limiet',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Geen stem in het ${language} op dit apparaat: instructies alleen op het scherm.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'De stem in het ${language} is nog niet gedownload.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'De stem in het ${language} is nog niet gedownload in “${engine}”.',
 			'navigation.guidance.installVoice' => 'Installeren',
 			'navigation.guidance.voiceSettingsIos' => 'Instellingen, Toegankelijkheid, Gesproken materiaal, Stemmen',
 			'navigation.guidance.notificationTitle' => 'Lunaway wijst je de weg',
@@ -4453,9 +4455,9 @@ extension on TranslationsNl {
 			'translation.translating' => 'Bezig met vertalen',
 			'translation.showOriginal' => 'Origineel tonen',
 			'translation.showTranslation' => 'Vertaling tonen',
-			'translation.from.fr' => 'Automatisch vertaald uit het Frans',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.fr' => 'Automatisch vertaald uit het Frans',
 			'translation.from.en' => 'Automatisch vertaald uit het Engels',
 			'translation.from.de' => 'Automatisch vertaald uit het Duits',
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
@@ -4967,9 +4969,9 @@ extension on TranslationsNl {
 			'poi.kind.sports' => 'Sportwinkel',
 			'poi.kind.fishingHunting' => 'Hengelsport',
 			'poi.kind.bicycleShop' => 'Fietsenwinkel',
-			'poi.kind.boatShop' => 'Watersportwinkel',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.boatShop' => 'Watersportwinkel',
 			'poi.kind.florist' => 'Bloemist',
 			'poi.kind.gardenCentre' => 'Tuincentrum',
 			'poi.kind.hardware' => 'Bouwmarkt',

@@ -258,10 +258,17 @@ final class RecordingVoice implements VoiceOutput {
   }
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async {
     prepares++;
+    if (fresh) freshPrepares++;
     return await (picking?.future ?? Future.value(readiness));
   }
+
+  /// How many of [prepares] asked the device anew.
+  int freshPrepares = 0;
+
+  @override
+  String? installEngine;
 
   /// While set, [prepare] answers when it completes: a speech engine slow
   /// to bind.
@@ -688,6 +695,8 @@ List<Override> navigationOverrides({
   DrivingAidsStore? drivingAids,
   // The vehicle as it changes, in place of [vehicle].
   Stream<Vehicle?>? vehicles,
+  // The app in front, and its returns from other apps.
+  AppForeground? foreground,
 }) => [
   drivingAidsStoreProvider.overrideWithValue(drivingAids ?? memoryDrivingAids()),
   if (clock != null) clockProvider.overrideWithValue(clock),
@@ -709,7 +718,7 @@ List<Override> navigationOverrides({
   routeMapBuilderProvider.overrideWithValue(schematicRouteMap),
   routeSettingsStoreProvider.overrideWithValue(settings ?? MemoryRouteSettings()),
   vehicleProvider.overrideWith((ref) => vehicles ?? Stream.value(vehicle)),
-  appForegroundProvider.overrideWithValue(const InFront()),
+  appForegroundProvider.overrideWithValue(foreground ?? const InFront()),
   notificationAccessProvider.overrideWithValue(notifications ?? CountedNotificationAccess()),
 ];
 
@@ -848,4 +857,24 @@ final class InFront implements AppForeground {
 
   @override
   Future<void> resumed() async {}
+
+  @override
+  Stream<void> returns() => const Stream.empty();
+}
+
+/// The app in front, and back from another app when [comeBack] says.
+final class ReturningApp implements AppForeground {
+  final _returns = StreamController<void>.broadcast();
+
+  /// The user comes back from another app (a voice installer).
+  void comeBack() => _returns.add(null);
+
+  /// Whether the guidance listens to the returns.
+  bool get listened => _returns.hasListener;
+
+  @override
+  Future<void> resumed() async {}
+
+  @override
+  Stream<void> returns() => _returns.stream;
 }

@@ -8,6 +8,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -102,10 +103,13 @@ void main() {
     NavigationSettings settings = const NavigationSettings(),
     CountryLocator? countries,
     EnforcementFeed? enforcement,
+    AppForeground? foreground,
+    RecordingVoice? withVoice,
+    DateTime Function()? clock,
   }) async {
     routes = FakeRouteService(answers.isEmpty ? [p] : answers);
     feed = FakeLocationFeed();
-    voice = RecordingVoice();
+    voice = withVoice ?? RecordingVoice();
     wake = FakeScreenWake();
     engine = LineEngine([p, ...more]);
     container = ProviderContainer.test(
@@ -120,10 +124,11 @@ void main() {
           settings: MemoryRouteSettings(settings),
           countries: countries,
           enforcement: enforcement,
+          foreground: foreground,
           // The driving aids' settings by default, kept in memory.
           drivingAids: DrivingAidsStore(() async => null, (_) async {}),
         ),
-        clockProvider.overrideWithValue(() => t0),
+        clockProvider.overrideWithValue(clock ?? () => t0),
       ],
     );
     // The settings the guidance starts with, loaded as the app has them.
@@ -149,6 +154,113 @@ void main() {
       await settle();
     }
   }
+
+  group('a voice missing at the start', () {
+    test(
+      'is looked for again once the user comes back from its installer, not as it opens',
+      () async {
+        final back = ReturningApp();
+        final missing = RecordingVoice(readiness: VoiceReadiness.missingData)
+          ..installEngine = 'Moteur de synthèse vocale Samsung';
+        final p = routeFixture('limoges_drive');
+        final controller = await start(p, foreground: back, withVoice: missing);
+        expect(session().voice, VoiceReadiness.missingData);
+        expect(session().voiceInstallIn, 'Moteur de synthèse vocale Samsung');
+        await controller.installVoices();
+        await settle();
+        expect(missing.installs, 1);
+        // In the engine's installer, the user downloads the voice.
+        missing
+          ..readiness = VoiceReadiness.ready
+          ..installEngine = null;
+        await settle();
+        expect(session().voice, VoiceReadiness.missingData, reason: 'the user is still away');
+        back.comeBack();
+        await settle();
+        expect(session().voice, VoiceReadiness.ready);
+        expect(session().voiceInstallIn, isNull);
+        expect(missing.freshPrepares, 1, reason: 'the engines asked anew, not the answer kept');
+        await send(along(p.routes.single, toM: 400));
+        expect(missing.said, isNotEmpty, reason: 'the instructions are spoken from then on');
+      },
+    );
+
+    test('a voice installed from the system settings is found at the return too', () async {
+      final back = ReturningApp();
+      final missing = RecordingVoice(readiness: VoiceReadiness.none);
+      var now = t0;
+      await start(
+        routeFixture('limoges_drive'),
+        foreground: back,
+        withVoice: missing,
+        clock: () => now,
+      );
+      missing.readiness = VoiceReadiness.ready;
+      now = now.add(voiceLookGap);
+      back.comeBack();
+      await settle();
+      expect(session().voice, VoiceReadiness.ready);
+    });
+
+    test('a voice still downloading at the return is looked for once more a while later', () {
+      fakeAsync((async) {
+        final back = ReturningApp();
+        final missing = RecordingVoice(readiness: VoiceReadiness.missingData);
+        unawaited(start(routeFixture('limoges_drive'), foreground: back, withVoice: missing));
+        async.elapse(const Duration(seconds: 1));
+        unawaited(container.read(guidanceControllerProvider.notifier).installVoices());
+        async.elapse(const Duration(seconds: 1));
+        // Back from the installer while the pack still downloads.
+        back.comeBack();
+        async.elapse(const Duration(seconds: 1));
+        expect(session().voice, VoiceReadiness.missingData);
+        missing.readiness = VoiceReadiness.ready;
+        async.elapse(voiceLookGap);
+        expect(session().voice, VoiceReadiness.ready);
+        container.read(guidanceControllerProvider.notifier).stop();
+      });
+    });
+
+    test('a return soon after the last look asks the engines nothing', () async {
+      final back = ReturningApp();
+      final missing = RecordingVoice(readiness: VoiceReadiness.none);
+      var now = t0;
+      await start(
+        routeFixture('limoges_drive'),
+        foreground: back,
+        withVoice: missing,
+        clock: () => now,
+      );
+      final looks = missing.prepares;
+      // The notification shade pulled down and up again.
+      now = now.add(const Duration(seconds: 5));
+      back.comeBack();
+      await settle();
+      expect(missing.prepares, looks);
+      now = now.add(voiceLookGap);
+      back.comeBack();
+      await settle();
+      expect(missing.prepares, looks + 1);
+    });
+
+    test('with the voice ready, a return asks the device nothing', () async {
+      final back = ReturningApp();
+      await start(routeFixture('limoges_drive'), foreground: back);
+      final before = voice.prepares;
+      back.comeBack();
+      await settle();
+      expect(voice.prepares, before);
+    });
+
+    test('the returns are no longer heard once the guidance stops', () async {
+      final back = ReturningApp();
+      final controller = await start(routeFixture('limoges_drive'), foreground: back);
+      expect(back.listened, isTrue);
+      controller.stop();
+      await settle();
+      expect(back.listened, isFalse);
+    });
+  });
 
   test('starts with the screen on and the position asked in the background', () async {
     await start(routeFixture('limoges_drive'));
@@ -919,6 +1031,25 @@ void main() {
     expect(wake.on, isFalse);
     expect(voice.stops, greaterThan(0));
     expect(engine.tracks.single.disposed, isTrue);
+  });
+
+  test('after the arrival the screen stays on a while, then the device puts it out', () {
+    fakeAsync((async) {
+      final a = routeFixture('limoges_drive');
+      unawaited(start(a));
+      async.elapse(const Duration(seconds: 1));
+      for (final f in along(a.routes.single, step: 40)) {
+        feed.send(f);
+        async.elapse(const Duration(milliseconds: 10));
+      }
+      expect(session().phase, GuidancePhase.arrived);
+      async.elapse(arrivalScreenOn - const Duration(seconds: 5));
+      expect(wake.on, isTrue, reason: 'the arrival card read');
+      async.elapse(const Duration(seconds: 10));
+      expect(wake.on, isFalse);
+      expect(session().phase, GuidancePhase.arrived, reason: 'the card stays');
+      container.read(guidanceControllerProvider.notifier).stop();
+    });
   });
 
   test('the voice off is silent and remembered', () async {

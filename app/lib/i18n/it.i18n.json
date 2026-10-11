@@ -884,6 +884,7 @@
       "limit": "Limite",
       "noVoice": "Nessuna voce in $language su questo dispositivo: istruzioni solo sullo schermo.",
       "missingVoice": "La voce in $language non è ancora scaricata.",
+      "missingVoiceIn": "La voce in $language non è ancora scaricata in «$engine».",
       "installVoice": "Installa",
       "voiceSettingsIos": "Impostazioni, Accessibilità, Contenuto letto ad alta voce, Voci",
       "notificationTitle": "Lunaway ti sta guidando",

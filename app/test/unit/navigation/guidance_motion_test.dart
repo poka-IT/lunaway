@@ -65,6 +65,34 @@ void main() {
         ..retarget(b, 0, const Duration(seconds: 1), jump: true);
       expect(m.at(const Duration(seconds: 1)).$1, b);
     });
+
+    test('parked, it stays where it is drawn while the fixes wander around it', () {
+      // b is 11 m north of a.
+      final m = VehicleMotion()
+        ..retarget(a, 0, Duration.zero, speedMps: 0)
+        ..retarget(b, 90, const Duration(seconds: 1), speedMps: 0.4);
+      expect(m.movingAt(const Duration(seconds: 1)), isFalse);
+      expect(m.at(const Duration(seconds: 2)), (a, 0.0));
+    });
+
+    test('a fix past the wander, or at a walk, moves it again', () {
+      const far = LatLng(45.8002, 1.2);
+      final past = VehicleMotion()
+        ..retarget(a, 0, Duration.zero, speedMps: 0)
+        ..retarget(far, 0, const Duration(seconds: 1), speedMps: 0.4);
+      expect(past.movingAt(const Duration(seconds: 1)), isTrue);
+      final walking = VehicleMotion()
+        ..retarget(a, 0, Duration.zero, speedMps: 0)
+        ..retarget(b, 0, const Duration(seconds: 1), speedMps: 1.4);
+      expect(walking.movingAt(const Duration(seconds: 1)), isTrue);
+    });
+
+    test('with no speed known, every fix moves it, as before', () {
+      final m = VehicleMotion()
+        ..retarget(a, 0, Duration.zero)
+        ..retarget(b, 0, const Duration(seconds: 1));
+      expect(m.movingAt(const Duration(seconds: 1)), isTrue);
+    });
   });
 
   test('the zoom eases toward the one asked for, a little each frame', () {
