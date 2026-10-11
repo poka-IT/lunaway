@@ -373,6 +373,10 @@ final class RouteStep {
     this.leftHandTraffic = false,
     this.ferry = false,
     this.lanes = const [],
+    this.roadRef,
+    this.exitRef,
+    this.signs,
+    this.motorway = false,
   });
 
   /// The router's sentence (`Tournez à gauche dans Rue Raphaël.`).
@@ -414,6 +418,20 @@ final class RouteStep {
   /// the map has them: what the driver sees while following this step.
   final List<LaneHint> lanes;
 
+  /// The number of the road taken (`A 41; E 712`), as the map gives it.
+  final String? roadRef;
+
+  /// The number of the motorway exit taken at this maneuver (`17`), as its
+  /// sign shows it.
+  final String? exitRef;
+
+  /// What the direction signs at this maneuver point to (`A 41: Genève,
+  /// Chamonix`), as the map gives them.
+  final String? signs;
+
+  /// This step's road is a motorway, somewhere along it.
+  final bool motorway;
+
   /// The maneuver as its pictogram draws it.
   Maneuver get maneuver => Maneuver(
     type: maneuverType,
@@ -441,6 +459,7 @@ final class RouteOption {
     this.speedLimits,
     this.roadEvents = const [],
     this.ferries = const [],
+    this.crossings = const [],
   });
 
   /// Its index in the OSRM answer; 0 is the recommended one.
@@ -470,6 +489,10 @@ final class RouteOption {
   /// empty from an API that does not tell them, even when [hasFerry].
   final List<FerryCrossing> ferries;
 
+  /// The toll booths and the borders the route passes, in driving order,
+  /// read from its OSRM answer with its shape.
+  final List<RouteCrossing> crossings;
+
   GeoBounds? get bounds => GeoBounds.around(line);
 
   /// The very slow road of the route, summed: its steps of [slowStepM] or
@@ -491,21 +514,64 @@ final class RouteOption {
     return duration >= slowAtLeastS ? (distanceM: distance, durationS: duration) : null;
   }
 
-  RouteOption withShape({required List<LatLng> line, required List<RouteStep> steps}) =>
-      RouteOption(
-        index: index,
-        distanceM: distanceM,
-        durationS: durationS,
-        hasToll: hasToll,
-        hasFerry: hasFerry,
-        hasMotorway: hasMotorway,
-        warnings: warnings,
-        line: line,
-        steps: steps,
-        speedLimits: speedLimits,
-        roadEvents: roadEvents,
-        ferries: ferries,
-      );
+  RouteOption withShape({
+    required List<LatLng> line,
+    required List<RouteStep> steps,
+    List<RouteCrossing> crossings = const [],
+  }) => RouteOption(
+    index: index,
+    distanceM: distanceM,
+    durationS: durationS,
+    hasToll: hasToll,
+    hasFerry: hasFerry,
+    hasMotorway: hasMotorway,
+    warnings: warnings,
+    line: line,
+    steps: steps,
+    speedLimits: speedLimits,
+    roadEvents: roadEvents,
+    ferries: ferries,
+    crossings: crossings,
+  );
+}
+
+/// What a route passes that the guidance tells of as it comes
+/// ([RouteCrossing]).
+enum CrossingKind {
+  /// A toll booth: the vehicle stops to pay.
+  tollBooth,
+
+  /// A border: another country, its own rules.
+  border,
+}
+
+/// A toll booth or a border along a route.
+@immutable
+final class RouteCrossing {
+  const new({required this.kind, required this.alongM, required this.position, this.country});
+
+  final CrossingKind kind;
+
+  /// Metres from the start of the route, as the guidance counts them.
+  final double alongM;
+  final LatLng position;
+
+  /// The country entered at a border, ISO 3166-1 alpha-2.
+  final String? country;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RouteCrossing &&
+      other.kind == kind &&
+      other.alongM == alongM &&
+      other.position == position &&
+      other.country == country;
+
+  @override
+  int get hashCode => Object.hash(kind, alongM, position, country);
+
+  @override
+  String toString() => 'RouteCrossing($kind at $alongM m${country == null ? '' : ', $country'})';
 }
 
 /// A step slower than this on average, km/h, is very slow road: a walk's

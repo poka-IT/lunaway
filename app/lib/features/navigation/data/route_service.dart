@@ -158,7 +158,11 @@ Future<RoutePlan> withShapes(RoutePlan plan) async {
   return plan.withRoutes([
     for (final r in plan.routes)
       if (r.index >= 0 && r.index < shapes.length)
-        r.withShape(line: shapes[r.index].line, steps: shapes[r.index].steps)
+        r.withShape(
+          line: shapes[r.index].line,
+          steps: shapes[r.index].steps,
+          crossings: shapes[r.index].crossings,
+        )
       else
         r,
   ]);
