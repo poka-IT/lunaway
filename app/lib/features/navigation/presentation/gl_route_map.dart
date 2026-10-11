@@ -18,6 +18,7 @@ import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/map_gesture_watch.dart';
 import 'package:lunaway/features/navigation/presentation/page_route_motion.dart'
@@ -87,6 +88,14 @@ class _GlRouteMapState extends State<GlRouteMap> {
   RouteMapPlaces? _sentPlaces;
   bool _placeLayers = false;
 
+  /// The grey behind the vehicle, as drawn.
+  final _traveled = TraveledLine();
+  bool _gradientSent = false;
+
+  /// The maneuver's arrow sent, once the style holds its sources.
+  ManeuverArrow? _sentArrow;
+  bool _arrowSent = false;
+
   RouteMapProps get _props => widget.props;
 
   /// The page's own source that names this map to its motion
@@ -117,7 +126,12 @@ class _GlRouteMapState extends State<GlRouteMap> {
   /// sent, and the map draws nothing.
   _SentFrame? _sentFrame;
   double? _shownZoom;
+  double? _shownTilt;
   double _shownBearing = 0;
+
+  /// The course the camera has turned to, easing toward the vehicle's
+  /// ([easeCourse]); null until following draws a frame.
+  double? _shownCourse;
   EdgeInsets? _sentInsets;
   Size _size = Size.zero;
 
@@ -267,9 +281,11 @@ class _GlRouteMapState extends State<GlRouteMap> {
     try {
       final ratio = MediaQuery.devicePixelRatioOf(context);
       final arrow = await vehicleArrowPng(ratio);
+      final head = await arrowHeadPng(ratio);
       final badges = await routeBadgePngs(ratio);
       if (!current()) return;
       await c.addImage(RouteLayers.vehicleImage, arrow);
+      await c.addImage(RouteLayers.arrowHeadImage, head);
       for (final MapEntry(:key, :value) in badges.entries) {
         await c.addImage(key, value);
       }
@@ -281,6 +297,9 @@ class _GlRouteMapState extends State<GlRouteMap> {
         RouteLayers.alternativesSource,
         RouteLayers.zonesSource,
         RouteLayers.routeSource,
+        RouteLayers.traveledSource,
+        RouteLayers.arrowSource,
+        RouteLayers.arrowHeadSource,
         ...RouteLayers.markSources,
         RichLayers.source,
         RouteLayers.vehicleSource,
@@ -297,6 +316,9 @@ class _GlRouteMapState extends State<GlRouteMap> {
             clusterRadius: options['clusterRadius'] as double?,
             clusterMaxZoom: options['clusterMaxZoom'] as double?,
             clusterProperties: options['clusterProperties'],
+            // The chosen route measures its length, for the grey behind
+            // the vehicle (`line-progress`).
+            lineMetrics: id == RouteLayers.routeSource,
           ),
         );
       }
@@ -324,6 +346,9 @@ class _GlRouteMapState extends State<GlRouteMap> {
       _richHidden = null;
       _sentLines = null;
       _sentZones = null;
+      _traveled.forget();
+      _gradientSent = false;
+      _arrowSent = false;
       _sentMarks = null;
       _sentLit = null;
       _sentFocus = _props.focus?.serial;
@@ -372,61 +397,50 @@ class _GlRouteMapState extends State<GlRouteMap> {
     );
   }
 
+  /// The whole look of the route's line layer [id] ([routeLinePaint]):
+  /// maplibre_gl resets every property a change leaves out.
+  gl.LineLayerProperties _lineLook(String id) {
+    final paint = routeLinePaint(id, dark: _props.dark, traveledShare: _traveled.share);
+    return gl.LineLayerProperties(
+      lineJoin: 'round',
+      lineCap: 'round',
+      lineColor: paint['line-color'],
+      lineWidth: paint['line-width'],
+      lineOpacity: paint['line-opacity'],
+      lineGradient: paint['line-gradient'],
+    );
+  }
+
   /// Adds the layer [id] of the route, its look by its id, in its place.
   Future<void> _addRouteLayer(gl.MapLibreMapController c, String id) async {
     final below = _belowOf(id);
-    final dark = _props.dark;
-    const round = gl.LineLayerProperties(lineJoin: 'round', lineCap: 'round');
-    // No line answers a click: a tap picks the other routes by their shape
-    // (routeHitShapes), the chosen one never.
-    Future<void> line(String source, gl.LineLayerProperties look) => c.addLineLayer(
-      source,
-      id,
-      round.copyWith(look),
-      belowLayerId: below,
-      enableInteraction: false,
-    );
     switch (id) {
-      case RouteLayers.zones:
-        await line(
-          RouteLayers.zonesSource,
-          gl.LineLayerProperties(
-            lineColor: RouteLook.zone,
-            lineWidth: RouteLook.zoneWidth,
-            lineOpacity: RouteLook.zoneOpacity,
-          ),
+      // No line answers a click: a tap picks the other routes by their shape
+      // (routeHitShapes), the chosen one never.
+      case _ when RouteLayers.lineLayers.contains(id):
+        await c.addLineLayer(
+          routeLineSource(id),
+          id,
+          _lineLook(id),
+          belowLayerId: below,
+          enableInteraction: false,
         );
-      case RouteLayers.alternativesCasing:
-        await line(
-          RouteLayers.alternativesSource,
-          gl.LineLayerProperties(
-            lineColor: RouteLook.alternativeCasing(dark: dark),
-            lineWidth: RouteLook.alternativeWidth + 3,
+      case RouteLayers.arrowHead:
+        final head = routeArrowHeadLayout(_imageScale);
+        await c.addSymbolLayer(
+          RouteLayers.arrowHeadSource,
+          id,
+          gl.SymbolLayerProperties(
+            iconImage: head['icon-image'],
+            iconSize: head['icon-size'],
+            iconRotate: head['icon-rotate'],
+            iconRotationAlignment: head['icon-rotation-alignment'],
+            iconPitchAlignment: head['icon-pitch-alignment'],
+            iconAllowOverlap: head['icon-allow-overlap'],
+            iconIgnorePlacement: head['icon-ignore-placement'],
           ),
-        );
-      case RouteLayers.alternatives:
-        await line(
-          RouteLayers.alternativesSource,
-          gl.LineLayerProperties(
-            lineColor: RouteLook.alternative(dark: dark),
-            lineWidth: RouteLook.alternativeWidth,
-          ),
-        );
-      case RouteLayers.routeCasing:
-        await line(
-          RouteLayers.routeSource,
-          gl.LineLayerProperties(
-            lineColor: RouteLook.casing(dark: dark),
-            lineWidth: RouteLook.casingWidth,
-          ),
-        );
-      case RouteLayers.route:
-        await line(
-          RouteLayers.routeSource,
-          gl.LineLayerProperties(
-            lineColor: RouteLook.line(dark: dark),
-            lineWidth: RouteLook.lineWidth,
-          ),
+          belowLayerId: below,
+          enableInteraction: false,
         );
       case RichLayers.marks:
         await c.addSymbolLayer(
@@ -819,6 +833,25 @@ class _GlRouteMapState extends State<GlRouteMap> {
       _sentZones = (p.lines, p.zones);
       await c.setGeoJsonSource(RouteLayers.zonesSource, routeZonesCollection(p.lines, p.zones));
     }
+    // The road behind the vehicle greys, at most once a fix: the gradient
+    // alone (updateLayerProperties), when its share moved, and the grey up
+    // to the vehicle.
+    final share = _traveled.share;
+    if (_traveled.next(p.lines, p.traveledM)) {
+      if (_traveled.share != share || !_gradientSent) {
+        _gradientSent = true;
+        for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
+          await c.updateLayerProperties(id, {'line-gradient': _lineLook(id).lineGradient});
+        }
+      }
+      await c.setGeoJsonSource(RouteLayers.traveledSource, routeTraveledCollection(_traveled.tail));
+    }
+    if (!_arrowSent || p.arrow != _sentArrow) {
+      _arrowSent = true;
+      _sentArrow = p.arrow;
+      await c.setGeoJsonSource(RouteLayers.arrowSource, routeArrowCollection(p.arrow));
+      await c.setGeoJsonSource(RouteLayers.arrowHeadSource, routeArrowHeadCollection(p.arrow));
+    }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
       final sources = routeMarkSources(p.marks, imageUnits: 1 / _imageScale);
@@ -961,13 +994,22 @@ class _GlRouteMapState extends State<GlRouteMap> {
         final ease = Motion.reduced(context) ? Duration.zero : follow.ease;
         if (page != null) {
           _followTarget = insets;
-          page.follow(zoom: follow.zoom, padding: insets, ease: ease, enter: entering);
+          page.follow(
+            zoom: follow.zoom,
+            tilt: follow.tilt,
+            padding: insets,
+            ease: ease,
+            enter: entering,
+          );
           return;
         }
         if (entering) {
           // Read at once (tracked on a phone): a frame may come before any
           // answer would.
           _entryFrom = ease == Duration.zero ? null : c.cameraPosition;
+          // The entry turns the map from the user's view; the course eased
+          // before the user took the map is stale.
+          _shownCourse = null;
           _entryStart = _clock.elapsed;
           _entryLength = ease;
           _entryInsets = _sentInsets ?? EdgeInsets.zero;
@@ -1003,6 +1045,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
         }
         _followTarget = EdgeInsets.zero;
         _shownZoom = null;
+        _shownTilt = null;
+        _shownCourse = null;
         await _moveCamera(c, camera);
     }
   }
@@ -1074,10 +1118,21 @@ class _GlRouteMapState extends State<GlRouteMap> {
       var zoom = shownZoom == null ? wanted : easeZoom(shownZoom, wanted, dt);
       _shownZoom = zoom;
       if ((wanted - zoom).abs() > 0.01) settled = false;
-      if (course != null) _shownBearing = course;
+      // The map turns a moment after the arrow: a bend sweeps rather than
+      // snaps, and a course that wavers does not shake the view.
+      if (course != null) {
+        final shownCourse = _shownCourse;
+        _shownCourse = shownCourse == null ? course : easeCourse(shownCourse, course, dt);
+        if (angleDelta(_shownCourse!, course).abs() > courseSettledDeg) settled = false;
+        _shownBearing = _shownCourse!;
+      }
+      final shownTilt = _shownTilt;
+      var tilt = shownTilt == null ? camera.tilt : easeTilt(shownTilt, camera.tilt, dt);
+      _shownTilt = tilt;
+      if ((camera.tilt - tilt).abs() > 0.3) settled = false;
+      final aimTilt = tilt;
       var target = position;
       var bearing = _shownBearing;
-      var tilt = followTiltDeg;
       // Into following: from the view the user had to the driver's.
       if (_entryFrom case final from?) {
         final t = _entryLength <= Duration.zero
@@ -1097,7 +1152,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
           );
           zoom = from.zoom + (zoom - from.zoom) * k;
           bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
-          tilt = from.tilt + (followTiltDeg - from.tilt) * k;
+          tilt = from.tilt + (aimTilt - from.tilt) * k;
           final insets = EdgeInsets.lerp(_entryInsets, _followTarget, k)!;
           // Kept: a gesture that cuts the entry leaves the map with these.
           _sentInsets = insets;

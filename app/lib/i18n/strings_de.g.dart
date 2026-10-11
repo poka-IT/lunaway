@@ -2302,6 +2302,11 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 
 	// Translations
 	@override String get then => 'Dann';
+	@override String exit({required Object ref}) => 'Ausfahrt ${ref}';
+	@override String currentRoad({required Object road}) => 'Auf ${road}';
+	@override String tollAhead({required Object distance}) => 'Mautstelle in ${distance}';
+	@override String borderAhead({required Object country, required Object distance}) => 'Grenze: ${country} in ${distance}';
+	@override String get options => 'Navigationsoptionen';
 	@override String arrival({required Object time}) => 'Ankunft ${time}';
 	@override String get offRoute => 'Abseits der Route';
 	@override String get rerouting => 'Neue Route wird gesucht';
@@ -4181,6 +4186,11 @@ extension on TranslationsDe {
 			'navigation.marks.sectionLength' => ({required Object distance}) => 'Abschnitt von ${distance}',
 			'navigation.marks.cameraDirection' => 'Misst in Ihrer Fahrtrichtung',
 			'navigation.guidance.then' => 'Dann',
+			'navigation.guidance.exit' => ({required Object ref}) => 'Ausfahrt ${ref}',
+			'navigation.guidance.currentRoad' => ({required Object road}) => 'Auf ${road}',
+			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Mautstelle in ${distance}',
+			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Grenze: ${country} in ${distance}',
+			'navigation.guidance.options' => 'Navigationsoptionen',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Ankunft ${time}',
 			'navigation.guidance.offRoute' => 'Abseits der Route',
 			'navigation.guidance.rerouting' => 'Neue Route wird gesucht',
@@ -4525,13 +4535,13 @@ extension on TranslationsDe {
 			'profile.attributionCommunity' => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.',
 			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
 			'profile.attributionPanoramax' => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionWikipedia' => 'Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.',
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
 			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
-			_ => null,
-		} ?? switch (path) {
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
@@ -5039,13 +5049,13 @@ extension on TranslationsDe {
 			'poi.kind.physiotherapist' => 'Physiotherapie',
 			'poi.kind.laboratory' => 'Labor',
 			'poi.kind.nurse' => 'Pflegedienst',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.midwife' => 'Hebamme',
 			'poi.kind.podiatrist' => 'Podologie',
 			'poi.kind.psychologist' => 'Psychotherapie',
 			'poi.kind.speechTherapist' => 'Logopädie',
 			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.optician' => 'Optiker',
 			'poi.kind.hearingAids' => 'Hörakustik',
 			'poi.kind.medicalSupply' => 'Sanitätshaus',

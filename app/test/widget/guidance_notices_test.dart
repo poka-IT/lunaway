@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,7 @@ import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_notices.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
@@ -399,6 +401,73 @@ void main() {
       }
     });
   }
+
+  group('what the road passes', () {
+    /// The Limoges drive with a toll booth along Port du Naveix and
+    /// Switzerland from the second left turn after it, as Valhalla tells
+    /// them.
+    RoutePlan tolled() => routeFixture(
+      'limoges_drive',
+      edit: (answer) {
+        final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+        final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+        final leg = (route['legs'] as List).first as Map<String, dynamic>;
+        leg['admins'] = [
+          {'iso_3166_1': 'FR'},
+          {'iso_3166_1': 'CH'},
+        ];
+        final steps = leg['steps'] as List;
+        final crossing = ((steps[5] as Map)['intersections'] as List)[10] as Map;
+        crossing['toll_collection'] = {'type': 'toll_booth'};
+        for (final step in steps.skip(7)) {
+          for (final i in (step as Map)['intersections'] as List) {
+            (i as Map)['admin_index'] = 1;
+          }
+        }
+        answer['osrmJson'] = jsonEncode(osrm);
+      },
+    );
+
+    testWidgets('a toll booth, then a border, each told as it comes, gone once passed', (
+      tester,
+    ) async {
+      final plan = tolled();
+      final route = plan.routes.first;
+      expect(route.crossings.map((c) => c.kind), [CrossingKind.tollBooth, CrossingKind.border]);
+      final booth = route.crossings.first.alongM;
+      final border = route.crossings.last.alongM;
+      expect(booth, inExclusiveRange(1303 + tollTellM, 2977), reason: 'along Port du Naveix');
+      expect(border, closeTo(3061, 30), reason: 'at the second left turn');
+      await guide(tester, plan);
+      final toll = find.textContaining('Péage dans ');
+      final swiss = find.textContaining('Frontière : Suisse dans ');
+      await drive(tester, plan, toM: 30);
+      expect(toll, findsNothing, reason: 'too far yet');
+      expect(swiss, findsNothing, reason: 'too far yet');
+      await drive(tester, plan, toM: booth - 600);
+      expect(toll, findsOneWidget);
+      expect(swiss, findsNothing, reason: 'one at a time, the nearest');
+      await drive(tester, plan, toM: booth + 20);
+      expect(toll, findsNothing, reason: 'passed');
+      expect(swiss, findsOneWidget, reason: 'within 3 km');
+      await drive(tester, plan, toM: border + 20);
+      expect(swiss, findsNothing);
+    });
+
+    test('the nearest within its reach: a booth from 1.5 km, a border from 3 km', () {
+      final route = tolled().routes.first;
+      final booth = route.crossings.first.alongM;
+      expect(crossingAhead(route, 0), isNull, reason: 'the booth beyond 1.5 km, the border 3 km');
+      expect(
+        crossingAhead(route, route.crossings.last.alongM - borderTellM + 1)?.crossing.kind,
+        CrossingKind.border,
+        reason: 'the border in reach before the booth',
+      );
+      expect(crossingAhead(route, booth - tollTellM + 1)?.crossing.kind, CrossingKind.tollBooth);
+      expect(crossingAhead(route, booth + 1)?.crossing.kind, CrossingKind.border);
+      expect(crossingAhead(route, route.crossings.last.alongM + 1), isNull);
+    });
+  });
 
   // A message of the app's foot runs its time once it is in: frames as a
   // screen draws them, a tenth of a second apart.

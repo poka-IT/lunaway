@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +9,9 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
@@ -18,7 +21,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
-import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
@@ -157,14 +160,17 @@ void main() {
       await guide(tester, plan);
       await drive(tester, plan, toM: 100);
       final course = map().vehicle!.course!;
+      // The zoom and the tilt the camera aimed at while it followed.
+      final followed = (map().camera as FollowCamera).zoom;
+      final tilt = (map().camera as FollowCamera).tilt;
       await gesture(tester);
       final anchor = followAnchor(phone, map().padding);
       FreeView rest(Offset vehicle, {double? zoom}) => FreeView(
         size: phone,
         vehicle: vehicle,
-        zoom: zoom ?? followZoom(10),
+        zoom: zoom ?? followed,
         bearing: course,
-        tilt: followTiltDeg,
+        tilt: tilt,
       );
       final far = rest(anchor + const Offset(0, -200));
       map().onRest!(far);
@@ -175,7 +181,7 @@ void main() {
         far,
         reason: 'a map made anew (the phone turned) opens where the user left it',
       );
-      map().onRest!(rest(anchor + const Offset(20, 25), zoom: followZoom(10) + 2));
+      map().onRest!(rest(anchor + const Offset(20, 25), zoom: followed + 2));
       await settleShort(tester);
       expect(map().camera, isA<FreeCamera>(), reason: 'two levels closer');
       map().onRest!(rest(anchor + const Offset(20, 25)));
@@ -192,6 +198,8 @@ void main() {
       await guide(tester, plan);
       await drive(tester, plan, toM: 100);
       final before = (map().camera as FollowCamera).request;
+      final followed = (map().camera as FollowCamera).zoom;
+      final tilt = (map().camera as FollowCamera).tilt;
       final course = map().vehicle!.course!;
       // The gesture and the rest before any frame: the screen never builds
       // the free map, the engine must still hear a new request.
@@ -200,9 +208,9 @@ void main() {
         FreeView(
           size: phone,
           vehicle: followAnchor(phone, map().padding) + const Offset(3, 3),
-          zoom: followZoom(10),
+          zoom: followed,
           bearing: course,
-          tilt: followTiltDeg,
+          tilt: tilt,
         ),
       );
       await settleShort(tester);
@@ -244,6 +252,178 @@ void main() {
     });
   });
 
+  group('the camera', () {
+    testWidgets('down an avenue, wide and toward the horizon; close and flatter as its end nears', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      FollowCamera camera() => map().camera as FollowCamera;
+      // 36 km/h along Avenue des Bénédictins, its slight left at 1303 m.
+      await drive(tester, plan, toM: 500);
+      final far = camera();
+      expect(far.zoom, closeTo(wideZoom(36), 0.01), reason: '800 m off: the widest at 36 km/h');
+      expect(far.tilt, AutoTilt.straight);
+      await drive(tester, plan, toM: 1260, fromM: 500);
+      final near = camera();
+      expect(near.zoom, closeTo(closeZoom(36), 0.01), reason: '43 m off: the closest');
+      expect(near.tilt, AutoTilt.junction, reason: 'the junction seen from above');
+    });
+
+    testWidgets('on a motorway, wider at 36 km/h than a street', (tester) async {
+      final plan = routeFixture(
+        'limoges_drive',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+          final leg = (route['legs'] as List).first as Map<String, dynamic>;
+          // Avenue des Bénédictins taken for a motorway.
+          final avenue = (leg['steps'] as List)[4] as Map;
+          ((avenue['intersections'] as List).first as Map)['classes'] = ['motorway'];
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      );
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 500);
+      // The slight left 800 m off framed, wider than a street at 36 km/h
+      // goes (15.95): a motorway goes down to AutoZoom.motorwayWide.
+      final camera = map().camera as FollowCamera;
+      expect(camera.zoom, closeTo(seeZoom(803), 0.1));
+      expect(camera.zoom, lessThan(wideZoom(36) - 0.5));
+    });
+
+    testWidgets('keeps its aim while the speed wavers by a few km/h, moves it past that', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final last = driveFixes(plan.routes.first, toM: 100).last;
+      var second = 0;
+      Future<double> at(double kmh) async {
+        feed.send(
+          Fix(
+            position: last.position,
+            accuracyM: 5,
+            at: last.at.add(Duration(seconds: ++second)),
+            courseDeg: last.courseDeg,
+            speedMps: kmh / 3.6,
+          ),
+        );
+        await settleShort(tester);
+        return (map().camera as FollowCamera).zoom;
+      }
+
+      // 92 m from the left turn: the closest the speed allows.
+      final steady = await at(50);
+      expect(await at(47), steady);
+      expect(await at(53), steady);
+      expect(await at(62), lessThan(steady), reason: 'faster: a wider closest');
+    });
+
+    testWidgets('parked, a fix that wanders moves neither the aim, the arrow nor the grey', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      // 142 m before the left turn: the view flattens as it comes.
+      await drive(tester, plan, toM: 50);
+      final camera = map().camera as FollowCamera;
+      final arrow = map().arrow;
+      expect(arrow, isNotNull);
+      expect(map().traveledM, closeTo(40, 15));
+      final along = driveFixes(plan.routes.first, toM: 80);
+      final clock = along.last.at;
+      var second = 0;
+      Future<void> fix(int index, double? speedMps) async {
+        final f = along[index];
+        feed.send(
+          Fix(
+            position: f.position,
+            accuracyM: 12,
+            at: clock.add(Duration(seconds: ++second)),
+            courseDeg: f.courseDeg,
+            speedMps: speedMps,
+          ),
+        );
+        await settleShort(tester);
+      }
+
+      // A parked receiver: under a walk, its place wandering 122 to 182 m
+      // before the turn, where the view would flatten and the grey move.
+      for (final i in [7, 2, 6, 1]) {
+        await fix(i, 0.4);
+        final now = map().camera as FollowCamera;
+        expect((now.zoom, now.tilt), (camera.zoom, camera.tilt));
+        expect(map().arrow, same(arrow));
+        expect(map().traveledM, isNull, reason: 'the grey drawn holds');
+      }
+      // Driving off 122 m before the turn: the view flattens toward it.
+      await fix(7, 8);
+      expect((map().camera as FollowCamera).tilt, lessThan(camera.tilt - 2));
+      expect(map().traveledM, closeTo(62, 15));
+      // A fix without a speed moves the grey, as it moves the vehicle.
+      await fix(8, null);
+      expect(map().traveledM, closeTo(80, 15));
+    });
+
+    testWidgets('parked when a new route comes, the view frames its first turn', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      // The route to the place chosen: the same road, a route of its own.
+      final toPlace = routeFixture('limoges_drive');
+      await guide(tester, plan, answers: [toPlace]);
+      // 142 m before the left turn, then a stop 102 m before it.
+      await drive(tester, plan, toM: 50);
+      final f = driveFixes(plan.routes.first, toM: 90).last;
+      feed.send(
+        Fix(
+          position: f.position,
+          accuracyM: 5,
+          at: f.at.add(const Duration(seconds: 10)),
+          courseDeg: f.courseDeg,
+          speedMps: 0,
+        ),
+      );
+      await settleShort(tester);
+      final held = (map().camera as FollowCamera).tilt;
+      expect(held, greaterThan(AutoTilt.junction + 2), reason: 'parked, the aim of 142 m holds');
+      // Still parked, the driver goes to a place instead.
+      map().onPlaceTap!(_aire);
+      await settleShort(tester);
+      await tester.tap(find.text('Y aller directement'));
+      await settleShort(tester);
+      expect(map().lines.firstWhere((l) => l.selected).points, same(toPlace.routes.first.line));
+      expect((map().camera as FollowCamera).tilt, closeTo(AutoTilt.junction, 0.5));
+    });
+
+    testWidgets('a guidance that starts parked frames its first turn', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      // The first position, at a stop 102 m before the left turn.
+      final f = driveFixes(plan.routes.first, toM: 90).last;
+      feed.send(
+        Fix(position: f.position, accuracyM: 5, at: f.at, courseDeg: f.courseDeg, speedMps: 0),
+      );
+      await settleShort(tester);
+      expect((map().camera as FollowCamera).tilt, closeTo(AutoTilt.junction, 0.5));
+    });
+
+    testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final arrow = map().arrow!;
+      final turn = plan.routes.first.steps[1].position;
+      expect(arrow.shaft.any((p) => p.distanceTo(turn) < 1), isTrue, reason: 'through the turn');
+      expect(map().traveledM, closeTo(100, 15));
+      // The map the user moved keeps it: the guidance goes on.
+      await gesture(tester);
+      expect(map().arrow, isNotNull, reason: 'the map free keeps the arrow');
+    });
+  });
+
   group('the places on the map', () {
     testWidgets("by default every place, from the main map's tiles, the best drawn large", (
       tester,
@@ -282,9 +462,15 @@ void main() {
       bool covered(Rect r) => map().rich!.obstacles.any(
         (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
       );
-      for (final tip in ['Lieux sur la carte', 'Voix complète', 'Tout le trajet']) {
+      for (final tip in ['Lieux sur la carte', 'Voix complète', 'Sur le trajet']) {
         expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
       }
+      expect(
+        tester.getRect(find.byTooltip('Tout le trajet')).top,
+        greaterThanOrEqualTo(phone.height - clear.bottom),
+        reason: 'on the bar, under the map',
+      );
+      expect(covered(tester.getRect(find.byType(SpeedAndLimit))), isTrue, reason: 'the speed');
       expect(
         map().rich!.obstacles.every((o) => o.top > banner.bottom + 60),
         isTrue,
@@ -295,7 +481,7 @@ void main() {
       expect(
         covered(tester.getRect(find.text('Recentrer'))),
         isTrue,
-        reason: '"Recentrer" over the bar',
+        reason: '"Recentrer" at the foot of the map',
       );
     });
 
@@ -316,13 +502,13 @@ void main() {
         bool covered(Rect r) => rich.obstacles.any(
           (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
         );
-        for (final tip in ['Lieux sur la carte', 'Tout le trajet']) {
+        for (final tip in ['Lieux sur la carte', 'Sur le trajet']) {
           expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
         }
         final recenter = find.byWidgetPredicate(
           (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
         );
-        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the top');
+        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the foot');
         expect(
           rich.limit,
           size.shortestSide < 600 ? RichMarks.compactLimit : RichMarks.expandedLimit,
@@ -646,18 +832,20 @@ void main() {
         expect(photos, cramped ? findsNothing : findsOneWidget);
         expect(map().rich!.style.photos, !cramped, reason: 'a photo shows with its credit');
         final barFinder = find
-            .ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material))
+            .ancestor(of: find.byTooltip('Arrêter le guidage'), matching: find.byType(SafeArea))
             .first;
         final bar = tester.getRect(barFinder);
+        // Never in the bar: there it made the bar taller (the PO's rule of
+        // 2026-10-10); under the maneuver, it covered the road ahead (audit
+        // 94, m9, captures).
+        expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
         if (size.width < size.height) {
-          // Upright, just above the bar while the map follows, the bar
-          // keeping its height: in it, the credit made it taller (the PO's
-          // rule of 2026-10-10); under the maneuver, it covered the road
-          // ahead (audit 94, m9, captures).
+          // Upright, just above the speed at the foot of the map while the
+          // map follows.
           final following = credit();
-          expect(following.bottom, lessThanOrEqualTo(bar.top), reason: '$following over $bar');
-          expect(following.bottom, greaterThan(bar.top - Space.s), reason: 'just above it');
-          expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
+          final speed = tester.getRect(find.byType(SpeedAndLimit));
+          expect(following.bottom, lessThanOrEqualTo(speed.top), reason: '$following over $speed');
+          expect(following.bottom, greaterThan(speed.top - Space.s), reason: 'just above it');
         }
         // Over "Recentrer" once the map is moved, which keeps its word.
         await gesture(tester);
@@ -696,6 +884,16 @@ void main() {
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
           expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
         }
+        // Clear of the road's name under the vehicle, while the map follows.
+        await tester.tap(
+          find.text('Recentrer').evaluate().isEmpty
+              ? find.byTooltip('Recentrer')
+              : find.text('Recentrer'),
+        );
+        await settleShort(tester);
+        final road = tester.getRect(find.byType(RoadNamePill));
+        expect(road.isEmpty, isFalse, reason: 'Rue des Vénitiens under the vehicle');
+        expect(credit().overlaps(road), isFalse, reason: "the road's name");
         // A caption: a touch while driving opens nothing.
         expect(tester.widget<MapCredit>(find.byType(MapCredit)).caption, isTrue);
         expect(

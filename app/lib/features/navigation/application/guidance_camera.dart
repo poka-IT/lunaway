@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
+import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -199,5 +203,118 @@ class GuidanceCamera extends _$GuidanceCamera {
     _idle = Timer(FreeMap.idleReturn, () {
       if (ref.mounted && !_touching && _held == 0) recenter();
     });
+  }
+}
+
+/// The arrow the guidance map draws on the route at the next maneuver
+/// ([arrowForManeuver]); none off the route, while a new one is sought or
+/// at the arrival. Worked out once per maneuver: where it lies along the
+/// route, the distance driven plus the distance to it, is the same at
+/// every fix of a step (read to the metre, so a rounding of the engine's
+/// sum changes nothing unless the sum falls on a half metre), and a fix
+/// that wanders, parked, neither moves it nor redraws the map.
+@riverpod
+ManeuverArrow? guidanceArrow(Ref ref) {
+  final ahead = ref.watch(
+    guidanceControllerProvider.select((s) {
+      final snap = s?.snapshot;
+      if (s == null ||
+          snap == null ||
+          snap.offRoute ||
+          s.phase != GuidancePhase.navigating ||
+          snap.status == GuidanceStatus.arrived) {
+        return null;
+      }
+      final steps = s.route.steps;
+      final i = snap.stepIndex;
+      final next = i + 1 < steps.length ? steps[i + 1] : null;
+      final type = snap.banner?.maneuverType ?? next?.maneuverType;
+      // A roundabout entered at the maneuver: its ring is the next step.
+      final ring = type == 'roundabout' || type == 'rotary' ? next?.distanceM ?? 0.0 : 0.0;
+      return (
+        line: s.route.line,
+        atM: (snap.distanceAlongM + snap.distanceToManeuverM).roundToDouble(),
+        type: type,
+        modifier: snap.banner?.modifier ?? next?.modifier,
+        ringM: ring,
+      );
+    }),
+  );
+  if (ahead == null) return null;
+  return arrowForManeuver(
+    ahead.line,
+    atM: ahead.atM,
+    type: ahead.type,
+    modifier: ahead.modifier,
+    ringM: ahead.ringM,
+  );
+}
+
+/// The zoom and the tilt the guidance map aims at while it follows
+/// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+/// wavers does not make the view breathe, and the next maneuver's distance
+/// and kind, so the camera frames it, closer as it comes, flatter over a
+/// junction, wider and toward the horizon down a long straight. The
+/// engines ease toward it at each frame of the glide.
+@riverpod
+class GuidanceAim extends _$GuidanceAim {
+  final _speed = SpeedHold();
+
+  /// The aim last worked out, with its route: parked on it, the aim holds, as
+  /// the drawn vehicle does ([AutoZoom.holdBelowMps]); a fix that wanders
+  /// by a few metres moves neither the zoom nor the tilt, and the map draws
+  /// no frame. One made before the first position frames nothing and is
+  /// not held, nor one of another route: a guidance that starts parked, or
+  /// a new route that comes while the vehicle stands, frames its first
+  /// maneuver.
+  ({CameraAim aim, RouteOption route})? _held;
+
+  @override
+  CameraAim build() {
+    // Listened rather than watched: the speed held lives in this notifier,
+    // which a rebuild at each fix would start over.
+    var building = true;
+    var first = restingAim;
+    ref.listen(guidanceControllerProvider, (_, session) {
+      final aim = _aimOf(session);
+      if (building) {
+        first = aim;
+      } else if (aim != state) {
+        state = aim;
+      }
+    }, fireImmediately: true);
+    building = false;
+    return first;
+  }
+
+  CameraAim _aimOf(GuidanceSession? session) {
+    final speed = session?.lastFix?.speedMps;
+    final kmh = _speed.update(speed);
+    if (_held case (:final aim, :final route)
+        when speed != null && speed < AutoZoom.holdBelowMps && identical(route, session?.route)) {
+      return aim;
+    }
+    final aim = _aimMoving(session, kmh);
+    if (session != null && session.snapshot != null) _held = (aim: aim, route: session.route);
+    return aim;
+  }
+
+  CameraAim _aimMoving(GuidanceSession? session, double kmh) {
+    final snap = session?.snapshot;
+    // Off the route the maneuver is that of a road the vehicle left.
+    if (session == null || snap == null || snap.offRoute) {
+      return autoAim(speedKmh: kmh, distanceToManeuverM: null);
+    }
+    final steps = session.route.steps;
+    final next = snap.stepIndex + 1 < steps.length ? steps[snap.stepIndex + 1] : null;
+    return autoAim(
+      speedKmh: kmh,
+      distanceToManeuverM: snap.distanceToManeuverM,
+      maneuverType: snap.banner?.maneuverType ?? next?.maneuverType,
+      modifier: snap.banner?.modifier ?? next?.modifier,
+      // The road after the next maneuver, to the one after it.
+      afterM: next?.distanceM,
+      motorway: session.step?.motorway ?? false,
+    );
   }
 }

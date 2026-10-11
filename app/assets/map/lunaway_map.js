@@ -894,6 +894,17 @@
       }
       return true;
     },
+    // Paint properties of one of the app's layers (the route greying
+    // behind the vehicle), kept for the next style change.
+    setPaint: function (id, paint) {
+      spec.layers.forEach(function (layer) {
+        if (layer.id === id) layer.paint = Object.assign({}, layer.paint, paint);
+      });
+      if (map && map.getLayer(id)) {
+        Object.keys(paint).forEach(function (name) { map.setPaintProperty(id, name, paint[name]); });
+      }
+      return true;
+    },
     setData: function (sourceId, collection) {
       data[sourceId] = collection;
       var source = map && map.getSource(sourceId);

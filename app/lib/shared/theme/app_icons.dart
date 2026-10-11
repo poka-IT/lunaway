@@ -152,6 +152,8 @@ abstract final class AppIcons {
   static const IconData waiting = PhosphorRegular.clockCountdown;
   static const IconData report = PhosphorRegular.flag;
   static const IconData ferry = PhosphorRegular.boat;
+  static const IconData tollBooth = PhosphorRegular.coins;
+  static const IconData border = PhosphorRegular.signpost;
   static const IconData trust = PhosphorRegular.shieldStar;
   static const IconData print = PhosphorRegular.printer;
   static const IconData account = PhosphorRegular.userCircle;

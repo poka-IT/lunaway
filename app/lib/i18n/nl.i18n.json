@@ -835,6 +835,11 @@
     },
     "guidance": {
       "then": "Daarna",
+      "exit": "Afrit $ref",
+      "currentRoad": "Op $road",
+      "tollAhead": "Tolpoort over $distance",
+      "borderAhead": "Grens: $country over $distance",
+      "options": "Navigatieopties",
       "arrival": "Aankomst $time",
       "offRoute": "Van de route af",
       "rerouting": "Nieuwe route wordt gezocht",

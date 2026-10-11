@@ -48,6 +48,7 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fake_api.dart';
+import '../helpers/guidance_finders.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
@@ -1060,13 +1061,103 @@ void main() {
       await drive(tester, plan, toM: 100);
       expect(find.text('90 m'), findsOneWidget, reason: 'to the left turn at 192 m');
       expect(find.text('Boulevard Carnot'), findsOneWidget);
-      expect(find.textContaining('Arrivée'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^\d+ min$')), findsOneWidget, reason: 'the time left');
+      expect(
+        guidanceSaid(RegExp(r'^[\d,]+ km, Arrivée \d')),
+        findsOneWidget,
+        reason: 'the distance left and the arrival time, as a screen reader hears them',
+      );
       expect(find.text('36'), findsOneWidget, reason: '10 m/s');
       expect(find.text('50'), findsOneWidget, reason: 'the limit sign');
+      expect(find.text('Rue des Vénitiens'), findsOneWidget, reason: 'the road under the vehicle');
+      expect(guidanceSaid('Sur Rue des Vénitiens'), findsOneWidget);
       final map = SchematicRouteMap.last!;
       expect(map.camera, isA<FollowCamera>());
       expect(map.vehicle, isNotNull);
     });
+
+    testWidgets(
+      'a motorway exit shows its number on the banner, as on its sign; the road its own',
+      (tester) async {
+        final plan = routeFixture(
+          'limoges_drive',
+          edit: (answer) {
+            final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+            final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+            final leg = (route['legs'] as List).first as Map<String, dynamic>;
+            final steps = leg['steps'] as List;
+            // The off ramp after Boulevard Carnot, numbered.
+            (steps[2] as Map)['exits'] = '17';
+            // The first street taken for a motorway, by its numbers.
+            final first = steps[0] as Map;
+            first['ref'] = 'A 20; E 9';
+            ((first['intersections'] as List)[0] as Map)['classes'] = ['motorway'];
+            answer['osrmJson'] = jsonEncode(osrm);
+          },
+        );
+        await guide(tester, plan);
+        await drive(tester, plan, toM: 100);
+        expect(find.text('Sortie 17'), findsNothing, reason: 'the left turn first');
+        expect(find.text('A 20'), findsOneWidget, reason: 'a motorway by its first number');
+        expect(find.text('Rue des Vénitiens'), findsNothing);
+        await drive(tester, plan, toM: 200);
+        expect(find.text('Sortie 17'), findsOneWidget);
+      },
+    );
+
+    testWidgets('the bar opens its options at a tap or a swipe up; a choice closes them', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      Finder option(String label) => find.widgetWithText(ListTile, label);
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'folded at first');
+      await openGuidanceOptions(tester);
+      for (final label in [
+        'Sur le trajet',
+        'Lieux sur la carte',
+        'Signaler un problème sur la route',
+      ]) {
+        expect(option(label), findsOneWidget, reason: label);
+      }
+      await tester.tap(guidanceOptionsHandle);
+      await settleShort(tester);
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'the handle folds them');
+      await tester.fling(find.textContaining(RegExp(r'^\d+ min$')), const Offset(0, -120), 800);
+      await settleShort(tester);
+      expect(option('Lieux sur la carte'), findsOneWidget, reason: 'a swipe up opens them');
+      await tester.tap(option('Lieux sur la carte'));
+      await settleShort(tester);
+      expect(find.widgetWithText(ChoiceChip, 'Pour dormir'), findsOneWidget, reason: 'its sheet');
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'closed by the choice');
+    });
+
+    testWidgets(
+      'a screen reader opens the options from the middle of the bar, told folded or not',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan);
+        await drive(tester, plan, toM: 100);
+        final middle = find.semantics.byHint('Options du guidage');
+        expect(middle, findsOne);
+        expect(
+          tester.getSemantics(guidanceOptionsHandle),
+          isSemantics(
+            isButton: true,
+            hasExpandedState: true,
+            isExpanded: false,
+            hasTapAction: true,
+          ),
+        );
+        tester.semantics.tap(middle);
+        await settleShort(tester);
+        expect(find.widgetWithText(ListTile, 'Lieux sur la carte'), findsOneWidget);
+        expect(tester.getSemantics(guidanceOptionsHandle), isSemantics(isExpanded: true));
+        semantics.dispose();
+      },
+    );
 
     testWidgets('outside the countries that take reports, the button says where they are taken', (
       tester,
@@ -1553,7 +1644,12 @@ void main() {
       final left = container.read(guidanceControllerProvider)!.snapshot!.durationRemainingS;
       final t = await AppLocale.fr.build();
       final eta = now.add(Duration(seconds: left.round())).toLocal();
-      expect(find.text('Arrivée ${t.clockTime(eta)}'), findsOneWidget, reason: 'never in the past');
+      expect(
+        guidanceSaid(RegExp('Arrivée ${RegExp.escape(t.clockTime(eta))}\$')),
+        findsOneWidget,
+        reason: 'never in the past',
+      );
+      expect(find.textContaining(' · ${t.clockTime(eta)}'), findsOneWidget);
       // Arrived: the position is no longer asked for, its age says nothing.
       await drive(tester, plan);
       expect(container.read(guidanceControllerProvider)!.phase, GuidancePhase.arrived);
@@ -1590,15 +1686,20 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan, toM: 100);
-      final bar = tester.getRect(
-        find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
-      );
+      final close = find.byTooltip('Arrêter le guidage');
+      // The bar's own frame, inside its panel.
+      final bar = tester.getRect(find.ancestor(of: close, matching: find.byType(SafeArea)).first);
       expect(bar.left, 44 + Space.s, reason: 'beside the notch');
       expect(bar.bottom, 400 - 21 - Space.s, reason: 'above the home bar');
       expect(
-        tester.getRect(find.byType(SpeedAndLimit)).left - bar.left,
-        Space.l,
+        tester.getRect(close).left - bar.left,
+        Space.s,
         reason: "the bar's own margin, not the notch again",
+      );
+      expect(
+        tester.getRect(find.byType(SpeedAndLimit)).left,
+        44 + 380 + Space.s,
+        reason: 'the speed at the foot of the map, beside the panel',
       );
     });
 
@@ -1631,7 +1732,7 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan, toM: 100);
-      for (final tip in ['Voix complète', 'Tout le trajet']) {
+      for (final tip in ['Voix complète', 'Sur le trajet', 'Signaler un problème sur la route']) {
         expect(tester.getRect(find.byTooltip(tip)).right, 860 - 44 - Space.s, reason: tip);
       }
     });

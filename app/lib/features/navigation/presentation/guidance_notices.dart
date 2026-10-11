@@ -145,6 +145,28 @@ RouteRoadEvent? passedCommunityReport(RouteOption route, double along) =>
       return e.event.source == communityRoadSource && behind >= 0 && behind <= _askPassedWithinM;
     }).lastOrNull;
 
+/// How far ahead a toll booth is told, metres: time to slow down and have
+/// the card ready.
+const tollTellM = 1500.0;
+
+/// How far ahead a border is told, metres: time to read which country
+/// comes, its signs and its rules.
+const borderTellM = 3000.0;
+
+/// The toll booth or the border [route] passes next within its reach
+/// ([tollTellM], [borderTellM]) ahead of [along], and how far.
+({RouteCrossing crossing, double aheadM})? crossingAhead(RouteOption route, double along) {
+  for (final c in route.crossings) {
+    final ahead = c.alongM - along;
+    if (ahead < 0) continue;
+    if (ahead > borderTellM) break;
+    if (ahead <= (c.kind == CrossingKind.tollBooth ? tollTellM : borderTellM)) {
+      return (crossing: c, aheadM: ahead);
+    }
+  }
+  return null;
+}
+
 /// How near something ahead is, as a level of its notice: 1 beyond the
 /// first call of the voice, then one more at each ([warningCallsM]). A
 /// notice folded far away opens again when the voice next speaks of it.
@@ -280,6 +302,26 @@ class GuidanceNotices extends ConsumerWidget {
               ),
           ].join('\n'),
         ),
+      // A toll booth or a border coming: the vehicle stops to pay, or
+      // enters another country's signs and rules.
+      if (session.snapshot case final snap? when !snap.offRoute)
+        if (crossingAhead(session.route, snap.distanceAlongM) case final c?)
+          StandingNotice(
+            id: ('crossing', c.crossing.kind, c.crossing.alongM),
+            icon: switch (c.crossing.kind) {
+              CrossingKind.tollBooth => AppIcons.tollBooth,
+              CrossingKind.border => AppIcons.border,
+            },
+            text: switch (c.crossing.kind) {
+              CrossingKind.tollBooth => t.navigation.guidance.tollAhead(
+                distance: t.routeDistance(c.aheadM, units),
+              ),
+              CrossingKind.border => t.navigation.guidance.borderAhead(
+                country: t.countryName(c.crossing.country ?? ''),
+                distance: t.routeDistance(c.aheadM, units),
+              ),
+            },
+          ),
       // A community report just passed: still there, or over?
       if (passedCommunityReport(session.route, along) case final passed?)
         StandingNotice(

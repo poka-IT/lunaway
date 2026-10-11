@@ -7,8 +7,8 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 
 void main() {
-  const follow = FollowCamera(position: LatLng(45.84, 1.28), course: 90, speedMps: 10);
-  const nextFix = FollowCamera(position: LatLng(45.841, 1.28), course: 90, speedMps: 10);
+  const follow = FollowCamera(position: LatLng(45.84, 1.28), course: 90, zoom: 16);
+  const nextFix = FollowCamera(position: LatLng(45.841, 1.28), course: 90, zoom: 16);
   const free = FreeCamera();
   const whole = FitCamera(GeoBounds(south: 45.8, west: 1.2, north: 45.9, east: 1.3));
 
@@ -41,7 +41,7 @@ void main() {
       const snapped = FollowCamera(
         position: LatLng(45.841, 1.28),
         course: 90,
-        speedMps: 10,
+        zoom: 16,
         request: 1,
       );
       expect(heldAfter(held: true, before: follow, after: snapped), isFalse);

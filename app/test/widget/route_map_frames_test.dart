@@ -54,8 +54,8 @@ RouteMapProps _props(LatLng at, double speedMps) => RouteMapProps(
   lines: [RouteMapLine(index: 0, points: _line, selected: true)],
   vehicle: VehiclePuck(position: at, course: 40, speedMps: speedMps),
   // Following at once: the way in from another view is not what is
-  // measured.
-  camera: FollowCamera(position: at, course: 40, speedMps: speedMps, ease: Duration.zero),
+  // measured. The zoom and the tilt hold while parked (`GuidanceAim`).
+  camera: FollowCamera(position: at, course: 40, ease: Duration.zero),
   guiding: true,
   places: const RouteMapPlaces(
     placeTileJsonUrl: 'https://api.example/places/tiles.json',

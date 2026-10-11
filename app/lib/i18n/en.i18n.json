@@ -835,6 +835,11 @@
     },
     "guidance": {
       "then": "Then",
+      "exit": "Exit $ref",
+      "currentRoad": "On $road",
+      "tollAhead": "Toll booth in $distance",
+      "borderAhead": "Border: $country in $distance",
+      "options": "Guidance options",
       "arrival": "Arrive $time",
       "offRoute": "Off the route",
       "rerouting": "Finding a new route",

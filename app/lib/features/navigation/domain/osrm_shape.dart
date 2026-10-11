@@ -48,10 +48,14 @@ double _pow10(int n) {
   return v;
 }
 
+/// A route's shape, its steps and what it passes, read from an OSRM answer.
+typedef OsrmShape = ({List<LatLng> line, List<RouteStep> steps, List<RouteCrossing> crossings});
+
 /// The shapes and steps of every route of an OSRM answer (`osrmJson`), in
-/// its order: what the preview draws and lists. Runs in an isolate for long
-/// trips (`Isolate.run` at the call site): a 90 km answer is 200 KB.
-List<({List<LatLng> line, List<RouteStep> steps})> readOsrmShapes(String osrmJson) {
+/// its order: what the preview draws and lists, and the toll booths and
+/// borders the guidance tells of. Runs in an isolate for long trips
+/// (`Isolate.run` at the call site): a 90 km answer is 200 KB.
+List<OsrmShape> readOsrmShapes(String osrmJson) {
   final decoded = jsonDecode(osrmJson);
   if (decoded is! Map<String, dynamic>) return const [];
   final routes = decoded['routes'];
@@ -59,8 +63,102 @@ List<({List<LatLng> line, List<RouteStep> steps})> readOsrmShapes(String osrmJso
   return [
     for (final route in routes)
       if (route is Map<String, dynamic>)
-        (line: decodePolyline('${route['geometry'] ?? ''}'), steps: _steps(route)),
+        if (decodePolyline('${route['geometry'] ?? ''}') case final line)
+          (line: line, steps: _steps(route), crossings: _crossings(route, line)),
   ];
+}
+
+/// The toll booths (an intersection with `toll_collection`) and the borders
+/// (an intersection in another country than the one before, by the leg's
+/// `admins`) of [route], each placed on [line] by its location: the vertex
+/// of the line nearest to it near where its step lies, in metres as the
+/// guidance counts them.
+List<RouteCrossing> _crossings(Map<String, dynamic> route, List<LatLng> line) {
+  if (line.length < 2) return const [];
+  final along = List<double>.filled(line.length, 0);
+  for (var i = 1; i < line.length; i++) {
+    along[i] = along[i - 1] + line[i - 1].distanceTo(line[i]);
+  }
+  // The vertex nearest to [at] between [fromM] and [toM] along the line.
+  int nearest(LatLng at, double fromM, double toM) {
+    var best = -1;
+    var bestM = double.infinity;
+    var i = _firstAtOrAfter(along, fromM);
+    for (; i < line.length && along[i] <= toM; i++) {
+      final d = line[i].distanceTo(at);
+      if (d < bestM) {
+        bestM = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  final out = <RouteCrossing>[];
+  var stepStart = 0.0;
+  String? country;
+  final legs = route['legs'];
+  if (legs is! List) return const [];
+  for (final leg in legs) {
+    if (leg is! Map<String, dynamic>) continue;
+    final admins = [
+      for (final a in (leg['admins'] as List?) ?? const [])
+        if (a is Map<String, dynamic>) (a['iso_3166_1'] as String?) else null,
+    ];
+    for (final step in (leg['steps'] as List?) ?? const []) {
+      if (step is! Map<String, dynamic>) continue;
+      final length = (step['distance'] as num?)?.toDouble() ?? 0;
+      // Placed again on the line at its maneuver: over a long trip the
+      // router's metres and the line's drift apart.
+      if (_location(step['maneuver']) case final at?) {
+        final v = nearest(at, stepStart - 300, stepStart + 300);
+        if (v >= 0) stepStart = along[v];
+      }
+      for (final i in (step['intersections'] as List?) ?? const []) {
+        if (i is! Map<String, dynamic>) continue;
+        final at = _location(i);
+        final index = i['admin_index'];
+        final here = index is int && index >= 0 && index < admins.length ? admins[index] : null;
+        final border = here != null && country != null && here != country;
+        if (here != null) country = here;
+        final toll = i['toll_collection'] is Map;
+        if (at == null || (!toll && !border)) continue;
+        // The router's metres and the line's drift apart over a long trip:
+        // the step is searched with some slack either side.
+        final v = nearest(at, stepStart - 300, stepStart + length + 300);
+        if (v < 0) continue;
+        out.add(
+          RouteCrossing(
+            kind: border ? CrossingKind.border : CrossingKind.tollBooth,
+            alongM: along[v],
+            position: line[v],
+            country: border ? here : null,
+          ),
+        );
+        // An intersection that is both says the border; its booth follows.
+        if (border && toll) {
+          out.add(RouteCrossing(kind: CrossingKind.tollBooth, alongM: along[v], position: line[v]));
+        }
+      }
+      stepStart += length;
+    }
+  }
+  return out;
+}
+
+/// The first index of the sorted [values] at or after [x].
+int _firstAtOrAfter(List<double> values, double x) {
+  var low = 0;
+  var high = values.length;
+  while (low < high) {
+    final mid = (low + high) ~/ 2;
+    if (values[mid] < x) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+  return low;
 }
 
 List<RouteStep> _steps(Map<String, dynamic> route) {
@@ -127,7 +225,21 @@ RouteStep _step(
     leftHandTraffic: leftHand,
     ferry: s['mode'] == 'ferry',
     lanes: _lanesBefore(s, next),
+    roadRef: _text(s['ref']),
+    exitRef: _text(s['exits']),
+    signs: _text(s['destinations']),
+    motorway: switch (s['intersections']) {
+      [final Map<String, dynamic> first, ...] =>
+        (first['classes'] as List?)?.contains('motorway') ?? false,
+      _ => false,
+    },
   );
+}
+
+/// [value] as a text, null when absent or blank.
+String? _text(Object? value) {
+  final text = value is String ? value.trim() : null;
+  return text == null || text.isEmpty ? null : text;
 }
 
 Map<String, dynamic> _maneuverOf(Map<String, dynamic>? step) =>

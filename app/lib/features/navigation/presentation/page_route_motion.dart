@@ -13,12 +13,13 @@ abstract interface class PageRouteMotion {
   /// No vehicle any more: no frame draws it back.
   void clear();
 
-  /// Behind the vehicle at [zoom], its centre inside [padding]. [enter]
+  /// Behind the vehicle at [zoom] and [tilt], its centre inside [padding]. [enter]
   /// starts following, from the view the map has, over [ease]; without it,
   /// a map the user took stays free (the page stopped following at the
   /// gesture, before the app heard of it).
   void follow({
     required double zoom,
+    required double tilt,
     required EdgeInsets padding,
     required Duration ease,
     required bool enter,

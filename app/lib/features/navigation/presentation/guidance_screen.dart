@@ -43,7 +43,7 @@ import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/legs_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
@@ -377,8 +377,8 @@ class _Portrait extends ConsumerStatefulWidget {
 }
 
 class _PortraitState extends ConsumerState<_Portrait> {
-  /// The bottom bar's height as it was laid out: large text makes it taller,
-  /// and the map buttons, "Recentrer" and the vehicle stay above it.
+  /// The bottom bar's height as it was laid out: large text and its options
+  /// make it taller, and what stands over the map stays above it.
   double _bar = 140;
 
   /// The arrival's card's height as laid out: the map's credit stands
@@ -394,85 +394,88 @@ class _PortraitState extends ConsumerState<_Portrait> {
   /// route framed below them stays put while a message comes and goes.
   double _overviewNotices = 0;
 
-  /// Where the buttons' column and "Recentrer" stand, as laid out.
+  /// Where the buttons' column and the foot of the map stand, as laid out.
   final _over = _OverTheMap();
 
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
-    final above = _bar + Space.s;
+    final above = (arrived ? _card : _bar) + Space.s;
     final safe = MediaQuery.paddingOf(context);
     final screen = MediaQuery.sizeOf(context);
-    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
     final overview = ref.watch(
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
     _overviewNotices = overview ? math.max(_overviewNotices, _notices) : 0;
     final padding = EdgeInsets.only(top: 220, bottom: _bar);
-    // "Recentrer" and the stops' strip, centred over the bar as their
-    // CentredClear places them.
-    Rect overBar(Size size, {required double lo}) {
+    // The foot of the map on the left (the credit over the speed, or
+    // "Recentrer"), left of the road behind the vehicle: under the
+    // maneuver, the credit covered the road ahead.
+    final footLeft = safe.left + Space.s;
+    final following = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.follow),
+    );
+    // Away from following, the vehicle is elsewhere: "Recentrer" may run
+    // up to the buttons.
+    final footRight = following
+        ? math.max(safe.right + Space.s, screen.width - _vehicleColumn(screen, padding))
+        : safe.right + _buttonsColumn;
+    final pill = arrived ? Size.zero : _over.pill ?? Size.zero;
+    // The credit keeps left of the road behind the vehicle, wherever the
+    // map is.
+    final creditRight = math.max(
+      safe.right + Space.s,
+      screen.width - _vehicleColumn(screen, padding),
+    );
+    // The middle of the foot (the road's name, or the stops' strip of the
+    // overview), centred on the screen, aside only as far as the pill and
+    // the column require, as its CentredClear places it.
+    final middleFrom = pill.width > 0 ? footLeft + pill.width + Space.s : safe.left + Space.s;
+    Rect middle(Size size) {
       final span = centredSpan(
         centre: screen.width / 2,
         width: size.width,
-        lo: lo,
+        lo: middleFrom,
         hi: screen.width - safe.right - _buttonsColumn,
       );
       return Rect.fromLTWH(span.left, screen.height - above - size.height, span.width, size.height);
     }
 
-    // The camera or the danger zone, beside the speed and its limit, which
-    // the bar shows on its left: just above the bar at its left edge, left
-    // of the road behind the vehicle; over "Recentrer" or the stops' strip
-    // while one shows beside it, which keep their place and their width.
+    Rect atFoot(Size size) =>
+        Rect.fromLTWH(footLeft, screen.height - above - size.height, size.width, size.height);
+    // The camera or the danger zone ([GuidanceAidNotices]) over the speed
+    // and its limit at the foot's left edge, and over the middle where it
+    // reaches under the pill (the stops' strip of the overview).
     final aid = arrived ? null : _over.aid;
     final aidShown = aid != null && !aid.isEmpty;
-    var aidBottom = above;
-    if (aidShown) {
-      final end = safe.left + Space.s + aid.width;
-      for (final (size, lo) in [
-        if (free) (_over.recenter, safe.left),
-        (_over.legs, safe.left + Space.s),
-      ]) {
-        if (size == null || size.isEmpty) continue;
-        if (overBar(size, lo: lo).left < end + Space.s) {
-          aidBottom = math.max(aidBottom, above + size.height + Space.s);
-        }
+    var aidBottom = above + (pill.height > 0 ? pill.height + Space.s : 0);
+    if ((_over.middle, aid) case (final size?, final aid?) when aidShown && !size.isEmpty) {
+      if (middle(size).left < footLeft + aid.width + Space.s) {
+        aidBottom = math.max(aidBottom, above + size.height + Space.s);
       }
     }
-    // The map's credit, small over the map just above the bar (or the
-    // arrival's card), left of the road behind the vehicle: in the bar it
-    // made the bar taller (the PO's rule of 2026-10-10). Over "Recentrer"
-    // or the stops' strip while one shows beside it, which keep their
-    // place and their width; over the camera's pill while it shows.
-    var creditBottom = (arrived ? _card : _bar) + Space.xs;
-    if (_over.credit case final credit? when !arrived) {
-      final end = safe.left + Space.s + credit.width;
-      for (final (size, lo) in [
-        if (free) (_over.recenter, safe.left),
-        (_over.legs, safe.left + Space.s),
-      ]) {
-        if (size == null || size.isEmpty) continue;
-        if (overBar(size, lo: lo).left < end + Space.s) {
-          creditBottom = math.max(creditBottom, above + size.height + Space.xs);
-        }
+    // The map's credit over the pill, and over the middle where it reaches
+    // under the credit (the stops' strip of the overview); over the
+    // camera's pill while it shows.
+    var creditBottom = arrived
+        ? _card + Space.xs
+        : above + (pill.height > 0 ? pill.height + Space.xs : 0);
+    if ((_over.middle, _over.credit) case (final size?, final credit?) when !size.isEmpty) {
+      if (middle(size).left < footLeft + credit.width + Space.s) {
+        creditBottom = math.max(creditBottom, above + size.height + Space.xs);
       }
-      if (aidShown) creditBottom = math.max(creditBottom, aidBottom + aid.height + Space.xs);
     }
-    final creditRight = math.max(
-      safe.right + Space.s,
-      screen.width - _vehicleColumn(screen, padding),
-    );
-    // The pill as wide as the buttons' column leaves it where it stands
-    // below the vehicle, the vehicle being what it must never cover; left
-    // of the road behind the vehicle otherwise, as the credit.
+    if (aidShown) creditBottom = math.max(creditBottom, aidBottom + aid.height + Space.xs);
+    // The camera's pill as wide as the buttons' column leaves it where it
+    // stands below the vehicle, the vehicle being what it must never cover;
+    // left of the road behind the vehicle otherwise, as the credit.
     final aidTop = screen.height - aidBottom - (aidShown ? aid.height : _aidHeight);
     final aidRight = aidTop >= followAnchor(screen, padding).dy + 15 + Space.s
         ? safe.right + _buttonsColumn
         : creditRight;
     Rect creditRect(Size size) => Rect.fromLTWH(
-      safe.left + Space.s,
+      footLeft,
       screen.height - creditBottom - size.height,
       size.width,
       size.height,
@@ -484,6 +487,8 @@ class _PortraitState extends ConsumerState<_Portrait> {
             session: session,
             padding: padding,
             stripBottom: above - _bar,
+            // "Recentrer" at the foot of the whole route.
+            footRoom: above - _bar + (pill.height > 0 ? pill.height + Space.s : 0),
             clear: EdgeInsets.fromLTRB(
               safe.left,
               safe.top + Space.s + _banner + (_notices > 0 ? Space.s + _notices : 0),
@@ -501,7 +506,6 @@ class _PortraitState extends ConsumerState<_Portrait> {
             obstacles: arrived
                 ? [if (_over.credit case final size?) creditRect(size)]
                 : _over.rects(
-                    free: free,
                     // At the bottom right, over the bar.
                     buttons: (size) => Rect.fromLTWH(
                       screen.width - safe.right - Space.s - size.width,
@@ -509,14 +513,11 @@ class _PortraitState extends ConsumerState<_Portrait> {
                       size.width,
                       size.height,
                     ),
-                    // Centred on the screen over the bar, aside only as far
-                    // as the column requires, as its CentredClear places it.
-                    recenter: (size) => overBar(size, lo: safe.left),
-                    // At the same height, as its CentredClear places it.
-                    legs: (size) => overBar(size, lo: safe.left + Space.s),
+                    pill: atFoot,
                     credit: creditRect,
+                    middle: middle,
                     aid: (size) => Rect.fromLTWH(
-                      safe.left + Space.s,
+                      footLeft,
                       screen.height - aidBottom - size.height,
                       size.width,
                       size.height,
@@ -541,7 +542,7 @@ class _PortraitState extends ConsumerState<_Portrait> {
                     onHeight: (height) {
                       if (mounted && height != _banner) setState(() => _banner = height);
                     },
-                    child: _ManeuverBanner(session: session),
+                    child: ManeuverPanel(session: session),
                   ),
             notices: ReportsHeight(
               onHeight: (height) {
@@ -557,43 +558,8 @@ class _PortraitState extends ConsumerState<_Portrait> {
                   ),
           ),
         ),
-        // In the middle of the screen, level with the foot of the buttons'
-        // column: large text or a long word moves it aside only by what it
-        // would cover of them.
-        if (!arrived)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: above,
-            child: CentredClear(
-              obstacles: [SideRoom.left(safe.left), SideRoom.right(safe.right + _buttonsColumn)],
-              child: ReportsRect(
-                onRect: (rect) => setState(() => _over.recenter = rect.size),
-                child: const _RecenterButton(),
-              ),
-            ),
-          ),
-        // The stops of the trip, in the overview: one line over the bar,
-        // centred on the screen, aside only as far as the buttons' column
-        // requires.
-        if (!arrived)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: above,
-            child: CentredClear(
-              obstacles: [
-                SideRoom.left(safe.left + Space.s),
-                SideRoom.right(safe.right + _buttonsColumn),
-              ],
-              child: ReportsRect(
-                onRect: (rect) => setState(() => _over.legs = rect.size),
-                child: GuidanceLegsStrip(session: session),
-              ),
-            ),
-          ),
         Positioned(
-          left: safe.left + Space.s,
+          left: footLeft,
           right: creditRight,
           bottom: creditBottom,
           child: Align(
@@ -608,7 +574,40 @@ class _PortraitState extends ConsumerState<_Portrait> {
         ),
         if (!arrived)
           Positioned(
-            left: safe.left + Space.s,
+            left: footLeft,
+            right: footRight,
+            bottom: above,
+            child: Align(
+              alignment: AlignmentDirectional.bottomStart,
+              child: ReportsRect(
+                onRect: (rect) {
+                  if (rect.size != _over.pill) setState(() => _over.pill = rect.size);
+                },
+                child: _FootPill(session: session),
+              ),
+            ),
+          ),
+        // The road the vehicle is on, under it; the stops of the trip in the
+        // overview.
+        if (!arrived)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: above,
+            child: CentredClear(
+              obstacles: [SideRoom.left(middleFrom), SideRoom.right(safe.right + _buttonsColumn)],
+              child: ReportsRect(
+                onRect: (rect) {
+                  if (rect.size != _over.middle) setState(() => _over.middle = rect.size);
+                },
+                child: _FootMiddle(session: session),
+              ),
+            ),
+          ),
+        // The camera or the danger zone over the speed.
+        if (!arrived)
+          Positioned(
+            left: footLeft,
             right: aidRight,
             bottom: aidBottom,
             child: _AidPill(
@@ -784,10 +783,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final arrived = session.phase == GuidancePhase.arrived;
     final safe = MediaQuery.paddingOf(context);
     final left = safe.left + _sidePanel;
-    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
-    final overview = ref.watch(
-      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
-    );
+    final mode = ref.watch(guidanceCameraProvider.select((v) => v.mode));
+    final overview = mode == GuidanceCameraMode.overview;
+    final following = mode == GuidanceCameraMode.follow;
     // The strip of the stops at the foot of the map beside the panel, unless
     // the column of buttons leaves it too little room there: then over the
     // bar, from the panel's edge to the column, as upright, when the panel
@@ -805,22 +803,63 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final legsAbove = legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
         ? legsHeight
         : 0.0;
-    // The camera or the danger zone in the panel just above the bar, which
-    // shows the speed and its limit, over the strip when it runs there; the
-    // maneuver and the notices end above it.
+    // The camera or the danger zone in the panel just above the bar, over
+    // the strip when it runs there; the maneuver and the notices end above
+    // it.
     final aidBottom =
         safe.bottom + Space.s + _bar + Space.s + (legsAbove > 0 ? legsAbove + Space.s : 0);
     final aidAbove = !arrived && _aid > 0 ? _aid + Space.s : 0.0;
-    // The map's credit at the foot of the map, over the strip when it runs
-    // there: the panel of a phone on its side has no height to spare.
-    final creditBottom = !legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
+    // The foot of the map (the credit over the speed or "Recentrer") at
+    // the foot of the map, over the strip when it runs there: the panel of
+    // a phone on its side has no height to spare.
+    final footBottom = !legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
         ? legsBottom + legsHeight + Space.xs
         : safe.bottom + Space.s;
+    final pill = arrived ? Size.zero : _over.pill ?? Size.zero;
+    // The credit at the foot, the pill over it: beside the panel the map may
+    // be narrow, and the credit then runs up to the buttons under the
+    // vehicle, where the pill would not fit.
+    final creditBottom = footBottom;
+    final credit = _over.credit;
+    final pillBottom =
+        footBottom + (credit == null || credit.isEmpty ? 0 : credit.height + Space.xs);
     return LayoutBuilder(
       builder: (context, box) {
         final creditRight = _creditRight(box.biggest, left);
         // Measured once: the map and the credit read the same answer.
         final photos = _photosRoom(context, box.biggest, left, creditRight);
+        // The road's name at the foot of the map, centred on it beside the
+        // panel, clear of the foot and of the column.
+        // The credit shares the foot's line with it; the pill is over it.
+        final footWidth = math.max(pill.width, credit?.width ?? 0);
+        final roadFrom = Space.s + (footWidth > 0 ? footWidth + Space.s : 0);
+        Rect road(Size size) {
+          final span = centredSpan(
+            centre: (left + box.maxWidth) / 2,
+            width: size.width,
+            lo: left + roadFrom,
+            hi: box.maxWidth - safe.right - _buttonsColumn,
+          );
+          return Rect.fromLTWH(
+            span.left,
+            box.maxHeight - safe.bottom - Space.s - size.height,
+            span.width,
+            size.height,
+          );
+        }
+
+        Rect atFoot(Size size) => Rect.fromLTWH(
+          left + Space.s,
+          box.maxHeight - pillBottom - size.height,
+          size.width,
+          size.height,
+        );
+        Rect creditRect(Size size) => Rect.fromLTWH(
+          left + Space.s,
+          box.maxHeight - creditBottom - size.height,
+          size.width,
+          size.height,
+        );
         return Stack(
           children: [
             // The map takes the whole window; its insets keep the vehicle
@@ -830,43 +869,25 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 session: session,
                 padding: EdgeInsets.only(left: left),
                 stripBottom: legsBottom,
+                // "Recentrer" at the foot of the whole route.
+                footRoom: pillBottom + (pill.height > 0 ? pill.height + Space.s : 0),
                 photosCredited: photos,
                 clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
                 obstacles: arrived
                     // The credit stays over the map at the arrival.
-                    ? [
-                        if (_over.credit case final size?)
-                          Rect.fromLTWH(
-                            left + Space.s,
-                            box.maxHeight - creditBottom - size.height,
-                            size.width,
-                            size.height,
-                          ),
-                      ]
+                    ? [if (_over.credit case final size?) creditRect(size)]
                     : _over.rects(
-                        free: free,
                         buttons: (size) => Rect.fromLTWH(
                           box.maxWidth - safe.right - Space.s - size.width,
                           box.maxHeight - safe.bottom - Space.l - size.height,
                           size.width,
                           size.height,
                         ),
-                        // At the top left of the map.
-                        recenter: (size) => Rect.fromLTWH(
-                          left + Space.s,
-                          safe.top + Space.s,
-                          size.width,
-                          size.height,
-                        ),
-                        // At its foot, on the left.
-                        credit: (size) => Rect.fromLTWH(
-                          left + Space.s,
-                          box.maxHeight - creditBottom - size.height,
-                          size.width,
-                          size.height,
-                        ),
+                        pill: atFoot,
+                        credit: creditRect,
+                        road: road,
                         // As its CentredClear places it.
-                        legs: (size) {
+                        middle: (size) {
                           final span = centredSpan(
                             centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
                             width: size.width,
@@ -916,7 +937,7 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                             onHeight: (height) {
                               if (mounted && height != _banner) setState(() => _banner = height);
                             },
-                            child: _ManeuverBanner(session: session),
+                            child: ManeuverPanel(session: session),
                           ),
                         GuidanceNotices(session: session),
                       ],
@@ -925,9 +946,8 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 ),
               ),
             ),
-            // The map's credit at the foot of the map beside the panel, left
-            // of the road behind the vehicle ([_creditRight]); the places
-            // drawn large keep off it.
+            // The foot of the map beside the panel, left of the road behind
+            // the vehicle ([_creditRight]); the places drawn large keep off it.
             Positioned(
               left: left + Space.s,
               right: creditRight,
@@ -942,6 +962,43 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 ),
               ),
             ),
+            if (!arrived)
+              Positioned(
+                left: left + Space.s,
+                // Left of the vehicle while the map follows it; away from
+                // following, "Recentrer" may run up to the buttons.
+                right: following
+                    ? math.max(
+                        safe.right + Space.s,
+                        box.maxWidth - _vehicleColumn(box.biggest, EdgeInsets.only(left: left)),
+                      )
+                    : safe.right + _buttonsColumn,
+                bottom: pillBottom,
+                child: Align(
+                  alignment: AlignmentDirectional.bottomStart,
+                  child: ReportsRect(
+                    onRect: (rect) {
+                      if (rect.size != _over.pill) setState(() => _over.pill = rect.size);
+                    },
+                    child: _FootPill(session: session),
+                  ),
+                ),
+              ),
+            if (!arrived)
+              Positioned(
+                left: left,
+                right: 0,
+                bottom: safe.bottom + Space.s,
+                child: CentredClear(
+                  obstacles: [SideRoom.left(roadFrom), SideRoom.right(safe.right + _buttonsColumn)],
+                  child: ReportsRect(
+                    onRect: (rect) {
+                      if (rect.size != _over.road) setState(() => _over.road = rect.size);
+                    },
+                    child: _RoadIfFollowing(session: session),
+                  ),
+                ),
+              ),
             Positioned(
               left: safe.left + Space.s,
               bottom: safe.bottom + Space.s,
@@ -998,30 +1055,8 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                     SideRoom.right(safe.right + _buttonsColumn),
                   ],
                   child: ReportsRect(
-                    onRect: (rect) => setState(() => _over.legs = rect.size),
+                    onRect: (rect) => setState(() => _over.middle = rect.size),
                     child: GuidanceLegsStrip(session: session),
-                  ),
-                ),
-              ),
-            // At the top left of the map, which nothing covers on this side:
-            // the right edge is the buttons' column, and a narrow map has no
-            // room beside it.
-            if (!arrived)
-              Positioned(
-                left: left + Space.s,
-                right: safe.right + _buttonsColumn,
-                top: Space.s,
-                // The right inset is in the position already.
-                child: SafeArea(
-                  left: false,
-                  right: false,
-                  bottom: false,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: ReportsRect(
-                      onRect: (rect) => setState(() => _over.recenter = rect.size),
-                      child: const _RecenterButton(),
-                    ),
                   ),
                 ),
               ),
@@ -1042,6 +1077,7 @@ class _GuidanceMap extends ConsumerWidget {
     required this.padding,
     required this.stripBottom,
     required this.clear,
+    this.footRoom = 0,
     this.overviewTop,
     this.obstacles = const [],
     this.photosCredited = true,
@@ -1057,6 +1093,10 @@ class _GuidanceMap extends ConsumerWidget {
   /// How far above the bottom of [padding] the strip of the stops stands,
   /// when the overview shows it.
   final double stripBottom;
+
+  /// How far above the bottom of [padding] the foot of the map stands in
+  /// the overview ("Recentrer"): the whole route keeps clear of it.
+  final double footRoom;
 
   /// The edges of the map the banner, the notices, the bar or the side
   /// panel cover: no place drawn large lies under them.
@@ -1088,6 +1128,7 @@ class _GuidanceMap extends ConsumerWidget {
     final whole =
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
+    final aim = ref.watch(guidanceAimProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
     // clear of the column of buttons on the right (the arrival under the
@@ -1103,7 +1144,10 @@ class _GuidanceMap extends ConsumerWidget {
       room: EdgeInsets.only(
         top: math.max(0, (overviewTop ?? clear.top) - padding.top),
         right: _buttonsColumn,
-        bottom: legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
+        bottom: math.max(
+          footRoom,
+          legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
+        ),
       ),
     );
     final camera = switch (view.mode) {
@@ -1113,7 +1157,8 @@ class _GuidanceMap extends ConsumerWidget {
       GuidanceCameraMode.follow => FollowCamera(
         position: vehicle!.position,
         course: vehicle.course,
-        speedMps: session.lastFix?.speedMps,
+        zoom: aim.zoom,
+        tilt: aim.tilt,
         ease: view.ease,
         request: view.follows,
       ),
@@ -1223,6 +1268,16 @@ class _GuidanceMap extends ConsumerWidget {
         // Only what the rule of the country the vehicle is in allows while
         // driving: zones in France, nothing in Germany or Switzerland.
         zones: session.aids.zones,
+        // The drawn vehicle reaches each fix as the next one comes: the grey
+        // stops a second's drive behind it, under the arrow. Parked, it
+        // holds: a fix that wanders does not redraw the route. An unknown
+        // speed moves it, as it moves the vehicle.
+        traveledM: switch ((alongOnRoute, session.lastFix?.speedMps)) {
+          (final along?, final speed) when speed == null || speed >= VehicleMotion.parkedMps =>
+            math.max(0, along - (speed ?? 0)).toDouble(),
+          _ => null,
+        },
+        arrow: ref.watch(guidanceArrowProvider),
         places: tiles,
         fuelPrices: prices.pins,
         rich: RouteMapRich(
@@ -1295,13 +1350,12 @@ class _GuidanceMap extends ConsumerWidget {
         onRest: (rest) {
           if (ref.read(guidanceCameraProvider).mode != GuidanceCameraMode.free) return;
           cameraModes.rested(rest);
-          final now = ref.read(guidanceControllerProvider);
           if (magnetHolds(
             rest,
             padding: padding,
-            followZoom: followZoom(now?.lastFix?.speedMps),
+            followZoom: ref.read(guidanceAimProvider).zoom,
             course: vehicle?.course,
-            followTilt: followTiltDeg,
+            followTilt: ref.read(guidanceAimProvider).tilt,
           )) {
             cameraModes.snap();
           }
@@ -1319,14 +1373,17 @@ const double _buttonsColumn = Space.s + 56 + Space.s;
 final class _OverTheMap {
   Size? buttons;
 
-  /// "Recentrer", empty while the map follows.
-  Size? recenter;
-
-  /// The stops' strip of the overview, empty while it is hidden.
-  Size? legs;
-
-  /// The map's credit, at its foot.
+  /// At the foot of the map on the left: the speed or "Recentrer"
+  /// ([_FootPill]), the map's credit over it.
+  Size? pill;
   Size? credit;
+
+  /// The middle of the foot: the road's name and the stops' strip upright,
+  /// the stops' strip on a screen on its side.
+  Size? middle;
+
+  /// The road's name on a screen on its side.
+  Size? road;
 
   /// The camera's or the zone's pill beside the speed, empty while there
   /// is none.
@@ -1334,19 +1391,104 @@ final class _OverTheMap {
 
   /// Their rooms on the map, placed by the layout's anchors.
   List<Rect> rects({
-    required bool free,
     required Rect Function(Size size) buttons,
-    required Rect Function(Size size) recenter,
-    required Rect Function(Size size) legs,
-    Rect Function(Size size)? credit,
+    required Rect Function(Size size) pill,
+    required Rect Function(Size size) credit,
+    required Rect Function(Size size) middle,
+    Rect Function(Size size)? road,
     Rect Function(Size size)? aid,
   }) => [
     if (this.buttons case final size?) buttons(size),
-    if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
-    if (this.legs case final size? when !size.isEmpty) legs(size),
-    if ((this.credit, credit) case (final size?, final place?)) place(size),
+    if (this.pill case final size? when !size.isEmpty) pill(size),
+    if (this.credit case final size? when !size.isEmpty) credit(size),
+    if (this.middle case final size? when !size.isEmpty) middle(size),
+    if ((this.road, road) case (final size?, final place?) when !size.isEmpty) place(size),
     if ((this.aid, aid) case (final size?, final place?) when !size.isEmpty) place(size),
   ];
+}
+
+/// At the foot of the map on the left, as a driver's app sets it: the
+/// speed and its limit while the map follows the vehicle, "Recentrer" once
+/// the user moved the map or opened the whole route; the speed gives way
+/// to the way back. In the overview with stops ahead, their strip takes the
+/// foot and the bar's button leads back.
+class _FootPill extends ConsumerWidget {
+  const new({required this.session});
+
+  final GuidanceSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(guidanceCameraProvider.select((v) => v.mode));
+    final strip = GuidanceLegsStrip.shows(session, overview: mode == GuidanceCameraMode.overview);
+    final (key, below) = switch (mode) {
+      GuidanceCameraMode.follow => ('foot: speed', _SpeedNow(session: session)),
+      GuidanceCameraMode.overview when strip => ('foot: none', null),
+      _ => ('foot: recenter', const _RecenterButton()),
+    };
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.short),
+      switchInCurve: Motion.enter,
+      switchOutCurve: Motion.exit,
+      layoutBuilder: (current, previous) =>
+          Stack(alignment: AlignmentDirectional.bottomStart, children: [...previous, ?current]),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
+          alignment: Alignment.bottomLeft,
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(key),
+        child: switch (below) {
+          null => const SizedBox.shrink(),
+          // A map a few dozen pixels wide (a window on its side beside the
+          // panel) draws the speed smaller, whole; "Recentrer" turns to
+          // its icon by itself.
+          _SpeedNow() => FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.bottomStart,
+            child: below,
+          ),
+          _ => below,
+        },
+      ),
+    );
+  }
+}
+
+/// The middle of the foot of the map upright: the strip of the stops in the
+/// overview, else the road the vehicle is on while the map follows it.
+class _FootMiddle extends ConsumerWidget {
+  const new({required this.session});
+
+  final GuidanceSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      GuidanceLegsStrip(session: session),
+      _RoadIfFollowing(session: session),
+    ],
+  );
+}
+
+/// The road the vehicle is on ([RoadNamePill]), while the map follows it.
+class _RoadIfFollowing extends ConsumerWidget {
+  const new({required this.session});
+
+  final GuidanceSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final following = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.follow),
+    );
+    return following ? RoadNamePill(session: session) : const SizedBox.shrink();
+  }
 }
 
 /// The camera or the danger zone beside the speed ([GuidanceAidNotices]),
@@ -1383,16 +1525,16 @@ class _AidPill extends StatelessWidget {
   );
 }
 
-/// Back behind the vehicle, shown as soon as the map was moved away from it:
-/// its icon and its word, or the icon alone (the word in its tooltip) where
-/// the map is too narrow for both.
+/// Back behind the vehicle, at the foot of the map once the user moved it
+/// away or opened the whole route: its icon and its word on a pill, or the
+/// icon alone (the word in its tooltip) where the room is too narrow for
+/// both.
 class _RecenterButton extends ConsumerWidget {
   const new();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
-    final scheme = Theme.of(context).colorScheme;
+    final tokens = LunaTokens.of(context);
     final label = context.t.navigation.guidance.recenter;
     void recenter() => ref.read(guidanceCameraProvider.notifier).recenter();
     return LayoutBuilder(
@@ -1407,12 +1549,10 @@ class _RecenterButton extends ConsumerWidget {
           textDirection: Directionality.of(context),
           maxLines: 1,
         )..layout();
-        final wide = box.maxWidth >= words.width + 24 + Space.s + 2 * Space.m + Space.s;
+        final wide = box.maxWidth >= words.width + 24 + Space.s + 2 * Space.l + Space.s;
         words.dispose();
-        final colors = (background: scheme.primary, foreground: scheme.onPrimary);
-        final shown = !free
-            ? const SizedBox.shrink(key: ValueKey('following'))
-            : wide
+        final colors = (background: tokens.floatingSurface, foreground: tokens.guidanceTime);
+        return wide
             ? FilledButton.icon(
                 key: const ValueKey('recenter'),
                 onPressed: recenter,
@@ -1420,8 +1560,9 @@ class _RecenterButton extends ConsumerWidget {
                 label: Text(label),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 56),
-                  padding: const EdgeInsets.symmetric(horizontal: Space.m),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.l),
                   elevation: 3,
+                  shape: const StadiumBorder(),
                   backgroundColor: colors.background,
                   foregroundColor: colors.foreground,
                 ).copyWith(side: focusRingIn(colors.foreground)),
@@ -1438,19 +1579,6 @@ class _RecenterButton extends ConsumerWidget {
                   foregroundColor: colors.foreground,
                 ).copyWith(side: focusRingIn(colors.foreground)),
               );
-        return AnimatedSwitcher(
-          duration: Motion.of(context, Motion.short),
-          switchInCurve: Motion.enter,
-          switchOutCurve: Motion.exit,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
-              child: child,
-            ),
-          ),
-          child: shown,
-        );
       },
     );
   }
@@ -1579,119 +1707,6 @@ Future<void> addGuidanceStop(
   );
 }
 
-/// The colours of the guidance's banner and bar: the brand's navy by day
-/// (the dock's), a deep navy at night where a cream panel would glare.
-({Color surface, Color text}) _panelColors(BuildContext context) {
-  final tokens = LunaTokens.of(context);
-  final scheme = Theme.of(context).colorScheme;
-  return Theme.of(context).brightness == Brightness.light
-      ? (surface: tokens.dockSurface, text: tokens.dockForeground)
-      : (surface: tokens.floatingSurface, text: scheme.onSurface);
-}
-
-/// The next maneuver: its arrow, the distance to it, the road to take, the
-/// lanes, and the one after when it follows closely.
-class _ManeuverBanner extends ConsumerWidget {
-  const new({required this.session});
-
-  final GuidanceSession session;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    final theme = Theme.of(context);
-    final colors = _panelColors(context);
-    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
-    final snap = session.snapshot;
-    final banner = snap?.banner;
-    final steps = session.route.steps;
-    final index = snap?.stepIndex ?? 0;
-    final next = index + 1 < steps.length ? steps[index + 1] : null;
-    final after = index + 2 < steps.length ? steps[index + 2] : null;
-    final maneuver = bannerManeuver(banner: banner, steps: steps, stepIndex: index);
-    final lanes = banner?.lanes.isNotEmpty ?? false
-        ? banner!.lanes
-        : session.step?.lanes ?? const [];
-    final road = banner?.primary ?? next?.roadName ?? next?.instruction ?? '';
-    final distance = snap == null ? null : t.routeDistance(snap.distanceToManeuverM, units);
-    final thenClose = after != null && next != null && next.distanceM < 150;
-    // Off the route, the maneuver is that of a road the vehicle left: it
-    // fades until the new route replaces it, the notice below says why.
-    final stale =
-        session.phase == GuidancePhase.offRoute || session.phase == GuidancePhase.rerouting;
-    return Semantics(
-      liveRegion: true,
-      // The arrow is a picture: the instruction says the turn in words.
-      label: [?distance, next?.instruction ?? road].join(', '),
-      excludeSemantics: true,
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
-        elevation: 4,
-        child: AnimatedOpacity(
-          opacity: stale ? 0.4 : 1,
-          duration: Motion.of(context, Motion.medium),
-          child: Padding(
-            padding: const EdgeInsets.all(Space.m),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    ManeuverIcon(maneuver: maneuver, size: 76, color: colors.text),
-                    const SizedBox(width: Space.m),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (distance != null)
-                            Text(
-                              distance,
-                              style: theme.textTheme.displaySmall?.copyWith(color: colors.text),
-                            ),
-                          Text(
-                            road,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (lanes.isNotEmpty) ...[
-                  const SizedBox(height: Space.s),
-                  Center(
-                    child: LanesRow(
-                      lanes: lanes,
-                      color: colors.text,
-                      leftHandTraffic: maneuver.leftHandTraffic,
-                    ),
-                  ),
-                ],
-                if (thenClose) ...[
-                  const SizedBox(height: Space.s),
-                  Row(
-                    children: [
-                      Text(
-                        t.navigation.guidance.then,
-                        style: theme.textTheme.titleSmall?.copyWith(color: colors.text),
-                      ),
-                      const SizedBox(width: Space.s),
-                      ManeuverIcon(maneuver: after.maneuver, size: 28, color: colors.text),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The voice mode, moved on by each tap: full, alerts only, muted, full
 /// again, with nothing to open or confirm. The icon shows the mode, the
 /// tooltip names it, and a screen reader hears what the new one does.
@@ -1739,6 +1754,9 @@ class _VoiceModeButton extends ConsumerWidget {
   }
 }
 
+/// The map's buttons on the right, over the bar: the voice, the places on
+/// the map, what lies on the way, a report of the road. The whole route is
+/// on the bar.
 class _MapButtons extends ConsumerWidget {
   const new({required this.session});
 
@@ -1748,17 +1766,15 @@ class _MapButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final overview = ref.watch(
-      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
-    );
-    final placesShown =
-        ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.shown ?? true;
+    final tokens = LunaTokens.of(context);
     final style = IconButton.styleFrom(
-      backgroundColor: scheme.surfaceContainerLowest,
+      backgroundColor: tokens.floatingSurface,
       foregroundColor: scheme.onSurface,
       minimumSize: const Size(56, 56),
       elevation: 3,
     );
+    final placesShown =
+        ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.shown ?? true;
     return Column(
       children: [
         _VoiceModeButton(mode: session.voiceMode, style: style),
@@ -1786,101 +1802,256 @@ class _MapButtons extends ConsumerWidget {
           tooltip: t.roadReport.actionHint,
           style: style,
           // No position yet: nothing to place a report at.
-          onPressed: session.lastFix == null
-              ? null
-              : () {
-                  final fix = session.lastFix;
-                  final snap = session.snapshot;
-                  final at = snap != null && !snap.offRoute ? snap.position : fix?.position;
-                  if (at == null) return;
-                  unawaited(
-                    reportOnRoad(
-                      context,
-                      position: at,
-                      headingDeg: fix?.courseDeg ?? snap?.courseDeg,
-                    ),
-                  );
-                },
+          onPressed: _reportAt(session) == null ? null : () => _report(context, session),
           icon: const Icon(AppIcons.report),
-        ),
-        const SizedBox(height: Space.s),
-        IconButton(
-          tooltip: overview ? t.navigation.guidance.recenter : t.navigation.guidance.overview,
-          style: style,
-          onPressed: () => ref.read(guidanceCameraProvider.notifier).toggleOverview(),
-          icon: Icon(overview ? AppIcons.locateActive : AppIcons.map),
         ),
       ],
     );
   }
 }
 
-/// The arrival time, the time and distance left, the speed and its limit,
-/// and the way out.
-class _BottomBar extends ConsumerWidget {
+/// Where a report of the road stands: the vehicle on the route, else its
+/// last fix; null before any.
+LatLng? _reportAt(GuidanceSession session) {
+  final snap = session.snapshot;
+  return snap != null && !snap.offRoute ? snap.position : session.lastFix?.position;
+}
+
+void _report(BuildContext context, GuidanceSession session) {
+  final at = _reportAt(session);
+  if (at == null) return;
+  unawaited(
+    reportOnRoad(
+      context,
+      position: at,
+      headingDeg: session.lastFix?.courseDeg ?? session.snapshot?.courseDeg,
+    ),
+  );
+}
+
+/// The foot of the guidance, as a driver's app sets it: the way out on the
+/// left, the time left large in the middle with the distance and the
+/// arrival under it, the whole route on the right. A tap on the middle, or
+/// a swipe up, opens the guidance's options under it: what lies on the
+/// way, the places on the map, a report.
+class _BottomBar extends ConsumerStatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BottomBar> createState() => _BottomBarState();
+}
+
+class _BottomBarState extends ConsumerState<_BottomBar> {
+  bool _open = false;
+
+  void _show({required bool open}) {
+    if (open != _open) setState(() => _open = open);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
-    final colors = _panelColors(context);
+    final scheme = theme.colorScheme;
+    final tokens = LunaTokens.of(context);
+    final session = widget.session;
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     // Each minute too: with no new position, the arrival time still moves
     // on with the clock rather than slide into the past.
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final snap = session.snapshot;
     final left = snap?.durationRemainingS ?? session.route.durationS;
-    final eta = arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal();
-    final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
+    final eta = t.clockTime(
+      arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal(),
+    );
+    final remaining = t.routeDistance(snap?.distanceRemainingM ?? session.route.distanceM, units);
+    final overview = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
+    );
+    // A ring round each of the bar's two buttons, the keyboard's focus
+    // ring in its place.
+    final ring =
+        IconButton.styleFrom(
+          minimumSize: const Size(56, 56),
+          foregroundColor: scheme.onSurface,
+        ).copyWith(
+          side: WidgetStateProperty.resolveWith(
+            (s) => keyboardFocused(s)
+                ? focusRing(scheme.onSurface)
+                : BorderSide(color: scheme.outline, width: 1.5),
+          ),
+        );
+    void toggle() => _show(open: !_open);
     return Material(
-      color: colors.surface,
+      color: tokens.floatingSurface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(LunaTokens.radiusXl)),
       elevation: 6,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
-          child: Row(
-            children: [
-              _SpeedNow(session: session, units: units, color: colors.text),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Semantics(
-                  container: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.navigation.guidance.arrival(time: t.clockTime(eta)),
-                        style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
+        // A swipe up opens the options, a swipe down closes them; a screen
+        // reader opens them by the middle of the bar.
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          onVerticalDragEnd: (details) {
+            final speed = details.primaryVelocity ?? 0;
+            if (speed < -150) _show(open: true);
+            if (speed > 150) _show(open: false);
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s, 0, Space.s, Space.s),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The handle says the bar opens; the middle of the bar and a
+                // swipe open it, a finger's size.
+                ExcludeSemantics(
+                  child: SizedBox(
+                    height: 22,
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: scheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                      Text(
-                        '${t.routeDuration(left)} · ${t.routeDistance(remaining, units)}',
-                        style: theme.textTheme.titleMedium?.copyWith(color: colors.text),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: t.navigation.guidance.end,
-                iconSize: 28,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(56, 56),
-                  foregroundColor: colors.text,
-                ).copyWith(side: focusRingIn(colors.text)),
-                onPressed: () async {
-                  if (await _confirmStop(context) && context.mounted) _end(ref);
-                },
-                icon: const Icon(AppIcons.close),
-              ),
-            ],
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: t.navigation.guidance.end,
+                      iconSize: 28,
+                      style: ring,
+                      onPressed: () async {
+                        if (await _confirmStop(context) && context.mounted) _end(ref);
+                      },
+                      icon: const Icon(AppIcons.close),
+                    ),
+                    const SizedBox(width: Space.s),
+                    Expanded(
+                      child: Semantics(
+                        container: true,
+                        button: true,
+                        expanded: _open,
+                        hint: t.navigation.guidance.options,
+                        child: InkWell(
+                          onTap: toggle,
+                          mouseCursor: WidgetStateMouseCursor.clickable,
+                          borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  t.routeDuration(left),
+                                  maxLines: 1,
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    color: tokens.guidanceTime,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Semantics(
+                                  label: '$remaining, ${t.navigation.guidance.arrival(time: eta)}',
+                                  excludeSemantics: true,
+                                  child: Text(
+                                    '$remaining · $eta',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Space.s),
+                    IconButton(
+                      tooltip: overview
+                          ? t.navigation.guidance.recenter
+                          : t.navigation.guidance.overview,
+                      style: ring,
+                      onPressed: () => ref.read(guidanceCameraProvider.notifier).toggleOverview(),
+                      icon: Icon(overview ? AppIcons.locateActive : AppIcons.map),
+                    ),
+                  ],
+                ),
+                AnimatedSize(
+                  duration: Motion.of(context, Motion.medium),
+                  curve: Motion.standard,
+                  alignment: Alignment.topCenter,
+                  child: _open
+                      ? _BarOptions(session: session, onChosen: () => _show(open: false))
+                      : const SizedBox(width: double.infinity),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The guidance's options, under the time left once the bar is opened:
+/// what lies on the way, the places on the map, a report of the road. A
+/// choice closes them.
+class _BarOptions extends ConsumerWidget {
+  const new({required this.session, required this.onChosen});
+
+  final GuidanceSession session;
+  final VoidCallback onChosen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final placesShown =
+        ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.shown ?? true;
+    Widget option(Widget icon, String label, VoidCallback? onTap) => ListTile(
+      leading: icon,
+      title: Text(label),
+      minTileHeight: 56,
+      enabled: onTap != null,
+      onTap: onTap == null
+          ? null
+          : () {
+              onChosen();
+              onTap();
+            },
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Divider(height: 1),
+          option(
+            const OnTheWayIcon(),
+            t.navigation.onTheWay.title,
+            () => unawaited(openOnTheWay(context, session)),
+          ),
+          option(
+            Icon(placesShown ? AppIcons.point : AppIcons.address),
+            placesShown
+                ? t.navigation.guidance.places.button
+                : t.navigation.guidance.places.buttonHidden,
+            () => unawaited(showGuidancePlacesSheet(context, startInset: guidanceSheetInset)),
+          ),
+          option(
+            const Icon(AppIcons.report),
+            t.roadReport.actionHint,
+            _reportAt(session) == null ? null : () => _report(context, session),
+          ),
+        ],
       ),
     );
   }
@@ -1890,11 +2061,9 @@ class _BottomBar extends ConsumerWidget {
 /// ([speedShown]): with no position for a few seconds the figure goes, and
 /// comes back with the next one.
 class _SpeedNow extends ConsumerStatefulWidget {
-  const new({required this.session, required this.units, required this.color});
+  const new({required this.session});
 
   final GuidanceSession session;
-  final DistanceUnits units;
-  final Color color;
 
   @override
   ConsumerState<_SpeedNow> createState() => _SpeedNowState();
@@ -1902,7 +2071,7 @@ class _SpeedNow extends ConsumerStatefulWidget {
 
 class _SpeedNowState extends ConsumerState<_SpeedNow> {
   /// Rebuilds when the speed shown goes stale: no new position rebuilds
-  /// the bar then.
+  /// the foot then.
   Timer? _stale;
 
   @override
@@ -1915,6 +2084,7 @@ class _SpeedNowState extends ConsumerState<_SpeedNow> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final now = ref.watch(clockProvider)();
+    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final speed = speedShown(fix: session.lastFix, cameAt: session.lastFixAt, now: now);
     _stale?.cancel();
     final cameAt = session.lastFixAt;
@@ -1923,12 +2093,7 @@ class _SpeedNowState extends ConsumerState<_SpeedNow> {
         if (mounted) setState(() {});
       });
     }
-    return SpeedAndLimit(
-      speedMps: speed,
-      aids: session.aids,
-      units: widget.units,
-      color: widget.color,
-    );
+    return SpeedAndLimit(speedMps: speed, aids: session.aids, units: units);
   }
 }
 

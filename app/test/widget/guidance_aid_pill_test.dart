@@ -108,10 +108,8 @@ Future<TestApp> _driveTo(
   return app;
 }
 
-/// The bar that shows the speed and its limit.
-Rect _bar(WidgetTester tester) => tester.getRect(
-  find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
-);
+/// The speed and its limit, on their pill at the foot of the map.
+Rect _speed(WidgetTester tester) => tester.getRect(find.byType(SpeedAndLimit));
 
 /// The union of the rects [finder] finds.
 Rect _around(WidgetTester tester, Finder finder) => finder
@@ -119,10 +117,10 @@ Rect _around(WidgetTester tester, Finder finder) => finder
     .map((e) => tester.getRect(find.byWidget(e.widget)))
     .reduce((a, b) => a.expandToInclude(b));
 
-/// The camera's or the zone's pill beside the speed, measured on the phones
+/// The camera's or the zone's pill by the speed, measured on the phones
 /// most in hands and on a phone on its side, with the app's own typefaces:
-/// next to the sign of the limit, at the foot of the screen, never over the
-/// maneuver, the buttons nor the vehicle.
+/// over the speed and its limit upright, over the bar in the panel on its
+/// side, never over the maneuver, the buttons nor the vehicle.
 void main() {
   setUpAll(() async {
     await loadRealFonts();
@@ -141,16 +139,23 @@ void main() {
       for (final country in ['ES', 'FR']) {
         testWidgets(
           'on $name in ${locale.languageCode}, ${country == 'ES' ? 'a camera' : 'a zone'}: '
-          'the pill beside the speed, clear of the maneuver, the buttons and the vehicle',
+          'the pill by the speed, clear of the maneuver, the buttons and the vehicle',
           (tester) async {
             await _driveTo(tester, size: size, locale: locale, scale: scale, country: country);
             expect(tester.takeException(), isNull);
             final t = locale.buildSync();
             final pill = tester.getRect(find.byType(EnforcementChip));
-            final speed = tester.getRect(find.byType(SpeedAndLimit));
-            // The bar that shows the speed and its limit.
+            final speed = _speed(tester);
+            // The bar at the foot of the screen, around its middle.
             final bar = tester.getRect(
-              find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
+              find
+                  .ancestor(
+                    of: find.byWidgetPredicate(
+                      (w) => w is Semantics && w.properties.hint == t.navigation.guidance.options,
+                    ),
+                    matching: find.byType(Material),
+                  )
+                  .first,
             );
             final banner = tester.getRect(
               find
@@ -182,10 +187,17 @@ void main() {
               ),
               radius: 15,
             );
-            // Beside the speed and its limit: just above the bar that shows
-            // them, at the same edge.
-            expect(pill.bottom, closeTo(bar.top - Space.s, 0.5), reason: 'pill $pill, bar $bar');
-            expect((pill.left - speed.left).abs(), lessThanOrEqualTo(Space.l), reason: '$speed');
+            if (landscape) {
+              // In the panel, just above its bar; the speed at the foot of
+              // the map beside the panel.
+              expect(pill.bottom, closeTo(bar.top - Space.s, 0.5), reason: 'pill $pill, bar $bar');
+              expect(pill.right, lessThanOrEqualTo(bar.right), reason: 'pill $pill, bar $bar');
+            } else {
+              // Over the speed and its limit, at the same edge.
+              expect(pill.bottom, closeTo(speed.top - Space.s, 0.5), reason: 'pill $pill, $speed');
+              expect((pill.left - speed.left).abs(), lessThanOrEqualTo(Space.l), reason: '$speed');
+            }
+            expect(pill.overlaps(speed), isFalse, reason: 'pill $pill, speed $speed');
             expect(pill.overlaps(banner), isFalse, reason: 'pill $pill, maneuver $banner');
             expect(pill.overlaps(buttons), isFalse, reason: 'pill $pill, buttons $buttons');
             expect(pill.overlaps(vehicle), isFalse, reason: 'pill $pill, vehicle $vehicle');
@@ -211,7 +223,7 @@ void main() {
     expect(end, findsOneWidget);
     expect(find.byType(EnforcementChip), findsNothing, reason: 'the zone left');
     final card = tester.getRect(find.ancestor(of: end, matching: find.byType(Material)).first);
-    expect(card.bottom, closeTo(_bar(tester).top - Space.s, 0.5), reason: 'beside the speed');
+    expect(card.bottom, closeTo(_speed(tester).top - Space.s, 0.5), reason: 'over the speed');
     expect(card.left, Space.s);
     expect(card.width, lessThan(390 * 0.75), reason: 'at its own width, not across the screen');
   });
@@ -230,14 +242,14 @@ void main() {
     expect(chip, findsOneWidget);
     final rect = tester.getRect(chip);
     expect(rect.left, Space.s);
-    expect(rect.bottom, closeTo(_bar(tester).top - Space.s, 0.5));
+    expect(rect.bottom, closeTo(_speed(tester).top - Space.s, 0.5));
     expect(rect.width, lessThan(80), reason: 'its pictogram alone');
     await tester.tap(chip);
     await settleShort(tester);
     expect(pill, findsOneWidget, reason: 'open again');
   });
 
-  testWidgets('folded, the chip keeps its place beside "Recentrer", which it does not reach', (
+  testWidgets('folded, the chip stands over "Recentrer", in the place of the speed', (
     tester,
   ) async {
     final app = await _driveTo(tester, size: const Size(390, 844), locale: AppLocale.fr, scale: 1);
@@ -251,8 +263,9 @@ void main() {
     final recenter = tester.getRect(
       find.ancestor(of: find.text('Recentrer'), matching: find.byType(Material)).first,
     );
-    expect(chip.right, lessThan(recenter.left), reason: 'chip $chip, Recentrer $recenter');
-    expect(chip.bottom, closeTo(_bar(tester).top - Space.s, 0.5), reason: 'no need to rise');
+    expect(chip.overlaps(recenter), isFalse, reason: 'chip $chip, Recentrer $recenter');
+    expect(chip.bottom, closeTo(recenter.top - Space.s, 0.5), reason: 'chip $chip, $recenter');
+    expect((chip.left - recenter.left).abs(), lessThanOrEqualTo(Space.l));
   });
 
   testWidgets('with "Recentrer" beside it, the pill rises over the button, the credit over both', (

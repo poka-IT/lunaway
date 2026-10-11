@@ -5018,6 +5018,21 @@ class Translations$navigation$guidance$en {
 	/// en: 'Then'
 	String get then => 'Then';
 
+	/// en: 'Exit $ref'
+	String exit({required Object ref}) => 'Exit ${ref}';
+
+	/// en: 'On $road'
+	String currentRoad({required Object road}) => 'On ${road}';
+
+	/// en: 'Toll booth in $distance'
+	String tollAhead({required Object distance}) => 'Toll booth in ${distance}';
+
+	/// en: 'Border: $country in $distance'
+	String borderAhead({required Object country, required Object distance}) => 'Border: ${country} in ${distance}';
+
+	/// en: 'Guidance options'
+	String get options => 'Guidance options';
+
 	/// en: 'Arrive $time'
 	String arrival({required Object time}) => 'Arrive ${time}';
 
@@ -8278,6 +8293,11 @@ extension on Translations {
 			'navigation.marks.sectionLength' => ({required Object distance}) => 'Section of ${distance}',
 			'navigation.marks.cameraDirection' => 'Checks your direction of travel',
 			'navigation.guidance.then' => 'Then',
+			'navigation.guidance.exit' => ({required Object ref}) => 'Exit ${ref}',
+			'navigation.guidance.currentRoad' => ({required Object road}) => 'On ${road}',
+			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Toll booth in ${distance}',
+			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Border: ${country} in ${distance}',
+			'navigation.guidance.options' => 'Guidance options',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
 			'navigation.guidance.offRoute' => 'Off the route',
 			'navigation.guidance.rerouting' => 'Finding a new route',
@@ -8622,13 +8642,13 @@ extension on Translations {
 			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
 			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.',
 			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionWikipedia' => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.',
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
 			'profile.attributionTranslation' => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.',
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
-			_ => null,
-		} ?? switch (path) {
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.',
@@ -9136,13 +9156,13 @@ extension on Translations {
 			'poi.kind.physiotherapist' => 'Physiotherapist',
 			'poi.kind.laboratory' => 'Medical laboratory',
 			'poi.kind.nurse' => 'Nurse',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.midwife' => 'Midwife',
 			'poi.kind.podiatrist' => 'Podiatrist',
 			'poi.kind.psychologist' => 'Psychologist',
 			'poi.kind.speechTherapist' => 'Speech therapist',
 			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.optician' => 'Optician',
 			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',

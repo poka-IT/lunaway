@@ -78,6 +78,10 @@ final class LunaTokens extends ThemeExtension<LunaTokens> {
     required this.illustrationFarHills,
     required this.illustrationNearHills,
     required this.illustrationRoad,
+    required this.guidanceBanner,
+    required this.guidanceBannerDeep,
+    required this.onGuidanceBanner,
+    required this.guidanceTime,
   });
 
   static const radiusXs = 6.0;
@@ -160,6 +164,10 @@ final class LunaTokens extends ThemeExtension<LunaTokens> {
     illustrationFarHills: Palette.sarcelle,
     illustrationNearHills: Palette.sarcelleProfonde,
     illustrationRoad: Palette.creme50,
+    guidanceBanner: Palette.minuit,
+    guidanceBannerDeep: Palette.minuit925,
+    onGuidanceBanner: Palette.creme,
+    guidanceTime: Palette.sarcelleProfonde,
   );
 
   static const minuitTheme = LunaTokens(
@@ -220,6 +228,10 @@ final class LunaTokens extends ThemeExtension<LunaTokens> {
     illustrationFarHills: Palette.sarcelle800,
     illustrationNearHills: Palette.sarcelleProfonde,
     illustrationRoad: Palette.minuit400,
+    guidanceBanner: Palette.minuit700,
+    guidanceBannerDeep: Palette.minuit850,
+    onGuidanceBanner: Palette.creme,
+    guidanceTime: Palette.sarcelle300,
   );
 
   /// Family tones for text and icons on this theme's surfaces.
@@ -259,6 +271,16 @@ final class LunaTokens extends ThemeExtension<LunaTokens> {
   final Color illustrationNearHills;
   final Color illustrationRoad;
 
+  /// The guidance's maneuver banner, on both themes a deep panel with light
+  /// text that reads at a glance over the map; its attachments (the lanes,
+  /// "Puis") a shade deeper.
+  final Color guidanceBanner;
+  final Color guidanceBannerDeep;
+  final Color onGuidanceBanner;
+
+  /// The time left on the guidance's bar, in the route's teal.
+  final Color guidanceTime;
+
   NightTone nightTone(OvernightStatus status) => night[status]!;
 
   static LunaTokens of(BuildContext context) => Theme.of(context).extension<LunaTokens>()!;
@@ -290,6 +312,10 @@ final class LunaTokens extends ThemeExtension<LunaTokens> {
       illustrationFarHills: c(illustrationFarHills, other.illustrationFarHills),
       illustrationNearHills: c(illustrationNearHills, other.illustrationNearHills),
       illustrationRoad: c(illustrationRoad, other.illustrationRoad),
+      guidanceBanner: c(guidanceBanner, other.guidanceBanner),
+      guidanceBannerDeep: c(guidanceBannerDeep, other.guidanceBannerDeep),
+      onGuidanceBanner: c(onGuidanceBanner, other.onGuidanceBanner),
+      guidanceTime: c(guidanceTime, other.guidanceTime),
     );
   }
 }

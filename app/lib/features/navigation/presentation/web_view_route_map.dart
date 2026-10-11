@@ -13,6 +13,7 @@ import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
@@ -72,6 +73,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   /// The places of the last spec given to the page.
   RouteMapPlaces? _specPlaces;
+
+  /// The grey behind the vehicle, as drawn.
+  final _traveled = TraveledLine();
+  bool _gradientSent = false;
+
+  /// The maneuver's arrow sent, once the page holds its sources.
+  ManeuverArrow? _sentArrow;
+  bool _arrowSent = false;
 
   /// A gesture of the user stopped following in the page; the camera stays
   /// where the user puts it until following starts again from another view.
@@ -152,6 +161,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final reduced = Motion.reduced(context);
     final arrow = base64Encode(await vehicleArrowPng(ratio));
+    final head = base64Encode(await arrowHeadPng(ratio));
     final badges = await routeBadgePngs(ratio);
     final pins = _props.places == null
         ? const <String, Uint8List>{}
@@ -171,6 +181,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'pixelRatio': ratio,
         'images': {
           RouteLayers.vehicleImage: arrow,
+          RouteLayers.arrowHeadImage: head,
           for (final MapEntry(:key, :value) in badges.entries) key: base64Encode(value),
           for (final id in RoutePlaceLayers.imageIds())
             if (pins[id] case final bytes?) id: base64Encode(bytes),
@@ -181,6 +192,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           places: _props.places,
           prices: _props.fuelPrices,
           ratio: ratio,
+          traveledShare: _traveled.share,
         ),
         'reducedMotion': reduced,
       },
@@ -200,6 +212,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _ready = true;
         _sentLines = null;
         _sentZones = null;
+        _traveled.forget();
+        _gradientSent = false;
+        _arrowSent = false;
         _sentMarks = null;
         _sentPrices = null;
         _sentLit = const {};
@@ -308,6 +323,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           places: _props.places,
           prices: _props.fuelPrices,
           ratio: MediaQuery.devicePixelRatioOf(context),
+          // A new style keeps the grey drawn behind the vehicle.
+          traveledShare: _traveled.share,
         ),
       }),
     );
@@ -430,6 +447,42 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'data': routeZonesCollection(p.lines, p.zones),
       });
     }
+    // The road behind the vehicle greys, at most once a fix: the gradient
+    // when its share moved, and the grey up to the vehicle.
+    final share = _traveled.share;
+    if (_traveled.next(p.lines, p.traveledM)) {
+      if (_traveled.share != share || !_gradientSent) {
+        _gradientSent = true;
+        for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
+          await _call('return window.lunaway.setPaint(id, paint);', {
+            'id': id,
+            'paint': {
+              'line-gradient': routeLinePaint(
+                id,
+                dark: p.dark,
+                traveledShare: _traveled.share,
+              )['line-gradient'],
+            },
+          });
+        }
+      }
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RouteLayers.traveledSource,
+        'data': routeTraveledCollection(_traveled.tail),
+      });
+    }
+    if (!_arrowSent || p.arrow != _sentArrow) {
+      _arrowSent = true;
+      _sentArrow = p.arrow;
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RouteLayers.arrowSource,
+        'data': routeArrowCollection(p.arrow),
+      });
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RouteLayers.arrowHeadSource,
+        'data': routeArrowHeadCollection(p.arrow),
+      });
+    }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
       for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
@@ -474,6 +527,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       await _call('return window.lunawayRoute.follow(options);', {
         'options': {
           'zoom': camera.zoom,
+          'tilt': camera.tilt,
           'padding': {
             'top': padding.top,
             'bottom': padding.bottom,
@@ -601,6 +655,7 @@ Map<String, Object?> routePageSpec({
   required RouteMapPlaces? places,
   required double ratio,
   List<FuelLabel> prices = const [],
+  double traveledShare = 0,
 }) => {
   'hit': {
     'wider': FreeTap.wider,
@@ -631,10 +686,25 @@ Map<String, Object?> routePageSpec({
     {'id': RouteLayers.zonesSource, 'options': <String, Object?>{}},
     for (final s in RouteLayers.markSources) {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
     {'id': RichLayers.source, 'options': <String, Object?>{}},
-    {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
+    // The chosen route measures its length, for the grey behind the
+    // vehicle (`line-progress`).
+    {
+      'id': RouteLayers.routeSource,
+      'options': <String, Object?>{'lineMetrics': true},
+    },
+    {'id': RouteLayers.traveledSource, 'options': <String, Object?>{}},
+    {'id': RouteLayers.arrowSource, 'options': <String, Object?>{}},
+    {'id': RouteLayers.arrowHeadSource, 'options': <String, Object?>{}},
     {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
   ],
-  'layers': _layers(style: style, dark: dark, places: places, prices: prices, ratio: ratio),
+  'layers': _layers(
+    style: style,
+    dark: dark,
+    places: places,
+    prices: prices,
+    ratio: ratio,
+    traveledShare: traveledShare,
+  ),
 };
 
 /// [routePageSpec]'s layers, in [RouteLayerOrder]; the pins only with [places].
@@ -644,41 +714,24 @@ List<Map<String, Object?>> _layers({
   required RouteMapPlaces? places,
   required List<FuelLabel> prices,
   required double ratio,
+  required double traveledShare,
 }) {
   final byId = {
     for (final layer in [
-      _line(
-        RouteLayers.alternativesCasing,
-        RouteLayers.alternativesSource,
-        RouteLook.alternativeCasing(dark: dark),
-        RouteLook.alternativeWidth + 3,
-      ),
-      _line(
-        RouteLayers.alternatives,
-        RouteLayers.alternativesSource,
-        RouteLook.alternative(dark: dark),
-        RouteLook.alternativeWidth,
-      ),
-      {
-        ..._line(RouteLayers.zones, RouteLayers.zonesSource, RouteLook.zone, RouteLook.zoneWidth),
-        'paint': {
-          'line-color': RouteLook.zone,
-          'line-width': RouteLook.zoneWidth,
-          'line-opacity': RouteLook.zoneOpacity,
+      for (final id in RouteLayers.lineLayers)
+        {
+          'id': id,
+          'type': 'line',
+          'source': routeLineSource(id),
+          'layout': {'line-join': 'round', 'line-cap': 'round'},
+          'paint': routeLinePaint(id, dark: dark, traveledShare: traveledShare),
         },
+      {
+        'id': RouteLayers.arrowHead,
+        'type': 'symbol',
+        'source': RouteLayers.arrowHeadSource,
+        'layout': routeArrowHeadLayout(1),
       },
-      _line(
-        RouteLayers.routeCasing,
-        RouteLayers.routeSource,
-        RouteLook.casing(dark: dark),
-        RouteLook.casingWidth,
-      ),
-      _line(
-        RouteLayers.route,
-        RouteLayers.routeSource,
-        RouteLook.line(dark: dark),
-        RouteLook.lineWidth,
-      ),
       // The pins are shipped at their own density and added at the
       // screen's (pixelRatio): sized back as the main map draws them.
       if (places != null)
@@ -758,14 +811,6 @@ List<Map<String, Object?>> _placeLayers(
     'paint': RichLayers.probePaint,
   },
 ];
-
-Map<String, Object?> _line(String id, String source, String color, double width) => {
-  'id': id,
-  'type': 'line',
-  'source': source,
-  'layout': {'line-join': 'round', 'line-cap': 'round'},
-  'paint': {'line-color': color, 'line-width': width},
-};
 
 /// The rich marks on the desktop page (`assets/map/route_rich.js`).
 final class _PageRichEngine implements RichMarkEngine {

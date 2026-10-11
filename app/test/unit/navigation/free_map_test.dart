@@ -10,11 +10,17 @@ void main() {
   const padding = EdgeInsets.only(top: 220, bottom: 140);
 
   group('where following draws the vehicle', () {
-    test('low in the free part of the map, centred across it', () {
-      // 440 px free: the centre 45 % of the way down them, then the middle
-      // of what is left (220 + 198 + (800 - 418 - 140) / 2).
-      expect(followInsets(size, padding), const EdgeInsets.fromLTRB(0, 418, 0, 140));
-      expect(followAnchor(size, padding), const Offset(200, 539));
+    test('low in the free part of the map, 76 px over its foot, centred across it', () {
+      // 440 px free: the vehicle 364 px down them (220 + 364 = 584), the
+      // insets' top as far above it as the foot is below (584 - 76 = 508).
+      expect(followInsets(size, padding), const EdgeInsets.fromLTRB(0, 508, 0, 140));
+      expect(followAnchor(size, padding), const Offset(200, 584));
+    });
+
+    test('on a short map, never higher than 60 % of the way down', () {
+      // 150 px free: 76 px over the foot would be half way.
+      const short = EdgeInsets.only(top: 220, bottom: 430);
+      expect(followAnchor(size, short).dy, 220 + 90);
     });
 
     test('a panel on the side moves it across', () {

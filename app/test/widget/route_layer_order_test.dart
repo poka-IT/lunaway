@@ -247,17 +247,30 @@ void main() {
         placeNames: 'places_subplace',
         townNames: 'places_locality',
       ),
+      'lw-route-traveled-casing',
+      reason: "over the other lines, under its grey behind the vehicle and the maneuver's arrow",
+    );
+    expect(
+      RouteLayerOrder.below(
+        'lw-route-arrow-head',
+        present: all.difference({'lw-route-arrow-head'}).contains,
+        placeNames: 'places_subplace',
+        townNames: 'places_locality',
+      ),
       'places_subplace',
-      reason: 'over the other lines, under the names of places',
+      reason: "the arrow's head tops the lines, under the names of places",
     );
     expect(
       RouteLayerOrder.below('lw-route-casing', present: all.contains, placeNames: 'x'),
       'lw-route-line',
     );
     expect(
-      RouteLayerOrder.below('lw-route-line', present: lineLate.contains),
+      RouteLayerOrder.below(
+        'lw-route-arrow-head',
+        present: all.difference({'lw-route-arrow-head'}).contains,
+      ),
       'lw-route-place-probe',
-      reason: 'a basemap without names of towns: still under the pins',
+      reason: 'a basemap without names of towns: the top of the lines still under the pins',
     );
     expect(RouteLayerOrder.below('lw-route-vehicle', present: all.contains), isNull);
   });

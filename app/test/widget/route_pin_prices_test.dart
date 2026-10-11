@@ -54,10 +54,14 @@ void main() {
     expect(tester.view.devicePixelRatio, _ratio);
     await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(const []))));
     await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
-    expect(engine.layers, containsAll(['lw-route-poi-pins', 'lw-route-poi-pins-more']));
+    // The changes of the pins' layers; the route's own (its grey behind the
+    // vehicle) are not this test's.
+    const pins = {'lw-route-poi-pins', 'lw-route-poi-pins-more'};
+    expect(engine.layers, containsAll(pins));
     List<Map<Object?, Object?>> updates() => [
       for (final c in engine.calls)
-        if (c.method == 'layer#setProperties') c.arguments as Map<Object?, Object?>,
+        if (c.method == 'layer#setProperties' && pins.contains((c.arguments as Map)['layerId']))
+          c.arguments as Map<Object?, Object?>,
     ];
     expect(updates(), isEmpty, reason: 'the pins came with the prices known');
 

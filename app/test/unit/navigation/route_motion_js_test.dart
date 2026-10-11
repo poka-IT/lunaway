@@ -93,10 +93,30 @@ const out = {};
   const r = rig();
   r.run.guiding(true);
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: { top: 400 }, ease: 0, enter: true });
+  r.run.follow({ zoom: 17, tilt: 48, padding: { top: 400 }, ease: 0, enter: true });
   r.frames(3);
   const last = r.map.jumps[r.map.jumps.length - 1];
   out.follows = { pitch: last.c.pitch, bearing: last.c.bearing, zoom: last.c.zoom, own: last.own.lunawayMotion === true, padding: last.c.padding.top };
+}
+
+// A new course: the map turns toward it a moment after the arrow, the
+// short way, then rests: no frame once there.
+{
+  const r = rig();
+  r.run.guiding(true);
+  r.run.vehicle('v', 45, 1, 90, true);
+  r.run.follow({ zoom: 17, padding: {}, ease: 0, enter: true });
+  r.frames(3);
+  r.run.vehicle('v', 45.0001, 1, 180, false);
+  // The first frame after a rest is measured from now: it moves nothing.
+  r.frames(2, 100);
+  const early = r.map.jumps[r.map.jumps.length - 1].c.bearing;
+  r.frames(60, 33);
+  const late = r.map.jumps[r.map.jumps.length - 1].c.bearing;
+  r.frames(40, 33);
+  const jumps = r.map.jumps.length;
+  r.frames(10, 33);
+  out.course = { early, late, rested: r.map.jumps.length === jumps };
 }
 
 // The way in eases from the view the map had.
@@ -283,9 +303,9 @@ void main() {
 
     final skip = node ? false : 'needs node on the PATH (the CI has it)';
 
-    test('follows the vehicle tilted and turned to its course, its own moves flagged', () {
+    test('follows the vehicle at the tilt asked, turned to its course, its own moves flagged', () {
       expect(seen['follows'], {
-        'pitch': 55,
+        'pitch': 48,
         'bearing': 90,
         'zoom': 17,
         'own': true,
@@ -293,12 +313,19 @@ void main() {
       });
     }, skip: skip);
 
+    test('turns to a new course a moment after the arrow, then rests', () {
+      final course = seen['course']! as Map<String, Object?>;
+      expect(course['early']! as num, inExclusiveRange(95, 170), reason: 'on its way');
+      expect(course['late']! as num, closeTo(180, 0.5));
+      expect(course['rested'], isTrue, reason: 'no frame once the map has turned');
+    }, skip: skip);
+
     test('eases into following from the view the map had', () {
       final entry = seen['entry']! as Map<String, Object?>;
       expect(entry['earlyZoom']! as num, inExclusiveRange(12, 17));
-      expect(entry['earlyPitch']! as num, inExclusiveRange(0, 55));
+      expect(entry['earlyPitch']! as num, inExclusiveRange(0, 52));
       expect(entry['lateZoom'], 17);
-      expect(entry['latePitch'], 55);
+      expect(entry['latePitch'], 52, reason: 'the cruising tilt of a follow without one');
     }, skip: skip);
 
     test("stops following at the user's first gesture, told once, never for its own moves", () {
@@ -320,7 +347,7 @@ void main() {
       expect(last['x'], closeTo(200, 1e-6));
       expect(last['y'], closeTo(499, 1e-6));
       expect(last['width'], 400);
-      expect(last['pitch'], 55);
+      expect(last['pitch'], 52);
       expect(last['lat'], 45, reason: 'where the camera looks, for a map made anew');
       expect(last['lon'], 1);
     }, skip: skip);
@@ -342,11 +369,11 @@ void main() {
     }, skip: skip);
 
     test('a fix that comes after a gesture, before the app heard of it, does not follow', () {
-      expect(seen['lateFix'], {'following': false, 'pitch': 55});
+      expect(seen['lateFix'], {'following': false, 'pitch': 52});
     }, skip: skip);
 
     test('follows again from where the user left it; the whole route is flat', () {
-      expect(seen['refollow'], {'following': true, 'pitch': 55});
+      expect(seen['refollow'], {'following': true, 'pitch': 52});
       expect(seen['overview'], {'pitch': 0, 'bearing': 0, 'top': 0, 'following': false});
     }, skip: skip);
 

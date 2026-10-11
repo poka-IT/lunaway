@@ -19,7 +19,9 @@ import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/navigation.dart';
@@ -230,8 +232,8 @@ void main() {
     expect(find.textContaining(RegExp(r'^Pause · \d+:\d\d · 500 m$')), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Fontaine · \d+:\d\d · 1,7 km$')), findsOneWidget);
     // The arrival at the time the bar says.
-    final bar = tester.widget<Text>(find.textContaining(RegExp(r'^Arrivée \d'))).data ?? '';
-    final time = bar.substring('Arrivée '.length);
+    final bar = tester.widget<Text>(find.textContaining(RegExp(r'^[\d,]+ k?m · \d'))).data ?? '';
+    final time = bar.substring(bar.indexOf(' · ') + ' · '.length);
     expect(find.text('Arrivée · Aire de la rue Utrillo · $time'), findsOneWidget);
     // Numbered as their marks on the map.
     final strip = find.ancestor(
@@ -740,7 +742,7 @@ void main() {
       final bar = tester.getRect(
         find
             .ancestor(
-              of: find.textContaining(RegExp(r'^Arrivée \d')),
+              of: find.textContaining(RegExp(r'^[\d,]+ k?m · \d')),
               matching: find.byType(Material),
             )
             .first,
@@ -777,18 +779,19 @@ void main() {
       expect(covered(strip), isTrue, reason: 'a place drawn large under the strip');
       await tester.tap(find.byTooltip('Recentrer'));
       await settleShort(tester);
-      // The map's credit, over the strip while it shows, comes down into
-      // its room: what else kept the places off is gone.
-      // Upright the credit is in the bar, no room of it over the map.
-      final box = find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox));
-      final credit = box.evaluate().isEmpty ? null : tester.getRect(box.first);
-      bool isCredit(Rect o) =>
-          credit != null &&
-          (o.topLeft - credit.topLeft).distance < 0.5 &&
-          (o.bottomRight - credit.bottomRight).distance < 0.5;
+      // Its room goes with it: what keeps the places drawn large off its
+      // place now is the foot of the map's own (the speed, the road under
+      // the vehicle, the credit coming down), each where it stands.
+      final own = [
+        for (final type in [SpeedAndLimit, RoadNamePill, MapCredit])
+          for (final e in find.byType(type).evaluate())
+            if (tester.getRect(find.byWidget(e.widget)) case final r when !r.isEmpty) r,
+      ];
+      bool isOwn(Rect o) => own.any((r) => r.inflate(1).contains(o.center));
       expect(
-        map().rich!.obstacles.where((o) => !isCredit(o)).any((o) => o.overlaps(strip)),
-        isFalse,
+        map().rich!.obstacles.where((o) => o.overlaps(strip)).every(isOwn),
+        isTrue,
+        reason: 'nothing kept for the strip',
       );
     });
   }
