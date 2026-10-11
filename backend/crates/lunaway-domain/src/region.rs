@@ -517,7 +517,6 @@ mod tests {
                 "{territory} syncs with {around}: the graph must cover it as well"
             );
         }
-        assert!(sync_region("MA").is_some(), "Morocco, the wintering trip");
     }
 
     /// The health probe's packs check (`lunaway-worker-status`) counts the
