@@ -654,8 +654,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   drawn and ready for "C'est parti !" at once, and its alternatives join
   it when `routeAlternatives` answers (`RoutePlan.withAlternatives`),
   where the camera already stands (it framed the routes that came at
-  once) and with the route chosen kept; when they do not come, nothing
-  says so. The guidance reads such an alternative in its own OSRM answer
+  once), with the route chosen kept, in the room the panel kept for two
+  cards (`RouteOptionPlaceholder`, sized by an unseen copy of the best
+  route's card), so nothing under them moves; when they do not come,
+  nothing says so and the room closes. The guidance reads such an alternative in its own OSRM answer
   (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
