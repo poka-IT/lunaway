@@ -608,12 +608,16 @@ abstract final class RouteLook {
   static const Color arrowRim = Palette.minuit950;
 
   /// The chosen route's fill by zoom, logical pixels: about twice a road's
-  /// width in town, a little wider than a motorway out of town.
+  /// width in town, a little wider than a motorway out of town. Over the
+  /// zooms the guidance follows at (14.4 to 17.1) it stays near 10, as
+  /// Google Maps' does (10.2 to 10.5 measured on the A41 at 110 km/h and
+  /// in Lyon); the whole route seen at once is thinner.
   static const List<(double, double)> lineStops = [
     (8, 3),
     (11, 4.5),
-    (13, 6),
-    (15, 8.5),
+    (13, 6.5),
+    (14, 9),
+    (15, 10),
     (17, 11.5),
     (19, 16),
     (21, 22),
