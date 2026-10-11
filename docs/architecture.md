@@ -643,8 +643,8 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   eases to are `autoAim`'s (`domain/auto_zoom.dart`), measured against
   Google Maps: the next maneuver framed (at 55 % of the road in view),
   never wider than the speed allows (`AutoZoom.wide`, 16.0 at 30 km/h,
-  14.4 at 130) nor closer (`AutoZoom.close`, 17.3 at 30 km/h, 16.2 at
-  130), the speed held through 6 km/h of hysteresis (`SpeedHold`); a road
+  14.4 at 130, a motorway 14.6 at most whatever the speed) nor closer
+  (`AutoZoom.close`, 17.0 at 30 km/h, 16.1 at 130), the speed held through 6 km/h of hysteresis (`SpeedHold`); a road
   that only changes its name counts as far as the maneuver after it, and
   a fork or a ramp taken at 70 km/h or more does not draw the camera. The
   tilt is 52° cruising, 60° down a straight shown at its widest, 30° over

@@ -36,9 +36,14 @@ abstract final class AutoZoom {
   ];
 
   /// The closest the camera comes before a maneuver at a speed: a street
-  /// corner at 17.4 (Google Maps 17.0 to 17.4 within 150 m of one), a
-  /// motorway exit at 16.2.
-  static const List<(double, double)> close = [(0, 17.4), (50, 17.2), (90, 16.6), (130, 16.2)];
+  /// corner at 17.0 (Google Maps 16.4 to 17.1 within 150 m of one), a
+  /// motorway exit at 16.1.
+  static const List<(double, double)> close = [(0, 17.1), (50, 16.9), (90, 16.4), (130, 16.1)];
+
+  /// The widest a motorway goes, whatever the speed: in a jam at 30 km/h
+  /// the view still shows the road a driver of a motorway reads (Google
+  /// Maps 14.2 to 15.1 from 30 to 130 km/h on the A40).
+  static const motorwayWide = 14.6;
 
   /// A fork, a ramp or a merge taken this fast is read from far: the camera
   /// neither closes in nor flattens for it, km/h.
@@ -121,7 +126,8 @@ bool _roundabout(String? type) => switch (type) {
 };
 
 /// The zoom and the tilt the follow camera aims at, at [speedKmh] (the
-/// speed held, [SpeedHold]), the next maneuver [distanceToManeuverM] ahead.
+/// speed held, [SpeedHold]), on a [motorway] or not, the next maneuver
+/// [distanceToManeuverM] ahead.
 /// A maneuver the camera does not frame ([maneuverDrawsZoom]) counts as far
 /// as the one after it, [afterM] further. The next maneuver framed, within
 /// what the speed allows ([wideZoom], [closeZoom]): continuous in the
@@ -133,8 +139,9 @@ CameraAim autoAim({
   String? maneuverType,
   String? modifier,
   double? afterM,
+  bool motorway = false,
 }) {
-  final wide = wideZoom(speedKmh);
+  final wide = motorway ? math.min(wideZoom(speedKmh), AutoZoom.motorwayWide) : wideZoom(speedKmh);
   final close = math.max(wide, closeZoom(speedKmh));
   final d = distanceToManeuverM;
   if (d == null || !d.isFinite) {

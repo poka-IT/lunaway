@@ -8,12 +8,14 @@ void main() {
     String type = 'turn',
     String? modifier = 'right',
     double? afterM,
+    bool motorway = false,
   }) => autoAim(
     speedKmh: kmh,
     distanceToManeuverM: d,
     maneuverType: type,
     modifier: modifier,
     afterM: afterM,
+    motorway: motorway,
   );
 
   group('the bounds the speed sets', () {
@@ -30,7 +32,15 @@ void main() {
     });
 
     test('a motorway exit is never seen at the scale of a street corner', () {
-      expect(closeZoom(130), lessThan(closeZoom(40) - 1));
+      expect(closeZoom(130), lessThan(closeZoom(40) - 0.7));
+    });
+
+    test('a motorway shows its road wide whatever the speed, a town street does not', () {
+      for (final kmh in [30.0, 50.0, 90.0, 130.0]) {
+        final far = at(kmh, 8000, type: 'roundabout', motorway: true);
+        expect(far.zoom, lessThanOrEqualTo(AutoZoom.motorwayWide), reason: '$kmh km/h');
+      }
+      expect(at(30, 8000, type: 'roundabout').zoom, greaterThan(AutoZoom.motorwayWide + 1));
     });
   });
 

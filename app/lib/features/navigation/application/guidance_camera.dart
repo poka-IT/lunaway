@@ -292,6 +292,7 @@ class GuidanceAim extends _$GuidanceAim {
       modifier: snap.banner?.modifier ?? next?.modifier,
       // The road after the next maneuver, to the one after it.
       afterM: next?.distanceM,
+      motorway: session.step?.motorway ?? false,
     );
   }
 }
