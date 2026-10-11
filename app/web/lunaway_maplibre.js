@@ -509,12 +509,34 @@
   // The guidance's vehicle and camera, run by the page rather than by the
   // app at every frame: the app sends one call per fix and per change of
   // view. The same rules as VehicleMotion, easeZoom and easeCourse in
-  // lib/features/navigation/presentation/vehicle_motion.dart, and as FreeMap
-  // in lib/features/navigation/domain/free_map.dart. This block is the same
-  // in web/lunaway_maplibre.js and assets/map/route_motion.js
+  // lib/features/navigation/presentation/vehicle_motion.dart, as FreeMap
+  // in lib/features/navigation/domain/free_map.dart, and as the cadence of
+  // lib/features/navigation/domain/frame_cadence.dart. This block is the
+  // same in web/lunaway_maplibre.js and assets/map/route_motion.js
   // (test/unit/navigation/route_motion_js_test.dart).
   var lunawayRouteMotion = (function () {
     var MAX_GLIDE = 1500;
+    // The cadence of GL JS's frames (FrameCadence): a pixel and a half of
+    // motion a frame, ten frames a second at least. GL JS keeps drawing at
+    // every frame of the screen while it places its labels, however seldom
+    // the camera moves (measured: 56 frames a second for 10 moves), so the
+    // page samples the glide at every frame of the screen, as before, and
+    // lets GL JS draw one frame in k of them: the steps stay even. The full
+    // cadence is the screen's (60 here); from it down to the lowest in a
+    // second.
+    var STEP_PX = 1.5;
+    var MIN_FPS = 10;
+    var MAX_FPS = 60;
+    var RELEASE_S = 1;
+    // A frame of the screen this close to the cadence's time draws: the
+    // screen's frames do not fall exactly on it.
+    var SLACK_MS = 4;
+    // MapLibre's vertical field of view, degrees, and the far edge of a
+    // tilted view taken no further than this from straight down.
+    var FOV = 36.87;
+    var FAR_DEG = 85;
+    // The zoom and the tilt ease over this (easeZoom).
+    var ZOOM_MS = 2000;
     // A fix this far from the drawn vehicle is a jump (a new route from
     // elsewhere), not a move to glide through, metres.
     var JUMP_M = 500;
@@ -558,6 +580,51 @@
       return { top: p.top || 0, bottom: p.bottom || 0, left: p.left || 0, right: p.right || 0 };
     }
 
+    // Metres a CSS pixel covers at a zoom and a latitude (metresPerPixel).
+    function metresPerPixel(zoom, lat) {
+      return 40075016.686 * Math.cos(lat * Math.PI / 180) / (512 * Math.pow(2, zoom));
+    }
+
+    // How fast the picture moves, pixels a second, where it moves fastest
+    // (screenSpeed in frame_cadence.dart): a corner under the vehicle,
+    // where the road slides by and a turn or a zoom moves it by its
+    // distance, and a corner of the top, swept across the far ground by a
+    // turn of the tilted map. m: { width, height, x, y (the vehicle), lat,
+    // zoom, tilt, ground (m/s), turn (deg/s), zoomRate (levels/s),
+    // tiltRate (deg/s), following }. The page does not know what covers
+    // its map: the view is the whole canvas, a bound.
+    function screenSpeed(m) {
+      var slide = Math.abs(m.ground) / metresPerPixel(m.zoom, m.lat);
+      if (!m.following) return slide;
+      var rad = Math.PI / 180;
+      var turn = Math.abs(m.turn) * rad;
+      var scale = Math.abs(m.zoomRate) * Math.LN2;
+      var pitchRate = Math.abs(m.tiltRate) * rad;
+      var focal = m.height / 2 / Math.tan(FOV / 2 * rad);
+      var side = Math.max(m.x, m.width - m.x);
+      var above = Math.max(0, m.y);
+      var below = Math.max(0, m.height - m.y);
+      function tilting(dy) { return pitchRate * focal * (1 + (dy / focal) * (dy / focal)); }
+      // Across and along the screen, each motion's part added up with the
+      // same sign (a bound), the two then taken together.
+      var under = Math.hypot(turn * below + scale * side, turn * side + scale * below + tilting(below) + slide);
+      var pitch = Math.min(FAR_DEG, Math.max(0, m.tilt)) * rad;
+      var up = Math.atan(above / focal);
+      var far = Math.min(pitch + up, FAR_DEG * rad);
+      var depthVehicle = 1 / Math.cos(pitch);
+      var depthFar = Math.cos(up) / Math.cos(far);
+      var sweep = focal * (Math.tan(far) - Math.tan(pitch)) / depthFar;
+      var top = Math.hypot(turn * sweep + scale * side,
+        turn * side + scale * above + tilting(above) + slide * depthVehicle / depthFar);
+      return Math.max(under, top);
+    }
+
+    // Frames a second for a motion of px pixels a second (cadenceFor).
+    function cadence(px) {
+      if (isNaN(px)) return MAX_FPS;
+      return Math.min(MAX_FPS, Math.max(MIN_FPS, px / STEP_PX));
+    }
+
     // map: a MapLibre GL JS map; emit(event): tells the app. options.longPress:
     // report long presses (the browser; the desktop page has its own).
     // options.owns: whether the gesture under way is the map's, asked when
@@ -594,6 +661,28 @@
       // A gesture of the user since the camera last rested.
       var userMoved = false;
       var hold = null;
+      // The cadence of GL JS's frames, when it was last set (up at once,
+      // down to the lowest over RELEASE_S) and when GL JS last drew.
+      var fps = MAX_FPS;
+      var pacedAt = null;
+      var drawnAt = null;
+      // The glide's frames run: GL JS's own asks to draw wait for the
+      // cadence's next frame, held here.
+      var running = false;
+      var held = false;
+      var repaint = map.triggerRepaint.bind(map);
+      // The map's own fade of its labels, given back once it no longer guides.
+      var fades = map._fadeDuration;
+      map.triggerRepaint = function () {
+        if (!running || fps >= MAX_FPS) return repaint();
+        held = true;
+      };
+
+      function release() {
+        if (!held) return;
+        held = false;
+        repaint();
+      }
 
       function at(t) {
         if (!from || !to) return null;
@@ -609,10 +698,81 @@
         };
       }
 
+      // A finger or the button on the map, the way into following, the
+      // camera moved by the user or by an animation while it does not
+      // follow: the full cadence.
+      function fullCadence() {
+        return pressedCount > 0 || entry !== null || (follow === null && map.isMoving());
+      }
+
+      // The cadence the picture's motion wants now, from the glide and the
+      // eases of the camera toward its aim.
+      function wanted(shown) {
+        if (fullCadence()) return MAX_FPS;
+        var canvas = map.getCanvas();
+        var w = canvas.clientWidth;
+        var h = canvas.clientHeight;
+        if (!w || !h) return MAX_FPS;
+        var gliding = shown.moving && length > 0;
+        var ground = gliding ? metres(from, to) / (length / 1000) : 0;
+        if (!follow) {
+          return cadence(screenSpeed({ ground: ground, zoom: map.getZoom(), lat: shown.lat, following: false }));
+        }
+        var z = zoom === null ? follow.zoom : zoom;
+        var p = pitch === null ? follow.tilt : pitch;
+        var pad = follow.padding;
+        var turn = 0;
+        if (shown.course !== null && bearing !== null) {
+          turn += Math.abs(delta(bearing, shown.course)) / (COURSE_MS / 1000);
+        }
+        if (gliding && from.course !== null && to.course !== null) {
+          turn = Math.max(turn, Math.abs(delta(from.course, to.course)) / (length / 1000));
+        }
+        return cadence(screenSpeed({
+          width: w,
+          height: h,
+          x: pad.left + Math.max(0, w - pad.left - pad.right) / 2,
+          y: pad.top + Math.max(0, h - pad.top - pad.bottom) / 2,
+          lat: shown.lat,
+          zoom: z,
+          tilt: p,
+          ground: ground,
+          turn: turn,
+          zoomRate: Math.abs(follow.zoom - z) / (ZOOM_MS / 1000),
+          tiltRate: Math.abs(follow.tilt - p) / (ZOOM_MS / 1000),
+          following: true
+        }));
+      }
+
+      function pace(t, want) {
+        if (pacedAt === null || want >= fps) {
+          fps = want;
+        } else {
+          fps = Math.max(want, fps - (MAX_FPS - MIN_FPS) / RELEASE_S * (t - pacedAt) / 1000);
+        }
+        pacedAt = t;
+      }
+
       function step(t) {
         frame = null;
+        try {
+          stepAt(t);
+        } catch (error) {
+          // A frame that throws stops the glide: GL JS's own draws are not
+          // held behind it.
+          running = false;
+          release();
+          throw error;
+        }
+      }
+
+      function stepAt(t) {
         var shown = at(t);
-        if (!shown) return;
+        if (!shown) {
+          running = false;
+          release();
+          return;
+        }
         var dt = lastFrame ? t - lastFrame : 0;
         lastFrame = t;
         var src = source && map.getSource(source);
@@ -674,10 +834,25 @@
           }
           map.jumpTo(camera, OWN);
         }
-        if (!settled) frame = frameFn(step);
+        // GL JS draws this sample, or waits for a later one: what a frame
+        // shows is set by the clock, so fewer frames show the same path.
+        // Asked here, GL JS draws at the next frame of the screen, before
+        // the next sample.
+        pace(t, wanted(shown));
+        if (fps >= MAX_FPS || drawnAt === null || t - drawnAt >= 1000 / fps - SLACK_MS) {
+          drawnAt = t;
+          release();
+        }
+        if (settled) {
+          running = false;
+          release();
+        } else {
+          frame = frameFn(step);
+        }
       }
 
       function kick() {
+        running = true;
         if (frame !== null) return;
         // Measured from now: after a pause the zoom must not catch up in
         // one step.
@@ -856,6 +1031,8 @@
         clear: function () {
           if (frame !== null) cancelFn(frame);
           frame = null;
+          running = false;
+          release();
           from = null;
           to = null;
           lastTarget = null;
@@ -902,9 +1079,16 @@
           return true;
         },
         // The guidance's map tells the app of gestures, presses and rests;
-        // the preview's does not.
+        // the preview's does not. It also places its labels without fading
+        // them: while labels fade, GL JS draws at every frame of the
+        // screen whatever the cadence (measured: 56 frames a second for 10
+        // moves of the camera). GL JS reads its fade at each placement
+        // from this field, which has no setter (GL JS 6.4.1 in
+        // web/maplibre-gl, 5.24.0 in assets/map; route_motion_js_test.dart
+        // checks both still read it).
         guiding: function (on) {
           guiding = !!on;
+          if (typeof fades === 'number') map._fadeDuration = guiding ? 0 : fades;
           return true;
         },
         // Whether a map that is not guiding tells the app of the user's

@@ -30,8 +30,15 @@ function fakeMap() {
     data: null,
     on(name, f) { (on[name] = on[name] || []).push(f); },
     fire(name, e) { (on[name] || []).forEach((f) => f(e || {})); },
-    getSource() { return { setData(d) { map.data = d; } }; },
+    sets: 0,
+    // GL JS asks itself to draw at each change of its data or camera.
+    repaints: 0,
+    // GL JS's fade of its labels, its default.
+    _fadeDuration: 300,
+    triggerRepaint() { map.repaints += 1; },
+    getSource() { return { setData(d) { map.data = d; map.sets += 1; map.triggerRepaint(); } }; },
     jumpTo(c, own) {
+      map.triggerRepaint();
       map.jumps.push({ c, own });
       if (c.center) { map.camera.lon = c.center[0]; map.camera.lat = c.center[1]; }
       for (const k of ['zoom', 'bearing', 'pitch', 'padding']) if (c[k] !== undefined) map.camera[k] = c[k];
@@ -117,6 +124,45 @@ const out = {};
   const jumps = r.map.jumps.length;
   r.frames(10, 33);
   out.course = { early, late, rested: r.map.jumps.length === jumps };
+}
+
+// Down a motorway seen wide at 120 km/h, a fix a second: the page samples
+// the glide at every frame of the screen and lets GL JS draw one in six; a
+// finger on the map, every one.
+{
+  const r = rig();
+  r.run.guiding(true);
+  r.run.vehicle('v', 45, 1, 0, true);
+  r.run.follow({ zoom: 14.6, tilt: 60, padding: { top: 400 }, ease: 0, enter: true });
+  let lat = 45;
+  const second = () => {
+    lat += 33 / 111195;
+    r.run.vehicle('v', lat, 1, 0, false);
+    r.frames(62, 16);
+  };
+  // The start draws at the full cadence and comes down within a second.
+  second();
+  second();
+  const before = { sets: r.map.sets, repaints: r.map.repaints };
+  second();
+  second();
+  const steady = { sets: r.map.sets - before.sets, repaints: r.map.repaints - before.repaints };
+  r.map.press(1);
+  const pressed = r.map.repaints;
+  second();
+  out.cadence = { steady, held: r.map.repaints - pressed };
+  r.map.lift(1);
+}
+
+// The guidance's map places its labels without fading them; the preview's,
+// and the map once the guidance is over, fade them as GL JS does.
+{
+  const r = rig();
+  const before = r.map._fadeDuration;
+  r.run.guiding(true);
+  const guiding = r.map._fadeDuration;
+  r.run.guiding(false);
+  out.fades = { before, guiding, after: r.map._fadeDuration };
 }
 
 // The way in eases from the view the map had.
@@ -277,6 +323,17 @@ bool _hasNode() {
 }
 
 void main() {
+  test("both GL JS builds take the guidance's fade from the field the block sets", () {
+    // ROUTE MOTION turns the labels' fades off through GL JS's private
+    // `_fadeDuration`: an upgrade that renames it would bring the fades
+    // back without a word.
+    for (final build in ['web/maplibre-gl/maplibre-gl.mjs', 'assets/map/maplibre-gl.js']) {
+      final code = File(build).readAsStringSync();
+      expect(code, matches(RegExp(r'_fadeDuration\s*=\s*\w+\.fadeDuration')), reason: build);
+      expect(code, matches(RegExp(r'_idleTriggered\s*\?\s*this\._fadeDuration')), reason: build);
+    }
+  });
+
   test('the browser and the desktop run the same block', () {
     final blocks = [
       for (final page in _pages) _block.firstMatch(File(page).readAsStringSync())?.group(0),
@@ -318,6 +375,19 @@ void main() {
       expect(course['early']! as num, inExclusiveRange(95, 170), reason: 'on its way');
       expect(course['late']! as num, closeTo(180, 0.5));
       expect(course['rested'], isTrue, reason: 'no frame once the map has turned');
+    }, skip: skip);
+
+    test('lets GL JS draw a motorway seen wide ten times a second, every frame under a finger', () {
+      final cadence = seen['cadence']! as Map<String, Object?>;
+      final steady = cadence['steady']! as Map<String, Object?>;
+      // Two seconds of 62 frames of the screen: GL JS drew all 124 before.
+      expect(steady['repaints']! as num, inInclusiveRange(16, 30));
+      expect(steady['sets']! as num, greaterThanOrEqualTo(120), reason: 'sampled at every frame');
+      expect(cadence['held']! as num, greaterThanOrEqualTo(60));
+    }, skip: skip);
+
+    test("places the guidance's labels without fading them, and gives the fade back", () {
+      expect(seen['fades'], {'before': 300, 'guiding': 0, 'after': 300});
     }, skip: skip);
 
     test('eases into following from the view the map had', () {

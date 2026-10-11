@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gql/ast.dart';
+import 'package:gql/language.dart';
 import 'package:http/http.dart' as http;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/account/data/account_operations.dart';
@@ -55,6 +57,15 @@ void main() {
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
+    });
+    // A query goes again when its connection closed before the answer; a
+    // mutation never does (`ReadRequest`).
+    test('${op.name} counts as a read exactly when it is a query', () {
+      final kind = parseString(op.document).definitions
+          .whereType<OperationDefinitionNode>()
+          .single
+          .type;
+      expect(op.read, kind == OperationType.query);
     });
     // The form for an older API: valid against the API before the
     // idempotency keys (the schema of 6140356^, still in production when

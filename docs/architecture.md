@@ -634,6 +634,18 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   images of its style (the badges, the arrows) as it is built, all at
   once, while its style loads, and a camera move never holds the route
   that comes during it (`plan/research/125-calcul-itineraire.md`).
+- **The connections to our hosts**: on a device the app's HTTP client
+  keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
+  (`core/http/app_http_client_io.dart`). A mobile network or a move from
+  Wi-Fi to mobile data can drop a kept connection without the phone
+  knowing. A read whose connection closed or broke before any answer (a
+  GraphQL query, sent as a `ReadRequest`, or a GET of a tile, an image or
+  a pack) goes again once, at once, through a new set of connections,
+  within the first try's time (`ReconnectingClient`); the old set closes
+  once the requests it was sending have an answer. A mutation never goes
+  again there (its outbox and its idempotency key decide), nor does a
+  request that got an answer, whatever its status. A browser keeps its
+  own connections.
 - **The guidance's start**: "C'est parti !" answers on the next frame,
   and once the location and notification checks pass the guidance screen
   opens on the preview's own route (`GuidanceController.begin`, no new
@@ -650,19 +662,36 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   on the thread that draws the app (`plan/research/112-perf-android.md`).
 - **The guidance map's frames on a phone** (`GlRouteMap`): the vehicle
   glides from fix to fix, one map frame per 33 ms at most, set by a
-  timer once the last frame's calls are answered, never by a ticker: a
+  timer once the last frame's calls are answered. The map engine keeps
+  drawing between two moves of the camera while its labels fade
+  (MapLibre Native and GL JS alike, measured), so the guidance's map
+  places its labels without fading them (`setMapLabelFades` on Android,
+  the page's motion in a browser and on the desktop; iOS, the main map
+  and the preview keep their fades) and the cadence of the map's frames
+  is the engine's own limit: `domain/frame_cadence.dart` aims at about a
+  pixel and a half of motion a frame, from how fast the picture moves
+  (the road under the vehicle, a turn, a change of zoom or tilt); full
+  under a finger, on the way into following and during an animation of
+  the camera, then down over a second. On a phone the engine is limited
+  to 10 or 15 frames a second (`setMaximumFps`), a whole number of the
+  app's 30 samples a second so the steps stay close to even, and draws
+  freely above, parked and under a finger. The browser's and the
+  desktop's page sample at every frame of the screen and let GL JS draw
+  one in k of them (ROUTE MOTION). What a frame shows is set by the
+  clock, so fewer frames show the same path
+  (`plan/research/124-cadence-carte-guidage.md`). Never a ticker: a
   ticker asks Flutter for a frame at every vsync (60 to 120 a second)
   while the map's own frames reach the screen without one. A frame that
   would send what the last one sent sends nothing, and the frames stop
-  once the vehicle, the zoom and the way into following rest. Below
-  1 m/s a fix within 12 m of the drawn vehicle moves nothing
+  once the vehicle, the zoom and the way into following rest. Below 1
+  m/s a fix within 12 m of the drawn vehicle moves nothing
   (`VehicleMotion.parkedWanderM`): parked, the map draws no frame, no
   pass of the rich marks runs, and the basemap's host is not probed.
   Anything new that moves the camera or redraws the map at each fix
-  keeps these: no frame when nothing on screen changes. Measured on
-  the emulator, parked: 126 % of a core down to 5 %, 59 frames a second
-  down to 1.4 (`plan/research/117-voix-energie-android.md`). The screen
-  kept on goes out `arrivalScreenOn` (2 min) after the arrival.
+  keeps these: no frame when nothing on screen changes. Measured on the
+  emulator, parked: 126 % of a core down to 5 %, 59 frames a second down
+  to 1.4 (`plan/research/117-voix-energie-android.md`). The screen kept
+  on goes out `arrivalScreenOn` (2 min) after the arrival.
 - **The guidance's screen** (`guidance_screen.dart`,
   `widgets/guidance_panels.dart`), laid out as drivers know it from the big
   navigation apps (`plan/research/120-guidage-facon-gmaps.md`): the

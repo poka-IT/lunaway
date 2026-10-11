@@ -47,6 +47,24 @@ final class VehicleMotion {
   /// Whether the drawn vehicle is still on its way to [target] at [now].
   bool movingAt(Duration now) => _to != null && now - _start < _length;
 
+  /// How fast the drawn vehicle moves at [now], metres a second over the
+  /// ground; 0 once it has reached [target].
+  double speedAt(Duration now) {
+    final from = _from;
+    final to = _to;
+    if (from == null || to == null || !movingAt(now)) return 0;
+    return from.distanceTo(to) / (_length.inMicroseconds / 1e6);
+  }
+
+  /// How fast the drawn vehicle turns at [now], degrees a second; 0 once
+  /// it has reached [target].
+  double turnAt(Duration now) {
+    final a = _fromCourse;
+    final b = _toCourse;
+    if (a == null || b == null || !movingAt(now)) return 0;
+    return angleDelta(a, b).abs() / (_length.inMicroseconds / 1e6);
+  }
+
   /// A new fix at [now], the time of the frame clock, at [speedMps] when
   /// known. The first fix is drawn where it is; a [jump] (a new route, the
   /// vehicle far away) too.
@@ -107,10 +125,13 @@ final class VehicleMotion {
 /// little each frame: the view widens as the vehicle speeds up, and closes
 /// in before a turn, without a visible step.
 double easeZoom(double shown, double wanted, Duration frame) {
-  const settle = Duration(seconds: 2);
-  final k = math.min(1, frame.inMicroseconds / settle.inMicroseconds);
+  final k = math.min(1, frame.inMicroseconds / zoomSettle.inMicroseconds);
   return shown + (wanted - shown) * k;
 }
+
+/// How long the zoom and the tilt take to reach most of the way to their
+/// aim ([easeZoom], [easeTilt]).
+const zoomSettle = Duration(seconds: 2);
 
 /// The tilt moving toward the one the camera aims at ([autoAim]), as the
 /// zoom does ([easeZoom]).

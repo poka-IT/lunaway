@@ -19,6 +19,10 @@ control port, 127.0.0.1:18790, answers:
                      bucket of bytes shared by every transfer, and the
                      round trip added once per request
     /noshape         full speed
+    /drop            every connection the app keeps open now closes,
+                     without an answer, at the next request it carries, as
+                     one a mobile network dropped while the app kept it;
+                     /drop?reset=1 resets it instead
     /state           what is set
     /shot?name=x     a screenshot of the booted iOS simulator, in
                      LUNAWAY_SHOTS (data/tmp/shots by default)
@@ -35,7 +39,10 @@ import asyncio
 import gzip
 import json
 import os
+import socket
+import struct
 import time
+import weakref
 
 import aiohttp
 from aiohttp import web
@@ -57,6 +64,9 @@ state = {"online": True, "down_kbps": 0, "up_kbps": 0, "rtt_ms": 0}
 sites = {}
 runners = {}
 active = set()
+# The connections the app keeps, and those /drop condemned (true: reset).
+kept = weakref.WeakSet()
+dropped = weakref.WeakKeyDictionary()
 session: aiohttp.ClientSession | None = None
 
 
@@ -93,7 +103,18 @@ def rewrite(text, host_of):
 
 
 async def handle(request: web.Request):
-    port = request.transport.get_extra_info("sockname")[1]
+    transport = request.transport
+    if transport in dropped:
+        if dropped.pop(transport):
+            # Lingering zero seconds, the close sends a reset.
+            transport.get_extra_info("socket").setsockopt(
+                socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+            )
+        LOG.write(f"{time.strftime('%H:%M:%S')} dropped {request.method} {request.path_qs[:160]}\n")
+        transport.abort()
+        raise asyncio.CancelledError
+    kept.add(transport)
+    port = transport.get_extra_info("sockname")[1]
     upstream = UPSTREAMS[port]
     started = time.monotonic()
     client_host = request.headers.get("Host", f"127.0.0.1:{port}").rsplit(":", 1)[0]
@@ -208,6 +229,11 @@ async def control(request: web.Request):
                 state[key] = int(request.query[key])
     elif action == "noshape":
         state.update(down_kbps=0, up_kbps=0, rtt_ms=0)
+    elif action == "drop":
+        for transport in list(kept):
+            if not transport.is_closing():
+                dropped[transport] = request.query.get("reset") == "1"
+        kept.clear()
     elif action == "shot":
         # A screenshot of the booted simulator, asked by the tour inside it.
         name = os.path.basename(request.query.get("name", "shot"))
