@@ -28,6 +28,21 @@ final class GraphQLOperation<T> {
   /// it does not know one (an app published before the API it was built
   /// against).
   final OlderForm? older;
+
+  /// Whether the operation is a query, which changes nothing on the
+  /// server: one whose connection closed before the answer goes again
+  /// (`ReadRequest`). A mutation never does; its outbox and its
+  /// idempotency key decide when it goes again. A document whose
+  /// operation does not open a line counts as a write: the worst a
+  /// mistake costs is a read that does not go again.
+  bool get read {
+    final kinds = [for (final m in _operations.allMatches(document)) m[1]];
+    return kinds.isEmpty
+        ? document.trimLeft().startsWith('{')
+        : kinds.every((kind) => kind == 'query');
+  }
+
+  static final _operations = RegExp(r'^\s*(query|mutation|subscription)\b', multiLine: true);
 }
 
 /// An operation as an older API reads it: [document] without the arguments

@@ -5,5 +5,6 @@ import 'package:lunaway/core/http/app_http_client_stub.dart'
 
 /// The app's HTTP client: the browser's own in a web page; on a device,
 /// one that keeps an idle connection open long enough for the next
-/// question of the same screen (`app_http_client_io.dart`).
+/// question of the same screen, and sends a read again on a new connection
+/// when the kept one turns out dead (`app_http_client_io.dart`).
 http.Client appHttpClient() => impl.appHttpClient();

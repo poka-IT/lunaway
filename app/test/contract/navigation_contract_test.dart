@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gql/ast.dart';
+import 'package:gql/language.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
@@ -23,6 +25,23 @@ void main() {
   for (final op in navigationOperations) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
+    });
+  }
+
+  // A query goes again when its connection closed before the answer; a
+  // mutation never does (`ReadRequest`).
+  for (final op in [
+    ...navigationOperations,
+    roadEventsOperation,
+    enforcementOperation,
+    fuelNearOperation,
+  ]) {
+    test('${op.name} counts as a read exactly when it is a query', () {
+      final kind = parseString(op.document).definitions
+          .whereType<OperationDefinitionNode>()
+          .single
+          .type;
+      expect(op.read, kind == OperationType.query);
     });
   }
 
