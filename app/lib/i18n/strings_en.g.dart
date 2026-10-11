@@ -77,6 +77,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$account$en account = Translations$account$en.internal(_root);
 	late final Translations$recovery$en recovery = Translations$recovery$en.internal(_root);
 	late final Translations$recover$en recover = Translations$recover$en.internal(_root);
+	late final Translations$accountImport$en accountImport = Translations$accountImport$en.internal(_root);
 	late final Translations$deletion$en deletion = Translations$deletion$en.internal(_root);
 	late final Translations$devices$en devices = Translations$devices$en.internal(_root);
 	late final Translations$muted$en muted = Translations$muted$en.internal(_root);
@@ -2105,6 +2106,24 @@ class Translations$account$en {
 
 	/// en: 'Your favourite lists, addresses and notes included, are now kept with your account.'
 	String get welcomeFavorites => 'Your favourite lists, addresses and notes included, are now kept with your account.';
+
+	/// en: 'Use another account'
+	String get useAnother => 'Use another account';
+
+	/// en: 'This account was merged into “$name” on another device. Open “$name” here with its recovery card.'
+	String merged({required Object name}) => 'This account was merged into “${name}” on another device. Open “${name}” here with its recovery card.';
+
+	/// en: 'Open'
+	String get mergedAction => 'Open';
+
+	/// en: 'Account merged into “$name”'
+	String mergedTitle({required Object name}) => 'Account merged into “${name}”';
+
+	/// en: 'This account was merged into “$name” on another device. Your favourites stay here and join “$name” when you open it with its recovery card.'
+	String mergedBody({required Object name}) => 'This account was merged into “${name}” on another device. Your favourites stay here and join “${name}” when you open it with its recovery card.';
+
+	/// en: 'Open “$name” here'
+	String mergedOpen({required Object name}) => 'Open “${name}” here';
 }
 
 // Path: recovery
@@ -2255,6 +2274,96 @@ class Translations$recover$en {
 
 	/// en: 'Type the code on your recovery card'
 	String get required => 'Type the code on your recovery card';
+}
+
+// Path: accountImport
+class Translations$accountImport$en {
+	Translations$accountImport$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Use another account'
+	String get title => 'Use another account';
+
+	/// en: 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “$current”.'
+	String intro({required Object current}) => 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “${current}”.';
+
+	/// en: 'Open this account'
+	String get submit => 'Open this account';
+
+	/// en: 'This card is the one of “$current”, the account of this device.'
+	String same({required Object current}) => 'This card is the one of “${current}”, the account of this device.';
+
+	/// en: 'Two accounts on this device'
+	String get choiceTitle => 'Two accounts on this device';
+
+	/// en: 'This device uses “$current”. You have just opened “$imported”.'
+	String choiceBody({required Object current, required Object imported}) => 'This device uses “${current}”. You have just opened “${imported}”.';
+
+	/// en: 'Merge into “$imported”'
+	String merge({required Object imported}) => 'Merge into “${imported}”';
+
+	/// en: 'The favourite lists, the home, the hidden authors and the waiting contributions of “$current” move to “$imported”.'
+	String mergeMoves({required Object current, required Object imported}) => 'The favourite lists, the home, the hidden authors and the waiting contributions of “${current}” move to “${imported}”.';
+
+	/// en: 'Its published reviews, photos, places and edits move to the name of “$imported”.'
+	String mergePublic({required Object imported}) => 'Its published reviews, photos, places and edits move to the name of “${imported}”.';
+
+	/// en: 'Both accounts have a home: the one of “$imported” is kept.'
+	String mergeHomeKept({required Object imported}) => 'Both accounts have a home: the one of “${imported}” is kept.';
+
+	/// en: 'A place rated by both accounts keeps the rating of “$imported”.'
+	String mergeDuplicates({required Object imported}) => 'A place rated by both accounts keeps the rating of “${imported}”.';
+
+	/// en: '“$current” is then erased from this device and from the server.'
+	String mergeDeletes({required Object current}) => '“${current}” is then erased from this device and from the server.';
+
+	/// en: 'Replace without merging'
+	String get replace => 'Replace without merging';
+
+	/// en: 'Replace “$current” with “$imported”'
+	String replaceTitle({required Object current, required Object imported}) => 'Replace “${current}” with “${imported}”';
+
+	/// en: '“$current” stays on the server. Only its recovery card brings it back.'
+	String replaceKeeps({required Object current}) => '“${current}” stays on the server. Only its recovery card brings it back.';
+
+	/// en: '“$current” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.'
+	String replaceNoCard({required Object current}) => '“${current}” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.';
+
+	/// en: 'Its favourite lists and its home leave this device, replaced by those of “$imported”.'
+	String replaceLocal({required Object imported}) => 'Its favourite lists and its home leave this device, replaced by those of “${imported}”.';
+
+	/// en: '(one) {Its waiting contribution will not be sent.} (other) {Its $n waiting contributions will not be sent.}'
+	String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Its waiting contribution will not be sent.',
+		other: 'Its ${n} waiting contributions will not be sent.',
+	);
+
+	/// en: 'Recovery card of “$current”'
+	String card({required Object current}) => 'Recovery card of “${current}”';
+
+	/// en: 'Replace'
+	String get replaceConfirm => 'Replace';
+
+	/// en: 'Back'
+	String get back => 'Back';
+
+	/// en: 'The merge could not finish. Your data stays on this device. Try again once the network answers.'
+	String get failed => 'The merge could not finish. Your data stays on this device. Try again once the network answers.';
+
+	/// en: 'The server refuses this merge. Both accounts stay as they are.'
+	String get refused => 'The server refuses this merge. Both accounts stay as they are.';
+
+	/// en: 'Accounts merged: you are using “$name”.'
+	String merged({required Object name}) => 'Accounts merged: you are using “${name}”.';
+
+	/// en: 'This device now uses “$name”.'
+	String replaced({required Object name}) => 'This device now uses “${name}”.';
+
+	/// en: 'Nothing changed: this device still uses “$name”.'
+	String cancelled({required Object name}) => 'Nothing changed: this device still uses “${name}”.';
 }
 
 // Path: deletion
@@ -8498,6 +8607,12 @@ extension on Translations {
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists, addresses and notes included, are now kept with your account.',
+			'account.useAnother' => 'Use another account',
+			'account.merged' => ({required Object name}) => 'This account was merged into “${name}” on another device. Open “${name}” here with its recovery card.',
+			'account.mergedAction' => 'Open',
+			'account.mergedTitle' => ({required Object name}) => 'Account merged into “${name}”',
+			'account.mergedBody' => ({required Object name}) => 'This account was merged into “${name}” on another device. Your favourites stay here and join “${name}” when you open it with its recovery card.',
+			'account.mergedOpen' => ({required Object name}) => 'Open “${name}” here',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
@@ -8541,6 +8656,32 @@ extension on Translations {
 			'recover.tooMany' => 'Too many attempts for now. Try again in an hour.',
 			'recover.done' => ({required Object name}) => 'Account recovered: ${name}',
 			'recover.required' => 'Type the code on your recovery card',
+			'accountImport.title' => 'Use another account',
+			'accountImport.intro' => ({required Object current}) => 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “${current}”.',
+			'accountImport.submit' => 'Open this account',
+			'accountImport.same' => ({required Object current}) => 'This card is the one of “${current}”, the account of this device.',
+			'accountImport.choiceTitle' => 'Two accounts on this device',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'This device uses “${current}”. You have just opened “${imported}”.',
+			'accountImport.merge' => ({required Object imported}) => 'Merge into “${imported}”',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'The favourite lists, the home, the hidden authors and the waiting contributions of “${current}” move to “${imported}”.',
+			'accountImport.mergePublic' => ({required Object imported}) => 'Its published reviews, photos, places and edits move to the name of “${imported}”.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Both accounts have a home: the one of “${imported}” is kept.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'A place rated by both accounts keeps the rating of “${imported}”.',
+			'accountImport.mergeDeletes' => ({required Object current}) => '“${current}” is then erased from this device and from the server.',
+			'accountImport.replace' => 'Replace without merging',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Replace “${current}” with “${imported}”',
+			'accountImport.replaceKeeps' => ({required Object current}) => '“${current}” stays on the server. Only its recovery card brings it back.',
+			'accountImport.replaceNoCard' => ({required Object current}) => '“${current}” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Its favourite lists and its home leave this device, replaced by those of “${imported}”.',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Its waiting contribution will not be sent.', other: 'Its ${n} waiting contributions will not be sent.', ), 
+			'accountImport.card' => ({required Object current}) => 'Recovery card of “${current}”',
+			'accountImport.replaceConfirm' => 'Replace',
+			'accountImport.back' => 'Back',
+			'accountImport.failed' => 'The merge could not finish. Your data stays on this device. Try again once the network answers.',
+			'accountImport.refused' => 'The server refuses this merge. Both accounts stay as they are.',
+			'accountImport.merged' => ({required Object name}) => 'Accounts merged: you are using “${name}”.',
+			'accountImport.replaced' => ({required Object name}) => 'This device now uses “${name}”.',
+			'accountImport.cancelled' => ({required Object name}) => 'Nothing changed: this device still uses “${name}”.',
 			'deletion.title' => 'Delete my account',
 			'deletion.intro' => 'Deletion is immediate and final.',
 			'deletion.goneTitle' => 'What is deleted',
@@ -8912,6 +9053,8 @@ extension on Translations {
 			'poi.kind.funeralDirectors' => 'Funeral directors',
 			'poi.kind.petGrooming' => 'Pet grooming',
 			'poi.kind.tyres' => 'Tyres',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.carParts' => 'Car parts',
 			'poi.kind.carDealer' => 'Car dealer',
 			'poi.kind.motorcycleShop' => 'Motorcycle shop',
@@ -8944,8 +9087,6 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',

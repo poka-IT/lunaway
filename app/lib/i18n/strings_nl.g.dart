@@ -72,6 +72,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$account$nl account = _Translations$account$nl._(_root);
 	@override late final _Translations$recovery$nl recovery = _Translations$recovery$nl._(_root);
 	@override late final _Translations$recover$nl recover = _Translations$recover$nl._(_root);
+	@override late final _Translations$accountImport$nl accountImport = _Translations$accountImport$nl._(_root);
 	@override late final _Translations$deletion$nl deletion = _Translations$deletion$nl._(_root);
 	@override late final _Translations$devices$nl devices = _Translations$devices$nl._(_root);
 	@override late final _Translations$muted$nl muted = _Translations$muted$nl._(_root);
@@ -1006,6 +1007,12 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String welcomeBody({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.';
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
 	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
+	@override String get useAnother => 'Een ander account gebruiken';
+	@override String merged({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.';
+	@override String get mergedAction => 'Openen';
+	@override String mergedTitle({required Object name}) => 'Account samengevoegd met “${name}”';
+	@override String mergedBody({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.';
+	@override String mergedOpen({required Object name}) => '“${name}” hier openen';
 }
 
 // Path: recovery
@@ -1070,6 +1077,44 @@ class _Translations$recover$nl extends Translations$recover$en {
 	@override String get tooMany => 'Te veel pogingen. Probeer het over een uur opnieuw.';
 	@override String done({required Object name}) => 'Account hersteld: ${name}';
 	@override String get required => 'Typ de code van je herstelkaart';
+}
+
+// Path: accountImport
+class _Translations$accountImport$nl extends Translations$accountImport$en {
+	_Translations$accountImport$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Een ander account gebruiken';
+	@override String intro({required Object current}) => 'Open hier een ander account van je met de herstelkaart ervan: typ de code of lees die van een foto. Daarna kies je wat er met “${current}” gebeurt.';
+	@override String get submit => 'Dit account openen';
+	@override String same({required Object current}) => 'Deze kaart hoort bij “${current}”, het account van dit apparaat.';
+	@override String get choiceTitle => 'Twee accounts op dit apparaat';
+	@override String choiceBody({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.';
+	@override String merge({required Object imported}) => 'Samenvoegen met “${imported}”';
+	@override String mergeMoves({required Object current, required Object imported}) => 'De favorietenlijsten, het thuisadres, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.';
+	@override String mergePublic({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.';
+	@override String mergeHomeKept({required Object imported}) => 'Beide accounts hebben een thuisadres: dat van “${imported}” blijft.';
+	@override String mergeDuplicates({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.';
+	@override String mergeDeletes({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.';
+	@override String get replace => 'Vervangen zonder samenvoegen';
+	@override String replaceTitle({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”';
+	@override String replaceKeeps({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.';
+	@override String replaceNoCard({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.';
+	@override String replaceLocal({required Object imported}) => 'De favorietenlijsten en het thuisadres verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.';
+	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'De wachtende bijdrage wordt niet verstuurd.',
+		other: 'De ${n} wachtende bijdragen worden niet verstuurd.',
+	);
+	@override String card({required Object current}) => 'Herstelkaart van “${current}”';
+	@override String get replaceConfirm => 'Vervangen';
+	@override String get back => 'Terug';
+	@override String get failed => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.';
+	@override String get refused => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.';
+	@override String merged({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.';
+	@override String replaced({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.';
+	@override String cancelled({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.';
 }
 
 // Path: deletion
@@ -4517,6 +4562,12 @@ extension on TranslationsNl {
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
+			'account.useAnother' => 'Een ander account gebruiken',
+			'account.merged' => ({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.',
+			'account.mergedAction' => 'Openen',
+			'account.mergedTitle' => ({required Object name}) => 'Account samengevoegd met “${name}”',
+			'account.mergedBody' => ({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.',
+			'account.mergedOpen' => ({required Object name}) => '“${name}” hier openen',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
@@ -4560,6 +4611,32 @@ extension on TranslationsNl {
 			'recover.tooMany' => 'Te veel pogingen. Probeer het over een uur opnieuw.',
 			'recover.done' => ({required Object name}) => 'Account hersteld: ${name}',
 			'recover.required' => 'Typ de code van je herstelkaart',
+			'accountImport.title' => 'Een ander account gebruiken',
+			'accountImport.intro' => ({required Object current}) => 'Open hier een ander account van je met de herstelkaart ervan: typ de code of lees die van een foto. Daarna kies je wat er met “${current}” gebeurt.',
+			'accountImport.submit' => 'Dit account openen',
+			'accountImport.same' => ({required Object current}) => 'Deze kaart hoort bij “${current}”, het account van dit apparaat.',
+			'accountImport.choiceTitle' => 'Twee accounts op dit apparaat',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.',
+			'accountImport.merge' => ({required Object imported}) => 'Samenvoegen met “${imported}”',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'De favorietenlijsten, het thuisadres, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.',
+			'accountImport.mergePublic' => ({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Beide accounts hebben een thuisadres: dat van “${imported}” blijft.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.',
+			'accountImport.mergeDeletes' => ({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.',
+			'accountImport.replace' => 'Vervangen zonder samenvoegen',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”',
+			'accountImport.replaceKeeps' => ({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.',
+			'accountImport.replaceNoCard' => ({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'De favorietenlijsten en het thuisadres verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'De wachtende bijdrage wordt niet verstuurd.', other: 'De ${n} wachtende bijdragen worden niet verstuurd.', ), 
+			'accountImport.card' => ({required Object current}) => 'Herstelkaart van “${current}”',
+			'accountImport.replaceConfirm' => 'Vervangen',
+			'accountImport.back' => 'Terug',
+			'accountImport.failed' => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.refused' => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.',
+			'accountImport.merged' => ({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.',
+			'accountImport.replaced' => ({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.',
+			'accountImport.cancelled' => ({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.',
 			'deletion.title' => 'Mijn account verwijderen',
 			'deletion.intro' => 'Het verwijderen gebeurt direct en is definitief.',
 			'deletion.goneTitle' => 'Wat er verdwijnt',
@@ -4931,6 +5008,8 @@ extension on TranslationsNl {
 			'poi.kind.funeralDirectors' => 'Uitvaartcentrum',
 			'poi.kind.petGrooming' => 'Trimsalon',
 			'poi.kind.tyres' => 'Bandenservice',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.carParts' => 'Auto-onderdelen',
 			'poi.kind.carDealer' => 'Autodealer',
 			'poi.kind.motorcycleShop' => 'Motorzaak',
@@ -4963,8 +5042,6 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',

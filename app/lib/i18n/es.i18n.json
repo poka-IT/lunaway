@@ -1345,7 +1345,13 @@
     "welcomeTitle": "Gracias por tu primera contribución",
     "welcomeBody": "Tu cuenta está creada, con el seudónimo «$name». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.",
     "welcomeCard": "Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.",
-    "welcomeFavorites": "Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta."
+    "welcomeFavorites": "Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta.",
+    "useAnother": "Usar otra cuenta",
+    "merged": "Esta cuenta se fusionó con «$name» en otro dispositivo. Abre «$name» aquí con su tarjeta de recuperación.",
+    "mergedAction": "Abrir",
+    "mergedTitle": "Cuenta fusionada con «$name»",
+    "mergedBody": "Esta cuenta se fusionó con «$name» en otro dispositivo. Tus favoritos se quedan aquí y pasan a «$name» cuando la abres con su tarjeta de recuperación.",
+    "mergedOpen": "Abrir «$name» aquí"
   },
   "recovery": {
     "title": "Tarjeta de recuperación",
@@ -1396,6 +1402,37 @@
     "tooMany": "Demasiados intentos por ahora. Vuelve a intentarlo dentro de una hora.",
     "done": "Cuenta recuperada: $name",
     "required": "Escribe el código de tu tarjeta de recuperación"
+  },
+  "accountImport": {
+    "title": "Usar otra cuenta",
+    "intro": "Abre aquí otra de tus cuentas con su tarjeta de recuperación: escribe su código o léelo en una foto. Después eliges qué pasa con «$current».",
+    "submit": "Abrir esta cuenta",
+    "same": "Esta tarjeta es la de «$current», la cuenta de este dispositivo.",
+    "choiceTitle": "Dos cuentas en este dispositivo",
+    "choiceBody": "Este dispositivo usa «$current». Acabas de abrir «$imported».",
+    "merge": "Fusionar con «$imported»",
+    "mergeMoves": "Las listas de favoritos, el domicilio, los autores ocultos y las contribuciones pendientes de «$current» pasan a «$imported».",
+    "mergePublic": "Sus reseñas, fotos, lugares y cambios publicados pasan a nombre de «$imported».",
+    "mergeHomeKept": "Las dos cuentas tienen un domicilio: se conserva el de «$imported».",
+    "mergeDuplicates": "Un lugar valorado por las dos cuentas conserva la valoración de «$imported».",
+    "mergeDeletes": "Después, «$current» se borra de este dispositivo y del servidor.",
+    "replace": "Sustituir sin fusionar",
+    "replaceTitle": "Sustituir «$current» por «$imported»",
+    "replaceKeeps": "«$current» se queda en el servidor. Solo su tarjeta de recuperación permite volver a ella.",
+    "replaceNoCard": "No se conoce ninguna tarjeta de recuperación de «$current». Si no está abierta en ningún otro dispositivo, se borra del servidor, porque ya nada podría abrirla.",
+    "replaceLocal": "Sus listas de favoritos y su domicilio salen de este dispositivo; los de «$imported» ocupan su lugar.",
+    "replacePending(param=n)": {
+      "one": "Su contribución pendiente no se enviará.",
+      "other": "Sus $n contribuciones pendientes no se enviarán."
+    },
+    "card": "Tarjeta de recuperación de «$current»",
+    "replaceConfirm": "Sustituir",
+    "back": "Volver",
+    "failed": "La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
+    "refused": "El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.",
+    "merged": "Cuentas fusionadas: usas «$name».",
+    "replaced": "Este dispositivo usa ahora «$name».",
+    "cancelled": "No ha cambiado nada: este dispositivo sigue usando «$name»."
   },
   "deletion": {
     "title": "Eliminar mi cuenta",

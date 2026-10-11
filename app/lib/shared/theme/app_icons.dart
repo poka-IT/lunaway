@@ -135,6 +135,9 @@ abstract final class AppIcons {
   static const IconData gallery = PhosphorRegular.images;
   static const IconData pickFile = PhosphorRegular.fileImage;
   static const IconData recoveryCard = PhosphorRegular.key;
+
+  /// Two accounts made one (an account merged into another).
+  static const IconData mergeAccounts = PhosphorRegular.arrowsMerge;
   static const IconData qrCode = PhosphorRegular.qrCode;
   static const IconData scan = PhosphorRegular.scan;
   static const IconData signOut = PhosphorRegular.signOut;

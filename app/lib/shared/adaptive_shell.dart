@@ -75,12 +75,15 @@ class AdaptiveShell extends ConsumerWidget {
     ref.listen(accountControllerProvider, (previous, next) {
       // The key stopped opening the account (removed from another device,
       // deleted elsewhere): the profile now offers the recovery card.
+      // Merged into another account from another device: the message
+      // names that account, whose recovery card brings it here.
       if (next is NoAccount && next.lost && previous is SignedIn) {
+        final merged = next.mergedInto;
         showMessage(
           ScaffoldMessenger.maybeOf(context),
-          t.account.lost,
+          merged == null ? t.account.lost : t.account.merged(name: merged),
           action: SnackBarAction(
-            label: t.account.lostAction,
+            label: merged == null ? t.account.lostAction : t.account.mergedAction,
             onPressed: () => GoRouter.of(context).go(AppRoutes.recover),
           ),
         );

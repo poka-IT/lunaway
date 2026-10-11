@@ -16,6 +16,7 @@ import 'package:lunaway/features/account/data/card_file_io.dart'
     if (dart.library.js_interop) 'package:lunaway/features/account/data/card_file_web.dart';
 import 'package:lunaway/features/account/data/recovery_qr.dart';
 import 'package:lunaway/features/account/domain/recovery_code.dart';
+import 'package:lunaway/features/account/presentation/account_import.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/picture_picker.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
@@ -35,7 +36,11 @@ final _log = Logger('recovery');
 /// Makes the recovery card: what it is, then the code, shown once, as a
 /// card to keep (its image to save, share or print) and as a QR code.
 class RecoveryCardScreen extends ConsumerStatefulWidget {
-  const new({super.key});
+  const new({this.returns = false, super.key});
+
+  /// Pushed over another page (the choice of an imported account): the
+  /// card, once kept, returns to it rather than to the profile.
+  final bool returns;
 
   @override
   ConsumerState<RecoveryCardScreen> createState() => _RecoveryCardScreenState();
@@ -132,7 +137,11 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
   /// Leaves the card once the user says it is kept.
   Future<void> _leave() async {
     if (!await _confirmLeave() || !mounted) return;
-    GoRouter.of(context).go(AppRoutes.profile);
+    if (widget.returns) {
+      Navigator.of(context).pop();
+    } else {
+      GoRouter.of(context).go(AppRoutes.profile);
+    }
   }
 
   Future<bool> _confirmLeave() async {
@@ -411,8 +420,14 @@ class _QrPainter extends CustomPainter {
 /// Brings an account to this device from its recovery code, typed or read
 /// on a photo of the card. The code is checked here first, so a typo never
 /// spends one of the server's five attempts an hour.
+///
+/// With [importing], the device already holds an account: the one of the
+/// code opens beside it, and a sheet then asks what becomes of the two
+/// (`chooseForImported`).
 class RecoverScreen extends ConsumerStatefulWidget {
-  const new({super.key});
+  const new({this.importing = false, super.key});
+
+  final bool importing;
 
   @override
   ConsumerState<RecoverScreen> createState() => _RecoverScreenState();
@@ -465,6 +480,10 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
     try {
+      if (widget.importing) {
+        await _import(code);
+        return;
+      }
       final account = await ref
           .read(accountControllerProvider.notifier)
           .recover(code, revokeOthers: _revoke);
@@ -472,6 +491,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       await ref.read(outboxStoreProvider).claimFor(account.id);
       showMessage(messenger, t.recover.done(name: account.pseudonym));
       router.go(AppRoutes.profile);
+    } on FormRefused {
+      rethrow;
     } on GraphQLRateLimitedException {
       throw FormFailure(t.recover.tooMany, retry: false);
     } on GraphQLResponseException catch (e) {
@@ -493,11 +514,35 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     }
   }
 
+  /// Opens the account of [code] beside the device's, then asks what
+  /// becomes of the two. The card of the device's own account opens it
+  /// again: said on the field, and its new key detached at once.
+  Future<void> _import(String code) async {
+    final t = context.t;
+    final controller = ref.read(accountControllerProvider.notifier);
+    final imported = await controller.importAccount(code);
+    final current = ref.read(accountControllerProvider);
+    if (current is SignedIn && current.account.id == imported.account.id) {
+      await controller.cancelImport(imported);
+      if (mounted) {
+        setState(() => _refused = t.accountImport.same(current: current.account.pseudonym));
+      }
+      throw const FormRefused();
+    }
+    if (!mounted) {
+      await controller.cancelImport(imported);
+      return;
+    }
+    await chooseForImported(context, ref, imported);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final account = ref.watch(accountControllerProvider);
+    final current = account is SignedIn ? account.account.pseudonym : '';
     final symbols = RecoveryCode.symbolsOf(_code.text);
     final valid = RecoveryCode.parse(_code.text) != null;
     final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
@@ -515,8 +560,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       child: SubPage(
         // A form: every field built, so the button checks them all.
         builtWhole: true,
-        title: t.recover.title,
-        subtitle: t.recover.intro,
+        title: widget.importing ? t.accountImport.title : t.recover.title,
+        subtitle: widget.importing ? t.accountImport.intro(current: current) : t.recover.intro,
         children: [
           LunaTextField(
             controller: _code,
@@ -561,17 +606,21 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
             ),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
-          const SizedBox(height: Space.l),
-          CheckboxListTile(
-            value: _revoke,
-            onChanged: (v) => setState(() => _revoke = v ?? false),
-            contentPadding: EdgeInsets.zero,
-            title: Text(t.recover.revoke),
-            subtitle: Text(t.recover.revokeHint),
-          ),
+          // The other devices of an account opened beside this one's are
+          // its own business: the import leaves them as they are.
+          if (!widget.importing) ...[
+            const SizedBox(height: Space.l),
+            CheckboxListTile(
+              value: _revoke,
+              onChanged: (v) => setState(() => _revoke = v ?? false),
+              contentPadding: EdgeInsets.zero,
+              title: Text(t.recover.revoke),
+              subtitle: Text(t.recover.revokeHint),
+            ),
+          ],
           const SizedBox(height: Space.l),
           SubmitButton(
-            label: t.recover.submit,
+            label: widget.importing ? t.accountImport.submit : t.recover.submit,
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
         ],

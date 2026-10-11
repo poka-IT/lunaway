@@ -133,6 +133,15 @@ final class FavoritesSync {
     await (db.delete(db.settings)..where((r) => r.id.equals(_boundSetting))).go();
   });
 
+  /// Forgets the device's favourite lists, their places and points, and
+  /// every link to an account: another account takes this device's place
+  /// without merging, and only its own lists come back at its first sync.
+  Future<void> clearLocal() => db.transaction(() async {
+    await db.delete(db.favoriteLists).go();
+    await db.delete(db.favoriteSyncBase).go();
+    await (db.delete(db.settings)..where((r) => r.id.equals(_boundSetting))).go();
+  });
+
   /// Syncs the lists with the account [accountId].
   Future<void> sync({required String accountId}) async {
     final bound = await (db.select(

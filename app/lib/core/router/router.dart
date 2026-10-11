@@ -56,6 +56,10 @@ GoRouter router(Ref ref) {
                 routes: [
                   GoRoute(path: 'recovery-card', builder: (_, _) => const RecoveryCardScreen()),
                   GoRoute(path: 'recover', builder: (_, _) => const RecoverScreen()),
+                  GoRoute(
+                    path: 'use-another-account',
+                    builder: (_, _) => const RecoverScreen(importing: true),
+                  ),
                   GoRoute(path: 'contributions', builder: (_, _) => const ContributionsScreen()),
                   GoRoute(path: 'muted', builder: (_, _) => const MutedAuthorsScreen()),
                   GoRoute(path: 'devices', builder: (_, _) => const DevicesScreen()),

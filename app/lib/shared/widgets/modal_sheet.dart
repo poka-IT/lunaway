@@ -9,6 +9,10 @@ import 'package:lunaway/shared/theme/tokens.dart';
 ///
 /// [handle] false for a sheet whose content draws its own top.
 ///
+/// [dismissible] false for a sheet that must end by one of its own buttons
+/// (a choice that cannot be left half made): no tap outside, no drag
+/// closes it; its content handles the system back (`PopScope`).
+///
 /// [startInset] is the room the sheet leaves on the left of the window, a
 /// panel it must not cover (the guidance's maneuver, the phone on its
 /// side), read again whenever the window changes: the sheet stands in what
@@ -20,6 +24,7 @@ Future<T?> showSheet<T>(
   bool useSafeArea = false,
   bool isScrollControlled = false,
   bool handle = true,
+  bool dismissible = true,
   double Function(BuildContext context)? startInset,
 }) {
   Widget withHandle(BuildContext context) => Column(
@@ -35,6 +40,8 @@ Future<T?> showSheet<T>(
     useRootNavigator: useRootNavigator,
     useSafeArea: useSafeArea,
     isScrollControlled: isScrollControlled,
+    isDismissible: dismissible,
+    enableDrag: dismissible,
     showDragHandle: false,
     // Beside a panel, the sheet draws its own surface where it stands.
     backgroundColor: startInset == null ? null : Colors.transparent,

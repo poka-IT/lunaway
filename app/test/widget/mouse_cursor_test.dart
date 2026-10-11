@@ -315,6 +315,7 @@ void main() {
       AppRoutes.profile,
       AppRoutes.recoveryCard,
       AppRoutes.recover,
+      AppRoutes.useAnotherAccount,
       AppRoutes.contributions,
       AppRoutes.muted,
       AppRoutes.devices,

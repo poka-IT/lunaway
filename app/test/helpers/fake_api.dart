@@ -113,7 +113,52 @@ final class FakeApi {
   final _tokens = <String, String>{};
   final _nonces = <String>{};
   var _serial = 0;
-  final String _accountId = _uuid(1);
+  String _accountId = _uuid(1);
+
+  /// The code of another account of the same person, which
+  /// `RecoverAccount` opens beside the device's: the account an import
+  /// merges into, or takes the device's account's place.
+  static const otherRecoveryCode = '3W3Y-9GFA-J1DR-1DGC-WVE0-7C88-CF0';
+
+  /// The other account's pseudonym and id.
+  String otherPseudonym = 'Hérisson du Morvan';
+  static final String otherId = _uuid(3);
+
+  /// Whether the other account has a home on the server.
+  bool otherHasHome = false;
+
+  /// The next `MergeAccount` is made, then its answer is lost, as when the
+  /// network drops while it travels back.
+  bool loseMergeAnswer = false;
+
+  /// The accounts a device left with `signOut(forgetDevice: true)`:
+  /// `current` (the device's) or `other` (the one imported).
+  final forgotten = <String>[];
+
+  /// Whether the device's account was merged into the other.
+  bool merged = false;
+
+  /// Keys of the other account, by thumbprint, with their device id, and
+  /// their public halves (the merge's signature is checked with them).
+  final _otherKeys = <String, String>{};
+  final _jwks = <String, PublicJwk>{};
+
+  /// Keys of the account merged into the other, by thumbprint, with the
+  /// pseudonym it went into.
+  final mergedKeys = <String, String>{};
+
+  Map<String, Object?> otherAccount() => {...account(), 'id': otherId, 'pseudonym': otherPseudonym};
+
+  /// The device now uses the other account: it becomes the account this
+  /// server serves.
+  void _becomeOther() {
+    _keys
+      ..clear()
+      ..addAll(_otherKeys);
+    _otherKeys.clear();
+    pseudonym = otherPseudonym;
+    _accountId = otherId;
+  }
 
   /// The operations received, by name.
   List<String> get operations => [for (final c in calls) c.operation];
@@ -180,6 +225,15 @@ final class FakeApi {
   void addSession(String token, String thumbprint) {
     _keys[thumbprint] = _next();
     _tokens[token] = thumbprint;
+  }
+
+  /// The account was merged, from another device, into the account of
+  /// [into]: its keys open nothing any more, and their sign-in names it.
+  void mergeElsewhere(String into) {
+    for (final k in _keys.keys) {
+      mergedKeys[k] = into;
+    }
+    _keys.clear();
   }
 
   /// The client the app's GraphQL client and photo uploader use; anything
@@ -250,6 +304,11 @@ final class FakeApi {
     final Object answer;
     try {
       answer = _answer(name, variables, token, query);
+      if (name == 'MergeAccount' && loseMergeAnswer) {
+        // Made on the server; the answer never reaches the device.
+        loseMergeAnswer = false;
+        throw http.ClientException('connection reset', request.url);
+      }
     } on _Refused catch (e) {
       return _json({
         'data': null,
@@ -314,6 +373,9 @@ final class FakeApi {
     'RemovePointFromList',
     'RenameList',
     'DeleteList',
+    'MergeAccount',
+    'SignOutForgettingDevice',
+    'AccountHasHome',
   };
 
   static http.Response _json(Object body) => http.Response(
@@ -347,6 +409,7 @@ final class FakeApi {
     final message = Uint8List.fromList(utf8.encode('${P256.challengePrefix}$nonce'));
     final signature = P256.fromB64url(v['signature']! as String) ?? Uint8List(0);
     if (!P256.verify(jwk, message, signature)) throw const _Refused('BAD_SIGNATURE');
+    _jwks[jwk.thumbprint] = jwk;
     return jwk.thumbprint;
   }
 
@@ -417,6 +480,16 @@ final class FakeApi {
         return {
           'authChallenge': {'nonce': nonce, 'message': '${P256.challengePrefix}$nonce'},
         };
+      case 'SignIn' when _otherKeys.containsKey(_peek(v)):
+        final key = _verify(v);
+        return {'signIn': _otherSession(key)};
+      case 'SignIn' when mergedKeys.containsKey(_peek(v)) && v['createIfUnknown'] == false:
+        // The account of the key went into another: said with its name.
+        _verify(v);
+        throw _Refused(
+          'NOT_FOUND',
+          extensions: {'reason': 'UNKNOWN_KEY', 'mergedInto': mergedKeys[_peek(v)]},
+        );
       case 'SignIn':
         final key = _verify(v);
         final unknown = !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
@@ -440,6 +513,10 @@ final class FakeApi {
         final created = _keys.isEmpty;
         _keys.putIfAbsent(key, _next);
         return {'signIn': _session(key, created: created)};
+      case 'RecoverAccount' when v['code'] == otherRecoveryCode:
+        final key = _verify(v);
+        _otherKeys[key] = _next();
+        return {'recoverAccount': _otherSession(key)};
       case 'RecoverAccount':
         final key = _verify(v);
         if (v['code'] != recoveryCode) throw const _Refused('INVALID_RECOVERY_CODE');
@@ -467,6 +544,14 @@ final class FakeApi {
       strangersDeleted++;
       return {'deleteAccount': true};
     }
+    final other = token == null ? null : _tokens[token];
+    if (other != null && _otherKeys.containsKey(other)) {
+      final answer = _answerOther(name, v, other);
+      if (answer != null) return answer;
+      // Anything else the device asks as the other account: it uses that
+      // account now (an import that replaced the device's).
+      _becomeOther();
+    }
     final key = _signedIn(token);
     String id() => v['id']! as String;
     // The same idempotency key gets the answer the first request stored.
@@ -481,6 +566,70 @@ final class FakeApi {
 
   /// The answers stored by idempotency key, by operation.
   final _keyed = <String, Map<String, Object?>>{};
+
+  /// The thumbprint of the key a sign-in's variables name, before its
+  /// signature is checked.
+  static String _peek(Map<String, Object?> v) =>
+      PublicJwk.fromJson(jsonDecode(v['jwk']! as String) as Map<String, Object?>).thumbprint;
+
+  Map<String, Object?> _otherSession(String thumbprint) {
+    final token = 'other-${_serial++}';
+    _tokens[token] = thumbprint;
+    return {
+      'token': token,
+      'expiresAt': '2026-11-06T08:00:00Z',
+      'created': false,
+      'account': otherAccount(),
+    };
+  }
+
+  /// What the other account asks before the device uses it: its home, the
+  /// merge, or leaving it. Null for anything else.
+  Map<String, Object?>? _answerOther(String name, Map<String, Object?> v, String key) {
+    switch (name) {
+      case 'AccountHasHome':
+        return {
+          'myHome': otherHasHome ? {'updatedAt': testNow.toIso8601String()} : null,
+        };
+      case 'SignOutForgettingDevice':
+        _otherKeys.remove(key);
+        forgotten.add('other');
+        return {'signOut': true};
+      case 'MergeAccount':
+        final absorbed = _checkMerge(v, key);
+        final home = otherHasHome ? 'KEPT' : 'MOVED';
+        for (final k in _keys.keys) {
+          mergedKeys[k] = otherPseudonym;
+        }
+        mergedKeys[absorbed] = otherPseudonym;
+        _becomeOther();
+        merged = true;
+        return {
+          'mergeAccount': {'home': home, 'account': account()},
+        };
+    }
+    return null;
+  }
+
+  /// Checks the merge's proof as the server does: a nonce of this server,
+  /// and both keys signing `lunaway-merge:v1:<nonce>:<absorbed>:<into>`.
+  /// Returns the absorbed key's thumbprint.
+  String _checkMerge(Map<String, Object?> v, String into) {
+    final nonce = v['nonce']! as String;
+    if (!_nonces.remove(nonce)) throw const _Refused('BAD_CHALLENGE');
+    final absorbed = PublicJwk.fromJson(jsonDecode(v['jwk']! as String) as Map<String, Object?>);
+    final target = _jwks[into];
+    if (target == null) throw const _Refused('UNAUTHENTICATED');
+    final message = Uint8List.fromList(
+      utf8.encode('lunaway-merge:v1:$nonce:${absorbed.thumbprint}:${target.thumbprint}'),
+    );
+    bool signed(PublicJwk key, Object? signature) =>
+        P256.verify(key, message, P256.fromB64url(signature! as String) ?? Uint8List(0));
+    if (!signed(absorbed, v['absorbedSignature']) || !signed(target, v['signature'])) {
+      throw const _Refused('INVALID_INPUT', extensions: {'reason': 'BAD_PROOF'});
+    }
+    return absorbed.thumbprint;
+  }
 
   Map<String, Object?> _answerSignedIn(
     String name,
@@ -514,6 +663,16 @@ final class FakeApi {
         };
       }(),
       'SignOut' => {'signOut': true},
+      'SignOutForgettingDevice' => () {
+        _keys.remove(key);
+        forgotten.add('current');
+        return {'signOut': true};
+      }(),
+      // Asked again after its answer was lost: made already.
+      'MergeAccount' when mergedKeys.containsKey(_checkMerge(v, key)) => {
+        'mergeAccount': {'home': otherHasHome ? 'KEPT' : 'NONE', 'account': account()},
+      },
+      'MergeAccount' => throw const _Refused('INVALID_INPUT'),
       'SignOutElsewhere' => () {
         final others = _keys.length - 1;
         _keys.removeWhere((k, _) => k != key);

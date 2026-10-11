@@ -72,6 +72,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$account$fr account = _Translations$account$fr._(_root);
 	@override late final _Translations$recovery$fr recovery = _Translations$recovery$fr._(_root);
 	@override late final _Translations$recover$fr recover = _Translations$recover$fr._(_root);
+	@override late final _Translations$accountImport$fr accountImport = _Translations$accountImport$fr._(_root);
 	@override late final _Translations$deletion$fr deletion = _Translations$deletion$fr._(_root);
 	@override late final _Translations$devices$fr devices = _Translations$devices$fr._(_root);
 	@override late final _Translations$muted$fr muted = _Translations$muted$fr._(_root);
@@ -1006,6 +1007,12 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String welcomeBody({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
 	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
 	@override String get welcomeFavorites => 'Vos listes de favoris, adresses et notes comprises, sont maintenant gardées avec votre compte.';
+	@override String get useAnother => 'Utiliser un autre compte';
+	@override String merged({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Ouvrez « ${name} » ici avec sa carte de secours.';
+	@override String get mergedAction => 'Ouvrir';
+	@override String mergedTitle({required Object name}) => 'Compte fusionné dans « ${name} »';
+	@override String mergedBody({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.';
+	@override String mergedOpen({required Object name}) => 'Ouvrir « ${name} » ici';
 }
 
 // Path: recovery
@@ -1070,6 +1077,44 @@ class _Translations$recover$fr extends Translations$recover$en {
 	@override String get tooMany => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.';
 	@override String done({required Object name}) => 'Compte retrouvé : ${name}';
 	@override String get required => 'Tapez le code de votre carte de secours';
+}
+
+// Path: accountImport
+class _Translations$accountImport$fr extends Translations$accountImport$en {
+	_Translations$accountImport$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Utiliser un autre compte';
+	@override String intro({required Object current}) => 'Ouvrez ici un autre de vos comptes avec sa carte de secours : tapez son code ou lisez-le sur une photo. Vous choisirez ensuite ce que devient « ${current} ».';
+	@override String get submit => 'Ouvrir ce compte';
+	@override String same({required Object current}) => 'Cette carte est celle de « ${current} », le compte de cet appareil.';
+	@override String get choiceTitle => 'Deux comptes sur cet appareil';
+	@override String choiceBody({required Object current, required Object imported}) => 'Cet appareil utilise « ${current} ». Vous venez d\'ouvrir « ${imported} ».';
+	@override String merge({required Object imported}) => 'Fusionner dans « ${imported} »';
+	@override String mergeMoves({required Object current, required Object imported}) => 'Les listes de favoris, le domicile, les auteurs masqués et les contributions en attente de « ${current} » passent dans « ${imported} ».';
+	@override String mergePublic({required Object imported}) => 'Ses avis, photos, lieux et modifications publiés passent au nom de « ${imported} ».';
+	@override String mergeHomeKept({required Object imported}) => 'Les deux comptes ont un domicile : celui de « ${imported} » est gardé.';
+	@override String mergeDuplicates({required Object imported}) => 'Un lieu noté par les deux comptes garde la note de « ${imported} ».';
+	@override String mergeDeletes({required Object current}) => '« ${current} » est ensuite effacé de cet appareil et du serveur.';
+	@override String get replace => 'Remplacer sans fusionner';
+	@override String replaceTitle({required Object current, required Object imported}) => 'Remplacer « ${current} » par « ${imported} »';
+	@override String replaceKeeps({required Object current}) => '« ${current} » reste sur le serveur. Seule sa carte de secours permet d\'y revenir.';
+	@override String replaceNoCard({required Object current}) => '« ${current} » n\'a pas de carte de secours connue. S\'il n\'est ouvert sur aucun autre appareil, il est effacé du serveur, faute de moyen d\'y revenir.';
+	@override String replaceLocal({required Object imported}) => 'Ses listes de favoris et son domicile quittent cet appareil, remplacés par ceux de « ${imported} ».';
+	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Sa contribution en attente ne partira pas.',
+		other: 'Ses ${n} contributions en attente ne partiront pas.',
+	);
+	@override String card({required Object current}) => 'Carte de secours de « ${current} »';
+	@override String get replaceConfirm => 'Remplacer';
+	@override String get back => 'Retour';
+	@override String get failed => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.';
+	@override String get refused => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.';
+	@override String merged({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».';
+	@override String replaced({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».';
+	@override String cancelled({required Object name}) => 'Rien n\'a changé : cet appareil utilise toujours « ${name} ».';
 }
 
 // Path: deletion
@@ -4517,6 +4562,12 @@ extension on TranslationsFr {
 			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris, adresses et notes comprises, sont maintenant gardées avec votre compte.',
+			'account.useAnother' => 'Utiliser un autre compte',
+			'account.merged' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Ouvrez « ${name} » ici avec sa carte de secours.',
+			'account.mergedAction' => 'Ouvrir',
+			'account.mergedTitle' => ({required Object name}) => 'Compte fusionné dans « ${name} »',
+			'account.mergedBody' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.',
+			'account.mergedOpen' => ({required Object name}) => 'Ouvrir « ${name} » ici',
 			'recovery.title' => 'Carte de secours',
 			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.',
 			'recovery.replaces' => 'Une nouvelle carte remplace la précédente : l\'ancien code cessera de marcher.',
@@ -4560,6 +4611,32 @@ extension on TranslationsFr {
 			'recover.tooMany' => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.',
 			'recover.done' => ({required Object name}) => 'Compte retrouvé : ${name}',
 			'recover.required' => 'Tapez le code de votre carte de secours',
+			'accountImport.title' => 'Utiliser un autre compte',
+			'accountImport.intro' => ({required Object current}) => 'Ouvrez ici un autre de vos comptes avec sa carte de secours : tapez son code ou lisez-le sur une photo. Vous choisirez ensuite ce que devient « ${current} ».',
+			'accountImport.submit' => 'Ouvrir ce compte',
+			'accountImport.same' => ({required Object current}) => 'Cette carte est celle de « ${current} », le compte de cet appareil.',
+			'accountImport.choiceTitle' => 'Deux comptes sur cet appareil',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Cet appareil utilise « ${current} ». Vous venez d\'ouvrir « ${imported} ».',
+			'accountImport.merge' => ({required Object imported}) => 'Fusionner dans « ${imported} »',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Les listes de favoris, le domicile, les auteurs masqués et les contributions en attente de « ${current} » passent dans « ${imported} ».',
+			'accountImport.mergePublic' => ({required Object imported}) => 'Ses avis, photos, lieux et modifications publiés passent au nom de « ${imported} ».',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Les deux comptes ont un domicile : celui de « ${imported} » est gardé.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Un lieu noté par les deux comptes garde la note de « ${imported} ».',
+			'accountImport.mergeDeletes' => ({required Object current}) => '« ${current} » est ensuite effacé de cet appareil et du serveur.',
+			'accountImport.replace' => 'Remplacer sans fusionner',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Remplacer « ${current} » par « ${imported} »',
+			'accountImport.replaceKeeps' => ({required Object current}) => '« ${current} » reste sur le serveur. Seule sa carte de secours permet d\'y revenir.',
+			'accountImport.replaceNoCard' => ({required Object current}) => '« ${current} » n\'a pas de carte de secours connue. S\'il n\'est ouvert sur aucun autre appareil, il est effacé du serveur, faute de moyen d\'y revenir.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Ses listes de favoris et son domicile quittent cet appareil, remplacés par ceux de « ${imported} ».',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Sa contribution en attente ne partira pas.', other: 'Ses ${n} contributions en attente ne partiront pas.', ), 
+			'accountImport.card' => ({required Object current}) => 'Carte de secours de « ${current} »',
+			'accountImport.replaceConfirm' => 'Remplacer',
+			'accountImport.back' => 'Retour',
+			'accountImport.failed' => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.',
+			'accountImport.refused' => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.',
+			'accountImport.merged' => ({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».',
+			'accountImport.replaced' => ({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».',
+			'accountImport.cancelled' => ({required Object name}) => 'Rien n\'a changé : cet appareil utilise toujours « ${name} ».',
 			'deletion.title' => 'Supprimer mon compte',
 			'deletion.intro' => 'La suppression est immédiate et définitive.',
 			'deletion.goneTitle' => 'Ce qui disparaît',
@@ -4931,6 +5008,8 @@ extension on TranslationsFr {
 			'poi.kind.funeralDirectors' => 'Pompes funèbres',
 			'poi.kind.petGrooming' => 'Toilettage',
 			'poi.kind.tyres' => 'Pneus',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.carParts' => 'Pièces auto',
 			'poi.kind.carDealer' => 'Concession automobile',
 			'poi.kind.motorcycleShop' => 'Moto',
@@ -4963,8 +5042,6 @@ extension on TranslationsFr {
 			'poi.kind.hardware' => 'Bricolage, quincaillerie',
 			'poi.kind.home' => 'Maison, décoration',
 			'poi.kind.electronics' => 'Électronique, téléphonie',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			'poi.kind.departmentStore' => 'Grand magasin, centre commercial',
 			'poi.kind.varietyStore' => 'Bazar, discount',
