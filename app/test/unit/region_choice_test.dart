@@ -37,6 +37,7 @@ final _catalog = RegionCatalog([
   _region('FR', 'FR'),
   _region('ES', 'ES'),
   _region('DE', 'DE'),
+  _region('MA', 'MA'),
 ]);
 
 const _rennes = LatLng(48.11, -1.68);
@@ -161,6 +162,19 @@ void main() {
       guidance.stop();
       await pumpEventQueue();
       expect(c.read(regionOfferProvider)?.code, 'FR-ARA', reason: 'where the guidance ended');
+    });
+
+    test('is Morocco on entering it, Laayoune included, and nothing in Turkey', () async {
+      for (final (place, offered) in [
+        (const LatLng(31.63, -7.99), 'MA'),
+        (const LatLng(27.15, -13.2), 'MA'),
+        (const LatLng(41.01, 28.97), null),
+      ]) {
+        final c = make()..listen(regionOfferProvider, (_, _) {});
+        await keep({'FR-BRE', 'FR'});
+        await c.read(regionOfferProvider.notifier).consider(place);
+        expect(c.read(regionOfferProvider)?.code, offered, reason: '$place');
+      }
     });
 
     test('is never a region already kept', () async {

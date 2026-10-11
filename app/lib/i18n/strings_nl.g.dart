@@ -714,6 +714,7 @@ class _Translations$list$nl extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen';
 	@override String get offlineTitle => 'Geen verbinding';
 	@override String get offlineNotHere => 'Niets van dit gebied op dit apparaat.';
+	@override String get offlineOnlineOnly => 'Dit gebied is alleen online beschikbaar: de plekken en de kaart ervan zijn niet te downloaden.';
 }
 
 // Path: home
@@ -1653,6 +1654,7 @@ class _Translations$offlineMaps$nl extends Translations$offlineMaps$en {
 	@override String get noticePlacesOnly => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload';
 	@override String get noticeNone => 'Offline: download een regio voor de volgende keer';
 	@override String get noticeOnline => 'Offline: de kaart heeft internet nodig';
+	@override String get noticeOnlineOnly => 'Offline: dit gebied is alleen online beschikbaar';
 	@override String get placesTitle => 'Plekken';
 	@override String get placesHint => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.';
 	@override String get mapsTitle => 'Kaarten';
@@ -4382,6 +4384,7 @@ extension on TranslationsNl {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen',
 			'list.offlineTitle' => 'Geen verbinding',
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
+			'list.offlineOnlineOnly' => 'Dit gebied is alleen online beschikbaar: de plekken en de kaart ervan zijn niet te downloaden.',
 			'home.title' => 'Thuis',
 			'home.setTitle' => 'Mijn thuis instellen',
 			'home.error' => 'Je thuis kon niet worden geladen.',
@@ -4534,9 +4537,9 @@ extension on TranslationsNl {
 			'profile.attributionDatatourisme' => 'Plekken, beschrijvingen en foto\'s van de toeristenbureaus: DATAtourisme, onder de Licence Ouverte 2.0; bij elke tekst en elke foto staan het bureau, de auteur en de datum van de laatste update.',
 			'profile.attributionCommunity' => 'Reviews, beoordelingen en foto\'s van de reizigers van Lunaway, onder CC BY 4.0, met het pseudoniem van de auteur.',
 			'profile.attributionCommons' => 'Foto\'s van Wikimedia Commons, elk onder een eigen licentie (CC0, publiek domein, CC BY of CC BY-SA), met de auteur en een link naar de pagina.',
-			'profile.attributionPanoramax' => 'Straatbeelden van Panoramax: de instantie van OpenStreetMap France onder CC BY-SA 4.0, die van het IGN onder de Licence Ouverte 2.0.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionPanoramax' => 'Straatbeelden van Panoramax: de instantie van OpenStreetMap France onder CC BY-SA 4.0, die van het IGN onder de Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Fragmenten uit Wikipedia-artikelen, onder CC BY-SA 4.0, met een link naar het artikel.',
 			'profile.attributionMangrove' => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.',
 			'profile.attributionTranslation' => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.',
@@ -5048,9 +5051,9 @@ extension on TranslationsNl {
 			'poi.kind.clinic' => 'Kliniek',
 			'poi.kind.physiotherapist' => 'Fysiotherapeut',
 			'poi.kind.laboratory' => 'Laboratorium',
-			'poi.kind.nurse' => 'Verpleegkundige',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.nurse' => 'Verpleegkundige',
 			'poi.kind.midwife' => 'Verloskundige',
 			'poi.kind.podiatrist' => 'Podotherapeut',
 			'poi.kind.psychologist' => 'Psycholoog',
@@ -5435,6 +5438,7 @@ extension on TranslationsNl {
 			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',
 			'offlineMaps.noticeOnline' => 'Offline: de kaart heeft internet nodig',
+			'offlineMaps.noticeOnlineOnly' => 'Offline: dit gebied is alleen online beschikbaar',
 			'offlineMaps.placesTitle' => 'Plekken',
 			'offlineMaps.placesHint' => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.',
 			'offlineMaps.mapsTitle' => 'Kaarten',

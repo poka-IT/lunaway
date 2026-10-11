@@ -79,7 +79,13 @@ class _OfflineLine extends ConsumerWidget {
     // The places of the view on the device, its map not: the list and the
     // pins work, only the streets are missing.
     final placesHere = ref.watch(viewRegionProvider)?.held ?? false;
-    final text = pack != null
+    // A country the offline maps leave out: no download would help, and the
+    // last pack still drawn is not this area's.
+    final onlineOnly = supported && ref.watch(viewOnlineOnlyProvider);
+    final mapHere = pack != null && !onlineOnly;
+    final text = onlineOnly
+        ? t.offlineMaps.noticeOnlineOnly
+        : pack != null
         ? t.offlineMaps.noticePack(
             name: t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode)),
           )
@@ -90,7 +96,7 @@ class _OfflineLine extends ConsumerWidget {
         : supported
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
-    final icon = pack != null ? OfflineIcons.ready : OfflineIcons.offline;
+    final icon = mapHere ? OfflineIcons.ready : OfflineIcons.offline;
     // Opened from the map: a page over it, written in the map's order.
     final open = supported
         ? () => ref.read(mapFlowProvider.notifier).openPage(AppRoutes.offlineMaps)
@@ -138,7 +144,7 @@ class _OfflineLine extends ConsumerWidget {
           text: text,
           icon: icon,
           // A downloaded map for the view is the milder state.
-          level: pack != null ? 1 : 2,
+          level: mapHere ? 1 : 2,
           look: line,
           tellsItself: true,
         ),

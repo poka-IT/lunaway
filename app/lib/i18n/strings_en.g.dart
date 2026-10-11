@@ -1425,6 +1425,9 @@ class Translations$list$en {
 
 	/// en: 'Nothing of this area on this device.'
 	String get offlineNotHere => 'Nothing of this area on this device.';
+
+	/// en: 'This area is only available online: neither its places nor its map can be downloaded.'
+	String get offlineOnlineOnly => 'This area is only available online: neither its places nor its map can be downloaded.';
 }
 
 // Path: home
@@ -3571,6 +3574,9 @@ class Translations$offlineMaps$en {
 
 	/// en: 'Offline: the map needs the network'
 	String get noticeOnline => 'Offline: the map needs the network';
+
+	/// en: 'Offline: this area is only available online'
+	String get noticeOnlineOnly => 'Offline: this area is only available online';
 
 	/// en: 'Places'
 	String get placesTitle => 'Places';
@@ -8489,6 +8495,7 @@ extension on Translations {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'list.offlineTitle' => 'No connection',
 			'list.offlineNotHere' => 'Nothing of this area on this device.',
+			'list.offlineOnlineOnly' => 'This area is only available online: neither its places nor its map can be downloaded.',
 			'home.title' => 'Home',
 			'home.setTitle' => 'Set my home',
 			'home.error' => 'Your home could not be loaded.',
@@ -8641,9 +8648,9 @@ extension on Translations {
 			'profile.attributionDatatourisme' => 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.',
 			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
 			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.',
-			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.',
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
 			'profile.attributionTranslation' => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.',
@@ -9155,9 +9162,9 @@ extension on Translations {
 			'poi.kind.clinic' => 'Clinic',
 			'poi.kind.physiotherapist' => 'Physiotherapist',
 			'poi.kind.laboratory' => 'Medical laboratory',
-			'poi.kind.nurse' => 'Nurse',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.nurse' => 'Nurse',
 			'poi.kind.midwife' => 'Midwife',
 			'poi.kind.podiatrist' => 'Podiatrist',
 			'poi.kind.psychologist' => 'Psychologist',
@@ -9542,6 +9549,7 @@ extension on Translations {
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
+			'offlineMaps.noticeOnlineOnly' => 'Offline: this area is only available online',
 			'offlineMaps.placesTitle' => 'Places',
 			'offlineMaps.placesHint' => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.',
 			'offlineMaps.mapsTitle' => 'Maps',

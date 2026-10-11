@@ -200,6 +200,36 @@ void main() {
     expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsOneWidget);
   });
 
+  testWidgets('offline, a view moved from a downloaded region to a country left out of the '
+      'offline maps says that country is online only', (tester) async {
+    final map = FakeMap()
+      ..viewport = const MapViewport(
+        bounds: GeoBounds(south: 41.8, west: 8.6, north: 42, east: 8.9),
+        center: LatLng(41.919, 8.738),
+        zoom: 12,
+      );
+    final app = await pumpLunaway(tester, map: map, packFiles: _withCorsica(), reachable: false);
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsOneWidget);
+
+    // Istanbul: the map still draws the Corsican pack rather than nothing,
+    // but no download covers the view.
+    app
+        .container(tester)
+        .read(viewportProvider.notifier)
+        .update(
+          const MapViewport(
+            bounds: GeoBounds(south: 40.85, west: 28.7, north: 41.17, east: 29.24),
+            center: LatLng(41.01, 28.97),
+            zoom: 11,
+          ),
+        );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticeOnlineOnly), findsOneWidget);
+    expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsNothing);
+    expect(find.text(t.offlineMaps.noticeOutside), findsNothing, reason: 'no download would help');
+  });
+
   testWidgets('offline, the line folds into a chip at a swipe up and opens again from it', (
     tester,
   ) async {

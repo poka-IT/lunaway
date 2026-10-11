@@ -1080,7 +1080,8 @@
     "rankedAmongNearestYou": "Sortiert innerhalb der $n Plätze, die Ihnen am nächsten liegen",
     "rankedAmongNearestCentre": "Sortiert innerhalb der $n Plätze, die der Kartenmitte am nächsten liegen",
     "offlineTitle": "Keine Verbindung",
-    "offlineNotHere": "Nichts aus diesem Gebiet auf diesem Gerät."
+    "offlineNotHere": "Nichts aus diesem Gebiet auf diesem Gerät.",
+    "offlineOnlineOnly": "Dieses Gebiet ist nur online verfügbar: Weder seine Plätze noch seine Karte lassen sich herunterladen."
   },
   "home": {
     "title": "Zuhause",
@@ -2302,6 +2303,7 @@
     "noticePlacesOnly": "Offline: Plätze auf dem Gerät, Karte dieses Gebiets nicht heruntergeladen",
     "noticeNone": "Offline: Laden Sie für das nächste Mal eine Region herunter",
     "noticeOnline": "Offline: Die Karte braucht das Netz",
+    "noticeOnlineOnly": "Offline: Dieses Gebiet ist nur online verfügbar",
     "placesTitle": "Plätze",
     "placesHint": "Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.",
     "mapsTitle": "Karten",

@@ -714,6 +714,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte';
 	@override String get offlineTitle => 'Pas de connexion';
 	@override String get offlineNotHere => 'Rien de cette zone sur cet appareil.';
+	@override String get offlineOnlineOnly => 'Cette zone n\'est disponible qu\'en ligne : ni ses lieux ni sa carte ne se téléchargent.';
 }
 
 // Path: home
@@ -1653,6 +1654,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get noticePlacesOnly => 'Hors ligne : lieux sur l\'appareil, carte de cette zone à télécharger';
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
+	@override String get noticeOnlineOnly => 'Hors ligne : cette zone n\'est disponible qu\'en ligne';
 	@override String get placesTitle => 'Lieux';
 	@override String get placesHint => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.';
 	@override String get mapsTitle => 'Cartes';
@@ -4382,6 +4384,7 @@ extension on TranslationsFr {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte',
 			'list.offlineTitle' => 'Pas de connexion',
 			'list.offlineNotHere' => 'Rien de cette zone sur cet appareil.',
+			'list.offlineOnlineOnly' => 'Cette zone n\'est disponible qu\'en ligne : ni ses lieux ni sa carte ne se téléchargent.',
 			'home.title' => 'Domicile',
 			'home.setTitle' => 'Définir mon domicile',
 			'home.error' => 'Votre domicile n\'a pas pu s\'afficher.',
@@ -4534,9 +4537,9 @@ extension on TranslationsFr {
 			'profile.attributionDatatourisme' => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.',
 			'profile.attributionCommunity' => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.',
 			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, domaine public, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
-			'profile.attributionPanoramax' => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionPanoramax' => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.',
 			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
 			'profile.attributionTranslation' => 'Traductions automatiques : modèles OPUS-MT de l\'Université d\'Helsinki, sous licence CC BY 4.0, exécutés sur les serveurs de Lunaway.',
@@ -5048,9 +5051,9 @@ extension on TranslationsFr {
 			'poi.kind.clinic' => 'Clinique, centre de santé',
 			'poi.kind.physiotherapist' => 'Kinésithérapeute',
 			'poi.kind.laboratory' => 'Laboratoire d\'analyses',
-			'poi.kind.nurse' => 'Infirmier',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.nurse' => 'Infirmier',
 			'poi.kind.midwife' => 'Sage-femme',
 			'poi.kind.podiatrist' => 'Pédicure-podologue',
 			'poi.kind.psychologist' => 'Psychologue',
@@ -5435,6 +5438,7 @@ extension on TranslationsFr {
 			'offlineMaps.noticePlacesOnly' => 'Hors ligne : lieux sur l\'appareil, carte de cette zone à télécharger',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
+			'offlineMaps.noticeOnlineOnly' => 'Hors ligne : cette zone n\'est disponible qu\'en ligne',
 			'offlineMaps.placesTitle' => 'Lieux',
 			'offlineMaps.placesHint' => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.',
 			'offlineMaps.mapsTitle' => 'Cartes',

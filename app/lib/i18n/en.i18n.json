@@ -1080,7 +1080,8 @@
     "rankedAmongNearestYou": "Ranked among the $n places nearest you",
     "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map",
     "offlineTitle": "No connection",
-    "offlineNotHere": "Nothing of this area on this device."
+    "offlineNotHere": "Nothing of this area on this device.",
+    "offlineOnlineOnly": "This area is only available online: neither its places nor its map can be downloaded."
   },
   "home": {
     "title": "Home",
@@ -2302,6 +2303,7 @@
     "noticePlacesOnly": "Offline: places on the device, the map of this area to download",
     "noticeNone": "Offline: download a region for next time",
     "noticeOnline": "Offline: the map needs the network",
+    "noticeOnlineOnly": "Offline: this area is only available online",
     "placesTitle": "Places",
     "placesHint": "A few megabytes per region: the list, the search, the place pages and the filters work without network.",
     "mapsTitle": "Maps",

@@ -204,7 +204,8 @@ bool offlineHere(WidgetRef ref) {
 }
 
 /// The list offline where the device holds nothing of the view: under its
-/// title, "Pas de connexion", the way to the offline maps. The region of the view is
+/// title, "Pas de connexion", the way to the offline maps, or, in a country
+/// the offline maps leave out, that it is online only. The region of the view is
 /// remembered, so the list offers it once the network is back
 /// ([_MissedRegionPrompt]); the network is asked again every few seconds
 /// while this shows, so that return is seen soon.
@@ -256,7 +257,10 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
-    final maps = ref.watch(keepsPlacesProvider);
+    // A country the offline maps leave out: said so, with no way to a
+    // download that does not exist.
+    final onlineOnly = ref.watch(viewOnlineOnlyProvider);
+    final maps = ref.watch(keepsPlacesProvider) && !onlineOnly;
     // Words and action close under the list's title: on a phone the sheet
     // rests low over the map, and all of it shows above the dock.
     return Align(
@@ -270,7 +274,7 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                t.list.offlineNotHere,
+                onlineOnly ? t.list.offlineOnlineOnly : t.list.offlineNotHere,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

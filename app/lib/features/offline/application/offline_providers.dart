@@ -739,6 +739,19 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
   }
 }
 
+/// Whether the centre of the map's view lies outside every offline map: a
+/// country the offline maps leave out (Turkey, Romania), or the open sea.
+/// Neither its map nor its places download, so offline the app says the
+/// area is online only rather than offer a download. False until the
+/// outlines are read.
+@riverpod
+bool viewOnlineOnly(Ref ref) {
+  final outlines = ref.watch(packOutlinesProvider).value;
+  if (outlines == null || outlines.ids.isEmpty) return false;
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  return !outlines.holds(view.center);
+}
+
 /// The places and the saved points of the favourites, for the packs to
 /// suggest.
 @riverpod

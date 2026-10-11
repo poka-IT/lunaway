@@ -139,6 +139,55 @@ void main() {
     });
   });
 
+  group('a view outside every offline map', () {
+    /// A container whose outlines are [outlines], once read.
+    Future<ProviderContainer> withOutlines(PackOutlines outlines) async {
+      final c = ProviderContainer.test(
+        overrides: [packOutlinesProvider.overrideWith((ref) async => outlines)],
+      );
+      await c.read(packOutlinesProvider.future);
+      return c;
+    }
+
+    void look(ProviderContainer c, LatLng center) => c
+        .read(viewportProvider.notifier)
+        .update(
+          MapViewport(
+            bounds: GeoBounds(
+              south: center.lat - 0.1,
+              west: center.lon - 0.1,
+              north: center.lat + 0.1,
+              east: center.lon + 0.1,
+            ),
+            center: center,
+            zoom: 10,
+          ),
+        );
+
+    test('lies in a country the offline maps leave out, or at sea', () {
+      expect(_outlines.holds(const LatLng(41.01, 28.97)), isFalse, reason: 'Istanbul');
+      expect(_outlines.holds(const LatLng(45.76, 21.23)), isFalse, reason: 'Timișoara');
+      expect(_outlines.holds(const LatLng(45, -20)), isFalse, reason: 'the open Atlantic');
+      expect(_outlines.holds(const LatLng(31.63, -7.99)), isTrue, reason: 'Marrakech');
+      expect(_outlines.holds(const LatLng(27.15, -13.2)), isTrue, reason: 'Laayoune');
+      expect(_outlines.holds(const LatLng(48.39, -4.49)), isTrue, reason: 'Brest');
+    });
+
+    test('is online only, read from the centre of the view', () async {
+      final c = await withOutlines(_outlines);
+      look(c, const LatLng(41.01, 28.97));
+      expect(c.read(viewOnlineOnlyProvider), isTrue, reason: 'Istanbul');
+      look(c, const LatLng(31.63, -7.99));
+      expect(c.read(viewOnlineOnlyProvider), isFalse, reason: 'Marrakech');
+    });
+
+    test('says nothing without outlines', () async {
+      final c = await withOutlines(PackOutlines.empty);
+      look(c, const LatLng(41.01, 28.97));
+      expect(c.read(viewOnlineOnlyProvider), isFalse);
+    });
+  });
+
   test('the offline style reads the pack and the bundled glyphs and sprites from files', () {
     const template =
         '{"sources":{"protomaps":{"type":"vector","url":"__LUNAWAY_TILES__"}},'

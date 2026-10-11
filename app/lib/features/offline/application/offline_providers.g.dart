@@ -547,6 +547,63 @@ abstract class _$ActiveOfflinePack extends $Notifier<InstalledPack?> {
   }
 }
 
+/// Whether the centre of the map's view lies outside every offline map: a
+/// country the offline maps leave out (Turkey, Romania), or the open sea.
+/// Neither its map nor its places download, so offline the app says the
+/// area is online only rather than offer a download. False until the
+/// outlines are read.
+
+@ProviderFor(viewOnlineOnly)
+final viewOnlineOnlyProvider = ViewOnlineOnlyProvider._();
+
+/// Whether the centre of the map's view lies outside every offline map: a
+/// country the offline maps leave out (Turkey, Romania), or the open sea.
+/// Neither its map nor its places download, so offline the app says the
+/// area is online only rather than offer a download. False until the
+/// outlines are read.
+
+final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// Whether the centre of the map's view lies outside every offline map: a
+  /// country the offline maps leave out (Turkey, Romania), or the open sea.
+  /// Neither its map nor its places download, so offline the app says the
+  /// area is online only rather than offer a download. False until the
+  /// outlines are read.
+  ViewOnlineOnlyProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'viewOnlineOnlyProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$viewOnlineOnlyHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return viewOnlineOnly(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$viewOnlineOnlyHash() => r'abde9cb4638679fb0fde7eaad1ad8e6adc16699d';
+
 /// The places and the saved points of the favourites, for the packs to
 /// suggest.
 

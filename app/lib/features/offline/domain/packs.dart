@@ -293,6 +293,11 @@ final class PackOutlines {
     return rings.any((ring) => _inside(ring, point.lon, point.lat));
   }
 
+  /// Whether some outline holds [point]: outside them all, nothing of the
+  /// place downloads, neither its map nor its places.
+  bool holds(LatLng point) =>
+      _rings.values.any((rings) => rings.any((ring) => _inside(ring, point.lon, point.lat)));
+
   /// Even-odd ray casting.
   static bool _inside(List<(double, double)> ring, double x, double y) {
     var inside = false;

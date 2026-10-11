@@ -1080,7 +1080,8 @@
     "rankedAmongNearestYou": "Gesorteerd binnen de $n plekken die het dichtst bij je liggen",
     "rankedAmongNearestCentre": "Gesorteerd binnen de $n plekken die het dichtst bij het midden van de kaart liggen",
     "offlineTitle": "Geen verbinding",
-    "offlineNotHere": "Niets van dit gebied op dit apparaat."
+    "offlineNotHere": "Niets van dit gebied op dit apparaat.",
+    "offlineOnlineOnly": "Dit gebied is alleen online beschikbaar: de plekken en de kaart ervan zijn niet te downloaden."
   },
   "home": {
     "title": "Thuis",
@@ -2302,6 +2303,7 @@
     "noticePlacesOnly": "Offline: plekken op het apparaat, kaart van dit gebied niet gedownload",
     "noticeNone": "Offline: download een regio voor de volgende keer",
     "noticeOnline": "Offline: de kaart heeft internet nodig",
+    "noticeOnlineOnly": "Offline: dit gebied is alleen online beschikbaar",
     "placesTitle": "Plekken",
     "placesHint": "Een paar megabyte per regio: de lijst, het zoeken, de detailpagina's en de filters werken zonder internet.",
     "mapsTitle": "Kaarten",

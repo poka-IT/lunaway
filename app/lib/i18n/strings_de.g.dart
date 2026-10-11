@@ -714,6 +714,7 @@ class _Translations$list$de extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Sortiert innerhalb der ${n} Plätze, die der Kartenmitte am nächsten liegen';
 	@override String get offlineTitle => 'Keine Verbindung';
 	@override String get offlineNotHere => 'Nichts aus diesem Gebiet auf diesem Gerät.';
+	@override String get offlineOnlineOnly => 'Dieses Gebiet ist nur online verfügbar: Weder seine Plätze noch seine Karte lassen sich herunterladen.';
 }
 
 // Path: home
@@ -1653,6 +1654,7 @@ class _Translations$offlineMaps$de extends Translations$offlineMaps$en {
 	@override String get noticePlacesOnly => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nicht heruntergeladen';
 	@override String get noticeNone => 'Offline: Laden Sie für das nächste Mal eine Region herunter';
 	@override String get noticeOnline => 'Offline: Die Karte braucht das Netz';
+	@override String get noticeOnlineOnly => 'Offline: Dieses Gebiet ist nur online verfügbar';
 	@override String get placesTitle => 'Plätze';
 	@override String get placesHint => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.';
 	@override String get mapsTitle => 'Karten';
@@ -4382,6 +4384,7 @@ extension on TranslationsDe {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Sortiert innerhalb der ${n} Plätze, die der Kartenmitte am nächsten liegen',
 			'list.offlineTitle' => 'Keine Verbindung',
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
+			'list.offlineOnlineOnly' => 'Dieses Gebiet ist nur online verfügbar: Weder seine Plätze noch seine Karte lassen sich herunterladen.',
 			'home.title' => 'Zuhause',
 			'home.setTitle' => 'Mein Zuhause festlegen',
 			'home.error' => 'Ihr Zuhause konnte nicht geladen werden.',
@@ -4534,9 +4537,9 @@ extension on TranslationsDe {
 			'profile.attributionDatatourisme' => 'Plätze, Beschreibungen und Fotos der Touristeninformationen: DATAtourisme, unter der Licence Ouverte 2.0; jeder Text und jedes Foto nennt seine Touristeninformation, seinen Urheber und das Datum der letzten Aktualisierung.',
 			'profile.attributionCommunity' => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.',
 			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
-			'profile.attributionPanoramax' => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionPanoramax' => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.',
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
 			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
@@ -5048,9 +5051,9 @@ extension on TranslationsDe {
 			'poi.kind.clinic' => 'Klinik',
 			'poi.kind.physiotherapist' => 'Physiotherapie',
 			'poi.kind.laboratory' => 'Labor',
-			'poi.kind.nurse' => 'Pflegedienst',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.nurse' => 'Pflegedienst',
 			'poi.kind.midwife' => 'Hebamme',
 			'poi.kind.podiatrist' => 'Podologie',
 			'poi.kind.psychologist' => 'Psychotherapie',
@@ -5435,6 +5438,7 @@ extension on TranslationsDe {
 			'offlineMaps.noticePlacesOnly' => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nicht heruntergeladen',
 			'offlineMaps.noticeNone' => 'Offline: Laden Sie für das nächste Mal eine Region herunter',
 			'offlineMaps.noticeOnline' => 'Offline: Die Karte braucht das Netz',
+			'offlineMaps.noticeOnlineOnly' => 'Offline: Dieses Gebiet ist nur online verfügbar',
 			'offlineMaps.placesTitle' => 'Plätze',
 			'offlineMaps.placesHint' => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.',
 			'offlineMaps.mapsTitle' => 'Karten',
