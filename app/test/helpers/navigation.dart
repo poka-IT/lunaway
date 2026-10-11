@@ -68,7 +68,11 @@ RoutePlan routeFixture(String name, {void Function(Map<String, dynamic> answer)?
   final shapes = readOsrmShapes(json);
   return plan.withRoutes([
     for (final r in plan.routes)
-      r.withShape(line: shapes[r.index].line, steps: shapes[r.index].steps),
+      r.withShape(
+        line: shapes[r.index].line,
+        steps: shapes[r.index].steps,
+        crossings: shapes[r.index].crossings,
+      ),
   ]);
 }
 

@@ -230,8 +230,8 @@ void main() {
     expect(find.textContaining(RegExp(r'^Pause · \d+:\d\d · 500 m$')), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Fontaine · \d+:\d\d · 1,7 km$')), findsOneWidget);
     // The arrival at the time the bar says.
-    final bar = tester.widget<Text>(find.textContaining(RegExp(r'^Arrivée \d'))).data ?? '';
-    final time = bar.substring('Arrivée '.length);
+    final bar = tester.widget<Text>(find.textContaining(RegExp(r'^[\d,]+ k?m · \d'))).data ?? '';
+    final time = bar.substring(bar.indexOf(' · ') + ' · '.length);
     expect(find.text('Arrivée · Aire de la rue Utrillo · $time'), findsOneWidget);
     // Numbered as their marks on the map.
     final strip = find.ancestor(
@@ -740,7 +740,7 @@ void main() {
       final bar = tester.getRect(
         find
             .ancestor(
-              of: find.textContaining(RegExp(r'^Arrivée \d')),
+              of: find.textContaining(RegExp(r'^[\d,]+ k?m · \d')),
               matching: find.byType(Material),
             )
             .first,
@@ -777,19 +777,12 @@ void main() {
       expect(covered(strip), isTrue, reason: 'a place drawn large under the strip');
       await tester.tap(find.byTooltip('Recentrer'));
       await settleShort(tester);
-      // The map's credit, over the strip while it shows, comes down into
-      // its room: what else kept the places off is gone.
-      // Upright the credit is in the bar, no room of it over the map.
-      final box = find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox));
-      final credit = box.evaluate().isEmpty ? null : tester.getRect(box.first);
-      bool isCredit(Rect o) =>
-          credit != null &&
-          (o.topLeft - credit.topLeft).distance < 0.5 &&
-          (o.bottomRight - credit.bottomRight).distance < 0.5;
-      expect(
-        map().rich!.obstacles.where((o) => !isCredit(o)).any((o) => o.overlaps(strip)),
-        isFalse,
-      );
+      // Its room goes with it: the foot of the map takes its own again (the
+      // speed, the road under the vehicle, the credit coming down).
+      bool isStrip(Rect o) =>
+          (o.topLeft - strip.topLeft).distance < 0.5 &&
+          (o.bottomRight - strip.bottomRight).distance < 0.5;
+      expect(map().rich!.obstacles.any(isStrip), isFalse);
     });
   }
 }

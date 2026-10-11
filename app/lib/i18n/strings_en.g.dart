@@ -4821,6 +4821,21 @@ class Translations$navigation$guidance$en {
 	/// en: 'Then'
 	String get then => 'Then';
 
+	/// en: 'Exit $ref'
+	String exit({required Object ref}) => 'Exit ${ref}';
+
+	/// en: 'On $road'
+	String currentRoad({required Object road}) => 'On ${road}';
+
+	/// en: 'Toll booth in $distance'
+	String tollAhead({required Object distance}) => 'Toll booth in ${distance}';
+
+	/// en: 'Border: $country in $distance'
+	String borderAhead({required Object country, required Object distance}) => 'Border: ${country} in ${distance}';
+
+	/// en: 'Guidance options'
+	String get options => 'Guidance options';
+
 	/// en: 'Arrive $time'
 	String arrival({required Object time}) => 'Arrive ${time}';
 
@@ -8081,6 +8096,11 @@ extension on Translations {
 			'navigation.marks.sectionLength' => ({required Object distance}) => 'Section of ${distance}',
 			'navigation.marks.cameraDirection' => 'Checks your direction of travel',
 			'navigation.guidance.then' => 'Then',
+			'navigation.guidance.exit' => ({required Object ref}) => 'Exit ${ref}',
+			'navigation.guidance.currentRoad' => ({required Object road}) => 'On ${road}',
+			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Toll booth in ${distance}',
+			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Border: ${country} in ${distance}',
+			'navigation.guidance.options' => 'Guidance options',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
 			'navigation.guidance.offRoute' => 'Off the route',
 			'navigation.guidance.rerouting' => 'Finding a new route',
@@ -8425,13 +8445,13 @@ extension on Translations {
 			'translation.showOriginal' => 'Show original',
 			'translation.showTranslation' => 'Show translation',
 			'translation.from.fr' => 'Automatically translated from French',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.en' => 'Automatically translated from English',
 			'translation.from.de' => 'Automatically translated from German',
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
@@ -8939,13 +8959,13 @@ extension on Translations {
 			'poi.kind.fishingHunting' => 'Fishing and hunting',
 			'poi.kind.bicycleShop' => 'Bike shop',
 			'poi.kind.boatShop' => 'Boat shop',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.florist' => 'Florist',
 			'poi.kind.gardenCentre' => 'Garden centre',
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',

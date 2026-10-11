@@ -43,8 +43,11 @@ abstract final class FreeMap {
   static const recenterEase = Duration(milliseconds: 900);
 
   /// Where following puts the vehicle down the free part of the map: the
-  /// centre of the camera sits this far down it, so the road ahead shows.
-  static const followLift = 0.45;
+  /// camera's centre sits this far down it, so the vehicle stands 80 % of
+  /// the way down, as the big navigation apps set it (HERE 77.5 %, OsmAnd
+  /// 85 %, Google's own about there on a phone, measured on its captures),
+  /// the road ahead over the rest.
+  static const followLift = 0.6;
 }
 
 /// The content insets of the following camera on a map of [size] with

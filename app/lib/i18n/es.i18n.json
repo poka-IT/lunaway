@@ -835,6 +835,11 @@
     },
     "guidance": {
       "then": "Luego",
+      "exit": "Salida $ref",
+      "currentRoad": "Por $road",
+      "tollAhead": "Peaje a $distance",
+      "borderAhead": "Frontera: $country a $distance",
+      "options": "Opciones de la navegación",
       "arrival": "Llegada $time",
       "offRoute": "Fuera de la ruta",
       "rerouting": "Buscando una ruta nueva",

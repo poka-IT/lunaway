@@ -2221,6 +2221,11 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 
 	// Translations
 	@override String get then => 'Daarna';
+	@override String exit({required Object ref}) => 'Afrit ${ref}';
+	@override String currentRoad({required Object road}) => 'Op ${road}';
+	@override String tollAhead({required Object distance}) => 'Tolpoort over ${distance}';
+	@override String borderAhead({required Object country, required Object distance}) => 'Grens: ${country} over ${distance}';
+	@override String get options => 'Navigatieopties';
 	@override String arrival({required Object time}) => 'Aankomst ${time}';
 	@override String get offRoute => 'Van de route af';
 	@override String get rerouting => 'Nieuwe route wordt gezocht';
@@ -4100,6 +4105,11 @@ extension on TranslationsNl {
 			'navigation.marks.sectionLength' => ({required Object distance}) => 'Traject van ${distance}',
 			'navigation.marks.cameraDirection' => 'Controleert jouw rijrichting',
 			'navigation.guidance.then' => 'Daarna',
+			'navigation.guidance.exit' => ({required Object ref}) => 'Afrit ${ref}',
+			'navigation.guidance.currentRoad' => ({required Object road}) => 'Op ${road}',
+			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Tolpoort over ${distance}',
+			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Grens: ${country} over ${distance}',
+			'navigation.guidance.options' => 'Navigatieopties',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Aankomst ${time}',
 			'navigation.guidance.offRoute' => 'Van de route af',
 			'navigation.guidance.rerouting' => 'Nieuwe route wordt gezocht',
@@ -4444,13 +4454,13 @@ extension on TranslationsNl {
 			'translation.showOriginal' => 'Origineel tonen',
 			'translation.showTranslation' => 'Vertaling tonen',
 			'translation.from.fr' => 'Automatisch vertaald uit het Frans',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.en' => 'Automatisch vertaald uit het Engels',
 			'translation.from.de' => 'Automatisch vertaald uit het Duits',
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
@@ -4958,13 +4968,13 @@ extension on TranslationsNl {
 			'poi.kind.fishingHunting' => 'Hengelsport',
 			'poi.kind.bicycleShop' => 'Fietsenwinkel',
 			'poi.kind.boatShop' => 'Watersportwinkel',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.florist' => 'Bloemist',
 			'poi.kind.gardenCentre' => 'Tuincentrum',
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',

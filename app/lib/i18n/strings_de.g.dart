@@ -2221,6 +2221,11 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 
 	// Translations
 	@override String get then => 'Dann';
+	@override String exit({required Object ref}) => 'Ausfahrt ${ref}';
+	@override String currentRoad({required Object road}) => 'Auf ${road}';
+	@override String tollAhead({required Object distance}) => 'Mautstelle in ${distance}';
+	@override String borderAhead({required Object country, required Object distance}) => 'Grenze: ${country} in ${distance}';
+	@override String get options => 'Optionen der Navigation';
 	@override String arrival({required Object time}) => 'Ankunft ${time}';
 	@override String get offRoute => 'Abseits der Route';
 	@override String get rerouting => 'Neue Route wird gesucht';
@@ -4100,6 +4105,11 @@ extension on TranslationsDe {
 			'navigation.marks.sectionLength' => ({required Object distance}) => 'Abschnitt von ${distance}',
 			'navigation.marks.cameraDirection' => 'Misst in Ihrer Fahrtrichtung',
 			'navigation.guidance.then' => 'Dann',
+			'navigation.guidance.exit' => ({required Object ref}) => 'Ausfahrt ${ref}',
+			'navigation.guidance.currentRoad' => ({required Object road}) => 'Auf ${road}',
+			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Mautstelle in ${distance}',
+			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Grenze: ${country} in ${distance}',
+			'navigation.guidance.options' => 'Optionen der Navigation',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Ankunft ${time}',
 			'navigation.guidance.offRoute' => 'Abseits der Route',
 			'navigation.guidance.rerouting' => 'Neue Route wird gesucht',
@@ -4444,13 +4454,13 @@ extension on TranslationsDe {
 			'translation.showOriginal' => 'Original anzeigen',
 			'translation.showTranslation' => 'Übersetzung anzeigen',
 			'translation.from.fr' => 'Automatisch aus dem Französischen übersetzt',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.en' => 'Automatisch aus dem Englischen übersetzt',
 			'translation.from.de' => 'Automatisch aus dem Deutschen übersetzt',
 			'translation.from.es' => 'Automatisch aus dem Spanischen übersetzt',
 			'translation.from.it' => 'Automatisch aus dem Italienischen übersetzt',
 			'translation.from.nl' => 'Automatisch aus dem Niederländischen übersetzt',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch übersetzt (Originalsprache: ${language})',
 			'translation.offline' => 'Für die Übersetzung ist eine Internetverbindung nötig.',
 			'translation.failedOffline' => 'Keine Internetverbindung: Der Text konnte nicht übersetzt werden.',
@@ -4958,13 +4968,13 @@ extension on TranslationsDe {
 			'poi.kind.fishingHunting' => 'Angeln und Jagd',
 			'poi.kind.bicycleShop' => 'Fahrradladen',
 			'poi.kind.boatShop' => 'Bootshandel',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.florist' => 'Blumenladen',
 			'poi.kind.gardenCentre' => 'Gartencenter',
 			'poi.kind.hardware' => 'Baumarkt',
 			'poi.kind.home' => 'Einrichtung, Möbel',
 			'poi.kind.electronics' => 'Elektronik, Handys',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogerie, Parfümerie',
 			'poi.kind.departmentStore' => 'Kaufhaus, Einkaufszentrum',
 			'poi.kind.varietyStore' => 'Sonderpostenmarkt',

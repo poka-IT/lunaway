@@ -23,6 +23,7 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
 
 import '../helpers/fakes.dart';
@@ -90,34 +91,39 @@ void main() {
       (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
     );
 
-    // Taller than wide: the guidance's portrait layout at every width.
+    /// The bar's frame.
+    Rect bar(WidgetTester tester) => tester.getRect(
+      find
+          .ancestor(of: find.byTooltip('Arrêter le guidage'), matching: find.byType(SafeArea))
+          .first,
+    );
+
+    // Taller than wide: the guidance's portrait layout at every width. As a
+    // driver's app sets it: at the foot of the map on the left, where the
+    // speed stood while the map followed.
     for (final size in const [Size(360, 640), Size(390, 844), Size(820, 1180), Size(1440, 2400)]) {
-      testWidgets('at ${size.width.round()} px it stands in the middle of the screen', (
+      testWidgets('at ${size.width.round()} px it stands at the foot of the map on the left', (
         tester,
       ) async {
         await guide(tester, size);
         SchematicRouteMap.last!.onGesture!();
         await settleShort(tester);
-        final button = tester.getRect(recenter);
-        expect(button.center.dx, closeTo(size.width / 2, 1));
-        final column = tester.getRect(find.byTooltip('Tout le trajet'));
+        final button = tester.getRect(find.byKey(const ValueKey('recenter')));
+        expect(button.left, Space.s);
+        expect(button.bottom, closeTo(bar(tester).top - Space.s, 1), reason: 'just over the bar');
+        final column = tester.getRect(find.byTooltip('Sur le trajet'));
         expect(button.right, lessThanOrEqualTo(column.left - 8), reason: 'clear of the column');
-        expect(button.bottom, column.bottom, reason: 'level with its foot');
       });
     }
 
-    testWidgets('a word too long for the middle moves aside by what it would cover, no more', (
-      tester,
-    ) async {
-      // Larger text on a small phone: centred, the word would run under the
-      // column.
+    testWidgets('larger text on a small phone keeps the word, clear of the column', (tester) async {
       await guide(tester, const Size(360, 640), textScale: 1.3);
       SchematicRouteMap.last!.onGesture!();
       await settleShort(tester);
-      final button = tester.getRect(find.byKey(const ValueKey('recenter')));
-      final column = tester.getRect(find.byTooltip('Tout le trajet'));
-      expect(button.center.dx, lessThan(180), reason: 'off the middle, toward the free side');
-      expect(button.right, closeTo(column.left - 8, 1), reason: 'stopped beside the column');
+      final button = tester.getRect(recenter);
+      expect(find.byKey(const ValueKey('recenter')), findsOneWidget);
+      final column = tester.getRect(find.byTooltip('Sur le trajet'));
+      expect(button.right, lessThanOrEqualTo(column.left - 8), reason: 'clear of the column');
     });
   });
 

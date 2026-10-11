@@ -99,6 +99,26 @@ const out = {};
   out.follows = { pitch: last.c.pitch, bearing: last.c.bearing, zoom: last.c.zoom, own: last.own.lunawayMotion === true, padding: last.c.padding.top };
 }
 
+// A new course: the map turns toward it a moment after the arrow, the
+// short way, then rests: no frame once there.
+{
+  const r = rig();
+  r.run.guiding(true);
+  r.run.vehicle('v', 45, 1, 90, true);
+  r.run.follow({ zoom: 17, padding: {}, ease: 0, enter: true });
+  r.frames(3);
+  r.run.vehicle('v', 45.0001, 1, 180, false);
+  // The first frame after a rest is measured from now: it moves nothing.
+  r.frames(2, 100);
+  const early = r.map.jumps[r.map.jumps.length - 1].c.bearing;
+  r.frames(60, 33);
+  const late = r.map.jumps[r.map.jumps.length - 1].c.bearing;
+  r.frames(40, 33);
+  const jumps = r.map.jumps.length;
+  r.frames(10, 33);
+  out.course = { early, late, rested: r.map.jumps.length === jumps };
+}
+
 // The way in eases from the view the map had.
 {
   const r = rig();
@@ -291,6 +311,13 @@ void main() {
         'own': true,
         'padding': 400,
       });
+    }, skip: skip);
+
+    test('turns to a new course a moment after the arrow, then rests', () {
+      final course = seen['course']! as Map<String, Object?>;
+      expect(course['early']! as num, inExclusiveRange(95, 170), reason: 'on its way');
+      expect(course['late']! as num, closeTo(180, 0.5));
+      expect(course['rested'], isTrue, reason: 'no frame once the map has turned');
     }, skip: skip);
 
     test('eases into following from the view the map had', () {

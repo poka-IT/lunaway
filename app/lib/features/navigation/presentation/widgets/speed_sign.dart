@@ -7,32 +7,27 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
-/// The speed, and beside it the limit for the vehicle in a road sign's
-/// red ring: grey when the limit is an estimate (the road's default, no
-/// sign mapped), none where the limit is not known or the user turned it
-/// off. Over the limit, the speed turns to the error colour on its own
-/// container, and the sign with it.
+/// The limit for the vehicle in a road sign's red ring, and beside it the
+/// speed, on a pill over the map at the foot of its left side, as a
+/// driver's app shows them: the sign grey when the limit is an estimate
+/// (the road's default, no sign mapped), none where the limit is not known
+/// or the user turned it off. Over the limit, the speed turns to the error
+/// colour on its own container. With neither a speed nor a limit, nothing
+/// shows: a unit without a figure reads as a fault (a browser standing
+/// still gives none).
 class SpeedAndLimit extends ConsumerWidget {
-  const new({
-    required this.speedMps,
-    required this.aids,
-    required this.units,
-    required this.color,
-    super.key,
-  });
+  const new({required this.speedMps, required this.aids, required this.units, super.key});
 
   final double? speedMps;
   final DrivingAids aids;
   final DistanceUnits units;
-
-  /// The colour of the speed on the panel.
-  final Color color;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final tokens = LunaTokens.of(context);
     final show = ref.watch(drivingAidsSettingsControllerProvider).value?.showSpeedLimit ?? true;
     final metric = units == DistanceUnits.metric;
     final factor = metric ? 3.6 : 2.236936;
@@ -41,63 +36,65 @@ class SpeedAndLimit extends ConsumerWidget {
     final limit = shown == null ? null : (metric ? shown.kmh : shown.kmh / 1.609344).round();
     final over = shown != null && aids.overSpeed;
     final unit = metric ? t.navigation.units.kmh : t.navigation.units.mph;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // An unknown speed shows nothing: a unit without a figure reads as
-        // a fault (a browser standing still gives none). Its place stays,
-        // so the arrival time beside it does not move when it comes and
-        // goes.
-        Visibility(
-          visible: speed != null,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: Semantics(
-            label: [
-              '${t.navigation.guidance.speed} $speed',
-              if (over) t.navigation.guidance.overLimit,
-            ].join(', '),
-            excludeSemantics: true,
-            child: AnimatedContainer(
-              duration: Motion.of(context, Motion.short),
-              padding: const EdgeInsets.symmetric(horizontal: Space.xs),
-              decoration: BoxDecoration(
-                color: over ? scheme.errorContainer : Colors.transparent,
-                borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+    if (speed == null && limit == null) return const SizedBox.shrink();
+    return Material(
+      color: tokens.floatingSurface,
+      shape: const StadiumBorder(),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.xxs),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (shown != null && limit != null)
+              Semantics(
+                label: shown.estimated
+                    ? '${t.navigation.guidance.limitEstimated} $limit'
+                    : '${t.navigation.guidance.limit} $limit',
+                excludeSemantics: true,
+                child: LimitSign(value: limit, estimated: shown.estimated),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${speed ?? 0}',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: over ? scheme.onErrorContainer : color,
-                      fontWeight: over ? FontWeight.w700 : null,
-                    ),
+            if (speed != null)
+              Semantics(
+                label: [
+                  '${t.navigation.guidance.speed} $speed',
+                  if (over) t.navigation.guidance.overLimit,
+                ].join(', '),
+                excludeSemantics: true,
+                child: AnimatedContainer(
+                  duration: Motion.of(context, Motion.short),
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  margin: EdgeInsets.only(left: limit == null ? 0 : Space.xxs),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.s),
+                  decoration: BoxDecoration(
+                    color: over ? scheme.errorContainer : Colors.transparent,
+                    borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                   ),
-                  Text(
-                    unit,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: over ? scheme.onErrorContainer : color,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$speed',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: over ? scheme.onErrorContainer : scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                      Text(
+                        unit,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: over ? scheme.onErrorContainer : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+          ],
         ),
-        if (shown != null && limit != null) ...[
-          const SizedBox(width: Space.s),
-          Semantics(
-            label: shown.estimated
-                ? '${t.navigation.guidance.limitEstimated} $limit'
-                : '${t.navigation.guidance.limit} $limit',
-            excludeSemantics: true,
-            child: LimitSign(value: limit, estimated: shown.estimated),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

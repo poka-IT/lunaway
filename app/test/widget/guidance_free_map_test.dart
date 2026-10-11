@@ -8,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
@@ -247,6 +248,40 @@ void main() {
     });
   });
 
+  group('the camera', () {
+    testWidgets('closes in as a turn nears, cruises down the avenue after it', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      double zoom() => (map().camera as FollowCamera).zoom;
+      // 36 km/h, the left turn onto Boulevard Carnot at 192 m.
+      await drive(tester, plan, toM: 20);
+      final far = zoom();
+      await drive(tester, plan, toM: 160, fromM: 20);
+      final near = zoom();
+      expect(near, greaterThan(far + 0.2), reason: '32 m from the turn against 172');
+      expect(near, lessThanOrEqualTo(cruiseZoom(10) + AutoZoom.maxCloseIn));
+      // Avenue des Bénédictins, 800 m from its end: the cruise again.
+      await drive(tester, plan, toM: 500, fromM: 160);
+      expect(zoom(), closeTo(cruiseZoom(10), 0.01));
+      expect(zoom(), lessThan(near));
+    });
+
+    testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final arrow = map().arrow!;
+      final turn = plan.routes.first.steps[1].position;
+      expect(arrow.shaft.any((p) => p.distanceTo(turn) < 1), isTrue, reason: 'through the turn');
+      expect(map().traveledM, closeTo(100, 15));
+      // The map the user moved keeps it: the guidance goes on.
+      await gesture(tester);
+      expect(map().arrow, isNotNull, reason: 'the map free keeps the arrow');
+    });
+  });
+
   group('the places on the map', () {
     testWidgets("by default every place, from the main map's tiles, the best drawn large", (
       tester,
@@ -285,9 +320,15 @@ void main() {
       bool covered(Rect r) => map().rich!.obstacles.any(
         (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
       );
-      for (final tip in ['Lieux sur la carte', 'Voix complète', 'Tout le trajet']) {
+      for (final tip in ['Lieux sur la carte', 'Voix complète', 'Sur le trajet']) {
         expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
       }
+      expect(
+        tester.getRect(find.byTooltip('Tout le trajet')).top,
+        greaterThanOrEqualTo(phone.height - clear.bottom),
+        reason: 'on the bar, under the map',
+      );
+      expect(covered(tester.getRect(find.byType(SpeedAndLimit))), isTrue, reason: 'the speed');
       expect(
         map().rich!.obstacles.every((o) => o.top > banner.bottom + 60),
         isTrue,
@@ -298,7 +339,7 @@ void main() {
       expect(
         covered(tester.getRect(find.text('Recentrer'))),
         isTrue,
-        reason: '"Recentrer" over the bar',
+        reason: '"Recentrer" at the foot of the map',
       );
     });
 
@@ -319,13 +360,13 @@ void main() {
         bool covered(Rect r) => rich.obstacles.any(
           (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
         );
-        for (final tip in ['Lieux sur la carte', 'Tout le trajet']) {
+        for (final tip in ['Lieux sur la carte', 'Sur le trajet']) {
           expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
         }
         final recenter = find.byWidgetPredicate(
           (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
         );
-        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the top');
+        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the foot');
         expect(
           rich.limit,
           size.shortestSide < 600 ? RichMarks.compactLimit : RichMarks.expandedLimit,
@@ -649,18 +690,20 @@ void main() {
         expect(photos, cramped ? findsNothing : findsOneWidget);
         expect(map().rich!.style.photos, !cramped, reason: 'a photo shows with its credit');
         final barFinder = find
-            .ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material))
+            .ancestor(of: find.byTooltip('Arrêter le guidage'), matching: find.byType(SafeArea))
             .first;
         final bar = tester.getRect(barFinder);
+        // Never in the bar: there it made the bar taller (the PO's rule of
+        // 2026-10-10); under the maneuver, it covered the road ahead (audit
+        // 94, m9, captures).
+        expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
         if (size.width < size.height) {
-          // Upright, just above the bar while the map follows, the bar
-          // keeping its height: in it, the credit made it taller (the PO's
-          // rule of 2026-10-10); under the maneuver, it covered the road
-          // ahead (audit 94, m9, captures).
+          // Upright, just above the speed at the foot of the map while the
+          // map follows.
           final following = credit();
-          expect(following.bottom, lessThanOrEqualTo(bar.top), reason: '$following over $bar');
-          expect(following.bottom, greaterThan(bar.top - Space.s), reason: 'just above it');
-          expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
+          final speed = tester.getRect(find.byType(SpeedAndLimit));
+          expect(following.bottom, lessThanOrEqualTo(speed.top), reason: '$following over $speed');
+          expect(following.bottom, greaterThan(speed.top - Space.s), reason: 'just above it');
         }
         // Over "Recentrer" once the map is moved, which keeps its word.
         await gesture(tester);

@@ -835,6 +835,11 @@
     },
     "guidance": {
       "then": "Puis",
+      "exit": "Sortie $ref",
+      "currentRoad": "Sur $road",
+      "tollAhead": "Péage dans $distance",
+      "borderAhead": "Frontière : $country dans $distance",
+      "options": "Options du guidage",
       "arrival": "Arrivée $time",
       "offRoute": "Hors itinéraire",
       "rerouting": "Recherche d'un nouvel itinéraire",

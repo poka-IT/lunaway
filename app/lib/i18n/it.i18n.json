@@ -835,6 +835,11 @@
     },
     "guidance": {
       "then": "Poi",
+      "exit": "Uscita $ref",
+      "currentRoad": "Su $road",
+      "tollAhead": "Casello tra $distance",
+      "borderAhead": "Confine: $country tra $distance",
+      "options": "Opzioni della navigazione",
       "arrival": "Arrivo alle $time",
       "offRoute": "Fuori percorso",
       "rerouting": "Ricerca di un nuovo percorso",

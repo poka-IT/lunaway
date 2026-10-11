@@ -22,7 +22,9 @@ import 'package:flutter/widgets.dart';
 }) {
   final room = math.max<double>(0, hi - lo);
   final w = math.min(width, room);
-  return (left: (centre - w / 2).clamp(lo, lo + room - w), width: w);
+  // lo + room - w can land a hair under lo when the child fills the room:
+  // the sum rounds.
+  return (left: (centre - w / 2).clamp(lo, math.max(lo, lo + room - w)), width: w);
 }
 
 /// The room a column of buttons, a panel or a camera cut-out takes from one

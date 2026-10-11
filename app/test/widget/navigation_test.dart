@@ -48,6 +48,7 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fake_api.dart';
+import '../helpers/guidance_finders.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
@@ -1060,7 +1061,12 @@ void main() {
       await drive(tester, plan, toM: 100);
       expect(find.text('90 m'), findsOneWidget, reason: 'to the left turn at 192 m');
       expect(find.text('Boulevard Carnot'), findsOneWidget);
-      expect(find.textContaining('Arrivée'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^\d+ min$')), findsOneWidget, reason: 'the time left');
+      expect(
+        guidanceSaid(RegExp(r'^[\d,]+ km, Arrivée \d')),
+        findsOneWidget,
+        reason: 'the distance left and the arrival time, as a screen reader hears them',
+      );
       expect(find.text('36'), findsOneWidget, reason: '10 m/s');
       expect(find.text('50'), findsOneWidget, reason: 'the limit sign');
       final map = SchematicRouteMap.last!;
@@ -1553,7 +1559,12 @@ void main() {
       final left = container.read(guidanceControllerProvider)!.snapshot!.durationRemainingS;
       final t = await AppLocale.fr.build();
       final eta = now.add(Duration(seconds: left.round())).toLocal();
-      expect(find.text('Arrivée ${t.clockTime(eta)}'), findsOneWidget, reason: 'never in the past');
+      expect(
+        guidanceSaid(RegExp('Arrivée ${RegExp.escape(t.clockTime(eta))}\$')),
+        findsOneWidget,
+        reason: 'never in the past',
+      );
+      expect(find.textContaining(' · ${t.clockTime(eta)}'), findsOneWidget);
       // Arrived: the position is no longer asked for, its age says nothing.
       await drive(tester, plan);
       expect(container.read(guidanceControllerProvider)!.phase, GuidancePhase.arrived);
@@ -1590,15 +1601,20 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan, toM: 100);
-      final bar = tester.getRect(
-        find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
-      );
+      final close = find.byTooltip('Arrêter le guidage');
+      // The bar's own frame, inside its panel.
+      final bar = tester.getRect(find.ancestor(of: close, matching: find.byType(SafeArea)).first);
       expect(bar.left, 44 + Space.s, reason: 'beside the notch');
       expect(bar.bottom, 400 - 21 - Space.s, reason: 'above the home bar');
       expect(
-        tester.getRect(find.byType(SpeedAndLimit)).left - bar.left,
-        Space.l,
+        tester.getRect(close).left - bar.left,
+        Space.s,
         reason: "the bar's own margin, not the notch again",
+      );
+      expect(
+        tester.getRect(find.byType(SpeedAndLimit)).left,
+        44 + 380 + Space.s,
+        reason: 'the speed at the foot of the map, beside the panel',
       );
     });
 
@@ -1631,7 +1647,7 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan, toM: 100);
-      for (final tip in ['Voix complète', 'Tout le trajet']) {
+      for (final tip in ['Voix complète', 'Sur le trajet', 'Signaler un problème sur la route']) {
         expect(tester.getRect(find.byTooltip(tip)).right, 860 - 44 - Space.s, reason: tip);
       }
     });
