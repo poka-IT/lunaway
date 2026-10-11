@@ -1247,9 +1247,6 @@ fn snap_distances(osrm: &Value) -> Vec<f64> {
         .unwrap_or_default()
 }
 
-/// The restrictions that blocked an attempt, by their external ids and where
-/// along the route, at debug level only: one beside a stop tells where the
-/// trip starts or ends, and the logs of production keep no user's location.
 /// How many of `blockers` stand on a point (a bar mapped on a node, a
 /// community report) rather than along a road: the journal's count of what
 /// a recalculation met, the graph build carrying the nodes' limits since
@@ -1262,6 +1259,9 @@ fn on_points(blockers: &[Met]) -> usize {
         .count()
 }
 
+/// The restrictions that blocked an attempt, by their external ids and where
+/// along the route, at debug level only: one beside a stop tells where the
+/// trip starts or ends, and the logs of production keep no user's location.
 fn log_limits(blockers: &[Met]) {
     if tracing::enabled!(tracing::Level::DEBUG) {
         let limits: Vec<(&str, f64)> = blockers

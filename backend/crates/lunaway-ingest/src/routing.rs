@@ -1132,11 +1132,15 @@ fn read_relations(
                             ),
                         })
                         .collect();
+                    // The tag reader stops at a string it cannot read: a
+                    // relation written back without the rest would lose it.
+                    let tags = tag_map(r.tags());
+                    let complete = complete && tags.len() == r.raw_tags().count();
                     out.push(node_limits::Relation {
                         id: r.id(),
                         version: r.info().version().unwrap_or(0),
                         timestamp: timestamp_of(r.info().milli_timestamp()),
-                        tags: tag_map(r.tags()),
+                        tags,
                         members,
                         complete,
                     });

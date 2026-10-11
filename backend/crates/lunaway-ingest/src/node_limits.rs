@@ -288,9 +288,9 @@ pub(crate) struct Relation {
     pub tags: BTreeMap<String, String>,
     /// Its members, in order.
     pub members: Vec<Member>,
-    /// Whether every member's role was read: one that was not would be
-    /// written back without it, so the relation is left as it is, and the
-    /// ways it names whole.
+    /// Whether every member's role and every tag was read: a relation
+    /// written back without one would lose it, so it is left as it is, and
+    /// the ways it names whole.
     pub complete: bool,
 }
 
@@ -662,7 +662,8 @@ mod tests {
                     kind: match *k {
                         "node" => MemberKind::Node,
                         "way" => MemberKind::Way,
-                        _ => MemberKind::Relation,
+                        "relation" => MemberKind::Relation,
+                        other => panic!("no member kind {other}"),
                     },
                     id: *id,
                     role: (*role).to_owned(),
