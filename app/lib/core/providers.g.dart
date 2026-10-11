@@ -223,7 +223,7 @@ final class HttpClientProvider
   }
 }
 
-String _$httpClientHash() => r'7ec49beae0f15115de79f9aa98dbd250130e26d8';
+String _$httpClientHash() => r'cacf960820a079c4f856106f0f9a37f3cbefc4bc';
 
 @ProviderFor(userAgent)
 final userAgentProvider = UserAgentProvider._();

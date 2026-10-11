@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/http/app_http_client.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -39,7 +40,7 @@ UserDatabase userDatabase(Ref ref) {
 // GraphQL operations and the photos.
 @Riverpod(keepAlive: true)
 http.Client httpClient(Ref ref) {
-  final client = http.Client();
+  final client = appHttpClient();
   ref.onDispose(client.close);
   return client;
 }

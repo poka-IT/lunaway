@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
-import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
@@ -48,7 +48,7 @@ const _ratio = 3.0;
 void main() {
   // Made once outside any test's clock, as in route_layer_order_test.dart.
   setUpAll(() async {
-    await routeBadgePngs(_ratio);
+    await routeMapImages(_ratio);
     await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: BlankAssets());
   });
 
@@ -149,5 +149,32 @@ void main() {
       expect((l['layout']! as Map)['text-field'], RoutePlaceLayers.priceText(prices));
       expect((l['paint']! as Map)['text-color'], RoutePlaceLayers.priceColor(prices, dark: true));
     }
+  });
+
+  // The preview fits its start and its arrival while the route is asked
+  // for; the engine answers a camera move once it has ended, 700 ms later.
+  testWidgets('a route that comes while the camera still moves is drawn at once', (tester) async {
+    final engine = LayerStackEngine(_aube)..install(tester);
+    final moves = engine.cameraMoves = Completer<void>();
+    addTearDown(() => moves.isCompleted ? null : moves.complete());
+    final ends = FitCamera(GeoBounds.around([_line.first, _line.last])!);
+    RouteMapProps props(List<RouteMapLine> lines) =>
+        RouteMapProps(style: _aube, dark: false, lines: lines, camera: ends, places: _places);
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(props(const []))));
+    await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
+    await until(tester, () => engine.calls.any((c) => c.method == 'camera#animate'));
+    bool routeSent() => engine.calls.any(
+      (c) =>
+          c.method == 'source#setGeoJson' &&
+          (c.arguments as Map<Object?, Object?>)['sourceId'] == RouteLayers.routeSource &&
+          '${(c.arguments as Map<Object?, Object?>)['geojson']}'.contains('LineString'),
+    );
+    expect(routeSent(), isFalse);
+    await tester.pumpWidget(
+      MaterialApp(home: GlRouteMap(props([RouteMapLine(index: 0, points: _line, selected: true)]))),
+    );
+    await until(tester, routeSent);
+    expect(moves.isCompleted, isFalse, reason: 'the camera still moves');
+    expect(routeSent(), isTrue);
   });
 }

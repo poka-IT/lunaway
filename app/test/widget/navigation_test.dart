@@ -594,6 +594,109 @@ void main() {
       expect(routes.requests, isEmpty);
     });
 
+    group('the start of the routes', () {
+      const known = LatLng(45.84719, 1.28476);
+      // 300 m north of it.
+      const elsewhere = LatLng(45.85, 1.28476);
+      Finder start() =>
+          find.ancestor(of: find.text("C'est parti !"), matching: find.bySubtype<FilledButton>());
+
+      testWidgets('a recent position the device knows starts the route at once', (tester) async {
+        // The fresh fix waits for the satellites; the device knew where
+        // it stood 20 s ago.
+        final feed = FakeLocationFeed(position: known)
+          ..held = Completer<void>()
+          ..last = Fix(
+            position: known,
+            accuracyM: 12,
+            at: testNow.subtract(const Duration(seconds: 20)),
+          );
+        final plan = routeFixture('utrillo_motorhome');
+        final (_, routes) = await openPreview(tester, feed: feed, engine: LineEngine([plan]));
+        expect(routes.requests.single.origin, known);
+        expect(tester.widget<FilledButton>(start()).onPressed, isNotNull);
+        expect(feed.currentAsked, 1, reason: 'the fresh fix is asked for all the same');
+        // It lands where the known one was: nothing more is asked.
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests, hasLength(1));
+      });
+
+      testWidgets('a fresh fix far from the known position starts the routes again', (
+        tester,
+      ) async {
+        final plan = routeFixture('utrillo_motorhome');
+        final feed = FakeLocationFeed(position: elsewhere)
+          ..held = Completer<void>()
+          ..last = Fix(
+            position: known,
+            accuracyM: 12,
+            at: testNow.subtract(const Duration(seconds: 20)),
+          );
+        final (_, routes) = await openPreview(
+          tester,
+          feed: feed,
+          answers: [plan, plan],
+          engine: LineEngine([plan]),
+        );
+        expect(routes.requests.single.origin, known);
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests.map((r) => r.origin), [known, elsewhere]);
+        expect(tester.widget<FilledButton>(start()).onPressed, isNotNull);
+      });
+
+      testWidgets('a fresh fix within its own accuracy of the known position asks nothing more', (
+        tester,
+      ) async {
+        // 120 m north, from a fix only good to 200 m.
+        final feed = FakeLocationFeed(position: const LatLng(45.84827, 1.28476))
+          ..held = Completer<void>()
+          ..accuracyM = 200
+          ..last = Fix(
+            position: known,
+            accuracyM: 12,
+            at: testNow.subtract(const Duration(seconds: 20)),
+          );
+        final plan = routeFixture('utrillo_motorhome');
+        final (_, routes) = await openPreview(
+          tester,
+          feed: feed,
+          answers: [plan, plan],
+          engine: LineEngine([plan]),
+        );
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests.map((r) => r.origin), [known]);
+      });
+
+      testWidgets('a device slow to tell its last position waits no more than a moment', (
+        tester,
+      ) async {
+        final feed = FakeLocationFeed(position: elsewhere)..lastHeld = Completer<void>();
+        final (_, routes) = await openPreview(tester, feed: feed);
+        await tester.pump(const Duration(milliseconds: 600));
+        await settleShort(tester);
+        expect(routes.requests.single.origin, elsewhere);
+      });
+
+      for (final (name, age, accuracy) in [
+        ('an old', const Duration(minutes: 30), 12.0),
+        ('an imprecise', const Duration(seconds: 20), 900.0),
+      ]) {
+        testWidgets('$name known position waits for the fresh fix', (tester) async {
+          final feed = FakeLocationFeed(position: elsewhere)
+            ..held = Completer<void>()
+            ..last = Fix(position: known, accuracyM: accuracy, at: testNow.subtract(age));
+          final (_, routes) = await openPreview(tester, feed: feed);
+          expect(routes.requests, isEmpty);
+          feed.held!.complete();
+          await settleShort(tester);
+          expect(routes.requests.single.origin, elsewhere);
+        });
+      }
+    });
+
     testWidgets('a vehicle without its height says what is missing', (tester) async {
       await openPreview(tester, vehicle: motorhome.copyWith(heightM: () => null));
       expect(find.text('Il manque : hauteur'), findsOneWidget);
