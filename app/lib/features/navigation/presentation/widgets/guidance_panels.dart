@@ -196,8 +196,8 @@ class ExitBadge extends StatelessWidget {
 }
 
 /// The road the vehicle is on, on a pill under it at the foot of the map:
-/// its name, else its number; nothing on a road with neither, or off the
-/// route.
+/// a motorway's number, another road's name, else its number; nothing on
+/// a road with neither, or off the route.
 class RoadNamePill extends StatelessWidget {
   const new({required this.session, super.key});
 
@@ -208,7 +208,12 @@ class RoadNamePill extends StatelessWidget {
     final snap = session.snapshot;
     if (snap == null || snap.offRoute) return null;
     final step = session.step;
-    return step?.roadName ?? step?.roadRef;
+    if (step == null) return null;
+    // A motorway by its number, as its signs give it ("A 41; E 712": the
+    // first).
+    final ref = step.roadRef?.split(';').first.trim();
+    if (step.motorway && ref != null && ref.isNotEmpty) return ref;
+    return step.roadName ?? ref;
   }
 
   @override

@@ -1076,24 +1076,34 @@ void main() {
       expect(map.vehicle, isNotNull);
     });
 
-    testWidgets('a motorway exit shows its number on the banner, as on its sign', (tester) async {
-      final plan = routeFixture(
-        'limoges_drive',
-        edit: (answer) {
-          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
-          final route = (osrm['routes'] as List).first as Map<String, dynamic>;
-          final leg = (route['legs'] as List).first as Map<String, dynamic>;
-          // The off ramp after Boulevard Carnot, numbered.
-          ((leg['steps'] as List)[2] as Map)['exits'] = '17';
-          answer['osrmJson'] = jsonEncode(osrm);
-        },
-      );
-      await guide(tester, plan);
-      await drive(tester, plan, toM: 100);
-      expect(find.text('Sortie 17'), findsNothing, reason: 'the left turn first');
-      await drive(tester, plan, toM: 200);
-      expect(find.text('Sortie 17'), findsOneWidget);
-    });
+    testWidgets(
+      'a motorway exit shows its number on the banner, as on its sign; the road its own',
+      (tester) async {
+        final plan = routeFixture(
+          'limoges_drive',
+          edit: (answer) {
+            final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+            final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+            final leg = (route['legs'] as List).first as Map<String, dynamic>;
+            final steps = leg['steps'] as List;
+            // The off ramp after Boulevard Carnot, numbered.
+            (steps[2] as Map)['exits'] = '17';
+            // The first street taken for a motorway, by its numbers.
+            final first = steps[0] as Map;
+            first['ref'] = 'A 20; E 9';
+            ((first['intersections'] as List)[0] as Map)['classes'] = ['motorway'];
+            answer['osrmJson'] = jsonEncode(osrm);
+          },
+        );
+        await guide(tester, plan);
+        await drive(tester, plan, toM: 100);
+        expect(find.text('Sortie 17'), findsNothing, reason: 'the left turn first');
+        expect(find.text('A 20'), findsOneWidget, reason: 'a motorway by its first number');
+        expect(find.text('Rue des Vénitiens'), findsNothing);
+        await drive(tester, plan, toM: 200);
+        expect(find.text('Sortie 17'), findsOneWidget);
+      },
+    );
 
     testWidgets('the bar opens its options at a tap or a swipe up; a choice closes them', (
       tester,
