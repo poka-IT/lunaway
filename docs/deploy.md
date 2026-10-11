@@ -315,7 +315,7 @@ the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
 | `photon@europe` | 3.1 GB (2.68 GB resident; a heap of 2 GB) | `MemoryHigh` 6 GB, `MemoryMax` 7 GB |
 | `photon@morocco` | 0.8 GB (a heap of 512 MB) | the same unit file |
 | `lunaway-translate` | 3.2 GB | `MemoryHigh` 4 GB, `MemoryMax` 4.5 GB |
-| `lunaway-api` | 0.1 GB idle, 0.33 GB at most under route batteries (jemalloc, 2026-10-11) | `MemoryHigh` 1.5 GB, `MemoryMax` 2 GB, no swap (`MemorySwapMax=0`) |
+| `lunaway-api` | 0.1 GB idle; under route batteries 0.33 GB at most every 30 s, 0.51 GB at the cgroup's peak (jemalloc, 2026-10-11) | `MemoryHigh` 1.5 GB, `MemoryMax` 2 GB, no swap (`MemorySwapMax=0`) |
 | the external feed's crawler | 0.47 GB | |
 | Caddy | 0.11 GB | |
 | Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
