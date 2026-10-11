@@ -97,7 +97,7 @@ def main():
             time.sleep(0.25)
         css = next(n for n in os.listdir(SITE) if re.match(r"style\.[0-9a-f]+\.css$", n))
         js = next(n for n in os.listdir(os.path.join(SITE, "js")) if n.startswith("delete-account."))
-        font = next(n for n in os.listdir(os.path.join(SITE, "fonts")) if n.startswith("atkinson-next-lunaway-regular."))
+        font = next(n for n in os.listdir(os.path.join(SITE, "fonts")) if n.startswith("figtree-lunaway."))
         L = f"http://lunaway.net:{PORT}"
         no_script = r"^content-security-policy: default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'"
         delete_csp = r"^content-security-policy: default-src 'none'; script-src 'self'; connect-src https://api\.lunaway\.net; style-src 'self'"

@@ -1770,8 +1770,8 @@ class Translations$profile$en {
 	/// en: 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.'
 	String get attributionTiles => 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.';
 
-	/// en: 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.'
-	String get attributionFonts => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.';
+	/// en: 'Figtree typeface by Erik Kennedy, SIL Open Font License 1.1.'
+	String get attributionFonts => 'Figtree typeface by Erik Kennedy, SIL Open Font License 1.1.';
 
 	/// en: 'Phosphor icons, MIT licence.'
 	String get attributionIcons => 'Phosphor icons, MIT licence.';
@@ -8379,7 +8379,7 @@ extension on Translations {
 			'profile.attributionCommunes' => 'Place communes: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), under the ODbL.',
 			'profile.attributionCommunityPlaces' => 'Places added and edited by Lunaway\'s travellers, under the ODbL, credited as "Lunaway contributors".',
 			'profile.attributionTiles' => 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.',
-			'profile.attributionFonts' => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.',
+			'profile.attributionFonts' => 'Figtree typeface by Erik Kennedy, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
 			'profile.noTracking' => 'No ads, no trackers. Your account knows neither your e-mail nor your phone number.',
 			'profile.attributionBdTopo' => 'Height, width, length and weight limits of the roads, and campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',

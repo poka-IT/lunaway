@@ -74,7 +74,7 @@ class _FocusRingFollowsModeState extends State<FocusRingFollowsMode> {
 /// [pointer] is the desktop look (`pointerDensity`): a mouse aims finer
 /// than a finger, so controls lose a notch of height (the compact visual
 /// density takes 8 off every button and field) and the text a point, still
-/// in Atkinson Hyperlegible and still above the Material desktop sizes.
+/// above the Material desktop sizes.
 ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
   final dark = brightness == Brightness.dark;
   final scheme = dark ? LunaScheme.minuit : LunaScheme.aube;
@@ -111,7 +111,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    fontFamily: LunaType.body,
+    fontFamily: LunaType.family,
     textTheme: text,
     primaryTextTheme: text,
     visualDensity: pointer ? VisualDensity.compact : VisualDensity.standard,

@@ -100,13 +100,18 @@ class LunaSegmented<T> extends StatelessWidget {
         }
 
         final widest = segments.map(needed).reduce((a, b) => a > b ? a : b);
-        final row = widest * segments.length <= constraints.maxWidth - 8;
+        // The pill's padding and its border come off the width first, and a
+        // label given a fraction of a pixel less than it measures wraps,
+        // cutting its word in two.
+        final border = Border.all(color: scheme.outlineVariant);
+        final inner = constraints.maxWidth - Space.xxs * 2 - border.dimensions.horizontal;
+        final row = widest.ceilToDouble() * segments.length <= inner;
         return Container(
           padding: const EdgeInsets.all(Space.xxs),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(row ? LunaTokens.radiusPill : LunaTokens.radiusXl),
-            border: Border.all(color: scheme.outlineVariant),
+            border: border,
           ),
           child: row
               ? Row(children: [for (final s in segments) option(s, expand: true)])

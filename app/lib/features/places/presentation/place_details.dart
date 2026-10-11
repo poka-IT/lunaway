@@ -501,7 +501,7 @@ class _Header extends ConsumerWidget {
             size: 52,
           ),
         ),
-        const SizedBox(width: Space.ml),
+        const SizedBox(width: Space.m),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,9 +579,9 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(width: Space.xs),
+        const SizedBox(width: Space.xxs),
         PlaceMoreMenu(place: place),
-        if (onClose != null) ...[const SizedBox(width: Space.xs), _CloseButton(onClose: onClose!)],
+        if (onClose != null) ...[const SizedBox(width: Space.xxs), _CloseButton(onClose: onClose!)],
       ],
     );
   }
@@ -1363,7 +1363,7 @@ class _DetailsSkeleton extends StatelessWidget {
           const Row(
             children: [
               Skeleton(width: 52, height: 52, radius: 16),
-              SizedBox(width: Space.ml),
+              SizedBox(width: Space.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1411,7 +1411,7 @@ class _HintHeader extends StatelessWidget {
             size: 52,
           ),
         ),
-        const SizedBox(width: Space.ml),
+        const SizedBox(width: Space.m),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1444,7 +1444,7 @@ class _HintHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (onClose != null) ...[const SizedBox(width: Space.xs), _CloseButton(onClose: onClose!)],
+        if (onClose != null) ...[const SizedBox(width: Space.xxs), _CloseButton(onClose: onClose!)],
       ],
     );
   }

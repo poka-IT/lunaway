@@ -97,8 +97,7 @@ flutter:
     # The Lunaway mark and lockup (SVG, and PNG at 1x, 2x, 3x), for the design pass.
     - assets/brand/
     # The font licences, registered with the LicenseRegistry for the about page.
-    - assets/fonts/atkinson-next-lunaway/OFL.txt
-    - assets/fonts/fraunces/OFL.txt
+    - assets/fonts/figtree-lunaway/OFL.txt
     - assets/fonts/phosphor/LICENSE.txt
     # The desktop map page and MapLibre GL JS (BSD-3-Clause), loaded by the
     # web view on macOS and Windows; shipped so the map needs no CDN.
@@ -121,22 +120,13 @@ flutter:
     # tool/sounds/chime.py and handed to the platform side once per run.
     - assets/sounds/
   fonts:
-    # Atkinson Hyperlegible Next (SIL OFL 1.1), drawn for low-vision readers:
-    # the app is read at arm's length in a van cab, often by older eyes. A
-    # derivative with a plain zero (tool/fonts/), since the original's
-    # slashed zero reads as a "Ø" in "30 jours".
-    - family: Atkinson
+    # Figtree 2.002 (SIL OFL 1.1), one variable file for every weight (the
+    # engine drives the weight axis from FontWeight): every text of the app,
+    # titles and figures included. A derivative with a tailed l and the thin
+    # spaces of French numbers (tool/fonts/).
+    - family: Figtree
       fonts:
-        - asset: assets/fonts/atkinson-next-lunaway/AtkinsonNextLunaway-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/atkinson-next-lunaway/AtkinsonNextLunaway-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/atkinson-next-lunaway/AtkinsonNextLunaway-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/atkinson-next-lunaway/AtkinsonNextLunaway-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/atkinson-next-lunaway/AtkinsonNextLunaway-ExtraBold.ttf
-          weight: 800
+        - asset: assets/fonts/figtree-lunaway/FigtreeLunaway-Variable.ttf
     # Phosphor icons 2.1 (MIT), regular and fill, vendored by
     # tool/icons/phosphor.py: release builds keep only the glyphs in use.
     - family: PhosphorRegular
@@ -145,9 +135,3 @@ flutter:
     - family: PhosphorFill
       fonts:
         - asset: assets/fonts/phosphor/Phosphor-Fill.ttf
-    # Fraunces 1.003 (SIL OFL 1.1), the brand's serif, variable on optical
-    # size and weight, subset to Latin (tool/fonts/): titles, place names
-    # and prominent numbers.
-    - family: Fraunces
-      fonts:
-        - asset: assets/fonts/fraunces/Fraunces-Variable.ttf

@@ -859,7 +859,7 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionCommunes => 'Gemeinden der Plätze: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), unter der ODbL.';
 	@override String get attributionCommunityPlaces => 'Von den Reisenden von Lunaway hinzugefügte und geänderte Plätze, unter der ODbL, mit der Nennung „Lunaway contributors“.';
 	@override String get attributionTiles => 'Grundkarte bereitgestellt von Lunaway, Stile abgeleitet von Protomaps (BSD-3-Clause), Daten © OpenStreetMap-Mitwirkende.';
-	@override String get attributionFonts => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.';
+	@override String get attributionFonts => 'Schriftart Figtree von Erik Kennedy, SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Phosphor-Symbole, MIT-Lizenz.';
 	@override String get noTracking => 'Ohne Werbung, ohne Tracker. Ihr Konto kennt weder Ihre E-Mail-Adresse noch Ihre Telefonnummer.';
 	@override String get attributionBdTopo => 'Beschränkungen von Höhe, Breite, Länge und Gewicht auf den Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.';
@@ -4400,7 +4400,7 @@ extension on TranslationsDe {
 			'profile.attributionCommunes' => 'Gemeinden der Plätze: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), unter der ODbL.',
 			'profile.attributionCommunityPlaces' => 'Von den Reisenden von Lunaway hinzugefügte und geänderte Plätze, unter der ODbL, mit der Nennung „Lunaway contributors“.',
 			'profile.attributionTiles' => 'Grundkarte bereitgestellt von Lunaway, Stile abgeleitet von Protomaps (BSD-3-Clause), Daten © OpenStreetMap-Mitwirkende.',
-			'profile.attributionFonts' => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.',
+			'profile.attributionFonts' => 'Schriftart Figtree von Erik Kennedy, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor-Symbole, MIT-Lizenz.',
 			'profile.noTracking' => 'Ohne Werbung, ohne Tracker. Ihr Konto kennt weder Ihre E-Mail-Adresse noch Ihre Telefonnummer.',
 			'profile.attributionBdTopo' => 'Beschränkungen von Höhe, Breite, Länge und Gewicht auf den Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.',
