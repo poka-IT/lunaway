@@ -472,7 +472,8 @@ pub struct RoutingConfig {
     /// (`LUNAWAY_VALHALLA_TIMEOUT_MS`, 8 s).
     pub timeout: Duration,
     /// Engine calls in flight at once, all clients together
-    /// (`LUNAWAY_ROUTING_CONCURRENCY`, 4: the engine's threads).
+    /// (`LUNAWAY_ROUTING_CONCURRENCY`, 6: the engine's threads in
+    /// `infra/routing/valhalla.container`).
     pub concurrency: usize,
     /// How long a route waits for a free call before `RATE_LIMITED`
     /// (`LUNAWAY_ROUTING_QUEUE_WAIT_MS`, 1 s): short, because a waiting
@@ -488,7 +489,7 @@ impl Default for RoutingConfig {
         Self {
             valhalla_url: Some(DEFAULT_VALHALLA_URL.to_owned()),
             timeout: Duration::from_secs(8),
-            concurrency: 4,
+            concurrency: 6,
             queue_wait: Duration::from_secs(1),
         }
     }
