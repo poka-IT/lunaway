@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -422,10 +424,12 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     final history = !searching && historyOpen
         ? ref.watch(recentSearchesProvider).value ?? const <RecentSearch>[]
         : const <RecentSearch>[];
+    // The home heads the list the empty field opens, before the history.
+    final home = !searching && historyOpen ? ref.watch(userHomeProvider).value : null;
     // The list's room depends on where the pill sits, which only a laid out
     // frame tells: measured after each frame while results show, the list
     // follows the next one.
-    if (searching || history.isNotEmpty) {
+    if (searching || history.isNotEmpty || home != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
     }
     final top = _pillBottom == null ? null : _pillBottom! + Space.s;
@@ -443,13 +447,19 @@ class _MapSearchState extends ConsumerState<MapSearch> {
           onRecent: _reopen,
         ),
       );
-    } else if (history.isNotEmpty) {
+    } else if (history.isNotEmpty || home != null) {
       results = Padding(
         padding: const EdgeInsets.only(top: Space.s),
         child: _Panel(
           top: top,
           child: RecentSearchesList(
             entries: history,
+            home: home,
+            onHome: () {
+              // The route there, in one tap: the list closes behind it.
+              _historyOpen.set(open: false);
+              if (home != null) routeHome(context, home);
+            },
             onOpen: _reopen,
             onRemove: (entry) {
               // The focus back in the field: the cross a key pressed goes

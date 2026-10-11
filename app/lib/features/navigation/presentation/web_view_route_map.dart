@@ -57,6 +57,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
   List<RouteMapMark>? _sentMarks;
 
+  /// The prices under the stations' pins, as the page has them.
+  List<FuelLabel>? _sentPrices;
+
   /// The marks lit, by index, as the page has them.
   Set<int> _sentLit = const {};
   int? _sentFocus;
@@ -212,6 +215,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _gradientSent = false;
         _arrowSent = false;
         _sentMarks = null;
+        _sentPrices = null;
         _sentLit = const {};
         _sentFocus = _props.focus?.serial;
         _sentCamera = null;
@@ -307,6 +311,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   void _setStyle() {
     _style = _props.style;
     _specPlaces = _props.places;
+    // The prices' colours follow the theme the new style is of.
+    _sentPrices = null;
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
@@ -400,6 +406,23 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           'visible': filter != null,
         });
       }
+    }
+    // The prices under the stations' pins, written by the pins' layers; the
+    // page applies them again after a change of style.
+    if (_specPlaces != null && !listEquals(p.fuelPrices, _sentPrices)) {
+      _sentPrices = p.fuelPrices;
+      await _call('return window.lunaway.setPois(update);', {
+        'update': {
+          'layout': {
+            for (final (id, _) in RoutePlaceLayers.poiLayers)
+              id: {'text-field': RoutePlaceLayers.priceText(p.fuelPrices)},
+          },
+          'paint': {
+            for (final (id, _) in RoutePlaceLayers.poiLayers)
+              id: {'text-color': RoutePlaceLayers.priceColor(p.fuelPrices, dark: p.dark)},
+          },
+        },
+      });
     }
     if (!identical(p.lines, _sentLines)) {
       _sentLines = p.lines;
@@ -705,7 +728,7 @@ List<Map<String, Object?>> _layers({
       },
       // The pins are shipped at their own density and added at the
       // screen's (pixelRatio): sized back as the main map draws them.
-      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio)),
+      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio), dark: dark),
       ...RouteMarkStyle.jsonLayers(),
       {
         'id': RichLayers.marks,
@@ -751,8 +774,12 @@ List<Map<String, Object?>> _layers({
 }
 
 /// The places' and the points' layers, their images drawn at [scale].
-List<Map<String, Object?>> _placeLayers(RouteMapPlaces places, double scale) => [
-  for (final layer in RoutePlaceLayers.jsonLayers(places))
+List<Map<String, Object?>> _placeLayers(
+  RouteMapPlaces places,
+  double scale, {
+  required bool dark,
+}) => [
+  for (final layer in RoutePlaceLayers.jsonLayers(places, dark: dark))
     {
       ...layer,
       'layout': {

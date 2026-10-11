@@ -61,6 +61,7 @@ class TranslationsIt extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$it directions = _Translations$directions$it._(_root);
 	@override late final _Translations$navigation$it navigation = _Translations$navigation$it._(_root);
 	@override late final _Translations$list$it list = _Translations$list$it._(_root);
+	@override late final _Translations$home$it home = _Translations$home$it._(_root);
 	@override late final _Translations$favorites$it favorites = _Translations$favorites$it._(_root);
 	@override late final _Translations$vehicle$it vehicle = _Translations$vehicle$it._(_root);
 	@override late final _Translations$vehicleHeight$it vehicleHeight = _Translations$vehicleHeight$it._(_root);
@@ -72,6 +73,7 @@ class TranslationsIt extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$account$it account = _Translations$account$it._(_root);
 	@override late final _Translations$recovery$it recovery = _Translations$recovery$it._(_root);
 	@override late final _Translations$recover$it recover = _Translations$recover$it._(_root);
+	@override late final _Translations$accountImport$it accountImport = _Translations$accountImport$it._(_root);
 	@override late final _Translations$deletion$it deletion = _Translations$deletion$it._(_root);
 	@override late final _Translations$devices$it devices = _Translations$devices$it._(_root);
 	@override late final _Translations$muted$it muted = _Translations$muted$it._(_root);
@@ -714,6 +716,36 @@ class _Translations$list$it extends Translations$list$en {
 	@override String get offlineNotHere => 'Niente di quest\'area su questo dispositivo.';
 }
 
+// Path: home
+class _Translations$home$it extends Translations$home$en {
+	_Translations$home$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Casa';
+	@override String get setTitle => 'Imposta la mia casa';
+	@override String get error => 'Non è stato possibile caricare la tua casa.';
+	@override String get privacy => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.';
+	@override String get directionsHome => 'Percorso verso casa';
+	@override String get actions => 'Azioni della casa';
+	@override String get change => 'Cambia casa';
+	@override String get remove => 'Rimuovi la casa';
+	@override String get removed => 'Casa rimossa';
+	@override String get saved => 'Casa salvata';
+	@override String get changed => 'Casa cambiata';
+	@override String get setHere => 'Imposta come casa';
+	@override String get removeHere => 'Non è più la mia casa';
+	@override String get sheetTitle => 'Dov\'è la tua casa?';
+	@override String get searchHint => 'Un indirizzo o un comune';
+	@override String get myPosition => 'La mia posizione attuale';
+	@override String get onMap => 'Scegli sulla mappa';
+	@override String get onMapNotice => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».';
+	@override String get onMapNoticeClick => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».';
+	@override String get here => 'La mia casa è qui';
+	@override String get goHome => 'Vai a casa';
+}
+
 // Path: favorites
 class _Translations$favorites$it extends Translations$favorites$en {
 	_Translations$favorites$it._(TranslationsIt root) : this._root = root, super.internal(root);
@@ -1006,6 +1038,12 @@ class _Translations$account$it extends Translations$account$en {
 	@override String welcomeBody({required Object name}) => 'Il tuo account è stato creato con lo pseudonimo «${name}». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.';
 	@override String get welcomeCard => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.';
 	@override String get welcomeFavorites => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.';
+	@override String get useAnother => 'Usa un altro account';
+	@override String merged({required Object name}) => 'Questo account è stato unito a «${name}». Apri «${name}» qui con la sua scheda di recupero.';
+	@override String get mergedAction => 'Apri';
+	@override String mergedTitle({required Object name}) => 'Account unito a «${name}»';
+	@override String mergedBody({required Object name}) => 'Questo account è stato unito a «${name}». I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.';
+	@override String mergedOpen({required Object name}) => 'Apri «${name}» qui';
 }
 
 // Path: recovery
@@ -1070,6 +1108,49 @@ class _Translations$recover$it extends Translations$recover$en {
 	@override String get tooMany => 'Troppi tentativi per ora. Riprova tra un\'ora.';
 	@override String done({required Object name}) => 'Account recuperato: ${name}';
 	@override String get required => 'Scrivi il codice della tua scheda di recupero';
+}
+
+// Path: accountImport
+class _Translations$accountImport$it extends Translations$accountImport$en {
+	_Translations$accountImport$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Usa un altro account';
+	@override String intro({required Object current}) => 'Apri qui un altro dei tuoi account con la sua scheda di recupero: scrivi il codice o leggilo da una foto. Poi scegli cosa fare di «${current}».';
+	@override String get submit => 'Apri questo account';
+	@override String same({required Object current}) => 'Questa scheda è quella di «${current}», l\'account di questo dispositivo.';
+	@override String get choiceTitle => 'Due account su questo dispositivo';
+	@override String choiceBody({required Object current, required Object imported}) => 'Questo dispositivo usa «${current}». Hai appena aperto «${imported}».';
+	@override String merge({required Object imported}) => 'Unisci a «${imported}»';
+	@override String mergeMoves({required Object current, required Object imported}) => 'Le liste di preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».';
+	@override String mergePublic({required Object imported}) => 'Le sue recensioni, foto, luoghi e modifiche pubblicati passano a nome di «${imported}».';
+	@override String mergeHomeKept({required Object imported}) => 'Entrambi gli account hanno una casa: resta quella di «${imported}».';
+	@override String mergeDuplicates({required Object imported}) => 'Un luogo valutato da entrambi gli account mantiene la valutazione di «${imported}».';
+	@override String mergeDeletes({required Object current}) => '«${current}» viene poi cancellato da questo dispositivo e dal server.';
+	@override String get replace => 'Sostituisci senza unire';
+	@override String replaceTitle({required Object current, required Object imported}) => 'Sostituisci «${current}» con «${imported}»';
+	@override String replaceKeeps({required Object current}) => '«${current}» resta sul server. Solo la sua scheda di recupero permette di tornarci.';
+	@override String replaceNoCard({required Object current}) => 'Non si conosce nessuna scheda di recupero di «${current}». Se non è aperto su nessun altro dispositivo, viene cancellato dal server, perché nulla potrebbe più aprirlo.';
+	@override String replaceLocal({required Object imported}) => 'Le sue liste di preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelle di «${imported}».';
+	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
+		one: 'Il suo contributo in attesa non verrà inviato.',
+		other: 'I suoi ${n} contributi in attesa non verranno inviati.',
+	);
+	@override String card({required Object current}) => 'Scheda di recupero di «${current}»';
+	@override String get replaceConfirm => 'Sostituisci';
+	@override String get back => 'Indietro';
+	@override String get failed => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.';
+	@override String get refused => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.';
+	@override String get replaceFailed => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.';
+	@override String replaceUnfinished({required Object current}) => '«${current}» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.';
+	@override String get unsettled => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.';
+	@override String get deviceFailed => 'L\'unione è fatta sul server, ma questo dispositivo non è riuscito a salvarla. Riprova.';
+	@override String get tooMany => 'Troppe unioni per ora. Riprova più tardi.';
+	@override String merged({required Object name}) => 'Account uniti: stai usando «${name}».';
+	@override String replaced({required Object name}) => 'Questo dispositivo ora usa «${name}».';
+	@override String cancelled({required Object name}) => 'Non è cambiato nulla: questo dispositivo usa ancora «${name}».';
 }
 
 // Path: deletion
@@ -1970,6 +2051,7 @@ class _Translations$navigation$onTheWay$it extends Translations$navigation$onThe
 	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, secondo il tuo veicolo';
 	@override String get otherFuel => 'Altro carburante';
 	@override String get keepFuel => 'Salva come mio carburante';
+	@override String get keepFuelHint => 'Salva il tuo carburante per vederne il prezzo sulla mappa, accanto ai distributori.';
 	@override String fuelKept({required Object fuel}) => '${fuel} salvato per il tuo veicolo.';
 	@override String get keepFuelFailed => 'Non è stato possibile salvare il carburante.';
 	@override String get loading => 'Ricerca lungo il percorso';
@@ -2201,7 +2283,6 @@ class _Translations$navigation$marks$it extends Translations$navigation$marks$en
 	@override String get showInList => 'Vedi nell\'elenco';
 	@override String get showAll => 'Mostra tutto';
 	@override String get onMap => 'mostra sulla mappa';
-	@override String price({required Object price}) => '${price} €';
 	@override String get kindCamera => 'Autovelox';
 	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
 		one: '${n} autovelox',
@@ -2274,7 +2355,6 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get limitEstimated => 'Limite stimato';
 	@override String get overLimit => 'oltre il limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, elenco del ${date}';
-	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Viaggio simulato: dimostrazione senza GPS';
 	@override late final _Translations$navigation$guidance$places$it places = _Translations$navigation$guidance$places$it._(_root);
 }
@@ -3904,6 +3984,7 @@ extension on TranslationsIt {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, secondo il tuo veicolo',
 			'navigation.onTheWay.otherFuel' => 'Altro carburante',
 			'navigation.onTheWay.keepFuel' => 'Salva come mio carburante',
+			'navigation.onTheWay.keepFuelHint' => 'Salva il tuo carburante per vederne il prezzo sulla mappa, accanto ai distributori.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} salvato per il tuo veicolo.',
 			'navigation.onTheWay.keepFuelFailed' => 'Non è stato possibile salvare il carburante.',
 			'navigation.onTheWay.loading' => 'Ricerca lungo il percorso',
@@ -3940,9 +4021,9 @@ extension on TranslationsIt {
 			'navigation.states.originTitle' => 'Dove sei?',
 			'navigation.states.originHint' => 'Lunaway ha bisogno della tua posizione per calcolare il percorso.',
 			'navigation.states.locate' => 'Localizzami',
-			'navigation.states.offlineTitle' => 'Nessuna connessione',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'Nessuna connessione',
 			'navigation.states.offlineHint' => 'I percorsi vengono calcolati sul server di Lunaway. Senza rete, «Apri con…» passa il viaggio a un\'app di navigazione che conserva le sue mappe.',
 			'navigation.states.rateLimitedTitle' => 'Troppe richieste di percorso',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Riprova tra ${seconds} s.',
@@ -4098,7 +4179,6 @@ extension on TranslationsIt {
 			'navigation.marks.showInList' => 'Vedi nell\'elenco',
 			'navigation.marks.showAll' => 'Mostra tutto',
 			'navigation.marks.onMap' => 'mostra sulla mappa',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Autovelox',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} autovelox', other: '${n} autovelox', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Autovelox: ${source}, elenco del ${date}',
@@ -4174,7 +4254,6 @@ extension on TranslationsIt {
 			'navigation.guidance.limitEstimated' => 'Limite stimato',
 			'navigation.guidance.overLimit' => 'oltre il limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, elenco del ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Viaggio simulato: dimostrazione senza GPS',
 			'navigation.guidance.places.button' => 'Luoghi sulla mappa',
 			'navigation.guidance.places.buttonHidden' => 'Luoghi sulla mappa: nascosti',
@@ -4303,6 +4382,27 @@ extension on TranslationsIt {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ordine calcolato sui ${n} luoghi più vicini al centro della mappa',
 			'list.offlineTitle' => 'Nessuna connessione',
 			'list.offlineNotHere' => 'Niente di quest\'area su questo dispositivo.',
+			'home.title' => 'Casa',
+			'home.setTitle' => 'Imposta la mia casa',
+			'home.error' => 'Non è stato possibile caricare la tua casa.',
+			'home.privacy' => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.',
+			'home.directionsHome' => 'Percorso verso casa',
+			'home.actions' => 'Azioni della casa',
+			'home.change' => 'Cambia casa',
+			'home.remove' => 'Rimuovi la casa',
+			'home.removed' => 'Casa rimossa',
+			'home.saved' => 'Casa salvata',
+			'home.changed' => 'Casa cambiata',
+			'home.setHere' => 'Imposta come casa',
+			'home.removeHere' => 'Non è più la mia casa',
+			'home.sheetTitle' => 'Dov\'è la tua casa?',
+			'home.searchHint' => 'Un indirizzo o un comune',
+			'home.myPosition' => 'La mia posizione attuale',
+			'home.onMap' => 'Scegli sulla mappa',
+			'home.onMapNotice' => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».',
+			'home.onMapNoticeClick' => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».',
+			'home.here' => 'La mia casa è qui',
+			'home.goHome' => 'Vai a casa',
 			'favorites.title' => 'Preferiti',
 			'favorites.defaultList' => 'I miei preferiti',
 			'favorites.empty' => 'Ancora niente di salvato qui',
@@ -4435,6 +4535,8 @@ extension on TranslationsIt {
 			'profile.attributionCommunity' => 'Recensioni, valutazioni e foto dei viaggiatori di Lunaway, con licenza CC BY 4.0 e lo pseudonimo del loro autore.',
 			'profile.attributionCommons' => 'Foto di Wikimedia Commons, ciascuna con la propria licenza (CC0, pubblico dominio, CC BY o CC BY-SA), con il suo autore e un link alla sua pagina.',
 			'profile.attributionPanoramax' => 'Viste dalla strada di Panoramax: istanza di OpenStreetMap France con licenza CC BY-SA 4.0, istanza dell\'IGN con Licence Ouverte 2.0.',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionWikipedia' => 'Estratti di articoli di Wikipedia, con licenza CC BY-SA 4.0 e un link all\'articolo.',
 			'profile.attributionMangrove' => 'Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.',
 			'profile.attributionTranslation' => 'Traduzioni automatiche: modelli OPUS-MT dell\'Università di Helsinki, con licenza CC BY 4.0, eseguiti sui server di Lunaway.',
@@ -4455,8 +4557,6 @@ extension on TranslationsIt {
 			'translation.translating' => 'Traduzione in corso',
 			'translation.showOriginal' => 'Mostra l\'originale',
 			'translation.showTranslation' => 'Mostra la traduzione',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.fr' => 'Tradotto automaticamente dal francese',
 			'translation.from.en' => 'Tradotto automaticamente dall\'inglese',
 			'translation.from.de' => 'Tradotto automaticamente dal tedesco',
@@ -4529,6 +4629,12 @@ extension on TranslationsIt {
 			'account.welcomeBody' => ({required Object name}) => 'Il tuo account è stato creato con lo pseudonimo «${name}». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.',
 			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
 			'account.welcomeFavorites' => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.',
+			'account.useAnother' => 'Usa un altro account',
+			'account.merged' => ({required Object name}) => 'Questo account è stato unito a «${name}». Apri «${name}» qui con la sua scheda di recupero.',
+			'account.mergedAction' => 'Apri',
+			'account.mergedTitle' => ({required Object name}) => 'Account unito a «${name}»',
+			'account.mergedBody' => ({required Object name}) => 'Questo account è stato unito a «${name}». I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.',
+			'account.mergedOpen' => ({required Object name}) => 'Apri «${name}» qui',
 			'recovery.title' => 'Scheda di recupero',
 			'recovery.intro' => 'Un codice che riporta il tuo account su un nuovo dispositivo. Lunaway ne conserva solo un\'impronta, che serve a verificarlo: il codice stesso non potrà mai più essere mostrato, e ogni nuova scheda ha un codice diverso.',
 			'recovery.replaces' => 'Una nuova scheda sostituisce la precedente: il vecchio codice smetterà di funzionare.',
@@ -4572,6 +4678,37 @@ extension on TranslationsIt {
 			'recover.tooMany' => 'Troppi tentativi per ora. Riprova tra un\'ora.',
 			'recover.done' => ({required Object name}) => 'Account recuperato: ${name}',
 			'recover.required' => 'Scrivi il codice della tua scheda di recupero',
+			'accountImport.title' => 'Usa un altro account',
+			'accountImport.intro' => ({required Object current}) => 'Apri qui un altro dei tuoi account con la sua scheda di recupero: scrivi il codice o leggilo da una foto. Poi scegli cosa fare di «${current}».',
+			'accountImport.submit' => 'Apri questo account',
+			'accountImport.same' => ({required Object current}) => 'Questa scheda è quella di «${current}», l\'account di questo dispositivo.',
+			'accountImport.choiceTitle' => 'Due account su questo dispositivo',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Questo dispositivo usa «${current}». Hai appena aperto «${imported}».',
+			'accountImport.merge' => ({required Object imported}) => 'Unisci a «${imported}»',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Le liste di preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».',
+			'accountImport.mergePublic' => ({required Object imported}) => 'Le sue recensioni, foto, luoghi e modifiche pubblicati passano a nome di «${imported}».',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Entrambi gli account hanno una casa: resta quella di «${imported}».',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Un luogo valutato da entrambi gli account mantiene la valutazione di «${imported}».',
+			'accountImport.mergeDeletes' => ({required Object current}) => '«${current}» viene poi cancellato da questo dispositivo e dal server.',
+			'accountImport.replace' => 'Sostituisci senza unire',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Sostituisci «${current}» con «${imported}»',
+			'accountImport.replaceKeeps' => ({required Object current}) => '«${current}» resta sul server. Solo la sua scheda di recupero permette di tornarci.',
+			'accountImport.replaceNoCard' => ({required Object current}) => 'Non si conosce nessuna scheda di recupero di «${current}». Se non è aperto su nessun altro dispositivo, viene cancellato dal server, perché nulla potrebbe più aprirlo.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Le sue liste di preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelle di «${imported}».',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Il suo contributo in attesa non verrà inviato.', other: 'I suoi ${n} contributi in attesa non verranno inviati.', ), 
+			'accountImport.card' => ({required Object current}) => 'Scheda di recupero di «${current}»',
+			'accountImport.replaceConfirm' => 'Sostituisci',
+			'accountImport.back' => 'Indietro',
+			'accountImport.failed' => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.',
+			'accountImport.refused' => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.',
+			'accountImport.replaceFailed' => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '«${current}» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.',
+			'accountImport.unsettled' => 'L\'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.',
+			'accountImport.deviceFailed' => 'L\'unione è fatta sul server, ma questo dispositivo non è riuscito a salvarla. Riprova.',
+			'accountImport.tooMany' => 'Troppe unioni per ora. Riprova più tardi.',
+			'accountImport.merged' => ({required Object name}) => 'Account uniti: stai usando «${name}».',
+			'accountImport.replaced' => ({required Object name}) => 'Questo dispositivo ora usa «${name}».',
+			'accountImport.cancelled' => ({required Object name}) => 'Non è cambiato nulla: questo dispositivo usa ancora «${name}».',
 			'deletion.title' => 'Elimina il mio account',
 			'deletion.intro' => 'L\'eliminazione è immediata e definitiva.',
 			'deletion.goneTitle' => 'Cosa viene eliminato',
@@ -4912,6 +5049,8 @@ extension on TranslationsIt {
 			'poi.kind.physiotherapist' => 'Fisioterapista',
 			'poi.kind.laboratory' => 'Laboratorio analisi',
 			'poi.kind.nurse' => 'Infermiere',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.midwife' => 'Ostetrica',
 			'poi.kind.podiatrist' => 'Podologo',
 			'poi.kind.psychologist' => 'Psicologo',
@@ -4969,8 +5108,6 @@ extension on TranslationsIt {
 			'poi.kind.sports' => 'Articoli sportivi',
 			'poi.kind.fishingHunting' => 'Caccia e pesca',
 			'poi.kind.bicycleShop' => 'Negozio di bici',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.boatShop' => 'Nautica',
 			'poi.kind.florist' => 'Fioraio',
 			'poi.kind.gardenCentre' => 'Garden center',

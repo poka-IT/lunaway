@@ -547,6 +547,17 @@ final class FuelPrice {
   final DateTime updatedAt;
 }
 
+/// The age past which a price is written on no map: the server offers none
+/// older along a route or around a point (`MAX_PRICE_AGE_DAYS` in
+/// `lunaway_domain::fuel`), such prices being those of stations that
+/// stopped updating rather than prices still charged (9 of 9 006 diesel
+/// prices of the feed, 183 of 1 513 LPG ones, on 2026-10-06).
+const maxPriceAge = Duration(days: 90);
+
+/// Whether a price given at [updatedAt] may still be written on a map at
+/// [now] ([maxPriceAge]): none rather than a wrong one.
+bool priceIsCurrent(DateTime updatedAt, DateTime now) => now.difference(updatedAt) <= maxPriceAge;
+
 /// A fuel a station is out of.
 @immutable
 final class FuelShortage {

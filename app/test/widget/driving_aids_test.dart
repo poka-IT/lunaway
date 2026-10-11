@@ -189,25 +189,22 @@ void main() {
     );
     // At 80 km/h of limit, the zone shows from 400 m.
     await drive(tester, _drive(route, fromM: 0, toM: 750));
-    final banner = find.byType(EnforcementNotice);
-    expect(find.descendant(of: banner, matching: find.text('Zone de danger')), findsOneWidget);
+    final banner = find.byType(EnforcementChip);
+    expect(
+      find.descendant(of: banner, matching: find.textContaining(RegExp(r'^\d+ m$'))),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel(RegExp(r'^Zone de danger dans \d+ m')), findsOneWidget);
     expect(
       find.descendant(of: banner, matching: find.byType(RouteBadgeView)),
       findsNothing,
       reason: 'a warning sign, never a camera',
     );
-    // The French list is cited with its date, as its reuse requires: the
-    // first form offered, shown where the line holds it. The test font's
-    // squares leave it no room on this phone, the app's typeface does
-    // (enforcement_lists_test.dart).
+    // The pill names no list: the preview's foot, a camera's card and the
+    // credits cite them with their date.
     expect(
-      find.descendant(
-        of: banner,
-        matching: find.text('Sécurité routière, liste du 6 oct.', skipOffstage: false),
-        skipOffstage: false,
-      ),
-      findsOneWidget,
+      find.descendant(of: banner, matching: find.textContaining('Sécurité routière')),
+      findsNothing,
     );
     await drive(tester, _drive(route, fromM: 760, toM: 1200));
     expect(find.descendant(of: banner, matching: find.textContaining('encore')), findsOneWidget);
@@ -240,7 +237,7 @@ void main() {
     await drive(tester, _drive(route, fromM: 0, toM: 1560, kmh: 72));
     expect(find.text('Fin de la zone de danger'), findsOneWidget);
     await drive(tester, _drive(route, fromM: 1580, toM: 1640, kmh: 72));
-    expect(find.byType(EnforcementNotice), findsOneWidget, reason: 'the next zone');
+    expect(find.byType(EnforcementChip), findsOneWidget, reason: 'the next zone');
     expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'taken back');
   });
 
@@ -262,7 +259,7 @@ void main() {
     final route = plan.routes.first;
     await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
     await drive(tester, _drive(route, fromM: 0, toM: 750));
-    final notice = find.byType(EnforcementNotice);
+    final notice = find.byType(EnforcementChip);
     expect(notice, findsOneWidget);
     await tester.tap(notice);
     await settleShort(tester);
@@ -323,9 +320,9 @@ void main() {
       items: [_zoneOn(route, 1000, 1500)],
     );
     await drive(tester, _drive(route, fromM: 0, toM: 1050));
-    expect(find.textContaining('Zone de danger'), findsOneWidget);
+    expect(find.byType(EnforcementChip), findsOneWidget);
     await drive(tester, _drive(route, fromM: 1060, toM: 1200));
-    expect(find.textContaining('Zone de danger'), findsNothing);
+    expect(find.byType(EnforcementChip), findsNothing);
   });
 
   testWidgets('in Germany, nothing at all', (tester) async {
@@ -394,8 +391,7 @@ void main() {
     );
     await guide(tester, plan, country: (_) => 'ES', items: [camera]);
     await drive(tester, _drive(route, fromM: 0, toM: 900));
-    final banner = find.byType(EnforcementNotice);
-    expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
+    final banner = find.byType(EnforcementChip);
     expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
     expect(find.descendant(of: banner, matching: find.byType(RouteBadgeView)), findsOneWidget);
     expect(
@@ -403,8 +399,9 @@ void main() {
       findsOneWidget,
     );
     final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.camera);
-    expect(mark.badge, RouteBadge.camera);
-    expect(mark.side, '70 km/h');
+    expect(mark.badge, RouteBadge.cameraWithLimit);
+    expect(mark.label, '70', reason: 'in the sign beside the camera');
+    expect(mark.position, camera.position, reason: 'on its exact place');
   });
 
   testWidgets('the limit for the vehicle beside the speed; over it the speed warns, and speaks '
@@ -717,30 +714,20 @@ void main() {
     Iterable<RouteMapMark> cameraMarks() =>
         SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.camera);
 
-    testWidgets('France with its positions asked for: the camera on the map, in the banner, on '
+    testWidgets('France with its positions asked for: the camera on the map, in the pill, on '
         'its card', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
       final item = camera(route, 1000);
       await guide(tester, plan, items: [item], sources: [listed], exactIn: {'FR'});
       await drive(tester, _drive(route, fromM: 0, toM: 750));
-      final banner = find.byType(EnforcementNotice);
-      expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
+      final banner = find.byType(EnforcementChip);
+      expect(find.descendant(of: banner, matching: find.byType(RouteBadgeView)), findsOneWidget);
       expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
-      // The first form offered, shown where the line holds it (the test
-      // font's squares leave it no room on this phone).
-      expect(
-        find.descendant(
-          of: banner,
-          matching: find.text('Sécurité routière, liste du 6 oct.', skipOffstage: false),
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-        reason: 'the list by its name, which names its licensor, with its date',
-      );
       final mark = cameraMarks().single;
       expect(mark.id, 'camera:${item.id}');
-      expect(mark.side, '70 km/h');
+      expect(mark.position, item.position, reason: 'on its exact place');
+      expect(mark.label, '70');
       SchematicRouteMap.last!.onMarkTap!(mark.id);
       await settleShort(tester);
       final card = find.byType(MarkCard);
@@ -797,17 +784,17 @@ void main() {
       container.read(guidanceControllerProvider.notifier).stop();
     });
 
-    testWidgets('France by default: no camera on the map nor in the banner', (tester) async {
+    testWidgets('France by default: no camera on the map nor in the pill', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
       await guide(tester, plan, items: [camera(route, 1000)], sources: [listed]);
       await drive(tester, _drive(route, fromM: 0, toM: 1100));
       expect(cameraMarks(), isEmpty);
-      expect(find.byType(EnforcementNotice), findsNothing);
+      expect(find.byType(EnforcementChip), findsNothing);
     });
 
-    testWidgets("over the camera's limit the banner says so, to the eye and to the screen "
-        'reader', (tester) async {
+    testWidgets("over the camera's limit the pill turns red, and a screen reader hears it "
+        'in its sentence', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
       await guide(
@@ -817,10 +804,11 @@ void main() {
         items: [camera(route, 500, country: 'ES', limit: 30)],
       );
       await drive(tester, _drive(route, fromM: 100, toM: 400, kmh: 50));
-      final banner = find.byType(EnforcementNotice);
+      final banner = find.byType(EnforcementChip);
       expect(
         find.descendant(of: banner, matching: find.text('au-dessus de la limite')),
-        findsOneWidget,
+        findsNothing,
+        reason: 'the colour says it to the eye',
       );
       expect(
         find.bySemanticsLabel(RegExp(r'limite 30 km/h, au-dessus de la limite\.$')),
@@ -857,7 +845,7 @@ void main() {
       ('a tablet on its side', const Size(1280, 800)),
       ('a desktop', const Size(1440, 900)),
     ]) {
-      testWidgets('on $name with large text, a section and its average fit the banner', (
+      testWidgets('on $name with large text, a section and its average fit the pill', (
         tester,
       ) async {
         final plan = _plan();
@@ -895,10 +883,10 @@ void main() {
         await drive(tester, _drive(route, fromM: 0, toM: 600, kmh: 50));
         FlutterError.onError = original;
         expect(banners, isEmpty);
-        final banner = find.byType(EnforcementNotice, skipOffstage: false);
+        final banner = find.byType(EnforcementChip, skipOffstage: false);
         expect(banner, findsOneWidget);
         expect(
-          find.descendant(of: banner, matching: find.text('Radar tronçon', skipOffstage: false)),
+          find.descendant(of: banner, matching: find.text('moyenne', skipOffstage: false)),
           findsOneWidget,
         );
         expect(
@@ -979,7 +967,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      final mark = cameraMarks().firstWhere((m) => m.side != null);
+      final mark = cameraMarks().firstWhere((m) => m.label != null);
       SchematicRouteMap.last!.onMarkTap!(mark.id, at: const Offset(200, 300));
       await settleShort(tester);
       expect(find.text('Radar fixe · 70 km/h'), findsOneWidget);

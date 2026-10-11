@@ -211,7 +211,7 @@ abstract interface class ArrivalConfirmation {
 /// Where a route goes.
 @immutable
 final class RouteTarget {
-  const new({required this.destination, this.label, this.placeId});
+  const new({required this.destination, this.label, this.placeId, this.home = false});
 
   final LatLng destination;
 
@@ -219,15 +219,20 @@ final class RouteTarget {
   final String? label;
   final String? placeId;
 
+  /// The user's home: its link names it without its point, which a
+  /// browser's history would otherwise keep.
+  final bool home;
+
   @override
   bool operator ==(Object other) =>
       other is RouteTarget &&
       other.destination == destination &&
       other.label == label &&
-      other.placeId == placeId;
+      other.placeId == placeId &&
+      other.home == home;
 
   @override
-  int get hashCode => Object.hash(destination, label, placeId);
+  int get hashCode => Object.hash(destination, label, placeId, home);
 }
 
 /// What the preview shows: the vehicle check, the start, and the plan.

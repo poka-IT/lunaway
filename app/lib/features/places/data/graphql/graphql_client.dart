@@ -286,6 +286,8 @@ final class GraphQLError {
     this.requiredLevel,
     this.level,
     this.existingId,
+    this.mergedInto,
+    this.mergedIntoId,
   });
 
   factory fromJson(Object? json) {
@@ -300,6 +302,8 @@ final class GraphQLError {
       requiredLevel: (ext['requiredLevel'] as num?)?.toInt(),
       level: (ext['level'] as num?)?.toInt(),
       existingId: ext['existingId'] as String?,
+      mergedInto: ext['mergedInto'] as String?,
+      mergedIntoId: ext['mergedIntoId'] as String?,
     );
   }
 
@@ -351,6 +355,14 @@ final class GraphQLError {
   /// With [invalidInput]: what the request would duplicate (a vending
   /// machine of the same kind within 25 m), to act on that one instead.
   final String? existingId;
+
+  /// With [unknownKey]: the account of the key was merged into the account
+  /// of this pseudonym, whose recovery card brings it to the device.
+  final String? mergedInto;
+
+  /// With [mergedInto]: that account's id, by which the device knows it
+  /// when it comes (two accounts may share a pseudonym).
+  final String? mergedIntoId;
 
   /// The server does not know an argument or an input field of the request
   /// (async-graphql's validation messages): an API older than the app.

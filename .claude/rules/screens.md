@@ -37,7 +37,10 @@ it has a tap of its own, the map's offline line), and opens again when its
 text whose figures change. `showMessage` is the passing notice of every
 screen; a screen that shows notices its own way takes the app's messages
 while it is up (`redirectMessages`, the guidance under its maneuver,
-`NoticeColumn` in `shared/widgets/notice_views.dart`).
+`NoticeColumn` in `shared/widgets/notice_views.dart`). The guidance's
+camera or danger zone is a standing notice on a board of its own, a pill
+over the speed and its limit (over the bar in the panel on a screen on its
+side), never over the maneuver, the buttons nor the vehicle (`GuidanceAidNotices`, `test/widget/guidance_aid_pill_test.dart`).
 
 An element meant to be centred over the screen or the map (a floating
 button, a card, a notice) centres on the whole screen, or on the map beside

@@ -333,7 +333,7 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   appareil qui signale la position des radars est puni de 1 500 € d'amende
   et 6 points (Code de la route, art. R413-15)." No box, no confirmation, no
   reminder afterwards. On, France reads as `exact`: its cameras show as
-  everywhere points may (marks, banner, words). Off, France is zones only,
+  everywhere points may (marks, pill, words). Off, France is zones only,
   as before. The choice (`DrivingAidsSettings.exactIn`) is never logged.
 - **What leaves the device.** `Query.enforcement` for the countries the
   route crosses (worked out on the device every 5 km of the route and at
@@ -402,8 +402,11 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   item shows only where the vehicle's rule and its own country's rule both
   allow its kind: a zone under `zones` or `exact`, a camera under `exact`
   only.
-- **The alert.** One at a time, a standing notice of the guidance
-  (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead
+- **The alert.** One at a time, a standing notice of the guidance shown
+  as a small pill beside the speed and its limit, just above the bar that
+  shows them (`GuidanceAidNotices`, its look `EnforcementChip`, on a
+  `NoticeBoard` of its own; the PO's decision of 2026-10-11, the banner
+  under the maneuver took too much of the screen): from about 20 s ahead
   (800 m at a limit of 110 or more, 400 m from 70, 200 m below), until the
   vehicle has passed its end by
   30 m (a camera's point) or 50 m (a zone, a section), whatever the reach
@@ -413,28 +416,31 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   between. Cameras of one kind less than 50 m apart (one per lane on a
   gantry, the same camera mapped twice) are one camera: one alert, one
   word, the lowest limit any of them gives, held until the last one is
-  passed. A camera's point ahead takes the banner from the stretch the
-  vehicle is in. The banner shows a pictogram (the camera's badge for a
-  camera, a danger sign for a zone, never a camera for a zone), the kind
-  ("Radar fixe", "Radar feu rouge", "Radar de passage à niveau", "Radar
-  tronçon", "Zone de danger"), the distance in large ("800 m", then "encore
-  1,2 km" inside a stretch), the sign of the limit that matters (the
-  camera's own when it measures speed; else the road's where the vehicle
-  is, grey when it is the
-  default, none when the user hid it; "moyenne" above a section's), inside
+  passed. A camera's point ahead takes the pill from the stretch the
+  vehicle is in. The pill shows the pictogram of the map's mark (the
+  camera's badge for a camera, a danger sign for a zone, never a camera
+  for a zone), the distance ("800 m", then "encore 1,2 km" inside a
+  stretch, made smaller rather than broken under large text), and the
+  sign of the limit that matters (the camera's own when it measures
+  speed; else the road's where the vehicle is, grey when it is the
+  default, none when the user hid it; "moyenne" above a section's); inside
   a section the vehicle's average from its start once it has driven 200 m
   of it ("votre moyenne 104 km/h", none when the guidance started inside
-  it), and the lists with their date in one run of small text (the year
-  too when it is not this year's: "liste du 30 déc. 2025"). Over that
-  limit plus 3 km/h for 2 s
-  (a section's average, once known), the banner turns to the error colours
-  and says "au-dessus de la limite". At the end of a zone or a section,
-  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne", a
-  quiet passing notice (`alertExitNotice`). A screen reader hears one
-  sentence (`enforcementText`) on the notice's node, told again only when
-  the alert grows graver: ahead, entered, over its limit
-  (`enforcementLevel`, the notice's level); a notice folded by a tap opens
-  again then.
+  it). It is drawn in the colours of the map's buttons; over that limit
+  plus 3 km/h for 2 s (a section's average, once known), in the error's
+  red, the only time it is red. It stands left of the road behind the
+  vehicle, over neither the maneuver, the buttons nor the vehicle, and
+  rises over "Recentrer" or the strip of the stops when one shows beside
+  it; on a screen on its side, in the panel above the bar
+  (`test/widget/guidance_aid_pill_test.dart`). A tap folds it into a small
+  chip with its pictogram, which opens again when it grows graver. At the
+  end of a zone or a section, "Fin de la zone de danger" or "Fin du
+  contrôle de vitesse moyenne", a quiet passing notice in the pill's place
+  (`alertExitNotice`). A screen reader hears one sentence
+  (`enforcementText`: the kind, "Radar fixe", "Radar tronçon", "Zone de
+  danger"..., the distance, the limit, "au-dessus de la limite") on the
+  notice's node, told again only when the alert grows graver: ahead,
+  entered, over its limit (`enforcementLevel`, the notice's level).
 - **The words.** Each zone, camera and section once for the whole guidance,
   a new route included: "Radar fixe dans 800 mètres, limité à 90.",
   "Radar tronçon dans 800 mètres, moyenne limitée à 110.", "Zone de danger
@@ -452,11 +458,16 @@ route. The main map shows no camera and no zone: no layer of it holds them.
 - **On the maps of the route.** A danger zone is drawn as a translucent
   coral band under the chosen route, the stretch it covers and nothing
   more (`zoneSpans`). A camera, where both the rule at the device and the
-  camera's own country's rule are `exact`, is a mark of the route
-  (`RouteMarkKind.camera`, `RouteBadge.camera`: a camera on its mast, cream
-  on navy in a lantern rim) with its limit written beside it
-  (`camerasOnRoute`, `cameraMarker`): the same marks on the native maps and
-  on the web page (browser, macOS, Windows). The legend has a row "Zone de
+  camera's own country's rule are `exact`, is a mark of the route on its
+  exact place, over the route line (`RouteMarkKind.camera`,
+  `RouteBadge.camera`: a camera on its mast, cream on navy in a lantern
+  rim, larger than the other marks), with the road sign of the limit it
+  controls on its right, the figure in it (`RouteBadge.cameraWithLimit`,
+  the figure written by the map in the sign, `labelAt`; the image keeps
+  the camera at its centre, the room the sign takes on the right left empty
+  on the left) (`camerasOnRoute`, `cameraMarker`): the same marks on the
+  native maps and on the web page (browser, macOS, Windows). The main map
+  has no layer of cameras nor any filter that would show them. The legend has a row "Zone de
   danger" and a row "3 radars"; a tap on a camera opens its card: kind and
   limit, where on the route ("à 12 km du départ" on the preview, "dans
   800 m" from the vehicle during a guidance), "Contrôle votre sens de
@@ -482,15 +493,16 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   preview's panel cites each list with its date ("Zones de danger : ...",
   "Radars : ...", or both) by its licensor's wording, the list's
   `attribution` (`EnforcementSource.credit`; its name when the attribution
-  is empty or a sentence, Norway's NLOD one, which the credits quote). The
-  guidance's banner and a camera's callout cite each list by its licensor
-  in the app's language (`listName`, `navigation_texts.dart`: "Délégation
-  à la sécurité routière", "Statens vegvesen"; the API's name, which names
-  its licensor too, for a list the app does not know yet) with its date,
-  on one line cut short at its end: the attributions took 4 lines of lists
-  in the French banner at 360 dp and the names 3, a fifth of a phone's
-  screen. The Licence Ouverte of the French list asks for the licensor ("a
-  minima le nom du Concédant") and the date of the last update.
+  is empty or a sentence, Norway's NLOD one, which the credits quote). A
+  camera's callout cites each list by its licensor in the app's language
+  (`listName`, `navigation_texts.dart`: "Délégation à la sécurité
+  routière", "Statens vegvesen"; the API's name, which names its licensor
+  too, for a list the app does not know yet) with its date. The Licence
+  Ouverte of the French list asks for the licensor ("a minima le nom du
+  Concédant") and the date of the last update: the preview's foot, the
+  camera's card and the credits give them. The guidance's pill names no
+  list since 2026-10-11: the lists under the banner took a third of a
+  phone's screen, the reason of its redesign.
 - **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
   the route; `DEFAULT` spans show in grey and never warn. Without spans,
   the sign the map gives, and only for a vehicle of 3.5 t or less with its

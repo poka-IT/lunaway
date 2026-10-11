@@ -6,6 +6,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
+import 'package:lunaway/features/navigation/domain/route_fuel_prices.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -16,8 +17,10 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/palette.dart';
 
 import '../../helpers/navigation.dart';
 
@@ -69,6 +72,12 @@ List<RouteMarker> _markers(Translations t, RoutePlan plan, RouteOption route) =>
     places: const [_place],
     stations: [_station],
     stops: const [RouteStop(position: LatLng(43.42, 5.42), label: 'Pause')],
+    prices: routePrices(
+      fuel: FuelType.diesel,
+      now: DateTime.utc(2026, 10, 9),
+      language: 'fr',
+      offers: [_station],
+    ).marks,
   ).markers(t),
 );
 
@@ -129,7 +138,8 @@ void main() {
       expect(marks['stop:0']!.badge, RouteBadge.stop);
       expect(marks['stop:0']!.label, '1', reason: 'stops are numbered');
       expect(marks['poi:st1']!.badge, RouteBadge.fuel);
-      expect(marks['poi:st1']!.side, '1,789 €', reason: 'the price beside the pump');
+      expect(marks['poi:st1']!.side, '1,789', reason: 'the price beside the pump');
+      expect(marks['poi:st1']!.sideInk, PoiLook.price(0, dark: false), reason: 'the cheapest');
       expect(marks['place:p1']!.badge, RouteBadge.place(PlaceKind.motorhomeArea));
       expect(marks['place:p1']!.minor, isTrue);
       final anonymous = marks.values.where((m) => !RouteBadge.all.contains(m.badge));
@@ -229,19 +239,41 @@ void main() {
       sources: [list],
     );
 
-    test('a camera is its own badge, its limit beside it, in the units of the user', () {
+    test("a camera stands on its exact place, its limit's sign beside it, in the user's units", () {
       final mark = cameraMarker(camera('c'), fr, units: DistanceUnits.metric)!.mark;
       expect(mark.id, 'camera:c');
       expect(mark.kind, RouteMarkKind.camera);
-      expect(mark.badge, RouteBadge.camera);
-      expect(mark.side, '90 km/h');
-      expect(RouteBadge.all, contains(RouteBadge.camera), reason: 'its image in the style');
-      expect(cameraMarker(camera('c'), en, units: DistanceUnits.imperial)!.mark.side, '56 mph');
+      expect(mark.position, const LatLng(43.41, 5.41), reason: "the camera's own place");
+      expect(mark.badge, RouteBadge.cameraWithLimit);
+      expect(mark.label, '90', reason: 'the figure, in the sign');
+      expect(mark.side, isNull, reason: 'no text beside it to give way to a name');
       expect(
-        cameraMarker(camera('n', limit: null), fr, units: DistanceUnits.metric)!.mark.side,
-        isNull,
+        RouteBadge.all,
+        contains(RouteBadge.cameraWithLimit),
+        reason: 'its image in the style',
       );
+      expect(cameraMarker(camera('c'), en, units: DistanceUnits.imperial)!.mark.label, '56');
+      final unknown = cameraMarker(camera('n', limit: null), fr, units: DistanceUnits.metric)!.mark;
+      expect(unknown.badge, RouteBadge.camera, reason: 'no limit, no sign');
+      expect(unknown.label, isNull);
       expect(RouteMarkKind.camera.tone, MarkTone.caution);
+    });
+
+    test("the camera's image keeps the camera on its place, the sign on its right", () {
+      const badge = RouteBadge.cameraWithLimit;
+      // The map centres the image on the place, then shifts it: the disc's
+      // centre, extent / 2 from the image's left, lands on the place.
+      final left = badge.iconShift - badge.viewSize.width / 2;
+      expect(left + badge.extent / 2, 0, reason: 'the disc on the place');
+      expect(badge.signDx, greaterThan(badge.extent / 2), reason: 'the sign right of the disc');
+      expect(badge.viewSize.height, badge.extent);
+      expect(badge.viewSize.width, badge.extent / 2 + badge.rightReach, reason: 'no empty side');
+      expect(RouteBadge.camera.iconShift, 0);
+      expect(badge.labelOffset(13), [badge.signDx / 13, 0]);
+      expect(RouteBadge.camera.labelOffset(11), [0, 0]);
+      expect(badge.labelInk, isNot(badge.ink), reason: 'a navy figure on the white sign');
+      // Read from a cab: larger than the other marks.
+      expect(RouteBadge.camera.extent, greaterThan(RouteBadge.closure.extent));
     });
 
     test("the marks reach the maps' pages as the others do: badge, kind and limit", () {
@@ -261,10 +293,28 @@ void main() {
           (f! as Map<String, Object?>)['properties']! as Map<String, Object?>,
       ];
       final props = features.singleWhere((p) => p['mark'] == 'camera:c');
-      expect(props['badge'], RouteBadge.camera.id);
+      expect(props['badge'], RouteBadge.cameraWithLimit.id);
       expect(props['kind'], 'camera');
-      expect(props['side'], '90 km/h');
+      expect(props['label'], '90');
+      expect(props['labelSize'], 13);
+      expect(props['labelAt'], RouteBadge.cameraWithLimit.labelOffset(13));
+      expect(props['ink'], RouteLook.hex(Palette.minuit), reason: 'the figure in navy');
+      expect(props['iconAt'], [RouteBadge.cameraWithLimit.iconShift, 0]);
+      expect(props.containsKey('side'), isFalse);
       expect(RouteMarkStyle.clusterProperties.keys, contains('n_camera'));
+      // In the browser the images measure the screen's pixels.
+      final browser = routeMarkSources([for (final m in markers) m.mark], imageUnits: 2.5);
+      final shifted = [
+        for (final f in browser[RouteLayers.marksSource]!['features']! as List<Object?>)
+          (f! as Map<String, Object?>)['properties']! as Map<String, Object?>,
+      ].singleWhere((p) => p['mark'] == 'camera:c');
+      expect(shifted['iconAt'], [RouteBadge.cameraWithLimit.iconShift * 2.5, 0]);
+      final others = features.where((p) => p['mark'] != 'camera:c');
+      expect(
+        others.where((p) => p.containsKey('iconAt')),
+        isEmpty,
+        reason: 'centred on their place',
+      );
     });
 
     test("a variant's cameras stay off the map: only the route chosen has them", () {
@@ -320,6 +370,8 @@ void main() {
           units: DistanceUnits.metric,
         )!;
         expect(red.mark.side, isNull);
+        expect(red.mark.label, isNull);
+        expect(red.mark.badge, RouteBadge.camera);
         final words = markWords(
           red,
           fr,

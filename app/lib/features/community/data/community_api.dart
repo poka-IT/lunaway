@@ -73,26 +73,13 @@ final class GraphQLCommunityApi implements CommunityApi {
     Uint8List jpeg, {
     bool create = true,
     void Function(double sent)? onProgress,
-  }) async {
-    final headers = await account.sessionHeaders(create: create);
-    try {
-      return await uploader.upload(
-        placeId: placeId,
-        jpeg: jpeg,
-        headers: headers,
-        onProgress: onProgress,
-      );
-    } on UploadException catch (e) {
-      // A refused session: sign in again and send once more.
-      if (e.status != 401) rethrow;
-      return await uploader.upload(
-        placeId: placeId,
-        jpeg: jpeg,
-        headers: await account.renewSession(create: create),
-        onProgress: onProgress,
-      );
-    }
-  }
+  }) => account.send(
+    (headers) =>
+        uploader.upload(placeId: placeId, jpeg: jpeg, headers: headers, onProgress: onProgress),
+    // A refused session: sign in again and send once more.
+    refused: (e) => e is UploadException && e.status == 401,
+    create: create,
+  );
 
   @override
   Future<MyContributions> recent({int first = 20}) =>

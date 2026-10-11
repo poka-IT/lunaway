@@ -8,6 +8,8 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/domain/poi.dart' show FuelLabel;
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 
@@ -19,12 +21,18 @@ final class RoutePoints {
     required this.places,
     required this.stations,
     required this.stops,
+    this.prices = const {},
     this.movedTo = const {},
   });
 
   final List<PlaceSummary> places;
   final List<FuelOffer> stations;
   final List<RouteStop> stops;
+
+  /// The price of the vehicle's fuel beside a station of [stations], by its
+  /// id (`routePrices`): none for another fuel, or a price too old, the
+  /// station's logo alone.
+  final Map<String, FuelLabel> prices;
 
   /// Where the server moved a stop, by its index in [stops]: its mark
   /// stands where the route passes, the stop itself stays as the user put
@@ -59,7 +67,12 @@ final class RoutePoints {
           position: s.position,
           kind: RouteMarkKind.fuel,
           badge: RouteBadge.fuel,
-          side: t.shortPrice(s.priceEur),
+          side: prices[s.id]?.text,
+          // On the halo of the marks' texts, cream whatever the basemap.
+          sideInk: switch (prices[s.id]) {
+            final price? => PoiLook.price(price.rank, dark: false),
+            null => null,
+          },
         ),
         FuelSubject(s),
       ),

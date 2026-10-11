@@ -198,37 +198,62 @@ fi
 # it: a copy the server's list (media/manifest) no longer names is filed
 # under the day the backend deleted its photo (media/deletions) in
 # media-deleted/<day>, and dropped 26 days after that day, however long this
-# Mac was off; a copy the deletions do not name goes now. Both lists come
-# from the server: they are used only when every line has the form the
-# backend writes, and a run that would remove more than 50 copies and more
-# than 5% of them removes nothing and fails.
-manifest="$dest/media/manifest"
-deletions="$dest/media/deletions"
-held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
-photo_re='photos/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.webp\.age'
-if [ "$pulled" = yes ] && [ -f "$manifest" ]; then
+# Mac was off; a copy the deletions do not name, or name before those 26
+# days, goes now. Both lists come from the server: they are used only when
+# every line has the form the backend writes.
+#
+# Only the copies that would go now count against the threshold: a run that
+# would drop more than 50 copies and more than 5% of them drops none, sets
+# none aside and fails (a list that lost lines, a server that stopped
+# mid-run). A copy the server dated was removed there past its own
+# threshold, or by an operator who let a mass removal through
+# (LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL); it is set aside for 26 days, however
+# many there are, so that the operator's decision does not stop this job
+# every night (2026-10-11). Past the same threshold the night still fails,
+# once (the next night those copies are no longer in media/photos): a mass
+# removal the server let through by mistake is seen within the 26 days.
+#
+# Reads dest and held_cutoff (YYYYMMDD); writes its lists in dest.
+set_aside_photos() {
+	manifest="$dest/media/manifest"
+	deletions="$dest/media/deletions"
+	photo_re='photos/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.webp\.age'
 	if grep -qvE "^$photo_re\$" "$manifest" || { [ -f "$deletions" ] && grep -qvE "^[0-9]{8} $photo_re\$" "$deletions"; }; then
 		fail "la liste des photos du serveur a une forme inattendue ; rien n'est retiré"
-	else
-		(cd "$dest/media" && find photos -type f -name '*.webp.age' | grep -E "^$photo_re\$" | LC_ALL=C sort) > "$dest/.local-photos"
-		LC_ALL=C comm -23 "$dest/.local-photos" "$manifest" > "$dest/.gone-photos"
-		gone=$(wc -l < "$dest/.gone-photos" | tr -d ' ')
-		local_count=$(wc -l < "$dest/.local-photos" | tr -d ' ')
-		if [ "$gone" -gt 50 ] && [ $((gone * 100)) -gt $((local_count * 5)) ]; then
-			fail "le serveur ne liste plus $gone des $local_count photos copiées sur le Mac ; rien n'est retiré"
-		else
-			while IFS= read -r rel; do
-				day=$(awk -v p="$rel" '$2 == p { print $1; exit }' "$deletions" 2>/dev/null)
-				if [ -z "$day" ] || [ "$day" -lt "$held_cutoff" ]; then
-					rm -f "$dest/media/$rel"
-				else
-					mkdir -p "$dest/media-deleted/$day/$(dirname "$rel")"
-					mv "$dest/media/$rel" "$dest/media-deleted/$day/$rel"
-				fi
-			done < "$dest/.gone-photos"
-			[ "$gone" = 0 ] || say "$gone photo copies deleted on the server set aside or dropped"
-		fi
+		return 0
 	fi
+	(cd "$dest/media" && find photos -type f -name '*.webp.age' | grep -E "^$photo_re\$" | LC_ALL=C sort) > "$dest/.local-photos"
+	LC_ALL=C comm -23 "$dest/.local-photos" "$manifest" > "$dest/.gone-photos"
+	# Each gone copy after the day the server deleted its photo (the first
+	# line naming it), "-" when the deletions do not name it.
+	deletions_read="$deletions"
+	[ -f "$deletions_read" ] || deletions_read=/dev/null
+	awk 'FILENAME == ARGV[1] { if (!($2 in day)) day[$2] = $1; next }
+		{ print (($0 in day) ? day[$0] : "-"), $0 }' "$deletions_read" "$dest/.gone-photos" > "$dest/.gone-days"
+	gone=$(wc -l < "$dest/.gone-photos" | tr -d ' ')
+	drop=$(awk -v cutoff="$held_cutoff" '$1 == "-" || $1 < cutoff' "$dest/.gone-days" | wc -l | tr -d ' ')
+	local_count=$(wc -l < "$dest/.local-photos" | tr -d ' ')
+	if [ "$drop" -gt 50 ] && [ $((drop * 100)) -gt $((local_count * 5)) ]; then
+		fail "le serveur ne liste plus $drop des $local_count photos copiées sur le Mac sans dater leur suppression ; rien n'est retiré"
+		return 0
+	fi
+	while read -r day rel; do
+		if [ "$day" = - ] || [ "$day" -lt "$held_cutoff" ]; then
+			rm -f "$dest/media/$rel"
+		else
+			mkdir -p "$dest/media-deleted/$day/$(dirname "$rel")"
+			mv "$dest/media/$rel" "$dest/media-deleted/$day/$rel"
+		fi
+	done < "$dest/.gone-days"
+	aside=$((gone - drop))
+	[ "$gone" = 0 ] || say "$gone photo copies deleted on the server: $aside set aside, $drop dropped"
+	if [ "$aside" -gt 50 ] && [ $((aside * 100)) -gt $((local_count * 5)) ]; then
+		fail "$aside des $local_count photos copiées sur le Mac supprimées sur le serveur en une nuit, mises de côté dans media-deleted jusqu'à 26 jours après leur date de suppression : vérifier que la suppression était voulue"
+	fi
+}
+held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
+if [ "$pulled" = yes ] && [ -f "$dest/media/manifest" ]; then
+	set_aside_photos
 elif [ "$pulled" = yes ]; then
 	fail "aucune liste des photos sur le serveur"
 fi

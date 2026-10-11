@@ -197,6 +197,71 @@ final signOutOperation = GraphQLOperation<bool>(
   parse: (data) => data['signOut'] == true,
 );
 
+/// Ends the session and detaches its key from the account: the device
+/// leaves that account for good (another account imported in its place,
+/// an import given up).
+final signOutForgettingDeviceOperation = GraphQLOperation<bool>(
+  name: 'SignOutForgettingDevice',
+  document: 'mutation SignOutForgettingDevice { signOut(forgetDevice: true) }',
+  parse: (data) => data['signOut'] == true,
+);
+
+/// Which home the account kept when another was merged into it.
+enum MergedHome {
+  /// Neither had one.
+  none('NONE'),
+
+  /// The account kept its own; the merged account's went with it.
+  kept('KEPT'),
+
+  /// The merged account's home became the account's.
+  moved('MOVED');
+
+  new(this.wire);
+
+  final String wire;
+
+  static MergedHome fromWire(Object? wire) =>
+      values.where((h) => h.wire == wire).firstOrNull ?? none;
+}
+
+/// The account another one was merged into, and which home it kept.
+typedef MergeResult = ({Account account, MergedHome home});
+
+final mergeAccountOperation = GraphQLOperation<MergeResult>(
+  name: 'MergeAccount',
+  document: '''
+mutation MergeAccount(
+  \$jwk: String!
+  \$nonce: String!
+  \$absorbedSignature: String!
+  \$signature: String!
+) {
+  mergeAccount(
+    absorbedKeyJwk: \$jwk
+    nonce: \$nonce
+    absorbedSignature: \$absorbedSignature
+    signature: \$signature
+  ) {
+    home
+    account { ...AccountFields }
+  }
+}
+$_accountFields''',
+  parse: (data) {
+    final m = data['mergeAccount'] as Map<String, dynamic>;
+    return (account: _account(m['account']), home: MergedHome.fromWire(m['home']));
+  },
+);
+
+/// Whether the account of the session has a home, read before a merge so
+/// the choice can say which home stays.
+final accountHasHomeOperation = GraphQLOperation<bool>(
+  name: 'AccountHasHome',
+  document: 'query AccountHasHome { myHome { updatedAt } }',
+  parse: (data) => data['myHome'] != null,
+);
+
 final signOutElsewhereOperation = GraphQLOperation<int>(
   name: 'SignOutElsewhere',
   document: 'mutation SignOutElsewhere { signOutElsewhere }',
@@ -246,6 +311,9 @@ final accountOperations = <GraphQLOperation<Object?>>[
   updateProfileOperation,
   createRecoveryCodeOperation,
   signOutOperation,
+  signOutForgettingDeviceOperation,
+  mergeAccountOperation,
+  accountHasHomeOperation,
   signOutElsewhereOperation,
   deleteAccountOperation,
   myDevicesOperation,

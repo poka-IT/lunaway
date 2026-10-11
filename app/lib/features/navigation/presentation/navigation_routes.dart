@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 
 /// Paths of the navigation screens, outside the shell: both take the whole
 /// window.
@@ -27,15 +29,25 @@ abstract final class NavigationRoutes {
 
   static const _decimals = kIsWeb ? 4 : 6;
 
+  /// `/route?to=home`: the route home. The link holds no point: the home is
+  /// read on the device the page opens on, and no history keeps where it
+  /// is.
+  static const _toHome = 'home';
+
   static String previewOf(RouteTarget target) => Uri(
     path: preview,
-    queryParameters: {
-      'lat': target.destination.lat.toStringAsFixed(_decimals),
-      'lon': target.destination.lon.toStringAsFixed(_decimals),
-      if (target.label != null) 'name': target.label,
-      if (target.placeId != null) 'place': target.placeId,
-    },
+    queryParameters: target.home
+        ? {'to': _toHome}
+        : {
+            'lat': target.destination.lat.toStringAsFixed(_decimals),
+            'lon': target.destination.lon.toStringAsFixed(_decimals),
+            if (target.label != null) 'name': target.label,
+            if (target.placeId != null) 'place': target.placeId,
+          },
   ).toString();
+
+  /// Whether [uri] is the route home's link.
+  static bool homeOf(Uri uri) => uri.queryParameters['to'] == _toHome;
 
   /// The target of a preview link; null when the link holds no valid point.
   static RouteTarget? targetOf(Uri uri) {
@@ -70,9 +82,11 @@ List<RouteBase> navigationRoutes() => [
   GoRoute(
     path: NavigationRoutes.preview,
     builder: (_, state) => _LeavesForMap(
-      child: _LinkedPreview(
-        target: NavigationRoutes.exactOf(state.extra, NavigationRoutes.targetOf(state.uri)),
-      ),
+      child: NavigationRoutes.homeOf(state.uri)
+          ? _HomePreview(opened: state.extra)
+          : _LinkedPreview(
+              target: NavigationRoutes.exactOf(state.extra, NavigationRoutes.targetOf(state.uri)),
+            ),
     ),
   ),
   GoRoute(path: NavigationRoutes.guidance, builder: (_, _) => const GuidanceScreen()),
@@ -162,6 +176,33 @@ class _LeavesForMap extends ConsumerWidget {
     },
     child: child,
   );
+}
+
+/// The route home: the target the app opened it with ([opened]), else the
+/// home kept on this device (the link reloaded or typed); a device without
+/// a home has no target, as a link without a point.
+class _HomePreview extends ConsumerWidget {
+  const new({required this.opened});
+
+  final Object? opened;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final opened = this.opened;
+    if (opened is RouteTarget && opened.home) return RoutePreviewScreen(target: opened);
+    return switch (ref.watch(userHomeProvider)) {
+      AsyncValue(:final value, hasValue: true) => RoutePreviewScreen(
+        target: value == null
+            ? null
+            : RouteTarget(destination: value.position, label: context.t.home.title, home: true),
+      ),
+      AsyncError() => const RoutePreviewScreen(target: null),
+      _ => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+    };
+  }
 }
 
 /// The preview of a link: a place it names is read on the device, for its

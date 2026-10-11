@@ -63,6 +63,8 @@ bool mayHaveMade(PendingContribution e, Object made) {
   };
 }
 
+Future<Set<String>> _noneWaiting() async => const {};
+
 /// Sends the outbox, oldest first, and keeps a replay from ever
 /// duplicating a contribution:
 ///
@@ -85,6 +87,7 @@ final class OutboxSender {
     required this.outbox,
     required this.api,
     required this.accountId,
+    this.waiting = _noneWaiting,
     this.clock = DateTime.now,
     this.delays = const [
       Duration(seconds: 15),
@@ -103,6 +106,12 @@ final class OutboxSender {
   /// The account of this device, null before the first contribution makes
   /// it.
   final Future<String?> Function() accountId;
+
+  /// The accounts whose entries wait, neither sent nor failed: the account
+  /// this device held before it went into another from elsewhere, and that
+  /// other, until it comes to the device; the account kept by a merge the
+  /// device has not finished.
+  final Future<Set<String>> Function() waiting;
   final DateTime Function() clock;
 
   /// The waits after a failed attempt, the last one repeated.
@@ -154,8 +163,13 @@ final class OutboxSender {
       e = current;
       account = await accountId();
       // Made under an account the device no longer holds: never sent under
-      // another one, nor under a new one made for it.
+      // another one, nor under a new one made for it. An account merged
+      // into another, since: its entries wait for that account to come to
+      // the device, which takes them (`AccountSwitch.claimMerged`), as do
+      // the entries already moved to an account a merge has not finished
+      // bringing here.
       if (e.accountId != null && e.accountId != account) {
+        if ((await waiting()).contains(e.accountId)) continue;
         await outbox.fail(e.id, code: OutboxError.otherAccount);
         failed++;
         continue;
@@ -194,6 +208,15 @@ final class OutboxSender {
         account ??= await accountId();
         if (account != null) await outbox.claimFor(account);
       } on Object catch (error, stack) {
+        // This very request learnt that its account went into another from
+        // elsewhere (nothing was sent): the entry waits for that account, as
+        // the others of its account do from now on.
+        if (error is AccountLostException &&
+            error.mergedInto != null &&
+            (await waiting()).contains(e.accountId)) {
+          await outbox.retryAt(e.id, at, uncertain: false, detail: '$error');
+          continue;
+        }
         final outcome = _classify(e, error, unsure: unsure);
         if (outcome.isDone) {
           await _accepted(e, null);
@@ -238,8 +261,12 @@ final class OutboxSender {
 
   Future<DateTime?> _next() async {
     DateTime? next;
+    // What waits for an account to come to the device is due when it
+    // comes, which sends a pass of its own.
+    final waits = await waiting();
     for (final e in await outbox.all()) {
       if (e.state == OutboxState.failed) continue;
+      if (waits.contains(e.accountId)) continue;
       final at = e.nextAttemptAt ?? clock();
       if (next == null || at.isBefore(next)) next = at;
     }

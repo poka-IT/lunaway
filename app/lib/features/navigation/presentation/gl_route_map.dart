@@ -79,6 +79,9 @@ class _GlRouteMapState extends State<GlRouteMap> {
 
   /// The zones sent, with the lines they were cut from.
   (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
+
+  /// The prices under the stations' pins, as the source holds them.
+  List<FuelLabel>? _sentPrices;
   List<RouteMapMark>? _sentMarks;
   VehiclePuck? _sentVehicle;
   RouteCamera? _sentCamera;
@@ -494,7 +497,11 @@ class _GlRouteMapState extends State<GlRouteMap> {
     if (!current()) return;
     await c.addSource(RoutePlaceLayers.poiSource, tileJsonSource(places.poiTileJsonUrl));
     await c.addSource(RoutePlaceLayers.placeSource, tileJsonSource(places.placeTileJsonUrl));
-    final poi = RoutePlaceLayers.poiLayout(_pinScale);
+    // The pins come with the prices known now.
+    final prices = _props.fuelPrices;
+    _sentPrices = prices;
+    final poi = RoutePlaceLayers.poiLayout(_pinScale, prices: prices);
+    final poiPaint = RoutePlaceLayers.poiPaint(prices, dark: _props.dark);
     final place = RoutePlaceLayers.placeLayout(_pinScale);
     for (final id in RouteLayerOrder.pins) {
       if (!current()) return;
@@ -549,6 +556,16 @@ class _GlRouteMapState extends State<GlRouteMap> {
             iconAllowOverlap: false,
             iconIgnorePlacement: false,
             iconPadding: RoutePlaceLayers.pinPadding,
+            textField: poi['text-field'],
+            textFont: poi['text-font'],
+            textSize: poi['text-size'],
+            textAnchor: poi['text-anchor'],
+            textOffset: poi['text-offset'],
+            textPadding: poi['text-padding'],
+            textOptional: poi['text-optional'],
+            textColor: poiPaint['text-color'],
+            textHaloColor: poiPaint['text-halo-color'],
+            textHaloWidth: poiPaint['text-halo-width'],
             visibility: places.poiFilter == null ? 'none' : 'visible',
           ),
           sourceLayer: sourceLayer,
@@ -681,12 +698,14 @@ class _GlRouteMapState extends State<GlRouteMap> {
         gl.SymbolLayerProperties(
           iconImage: RouteMarkStyle.iconImage,
           iconSize: RouteMarkStyle.iconSize(_imageScale),
+          iconOffset: RouteMarkStyle.iconOffset,
           iconAllowOverlap: true,
           iconIgnorePlacement: RouteMarkStyle.ignorePlacement,
           symbolSortKey: RouteMarkStyle.sortKey,
           textField: RouteMarkStyle.textField,
           textFont: RouteMarkStyle.font,
           textSize: RouteMarkStyle.textSize,
+          textOffset: RouteMarkStyle.textOffset,
           textColor: RouteMarkStyle.textColor,
           textAllowOverlap: true,
           textIgnorePlacement: RouteMarkStyle.ignorePlacement,
@@ -706,7 +725,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
           textAnchor: 'left',
           textOffset: RouteMarkStyle.sideOffset,
           textOptional: true,
-          textColor: RouteLook.hex(Palette.minuit),
+          textColor: RouteMarkStyle.sideTextColor,
           textHaloColor: RouteLook.hex(Palette.creme),
           textHaloWidth: RouteMarkStyle.sideHalo,
         ),
@@ -837,7 +856,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
     }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
-      for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
+      final sources = routeMarkSources(p.marks, imageUnits: 1 / _imageScale);
+      for (final MapEntry(:key, :value) in sources.entries) {
         await c.setGeoJsonSource(key, value);
       }
       // The states and the halo's filter name features by their index in
@@ -856,6 +876,20 @@ class _GlRouteMapState extends State<GlRouteMap> {
     }
     await _syncPlaces(c);
     if (!mounted) return;
+    // The prices under the stations' pins, written by the pins' layers.
+    if (_placeLayers && !listEquals(p.fuelPrices, _sentPrices)) {
+      _sentPrices = p.fuelPrices;
+      for (final (id, _) in RoutePlaceLayers.poiLayers) {
+        await c.setLayerProperties(
+          id,
+          gl.SymbolLayerProperties(
+            textField: RoutePlaceLayers.priceText(p.fuelPrices),
+            textColor: RoutePlaceLayers.priceColor(p.fuelPrices, dark: p.dark),
+          ),
+        );
+      }
+      if (!mounted) return;
+    }
     final page = _page;
     if (p.vehicle != _sentVehicle) {
       final before = _sentVehicle;

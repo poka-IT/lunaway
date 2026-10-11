@@ -10,6 +10,7 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -26,6 +27,7 @@ import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/web_voice.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/data/web_voice_web.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/route_fuel_prices.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -53,6 +55,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -437,13 +440,22 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         ? const <PlaceSummary>[]
         : ref.watch(placesNearRouteProvider(line)).value ?? const <PlaceSummary>[];
     final stops = p?.stops ?? const <RouteStop>[];
+    final now = ref.watch(clockProvider)();
+    final stations = ref.watch(shownFuelOffersProvider(line));
     final points = RoutePoints(
       places: places,
-      stations: ref.watch(shownFuelOffersProvider(line)),
+      stations: stations,
       stops: stops,
+      // The price of the vehicle's fuel beside the stations of the fuel
+      // list.
+      prices: routePrices(
+        fuel: ref.watch(vehicleFuelProvider).fuel,
+        now: now,
+        language: Localizations.localeOf(context).languageCode,
+        offers: stations,
+      ).marks,
       movedTo: RoutePoints.movedWaypoints(plan, stops.length),
     );
-    final now = ref.watch(clockProvider)();
     final t = context.t;
     final online = ref.watch(placesFromTilesProvider);
     final enforcement = _enforcementOf(ref, selected);
@@ -681,6 +693,7 @@ class _Panel extends ConsumerWidget {
           ),
         const SizedBox(height: Space.s),
         const _DepartureLine(),
+        _HomeArrival(target: target),
         const SizedBox(height: Space.s),
         StopsStrip(target: target),
         if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)
@@ -1214,6 +1227,39 @@ class _Prompt extends StatelessWidget {
           OutlinedButton(onPressed: onSecondary, child: Text(secondary!)),
         ],
       ],
+    );
+  }
+}
+
+/// The user's home offered as the arrival instead: the preview of the
+/// route home in place of this one, from the same start. None when the
+/// route goes home already, or starts there.
+class _HomeArrival extends ConsumerWidget {
+  const new({required this.target});
+
+  final RouteTarget target;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final home = ref.watch(userHomeProvider).value;
+    final start = ref.watch(chosenDepartureProvider)?.position;
+    if (home == null ||
+        home.position.distanceTo(target.destination) < 50 ||
+        (start != null && home.position.distanceTo(start) < 50)) {
+      return const SizedBox.shrink();
+    }
+    final t = context.t;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton.icon(
+        onPressed: () {
+          final next = RouteTarget(destination: home.position, label: t.home.title, home: true);
+          replaceOverMap(context, NavigationRoutes.previewOf(next), extra: next);
+        },
+        icon: const Icon(AppIcons.home),
+        label: Text(t.home.goHome),
+        style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+      ),
     );
   }
 }

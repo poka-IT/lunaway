@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT a.id, a.pseudonym, a.banned_at IS NOT NULL AS \"banned!\"\n        FROM merged_keys m JOIN accounts a ON a.id = m.into_account\n        WHERE m.key_hash = sha256($1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pseudonym",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "pseudonym"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "banned!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "374a295401c57db40525b8e29ce3bb06374c70c0a34901e54a139c6e5d92fb58"
+}

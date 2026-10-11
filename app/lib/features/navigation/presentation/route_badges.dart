@@ -34,6 +34,7 @@ final class RouteBadge {
     this.ring = Palette.creme,
     this.ringWidth = 2.5,
     this.diameter = 26,
+    this.limitSign = false,
   });
 
   /// The sign of a limit, its glyph saying what it limits; the figure is
@@ -83,9 +84,42 @@ final class RouteBadge {
   /// The disc, rim excluded, in logical pixels.
   final double diameter;
 
-  /// The whole image: disc, rim and a hairline that keeps it apart from a
-  /// cream basemap.
+  /// A speed limit's road sign stands on the right of the disc, its figure
+  /// written in it: by the map ([labelOffset]), by [paintRouteBadge] in the
+  /// legend and the cards.
+  final bool limitSign;
+
+  /// The disc with its rim and a hairline that keeps it apart from a cream
+  /// basemap.
   double get extent => diameter + 2 * ringWidth + 2;
+
+  /// The inner white of the limit's sign, its red ring, and how far right
+  /// of the disc's centre its own centre stands: the two touch, the sign a
+  /// little over the rim, read as one mark.
+  static const double signDiameter = 24;
+  static const double signRing = 3.5;
+  double get signDx => diameter / 2 + ringWidth + signDiameter / 2 + signRing - 2;
+
+  /// How far the drawing reaches right of the disc's centre.
+  double get rightReach => limitSign ? signDx + signDiameter / 2 + signRing + 1 : extent / 2;
+
+  /// The drawing, the disc on the left and the sign right of it: the
+  /// image of the map, the legend's and the cards'.
+  Size get viewSize => Size(extent / 2 + rightReach, extent);
+
+  /// How far right of the mark's place the map draws the image's centre,
+  /// in logical pixels, so the disc stands on the place: the map centres an
+  /// image on it, and the sign widens this one on the right.
+  double get iconShift => viewSize.width / 2 - extent / 2;
+
+  /// Where the map writes the text of a mark (its label), in ems of
+  /// [labelSize] from the mark's place, the disc's centre: in the sign
+  /// beside the disc, or on the disc.
+  List<double> labelOffset(double labelSize) => [if (limitSign) signDx / labelSize else 0, 0];
+
+  /// The colour of a text the map writes over the badge: the sign's navy
+  /// figure, or [ink].
+  Color get labelInk => limitSign ? Palette.minuit : ink;
 
   static const _prefix = 'lw-rb-';
 
@@ -150,8 +184,9 @@ final class RouteBadge {
   );
 
   /// A speed camera: a camera on its mast, cream on the night navy, in a
-  /// lantern rim that sets it apart from the destination's flag. Its
-  /// limit is written beside it. Never drawn for a danger zone.
+  /// lantern rim that sets it apart from the destination's flag; a little
+  /// larger than the other marks, read from a cab at a glance. Never drawn
+  /// for a danger zone.
   static const camera = RouteBadge(
     '${_prefix}camera',
     shape: BadgeShape.disc,
@@ -159,6 +194,20 @@ final class RouteBadge {
     glyph: PhosphorFill.securityCamera,
     ring: Palette.lanterne,
     ringWidth: 3,
+    diameter: 28,
+  );
+
+  /// A speed camera whose limit is known: [camera] with the limit's road
+  /// sign on its right, the figure in it. The camera stays on its place.
+  static const cameraWithLimit = RouteBadge(
+    '${_prefix}camera-limit',
+    shape: BadgeShape.disc,
+    fill: Palette.minuit,
+    glyph: PhosphorFill.securityCamera,
+    ring: Palette.lanterne,
+    ringWidth: 3,
+    diameter: 28,
+    limitSign: true,
   );
 
   /// Every badge, drawn once per screen density.
@@ -172,6 +221,7 @@ final class RouteBadge {
     lanes,
     fuel,
     camera,
+    cameraWithLimit,
     for (final g in SignGlyph.values) ...[RouteBadge.sign(g), RouteBadge.sign(g, blocking: true)],
     for (final k in PlaceKind.values) RouteBadge.place(k),
     for (final t in MarkTone.values) RouteBadge.cluster(t),
@@ -209,8 +259,9 @@ enum MarkTone {
   final int rank;
 }
 
-/// Paints [badge] centred on [center], [scale] times its size; [text] (a
-/// stop's number, a limit's figure, a count) over it in the badge's ink.
+/// Paints [badge] with its disc centred on [center], [scale] times its
+/// size; [text] (a stop's number, a limit's figure, a count) over it in the
+/// badge's ink, or in its limit's sign.
 void paintRouteBadge(
   Canvas canvas,
   RouteBadge badge,
@@ -257,6 +308,19 @@ void paintRouteBadge(
     painter.paint(canvas, center - Offset(painter.width / 2, painter.height / 2));
     painter.dispose();
   }
+  final signAt = center + Offset(badge.signDx * scale, 0);
+  if (badge.limitSign) {
+    final inner = RouteBadge.signDiameter / 2 * scale;
+    final outer = inner + RouteBadge.signRing * scale;
+    canvas
+      ..drawCircle(
+        signAt,
+        outer + 0.75 * scale,
+        Paint()..color = Palette.minuit.withValues(alpha: 0.45),
+      )
+      ..drawCircle(signAt, outer, Paint()..color = Palette.corail)
+      ..drawCircle(signAt, inner, Paint()..color = Palette.white);
+  }
   if (text != null && text.isNotEmpty) {
     final painter = TextPainter(
       text: TextSpan(
@@ -266,12 +330,12 @@ void paintRouteBadge(
           fontSize: (text.length > 2 ? 9.5 : 12) * scale,
           fontWeight: FontWeight.w700,
           height: 1,
-          color: badge.ink,
+          color: badge.labelInk,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    painter.paint(canvas, figuresCentred(painter, center));
+    painter.paint(canvas, figuresCentred(painter, badge.limitSign ? signAt : center));
     painter.dispose();
   }
 }
@@ -298,12 +362,20 @@ Offset figuresCentred(TextPainter painter, Offset center) {
   return Offset(center.dx - painter.width / 2, center.dy - (baseline - size * _figureHeight / 2));
 }
 
-/// The badge as a PNG at [ratio] physical pixels per logical one.
+/// The badge as a PNG at [ratio] physical pixels per logical one
+/// ([RouteBadge.viewSize]), the sign of a limit right of the disc
+/// ([RouteBadge.iconShift] sets it on its place).
 Future<Uint8List> routeBadgePng(RouteBadge badge, double ratio) async {
-  final side = (badge.extent * ratio).ceil();
+  final width = (badge.viewSize.width * ratio).ceil();
+  final height = (badge.viewSize.height * ratio).ceil();
   final recorder = ui.PictureRecorder();
-  paintRouteBadge(Canvas(recorder), badge, Offset(side / 2, side / 2), scale: ratio);
-  final image = await recorder.endRecording().toImage(side, side);
+  paintRouteBadge(
+    Canvas(recorder),
+    badge,
+    Offset(badge.extent / 2 * ratio, height / 2),
+    scale: ratio,
+  );
+  final image = await recorder.endRecording().toImage(width, height);
   try {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     return bytes!.buffer.asUint8List();
@@ -340,13 +412,10 @@ class RouteBadgeView extends StatelessWidget {
   final double scale;
 
   @override
-  Widget build(BuildContext context) {
-    final side = badge.extent * scale;
-    return CustomPaint(
-      size: Size.square(side),
-      painter: _BadgePainter(badge, text, scale, DefaultTextStyle.of(context).style.fontFamily),
-    );
-  }
+  Widget build(BuildContext context) => CustomPaint(
+    size: badge.viewSize * scale,
+    painter: _BadgePainter(badge, text, scale, DefaultTextStyle.of(context).style.fontFamily),
+  );
 }
 
 class _BadgePainter extends CustomPainter {
@@ -361,7 +430,8 @@ class _BadgePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) => paintRouteBadge(
     canvas,
     badge,
-    size.center(Offset.zero),
+    // The disc on the left, the sign of a limit right of it.
+    Offset(badge.extent / 2 * scale, size.height / 2),
     scale: scale,
     text: text,
     fontFamily: fontFamily,

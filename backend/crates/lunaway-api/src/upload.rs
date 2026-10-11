@@ -348,7 +348,9 @@ pub(crate) async fn upload(State(ep): State<Arc<UploadEndpoint>>, request: Reque
         Ok(r) => r,
         Err(e) => return internal_error(&e),
     };
-    if let Err(error) = auth::compute_level(&ep.pool, &ep.config.trust, viewer.id()).await {
+    if let Err(error) =
+        auth::compute_level_after_contribution(&ep.pool, &ep.config.trust, viewer.id()).await
+    {
         tracing::error!(%error, "cannot recompute a trust level");
     }
     let photo = Photo::from_row(row, &ep.config.media);

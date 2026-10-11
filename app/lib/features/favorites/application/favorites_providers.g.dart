@@ -98,6 +98,171 @@ final class FavoriteListsProvider
 
 String _$favoriteListsHash() => r'5fe3bbd716d6ce1fc63523cb6dc304e57dfb1dfd';
 
+@ProviderFor(homeRepository)
+final homeRepositoryProvider = HomeRepositoryProvider._();
+
+final class HomeRepositoryProvider
+    extends $FunctionalProvider<HomeRepository, HomeRepository, HomeRepository>
+    with $Provider<HomeRepository> {
+  HomeRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'homeRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$homeRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<HomeRepository> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  HomeRepository create(Ref ref) {
+    return homeRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(HomeRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<HomeRepository>(value),
+    );
+  }
+}
+
+String _$homeRepositoryHash() => r'74d3aeac73b092d10e93e13a2a0a63c2b32d3aff';
+
+/// The user's home: the head of the favourites and of the search, the end
+/// of a route in one tap; null while there is none.
+
+@ProviderFor(userHome)
+final userHomeProvider = UserHomeProvider._();
+
+/// The user's home: the head of the favourites and of the search, the end
+/// of a route in one tap; null while there is none.
+
+final class UserHomeProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<SavedPoint?>,
+          SavedPoint?,
+          Stream<SavedPoint?>
+        >
+    with $FutureModifier<SavedPoint?>, $StreamProvider<SavedPoint?> {
+  /// The user's home: the head of the favourites and of the search, the end
+  /// of a route in one tap; null while there is none.
+  UserHomeProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'userHomeProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$userHomeHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<SavedPoint?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<SavedPoint?> create(Ref ref) {
+    return userHome(ref);
+  }
+}
+
+String _$userHomeHash() => r'429ee8bcfd8aabc3be097d2580764a2de6400512';
+
+/// The user asked, in the favourites, to place their home on the map: the
+/// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
+// keepAlive: the choice made on the favourites tab waits for the map's.
+
+@ProviderFor(HomePicking)
+final homePickingProvider = HomePickingProvider._();
+
+/// The user asked, in the favourites, to place their home on the map: the
+/// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
+// keepAlive: the choice made on the favourites tab waits for the map's.
+final class HomePickingProvider extends $NotifierProvider<HomePicking, bool> {
+  /// The user asked, in the favourites, to place their home on the map: the
+  /// card of the next point held on the map offers "Mon domicile est ici".
+  /// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+  /// and with the card of a point closed without it: a point held days later
+  /// is not taken for the home.
+  // keepAlive: the choice made on the favourites tab waits for the map's.
+  HomePickingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'homePickingProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$homePickingHash();
+
+  @$internal
+  @override
+  HomePicking create() => HomePicking();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$homePickingHash() => r'bdf09f4673b2f47e1a898d0eba34bfe609d6c888';
+
+/// The user asked, in the favourites, to place their home on the map: the
+/// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
+// keepAlive: the choice made on the favourites tab waits for the map's.
+
+abstract class _$HomePicking extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(favoriteEntries)
 final favoriteEntriesProvider = FavoriteEntriesFamily._();
 
@@ -679,7 +844,7 @@ final class FavoritesSyncProvider
   }
 }
 
-String _$favoritesSyncHash() => r'8a236f19aa5cc3e63e9e28b9007159e4cef5277f';
+String _$favoritesSyncHash() => r'2d91924e1ffb75d85d9b47d9cb14ece38d422312';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes
@@ -733,7 +898,7 @@ final class FavoritesSyncControllerProvider
 }
 
 String _$favoritesSyncControllerHash() =>
-    r'39c52608c9607ac0918314c0cbbffbd7d8adf718';
+    r'9d2d0e56eca735c8b1b6ae3fda67086922c63dcc';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes

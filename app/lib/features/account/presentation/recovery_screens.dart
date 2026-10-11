@@ -16,6 +16,7 @@ import 'package:lunaway/features/account/data/card_file_io.dart'
     if (dart.library.js_interop) 'package:lunaway/features/account/data/card_file_web.dart';
 import 'package:lunaway/features/account/data/recovery_qr.dart';
 import 'package:lunaway/features/account/domain/recovery_code.dart';
+import 'package:lunaway/features/account/presentation/account_import.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/picture_picker.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
@@ -35,7 +36,11 @@ final _log = Logger('recovery');
 /// Makes the recovery card: what it is, then the code, shown once, as a
 /// card to keep (its image to save, share or print) and as a QR code.
 class RecoveryCardScreen extends ConsumerStatefulWidget {
-  const new({super.key});
+  const new({this.returns = false, super.key});
+
+  /// Pushed over another page (the choice of an imported account): the
+  /// card, once kept, returns to it rather than to the profile.
+  final bool returns;
 
   @override
   ConsumerState<RecoveryCardScreen> createState() => _RecoveryCardScreenState();
@@ -132,7 +137,11 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
   /// Leaves the card once the user says it is kept.
   Future<void> _leave() async {
     if (!await _confirmLeave() || !mounted) return;
-    GoRouter.of(context).go(AppRoutes.profile);
+    if (widget.returns) {
+      Navigator.of(context).pop();
+    } else {
+      GoRouter.of(context).go(AppRoutes.profile);
+    }
   }
 
   Future<bool> _confirmLeave() async {
@@ -409,6 +418,11 @@ class _QrPainter extends CustomPainter {
 /// Brings an account to this device from its recovery code, typed or read
 /// on a photo of the card. The code is checked here first, so a typo never
 /// spends one of the server's five attempts an hour.
+///
+/// When the device already holds an account, whichever address led here
+/// (the profile's recovery or "use another account"), the account of the
+/// code opens beside it, and a sheet then asks what becomes of the two
+/// (`chooseForImported`).
 class RecoverScreen extends ConsumerStatefulWidget {
   const new({super.key});
 
@@ -422,6 +436,15 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
 
   /// The server's answer about the code typed, until it changes.
   String? _refused;
+
+  /// An account opens beside the device's whenever the device holds one:
+  /// the user then chooses what becomes of the two. Without one, the code
+  /// brings its account as a recovery does.
+  bool _importing(AccountState account) => account is SignedIn;
+
+  /// The mode a submit chose, kept while it runs: a recovery that brings
+  /// its account in does not turn the page into an import meanwhile.
+  bool? _chosen;
 
   @override
   void dispose() {
@@ -462,14 +485,27 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     if (code == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
+    final held = ref.read(accountControllerProvider);
+    // Still read from the device's storage: neither a recovery nor an
+    // import is chosen blind (a few milliseconds at launch).
+    if (held is AccountLoading) throw FormFailure(t.common.failed);
+    final importing = _importing(held);
+    _chosen = importing;
     try {
+      if (importing) {
+        await _import(code);
+        return;
+      }
+      final outbox = ref.read(outboxStoreProvider);
       final account = await ref
           .read(accountControllerProvider.notifier)
           .recover(code, revokeOthers: _revoke);
       // The contributions waiting on this device belong to the account now.
-      await ref.read(outboxStoreProvider).claimFor(account.id);
+      await outbox.claimFor(account.id);
       showMessage(messenger, t.recover.done(name: account.pseudonym));
       router.go(AppRoutes.profile);
+    } on FormRefused {
+      rethrow;
     } on GraphQLRateLimitedException {
       throw FormFailure(t.recover.tooMany, retry: false);
     } on GraphQLResponseException catch (e) {
@@ -488,7 +524,31 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     } on Object catch (e) {
       _log.info('recovery failed: $e');
       throw FormFailure(t.common.offline);
+    } finally {
+      if (mounted) setState(() => _chosen = null);
     }
+  }
+
+  /// Opens the account of [code] beside the device's, then asks what
+  /// becomes of the two. The card of the device's own account opens it
+  /// again: said on the field, and its new key detached at once.
+  Future<void> _import(String code) async {
+    final t = context.t;
+    final controller = ref.read(accountControllerProvider.notifier);
+    final current = ref.read(accountControllerProvider);
+    final imported = await controller.importAccount(code);
+    if (!mounted || current is! SignedIn) {
+      await controller.cancelImport(imported);
+      return;
+    }
+    if (current.account.id == imported.account.id) {
+      await controller.cancelImport(imported);
+      if (mounted) {
+        setState(() => _refused = t.accountImport.same(current: current.account.pseudonym));
+      }
+      throw const FormRefused();
+    }
+    await chooseForImported(context, ref, imported);
   }
 
   @override
@@ -496,6 +556,9 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final account = ref.watch(accountControllerProvider);
+    final current = account is SignedIn ? account.account.pseudonym : '';
+    final importing = _chosen ?? _importing(account);
     final symbols = RecoveryCode.symbolsOf(_code.text);
     final valid = RecoveryCode.parse(_code.text) != null;
     final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
@@ -513,8 +576,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       child: SubPage(
         // A form: every field built, so the button checks them all.
         builtWhole: true,
-        title: t.recover.title,
-        subtitle: t.recover.intro,
+        title: importing ? t.accountImport.title : t.recover.title,
+        subtitle: importing ? t.accountImport.intro(current: current) : t.recover.intro,
         children: [
           LunaTextField(
             controller: _code,
@@ -559,17 +622,21 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
             ),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
-          const SizedBox(height: Space.l),
-          CheckboxListTile(
-            value: _revoke,
-            onChanged: (v) => setState(() => _revoke = v ?? false),
-            contentPadding: EdgeInsets.zero,
-            title: Text(t.recover.revoke),
-            subtitle: Text(t.recover.revokeHint),
-          ),
+          // The other devices of an account opened beside this one's are
+          // its own business: the import leaves them as they are.
+          if (!importing) ...[
+            const SizedBox(height: Space.l),
+            CheckboxListTile(
+              value: _revoke,
+              onChanged: (v) => setState(() => _revoke = v ?? false),
+              contentPadding: EdgeInsets.zero,
+              title: Text(t.recover.revoke),
+              subtitle: Text(t.recover.revokeHint),
+            ),
+          ],
           const SizedBox(height: Space.l),
           SubmitButton(
-            label: t.recover.submit,
+            label: importing ? t.accountImport.submit : t.recover.submit,
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
         ],

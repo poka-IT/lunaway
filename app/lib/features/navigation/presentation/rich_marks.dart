@@ -439,32 +439,38 @@ final class RichInput {
   final List<RouteSign> marks;
 }
 
-/// A mark of the route a rich mark keeps clear of: where it stands, and
-/// the text written beside its badge, if any.
-typedef RouteSign = ({LatLng at, String? side});
+/// A mark of the route a rich mark keeps clear of: where it stands, the
+/// text written beside its badge, if any, and how far right of its place
+/// the badge reaches (a camera's limit sign).
+typedef RouteSign = ({LatLng at, String? side, double reach});
 
 /// The marks of [marks] the rich marks keep clear of: all but the places
 /// near the route, whose small badge a rich mark stands for.
 List<RouteSign> routeSigns(List<RouteMapMark> marks) => [
   for (final m in marks)
-    if (m.kind != RouteMarkKind.place) (at: m.position, side: m.side),
+    if (m.kind != RouteMarkKind.place)
+      (at: m.position, side: m.side, reach: m.badge.limitSign ? m.badge.rightReach : 0),
 ];
 
 /// The room a route's mark takes, its badge and a margin.
 const double _routeMarkRoom = 30;
 
 /// The room a mark of the route standing at [at] takes on the map: its
-/// badge and a margin, and the text beside it ([side]: a station's price, a
-/// camera's limit), which the rich marks drawn over the marks would
+/// badge and a margin, the limit's sign of a camera reaching [reach] right
+/// of it, and the text beside it ([side]: a station's price, a
+/// restriction's figure), which the rich marks drawn over the marks would
 /// otherwise hide. The engine does not tell where it wrote that text: its
 /// figures are taken at 0.6 em each, with their halo.
 @visibleForTesting
-Rect routeSignRoom(Offset at, String? side) {
+Rect routeSignRoom(Offset at, String? side, {double reach = 0}) {
   final badge = Rect.fromCenter(center: at, width: _routeMarkRoom, height: _routeMarkRoom);
-  if (side == null || side.isEmpty) return badge;
+  final drawn = math.max(badge.right, at.dx + reach);
+  if (side == null || side.isEmpty) {
+    return Rect.fromLTRB(badge.left, badge.top, drawn, badge.bottom);
+  }
   const size = RouteMarkStyle.sideTextSize;
   final end = at.dx + (RouteMarkStyle.sideEms + side.length * 0.6) * size + RouteMarkStyle.sideHalo;
-  return Rect.fromLTRB(badge.left, badge.top, math.max(badge.right, end), badge.bottom);
+  return Rect.fromLTRB(badge.left, badge.top, math.max(drawn, end), badge.bottom);
 }
 
 /// The finest the whole route of a map without a vehicle is kept, metres:
@@ -651,7 +657,8 @@ final class RichMarkDriver {
       obstacles: [
         ...rich.obstacles,
         for (final (i, mark) in input.marks.indexed)
-          if (screen[marksStart + i] case final at?) routeSignRoom(at, mark.side),
+          if (screen[marksStart + i] case final at?)
+            routeSignRoom(at, mark.side, reach: mark.reach),
       ],
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],

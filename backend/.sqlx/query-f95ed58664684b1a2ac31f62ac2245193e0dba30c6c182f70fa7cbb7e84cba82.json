@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT c.conrelid::regclass::text || '.' || a.attname AS \"column!\"\n        FROM pg_constraint c\n        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)\n        WHERE c.contype = 'f' AND c.confrelid = 'accounts'::regclass\n        ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "column!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f95ed58664684b1a2ac31f62ac2245193e0dba30c6c182f70fa7cbb7e84cba82"
+}

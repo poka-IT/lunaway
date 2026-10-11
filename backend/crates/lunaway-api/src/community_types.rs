@@ -7,7 +7,9 @@ use base64::Engine;
 use chrono::{DateTime, NaiveDate, Utc};
 use lunaway_db::{
     community::{ConfirmationRow, IssueRow, Page, PhotoRow, ReviewRow},
+    home::HomeRow,
     lists::{ListRow, NewPoint, PointRow},
+    merge::HomeOutcome,
     submissions::SubmissionRow,
     summary::{CoverPhoto, IssueSummary as DbIssueSummary},
 };
@@ -668,6 +670,114 @@ impl From<PointRow> for FavoritePoint {
             updated_at: r.updated_at,
         }
     }
+}
+
+/// The account's home: one point, as a saved point is (an address, a town,
+/// a bare point of the map, a shop or a service), kept apart from the
+/// lists. Private to the account: only its owner reads it.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct FavoriteHome {
+    /// What it is.
+    pub kind: GqlFavoritePointKind,
+    /// The name of the point it is (the address, the shop's name).
+    pub name: String,
+    /// Its postal address, on one line.
+    pub address: Option<String>,
+    /// Latitude, degrees.
+    pub lat: f64,
+    /// Longitude, degrees.
+    pub lon: f64,
+    /// A shop or a service (`POI`): the point of interest.
+    pub poi_id: Option<Uuid>,
+    /// Its kind.
+    pub poi_kind: Option<GqlPoiKind>,
+    /// Last change.
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<HomeRow> for FavoriteHome {
+    fn from(r: HomeRow) -> Self {
+        let p = r.point;
+        Self {
+            kind: p.kind.into(),
+            name: p.name,
+            address: p.address,
+            lat: p.position.lat(),
+            lon: p.position.lon(),
+            poi_id: p.poi.map(|poi| poi.id),
+            poi_kind: p.poi.map(|poi| poi.kind.into()),
+            updated_at: r.updated_at,
+        }
+    }
+}
+
+/// The account's home to keep.
+#[derive(InputObject, Debug, Clone)]
+pub struct HomeInput {
+    /// What it is.
+    pub kind: GqlFavoritePointKind,
+    /// The name of the point it is, 1 to 120 characters.
+    pub name: String,
+    /// Its postal address, 200 characters at most; empty for none.
+    pub address: Option<String>,
+    /// Latitude, degrees.
+    pub lat: f64,
+    /// Longitude, degrees.
+    pub lon: f64,
+    /// For a shop or a service (`POI`) only: the point of interest.
+    pub poi_id: Option<Uuid>,
+    /// For a shop or a service (`POI`) only: its kind.
+    pub poi_kind: Option<GqlPoiKind>,
+}
+
+impl HomeInput {
+    /// The home checked and normalised, by the rules of a saved point.
+    ///
+    /// # Errors
+    ///
+    /// [`SavedPointError`] names the field refused.
+    pub fn parse(&self) -> Result<SavedPoint<Uuid>, SavedPointError> {
+        SavedPoint::parse(SavedPointInput {
+            kind: self.kind.into(),
+            name: &self.name,
+            note: None,
+            address: self.address.as_deref(),
+            lat: self.lat,
+            lon: self.lon,
+            poi_id: self.poi_id,
+            poi_kind: self.poi_kind.map(Into::into),
+        })
+    }
+}
+
+/// Which home the account keeps after a merge.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum MergedHome {
+    /// Neither account had a home.
+    None,
+    /// The account kept its own; the merged account's was dropped.
+    Kept,
+    /// The merged account's home became the account's.
+    Moved,
+}
+
+impl From<HomeOutcome> for MergedHome {
+    fn from(h: HomeOutcome) -> Self {
+        match h {
+            HomeOutcome::None => Self::None,
+            HomeOutcome::KeptTarget => Self::Kept,
+            HomeOutcome::Moved => Self::Moved,
+        }
+    }
+}
+
+/// What `mergeAccount` did.
+#[derive(SimpleObject)]
+pub struct MergeAccountResult {
+    /// The account, holding what the merged one held.
+    pub account: Account,
+    /// Which home it keeps.
+    pub home: MergedHome,
 }
 
 /// What a level needs.

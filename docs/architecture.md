@@ -539,6 +539,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   `Poi.locality` (its address's town, else the French commune whose
   outline covers it, read by the API at the request: 0.4 ms for a page
   of ten points, `lunaway_db::pois::communes_of`).
+- **The home**: one point per user (an address, a town, a bare point, a
+  place or a shop, as a saved point is), table `favorite_home` of the
+  user database, synced with the account by the favourites' sync
+  (`HomeSync`, three-way against the `home_sync_base` setting; at an
+  account's first sync on a device the account's home wins), private
+  (`myHome`, `setHome`, `clearHome`). It heads the favourites, the list
+  under the empty search field and the preview's choice of a start, and
+  the route there is one tap; the "…" of a card makes its point the home.
 - **The search's history**: the field focused and empty lists the
   results opened and the texts searched without opening one, 15 at most
   (`features/search/`, table `search_history` of the cache database). An
@@ -647,7 +655,9 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   exit's number), the lanes on a deeper band under it, "Puis" on a tab
   when the next maneuver follows within 300 m; the notices under it; at
   the foot of the map the speed and its limit on the left (or "Recentrer"
-  once the map is moved or the whole route shown), the road the vehicle is
+  once the map is moved or the whole route shown), a camera or a danger
+  zone on its pill over them (in the panel over the bar on a screen on its
+  side), the road the vehicle is
   on in the middle, the voice, the places, "Sur le trajet" and the reports
   on the right; the bar with the way out, the time left large, the
   distance and the arrival, and the whole route, a tap or a swipe up
@@ -754,6 +764,29 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 5. Fediverse and Bluesky accounts can be linked later.
 
 Trust levels (from 0 to 4) unlock reviews, new places, edits and moderation.
+
+Another account on a device that holds one (Profile, "Use another
+account"): its recovery card opens it beside the device's account, with a
+new key kept in memory (`AccountService.importAccount`), and one sheet
+offers three ways (`account_import.dart`, `AccountSwitch`). Merging
+(`mergeAccount`) moves everything of the device's account into the one
+opened and deletes it, in one transaction, both keys signing
+`lunaway-merge:v1:<nonce>:<absorbed>:<into>` under a recent session
+(`lunaway_db::merge`); a review folded into the account kept takes the
+stricter moderation status, a granted level is not carried, and the level
+shows no more than the higher of the two until the next contribution
+(`accounts.level_ceiling`). The merge is journaled like a deletion, with
+the account kept, and a replay merges it again; the old keys' hashes
+point at the account kept for a year (`merged_keys`), so the merged
+account's other devices hear its name at sign-in (`mergedInto`). A
+merge's answer lost on the way leaves the device as it was, its key kept,
+and the merge asked again answers the same. Replacing without merging
+detaches this device's key from the account left (`signOut(forgetDevice:
+true)`, which deletes an account left with no key and no recovery code)
+and clears its lists, home and waiting contributions from the device.
+
+The home is one point per account (`favorite_homes`), kept on the device
+first and synced with the favourites, private to the account.
 
 Deleting an account (`deleteAccount`, the recovery-code page, or `lunaway
 accounts delete`) writes the account's id to a journal outside the

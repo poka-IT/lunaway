@@ -1581,7 +1581,15 @@ the files of the live photos made without cutting the band of the source's
 mark (`docs/feeds.md`, "What the product shows"): their rows are emptied,
 the files no row names any more removed, and the proxy makes them again,
 cut, at their next view. The encrypted copies of a removed file leave the
-backups within 29 days, as for any photo.
+backups within 29 days, as for any photo. A purge that removes more than 50
+files and more than 5% of the off-site copy (the first run after the band
+was introduced, on 2026-10-10 at 03:35 UTC: 315 photos forgotten, 630
+files; any run after a change of the band; an import that retires many
+photos) is refused by the next night's copy, and the Photo backup check
+turns red: check that the files went by this purge (`journalctl -u
+lunaway-extcom-purge-media`, or the output of the command run by hand,
+which reaches no journal), then let the removal through ("Backups and
+restore").
 
 **Deletions passed on.** What a feed removes is removed at its import: a
 spot absent from a complete feed (unless the feed lists less than half of
@@ -1815,8 +1823,16 @@ a missed run happens at wake-up):
    list (`media/manifest`) no longer names goes to `media-deleted/<day>/`,
    `<day>` being the backend's deletion date (`media/deletions`), and is
    dropped 26 days after it, or at once when the list of the last 30 days
-   does not name it. A run that would set aside more than 50 copies and
-   more than 5% of them sets none aside and fails. It decrypts the newest
+   does not name it. A run that would drop at once more than 50 copies and
+   more than 5% of them (copies the list lost without the server dating
+   them) drops none, sets none aside and fails. The copies the server dated
+   are set aside however many there are: the server removed them past its
+   own threshold, or its operator let a mass removal through ("Backups and
+   restore"), and they stay 26 days; past the same threshold the run fails
+   that night, once, so that a removal let through by mistake is seen
+   while the copies are still held. Until 2026-10-11 the threshold counted
+   them too, so a removal let through on the server stopped the Mac every
+   night. It decrypts the newest
    photo copy, which must be a WebP file (`RIFF`, four bytes of size,
    `WEBP`), and fails when the copy is more than 36 hours old. Until
    2026-10-10 a size byte that reads as a capital letter failed that test
@@ -2172,7 +2188,9 @@ Mac.
   needrestart after a library update). It is ordered after the dump
   (`apt-daily-upgrade.service.d/lunaway-pgdump.conf`): a dump still running
   then delays the upgrade.
-- The photos (`/srv/data/media/photos`): `lunaway-media-offsite.timer`
+- The photos (`/srv/data/media/photos`: the community's uploads, and the
+  photos of the external community source the API's proxy stored, which
+  share the directory and its names): `lunaway-media-offsite.timer`
   (00:45 UTC) encrypts each new photo file with age, to the same recipient,
   into `/srv/data/backups/offsite/media/photos/` (one `.age` file for one
   photo; a photo never changes, so each is encrypted once), removes the
@@ -2182,11 +2200,35 @@ Mac.
   capabilities, as a member of `lunaway-pull`, and writes only that
   directory. A run that would remove more than 50 copies and more than 5%
   of them, or that finds `/srv/data/media/photos` missing, removes nothing
-  and fails (the Photo backup check turns red);
-  `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1` in the unit's environment lets a
-  deliberate one through. The Mac pulls the copy at 04:30 local and sets
-  what disappeared aside in `~/Backups/lunaway/media-deleted/<deletion
-  date>/` (see "The nightly job on the Mac"). It drops a deleted photo's
+  and fails (the Photo backup check turns red, 26 hours after the last
+  success). Whatever way a run ends, it writes `media/manifest` with every
+  copy it holds, the night's new ones included: until 2026-10-11 a refused
+  run left the list of the night before, and the Mac took the 202 copies
+  made that night for deleted ones (below its own threshold it would have
+  dropped them). A deliberate mass removal (the purge of the external
+  source's photos, "The external community feed", or a moderation of many
+  photos) goes through once, in the unit's sandbox, with
+  `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL` set to the number of copies the
+  refusal named (`refused: <count> of ...`): the variable lets through a
+  removal of exactly that many copies, so a value left in systemd's
+  environment (a dropped session before the `unset`) lets no later removal
+  through. Until 2026-10-11 the value was `1`, which now matches nothing.
+
+  ```bash
+  sudo journalctl -u lunaway-media-offsite -n 3 --no-pager  # "refused: 592 of 794 ..."
+  sudo systemctl set-environment LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=592
+  sudo systemctl start lunaway-media-offsite.service   # waits for the run
+  sudo systemctl unset-environment LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL
+  sudo journalctl -u lunaway-media-offsite -n 3 --no-pager  # "photos: N encrypted, 592 removed, ..."
+  ```
+
+  When photos went or came back since the refusal, the run refuses again
+  with the new count. The copies removed are dated in `media/deletions`
+  before they go, so the Mac sets them aside for 26 days at its next run,
+  however many (and fails that night, once, to say so). The Mac pulls the copy
+  at 04:30 local and sets what disappeared aside in
+  `~/Backups/lunaway/media-deleted/<deletion date>/` (see "The nightly job
+  on the Mac"). It drops a deleted photo's
   copy 26 days after the backend's deletion date, however late it runs, and
   at once when the last 30 days of the list do not name it: a photo deleted
   on the server (an account deleted, a moderation) leaves every copy within
@@ -2201,7 +2243,13 @@ Mac.
   it cannot journal (`UNAVAILABLE`), and refuses to start when it cannot
   write the journal's directory. After a restore, `lunaway accounts
   replay-deletions` deletes again, exactly as `deleteAccount` did, every
-  account the journal names that the restored database holds. The journal
+  account the journal names that the restored database holds. An account
+  merged into another (`mergeAccount`) has its line with the account it
+  went into: the replay merges it again into that account, or, when the
+  restored database lacks it, into the next one down the chain of later
+  merges (it deletes it when that chain ends in a deletion), and lists as
+  `kept` a merged account none of whose targets the restored database
+  holds unbanned, for the operator to decide. The journal
   on the data volume covers every restore that keeps the volume (a bad
   migration, a corrupted database); when the volume itself is lost, the
   Mac's copy holds the deletions up to its last pull (04:30 local, later

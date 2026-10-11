@@ -10,7 +10,7 @@ import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
-import 'package:lunaway/shared/widgets/first_that_fits.dart';
+import 'package:lunaway/shared/widgets/notice_views.dart';
 
 /// What [alert] says, in one sentence: the notice's words for a screen
 /// reader and its folded chip ("Radar fixe dans 800 m, limite 90 km/h,
@@ -50,12 +50,25 @@ int enforcementLevel(EnforcementAlert alert) => alert.over
     ? 2
     : 1;
 
+/// The standing notice of [alert], beside the speed ([EnforcementChip]):
+/// folded by a tap, open again when it grows graver ([enforcementLevel]).
+StandingNotice enforcementNotice(Translations t, EnforcementAlert alert, DistanceUnits units) =>
+    StandingNotice(
+      id: ('aid', alert.id),
+      icon: alert.kind == EnforcementKind.camera ? AppIcons.camera : AppIcons.warning,
+      text: enforcementText(t, alert, units),
+      // Folded, the chip keeps the error's colours over the limit only.
+      strong: alert.over,
+      level: enforcementLevel(alert),
+      look: EnforcementChip(alert: alert, units: units),
+    );
+
 /// The id of [alertExitNotice] for [exit], to take it back when another
 /// alert takes the screen before its time is over.
 Object alertExitNoticeId(AlertExit exit) => ('aid exit', exit.id);
 
-/// The end of a zone or a section just left, as a passing notice: calm,
-/// never said aloud.
+/// The end of a zone or a section just left, as a passing notice where its
+/// chip stood: calm, never said aloud.
 PassingNotice alertExitNotice(Translations t, AlertExit exit) => PassingNotice(
   id: alertExitNoticeId(exit),
   text: exit.section ? t.navigation.enforcement.sectionEnd : t.navigation.enforcement.zoneEnd,
@@ -71,20 +84,25 @@ PassingNotice ruleChangeNotice(Translations t, RuleChange change) => PassingNoti
   icon: AppIcons.about,
 );
 
-/// The look of the standing notice of a camera, a section or a danger zone
-/// coming or around the vehicle: its pictogram, its kind, the distance in
-/// large, the limit's sign, the lists under them. Over the limit, the error
-/// colours and the words say so. A danger zone shows a warning sign, never
-/// a camera. Its words join the notice's node ([enforcementText]), which a
-/// screen reader hears once per level, not at each new distance.
-class EnforcementNotice extends StatelessWidget {
-  const new({required this.alert, required this.units, required this.now, super.key});
+/// A camera, a section or a danger zone coming or around the vehicle, as a
+/// small pill beside the speed and its limit, in the spirit of the driving
+/// apps: the pictogram of the map's mark (the camera's badge, a danger
+/// sign for a zone, never a camera there), the distance, and the sign of
+/// the limit that matters when one is known ("moyenne" above a section's).
+/// Inside a section, the vehicle's average under the distance. Sober
+/// colours; the error's only over that limit. Its kind, the lists it comes
+/// from and the words "au-dessus de la limite" go to a screen reader in one
+/// sentence ([enforcementText]), heard once per level; the lists, with
+/// their date, are on the camera's card, the preview and the credits.
+class EnforcementChip extends StatelessWidget {
+  const new({required this.alert, required this.units, super.key});
 
   final EnforcementAlert alert;
   final DistanceUnits units;
 
-  /// The app's time, for the year of a list's date.
-  final DateTime now;
+  /// The pictogram's height and the limit's sign: the pill stays a touch
+  /// target high (48) with its padding, no taller.
+  static const double _sign = 36;
 
   @override
   Widget build(BuildContext context) {
@@ -92,15 +110,15 @@ class EnforcementNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final camera = alert.kind == EnforcementKind.camera;
-    final inside = alert.within;
-    final background = alert.over ? scheme.error : scheme.errorContainer;
-    final ink = alert.over ? scheme.onError : scheme.onErrorContainer;
+    final over = alert.over;
+    final background = over ? scheme.error : scheme.surfaceContainerLowest;
+    final ink = over ? scheme.onError : scheme.onSurface;
     final limit = alert.limitKmh;
     final average = alert.averageKmh;
-    // Nearer than [atHandM], no figure: the kind above says it all.
+    // Nearer than [atHandM], no figure: the pictogram says it all.
     final distance = alert.atHand
         ? null
-        : inside
+        : alert.within
         ? t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units))
         : t.routeDistance(alert.aheadM, units);
     return Semantics(
@@ -109,86 +127,71 @@ class EnforcementNotice extends StatelessWidget {
       child: Material(
         color: background,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-        elevation: 2,
+        elevation: 3,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: Space.s, vertical: Space.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: Space.xxs),
-                child: camera
-                    ? const RouteBadgeView(RouteBadge.camera, scale: 1.3)
-                    : const _DangerSign(),
-              ),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      t.alertKind(alert),
-                      style: theme.textTheme.titleSmall?.copyWith(color: ink),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (camera)
+                    const RouteBadgeView(RouteBadge.camera)
+                  else
+                    const _DangerSign(size: _sign),
+                  // One line, made smaller rather than broken where large
+                  // text leaves it too little room beside the sign.
+                  if (distance != null) ...[
+                    const SizedBox(width: Space.s),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          distance,
+                          maxLines: 1,
+                          // The theme's figures are of one width: the pill
+                          // keeps its width as the distance counts down.
+                          style: theme.textTheme.titleMedium?.copyWith(color: ink),
+                        ),
+                      ),
                     ),
-                    // The sign beside the distance while there is room,
-                    // under it on a narrow banner with large text.
-                    Wrap(
-                      spacing: Space.m,
-                      runSpacing: Space.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                  ],
+                  if (limit != null) ...[
+                    const SizedBox(width: Space.s),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (distance != null)
-                          Text(
-                            distance,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: ink,
-                              fontWeight: FontWeight.w700,
+                        if (alert.isSection && alert.cameraLimit)
+                          SizedBox(
+                            width: _sign + Space.s,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                t.navigation.enforcement.averageLabel,
+                                maxLines: 1,
+                                style: theme.textTheme.labelSmall?.copyWith(color: ink),
+                              ),
                             ),
                           ),
-                        if (limit != null)
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (alert.isSection && alert.cameraLimit)
-                                Text(
-                                  t.navigation.enforcement.averageLabel,
-                                  style: theme.textTheme.labelSmall?.copyWith(color: ink),
-                                ),
-                              LimitSign(
-                                value: t.speedIn(limit, units),
-                                estimated: alert.limitEstimated,
-                                size: 52,
-                                outline: alert.over ? ink : null,
-                              ),
-                            ],
-                          ),
+                        LimitSign(
+                          value: t.speedIn(limit, units),
+                          estimated: alert.limitEstimated,
+                          size: _sign,
+                          outline: over ? ink : null,
+                        ),
                       ],
                     ),
-                    if (average != null && inside)
-                      Text(
-                        t.navigation.enforcement.yourAverage(
-                          speed: t.speedLimit(average.round(), units),
-                        ),
-                        style: theme.textTheme.titleSmall?.copyWith(color: ink),
-                      ),
-                    if (alert.over)
-                      Text(
-                        t.navigation.guidance.overLimit,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: ink,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    if (alert.sources.isNotEmpty)
-                      _ListsCited(
-                        sources: alert.sources,
-                        now: now,
-                        style: theme.textTheme.bodySmall?.copyWith(color: ink),
-                      ),
                   ],
-                ),
+                ],
               ),
+              if (average != null && alert.within)
+                Text(
+                  t.navigation.enforcement.yourAverage(speed: t.speedLimit(average.round(), units)),
+                  style: theme.textTheme.labelMedium?.copyWith(color: ink),
+                ),
             ],
           ),
         ),
@@ -197,63 +200,16 @@ class EnforcementNotice extends StatelessWidget {
   }
 }
 
-/// The lists an alert cites, in small text under its figures: on one line
-/// when they all fit, else a line each, two at most, the second holding
-/// the lists after the first. Three lines of them took a fifth of a phone's
-/// screen; one line cut the second list's name in two ("Délégation à
-/// la…"). A line too short for its dates names its lists alone, and drops
-/// the last ones whole before it cuts a name (a camera of the French map,
-/// of the yearly file and of OpenStreetMap cites three): "Délégation à la
-/// sécurité routière…" stands for that list, its date and any list after
-/// it. Only a name longer than the whole line is cut, at its end. Each
-/// list is named in full, with its date, on the camera's card, the preview
-/// and the credits.
-class _ListsCited extends StatelessWidget {
-  const new({required this.sources, required this.now, required this.style});
-
-  final List<EnforcementSource> sources;
-  final DateTime now;
-  final TextStyle? style;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    Text text(String data) =>
-        Text(data, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
-    String dated(Iterable<EnforcementSource> lists) =>
-        [for (final s in lists) t.enforcementSource(s, now: now)].join(' · ');
-    String named(Iterable<EnforcementSource> lists) =>
-        [for (final s in lists) t.listName(s)].join(' · ');
-    Widget line(List<EnforcementSource> lists) => FirstThatFits(
-      children: [
-        text(dated(lists)),
-        for (var n = lists.length; n > 0; n--)
-          text(t.navigation.guidance.enforcementSourceUndated(source: named(lists.take(n)))),
-        text(named(lists.take(1))),
-      ],
-    );
-    if (sources.length == 1) return line(sources);
-    return FirstThatFits(
-      children: [
-        text(dated(sources)),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [line(sources.sublist(0, 1)), line(sources.sublist(1))],
-        ),
-      ],
-    );
-  }
-}
-
 /// The danger sign of a zone: a white triangle in a red rim with its mark,
 /// as the road shows it. Never a camera: a zone does not say where one is.
 class _DangerSign extends StatelessWidget {
-  const new();
+  const new({required this.size});
+
+  final double size;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-    dimension: RouteBadge.camera.extent * 1.3,
+    dimension: size,
     child: const CustomPaint(painter: _DangerSignPainter()),
   );
 }

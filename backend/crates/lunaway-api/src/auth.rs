@@ -11,7 +11,7 @@ use std::{collections::HashMap, sync::Mutex, time::Duration};
 use async_graphql::{Context, Result};
 use axum::http::{HeaderMap, header};
 use lunaway_db::{DbError, PgPool, accounts};
-use lunaway_domain::community::trust::{self, AccountStats, NextLevel, Thresholds};
+use lunaway_domain::community::trust::{self, AccountStats, NextLevel, Requirement, Thresholds};
 use tokio::sync::OnceCell;
 use uuid::Uuid;
 
@@ -152,6 +152,9 @@ pub(crate) async fn require_fresh(ctx: &Context<'_>) -> Result<Viewer> {
 
 /// What the trust rules see of `account`, and its level and next level;
 /// the level is stored when it changed. `None` when the account is gone.
+/// An account that received another one's history in a merge shows at
+/// most the higher of the two levels until its next contribution
+/// ([`after_contribution`]).
 ///
 /// # Errors
 ///
@@ -161,8 +164,38 @@ pub(crate) async fn compute_level(
     thresholds: &Thresholds,
     account: Uuid,
 ) -> Result<Option<(u8, Option<NextLevel>)>, DbError> {
+    level_of(pool, thresholds, account, false).await
+}
+
+/// [`compute_level`] after a contribution of `account`: the merge's
+/// ceiling lifts, and the rules count the merged history as the account's
+/// own, as they count any contribution.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails.
+pub(crate) async fn compute_level_after_contribution(
+    pool: &PgPool,
+    thresholds: &Thresholds,
+    account: Uuid,
+) -> Result<Option<(u8, Option<NextLevel>)>, DbError> {
+    level_of(pool, thresholds, account, true).await
+}
+
+async fn level_of(
+    pool: &PgPool,
+    thresholds: &Thresholds,
+    account: Uuid,
+    contributed: bool,
+) -> Result<Option<(u8, Option<NextLevel>)>, DbError> {
     let Some(i) = accounts::trust_inputs(pool, account).await? else {
         return Ok(None);
+    };
+    let ceiling = if contributed && i.level_ceiling.is_some() {
+        accounts::lift_level_ceiling(pool, account).await?;
+        None
+    } else {
+        i.level_ceiling.map(|c| u8::try_from(c).unwrap_or(0))
     };
     let count = |n: i64| u32::try_from(n.max(0)).unwrap_or(u32::MAX);
     let stats = AccountStats {
@@ -175,9 +208,29 @@ pub(crate) async fn compute_level(
         nominated: i.nominated,
         granted_level: u8::try_from(i.granted_level).unwrap_or(0),
     };
-    let level = trust::level(&stats, thresholds);
+    let ruled = trust::level(&stats, thresholds);
+    let (level, next) = match ceiling {
+        // The merged history would lift the level: one contribution of its
+        // own and it counts, which is what the next level says it needs.
+        Some(c) if c < ruled => {
+            let level = c.max(stats.granted_level);
+            let next = level
+                .checked_add(1)
+                .filter(|l| *l <= trust::MAX_LEVEL)
+                .map(|l| NextLevel {
+                    level: l,
+                    missing: vec![Requirement::Contributions {
+                        current: stats.contributions,
+                        needed: stats.contributions.saturating_add(1),
+                    }],
+                    instead: None,
+                });
+            (level, next)
+        }
+        _ => (ruled, trust::next_level(&stats, thresholds)),
+    };
     accounts::set_trust_level(pool, account, i16::from(level)).await?;
-    Ok(Some((level, trust::next_level(&stats, thresholds))))
+    Ok(Some((level, next)))
 }
 
 /// Checks that `viewer` may do `action`: for levels 0 and 1 its stored
@@ -214,7 +267,9 @@ pub(crate) async fn after_contribution(ctx: &Context<'_>, viewer: &Viewer) {
     let Ok((pool, _permit)) = db(ctx).await else {
         return;
     };
-    if let Err(error) = compute_level(pool, &state(ctx).config.trust, viewer.id()).await {
+    if let Err(error) =
+        compute_level_after_contribution(pool, &state(ctx).config.trust, viewer.id()).await
+    {
         tracing::error!(%error, "cannot recompute a trust level");
     }
 }

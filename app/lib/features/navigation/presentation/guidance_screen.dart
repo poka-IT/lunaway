@@ -17,11 +17,13 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/rich_marks_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/application/route_fuel_prices.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/maneuver.dart';
+import 'package:lunaway/features/navigation/domain/route_fuel_prices.dart';
 import 'package:lunaway/features/navigation/domain/route_legs.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -53,7 +55,9 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -93,6 +97,11 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   /// messages while the page is up ([MessageSink]), at the top under the
   /// maneuver; a message at the foot would cover the driver's bar.
   final _notices = NoticeBoard();
+
+  /// The camera or the danger zone beside the speed, then the end of the
+  /// zone in its place ([GuidanceAidNotices]): a board of their own, kept
+  /// for the page's life as the other.
+  final _aidNotices = NoticeBoard();
   void Function()? _unredirect;
   ScaffoldMessengerState? _messenger;
 
@@ -128,14 +137,15 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
       if (plan != null && !identical(plan, before)) _sayAvoided(plan);
     });
     // The end of a danger zone or a section just left, and the rule of a
-    // country just entered: news of a moment, each told once. The end goes
-    // at once when another alert takes the screen before its time is over.
+    // country just entered: news of a moment, each told once. The end shows
+    // where the zone's pill stood, and goes at once when another alert
+    // takes the screen before its time is over.
     ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.exit), (before, exit) {
       if (exit != null) {
-        if (mounted) _say(alertExitNotice(context.t, exit));
+        if (mounted) _aidNotices.say(alertExitNotice(context.t, exit));
       } else if (before != null && ref.read(guidanceControllerProvider)?.aids.alert != null) {
         // Another alert took the screen: the end of the last one is old news.
-        _notices.withdraw(alertExitNoticeId(before));
+        _aidNotices.withdraw(alertExitNoticeId(before));
       }
     });
     ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.ruleChange), (
@@ -227,6 +237,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   void didChangeDependencies() {
     super.didChangeDependencies();
     _notices.assisted = MediaQuery.accessibleNavigationOf(context);
+    _aidNotices.assisted = _notices.assisted;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (!identical(messenger, _messenger)) {
       _unredirect?.call();
@@ -240,6 +251,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     forgetGuidanceLegs();
     _unredirect?.call();
     _notices.dispose();
+    _aidNotices.dispose();
     super.dispose();
   }
 
@@ -315,8 +327,8 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
             child: Scaffold(
               body: OrientationBuilder(
                 builder: (context, orientation) => orientation == Orientation.landscape
-                    ? _Landscape(session: session)
-                    : _Portrait(session: session),
+                    ? _Landscape(session: session, aids: _aidNotices)
+                    : _Portrait(session: session, aids: _aidNotices),
               ),
             ),
           ),
@@ -353,9 +365,12 @@ Future<bool> _confirmStop(BuildContext context) async {
 }
 
 class _Portrait extends ConsumerStatefulWidget {
-  const new({required this.session});
+  const new({required this.session, required this.aids});
 
   final GuidanceSession session;
+
+  /// The board of [GuidanceAidNotices].
+  final NoticeBoard aids;
 
   @override
   ConsumerState<_Portrait> createState() => _PortraitState();
@@ -429,8 +444,20 @@ class _PortraitState extends ConsumerState<_Portrait> {
 
     Rect atFoot(Size size) =>
         Rect.fromLTWH(footLeft, screen.height - above - size.height, size.width, size.height);
+    // The camera or the danger zone ([GuidanceAidNotices]) over the speed
+    // and its limit at the foot's left edge, and over the middle where it
+    // reaches under the pill (the stops' strip of the overview).
+    final aid = arrived ? null : _over.aid;
+    final aidShown = aid != null && !aid.isEmpty;
+    var aidBottom = above + (pill.height > 0 ? pill.height + Space.s : 0);
+    if ((_over.middle, aid) case (final size?, final aid?) when aidShown && !size.isEmpty) {
+      if (middle(size).left < footLeft + aid.width + Space.s) {
+        aidBottom = math.max(aidBottom, above + size.height + Space.s);
+      }
+    }
     // The map's credit over the pill, and over the middle where it reaches
-    // under the credit (the stops' strip of the overview).
+    // under the credit (the stops' strip of the overview); over the
+    // camera's pill while it shows.
     var creditBottom = arrived
         ? _card + Space.xs
         : above + (pill.height > 0 ? pill.height + Space.xs : 0);
@@ -439,6 +466,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
         creditBottom = math.max(creditBottom, above + size.height + Space.xs);
       }
     }
+    if (aidShown) creditBottom = math.max(creditBottom, aidBottom + aid.height + Space.xs);
+    // The camera's pill as wide as the buttons' column leaves it where it
+    // stands below the vehicle, the vehicle being what it must never cover;
+    // left of the road behind the vehicle otherwise, as the credit.
+    final aidTop = screen.height - aidBottom - (aidShown ? aid.height : _aidHeight);
+    final aidRight = aidTop >= followAnchor(screen, padding).dy + 15 + Space.s
+        ? safe.right + _buttonsColumn
+        : creditRight;
     Rect creditRect(Size size) => Rect.fromLTWH(
       footLeft,
       screen.height - creditBottom - size.height,
@@ -481,6 +516,12 @@ class _PortraitState extends ConsumerState<_Portrait> {
                     pill: atFoot,
                     credit: creditRect,
                     middle: middle,
+                    aid: (size) => Rect.fromLTWH(
+                      footLeft,
+                      screen.height - aidBottom - size.height,
+                      size.width,
+                      size.height,
+                    ),
                   ),
           ),
         ),
@@ -561,6 +602,20 @@ class _PortraitState extends ConsumerState<_Portrait> {
                 },
                 child: _FootMiddle(session: session),
               ),
+            ),
+          ),
+        // The camera or the danger zone over the speed.
+        if (!arrived)
+          Positioned(
+            left: footLeft,
+            right: aidRight,
+            bottom: aidBottom,
+            child: _AidPill(
+              board: widget.aids,
+              session: session,
+              onSize: (size) {
+                if (size != _over.aid) setState(() => _over.aid = size);
+              },
             ),
           ),
         Positioned(
@@ -644,6 +699,10 @@ const double _legsBesidePanelMin = 560;
 /// 640 x 360, where the credit runs up to the buttons instead.
 const double _creditBesideVehicle = 160;
 
+/// The height of the camera's pill before it was laid out: a touch target
+/// with its padding, and a line of a section's average.
+const double _aidHeight = 64;
+
 /// The room a sheet over the guidance leaves on the left: the panel of the
 /// maneuver, the screen on its side; none upright. Read again when the
 /// phone turns under the sheet.
@@ -653,9 +712,12 @@ double guidanceSheetInset(BuildContext context) =>
     : 0;
 
 class _Landscape extends ConsumerStatefulWidget {
-  const new({required this.session});
+  const new({required this.session, required this.aids});
 
   final GuidanceSession session;
+
+  /// The board of [GuidanceAidNotices].
+  final NoticeBoard aids;
 
   @override
   ConsumerState<_Landscape> createState() => _LandscapeState();
@@ -665,6 +727,10 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// The bottom bar's height as laid out: large text makes it taller, and
   /// the maneuver and the notices stay above it.
   double _bar = 120;
+
+  /// The camera's or the zone's pill above the bar, 0 while there is none:
+  /// the maneuver and the notices stay above it.
+  double _aid = 0;
 
   /// The maneuver's height as laid out: the strip of the stops goes over
   /// the bar only where it leaves the maneuver its room.
@@ -737,6 +803,12 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final legsAbove = legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
         ? legsHeight
         : 0.0;
+    // The camera or the danger zone in the panel just above the bar, over
+    // the strip when it runs there; the maneuver and the notices end above
+    // it.
+    final aidBottom =
+        safe.bottom + Space.s + _bar + Space.s + (legsAbove > 0 ? legsAbove + Space.s : 0);
+    final aidAbove = !arrived && _aid > 0 ? _aid + Space.s : 0.0;
     // The foot of the map (the credit over the speed or "Recentrer") at
     // the foot of the map, over the strip when it runs there: the panel of
     // a phone on its side has no height to spare.
@@ -845,7 +917,7 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 constraints: BoxConstraints(
                   maxHeight: math.max(
                     0,
-                    box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
+                    box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove - aidAbove,
                   ),
                 ),
                 // Placed clear of the system's insets already: none inside.
@@ -947,6 +1019,19 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                 ),
               ),
             ),
+            if (!arrived)
+              Positioned(
+                left: safe.left + Space.s,
+                bottom: aidBottom,
+                width: _sidePanel - 2 * Space.s,
+                child: _AidPill(
+                  board: widget.aids,
+                  session: session,
+                  onSize: (size) {
+                    if (mounted && size.height != _aid) setState(() => _aid = size.height);
+                  },
+                ),
+              ),
             if (!arrived)
               Positioned(
                 right: safe.right + Space.s,
@@ -1102,15 +1187,39 @@ class _GuidanceMap extends ConsumerWidget {
                     const <PlaceSummary>[])
               if (guidanceKeepsPlace(choice, mapFilter, p)) p,
           ];
+    final now = ref.watch(clockProvider)();
+    final stations = ref.watch(shownFuelOffersProvider(route.line));
+    final fuel = ref.watch(vehicleFuelProvider).fuel;
+    // The price of the vehicle's fuel by the stations: those of the fuel
+    // list, and under the stations' pins those read around the vehicle,
+    // while the pins show stations, in France (where the feed has prices).
+    final prices = routePrices(
+      fuel: fuel,
+      now: now,
+      language: Localizations.localeOf(context).languageCode,
+      offers: stations,
+      stations:
+          tiles != null &&
+              fuel != null &&
+              choice.selection.poiKinds.contains(PoiKind.fuelStation) &&
+              (session.aids.country ?? 'FR') == 'FR'
+          ? switch (ref.watch(guidanceStationsProvider)) {
+              AsyncData(:final value) => value,
+              // The next cell on its way, or its read failed: the stations
+              // read before keep their prices; none before the first read.
+              final read => read.value ?? const [],
+            }
+          : const [],
+    );
     final points = RoutePoints(
       places: places,
-      stations: ref.watch(shownFuelOffersProvider(route.line)),
+      stations: stations,
       stops: session.stops,
+      prices: prices.marks,
       movedTo: {for (final (i, stop) in session.stops.indexed) i: ?session.moves.stops[stop]},
     );
     // A destination the server moved: the route ends there.
     final destination = session.moves.destination ?? session.target.destination;
-    final now = ref.watch(clockProvider)();
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     // Only where the rule of the country the vehicle is in shows points
     // while driving, and the camera's own: never in France unless asked.
@@ -1170,6 +1279,7 @@ class _GuidanceMap extends ConsumerWidget {
         },
         arrow: ref.watch(guidanceArrowProvider),
         places: tiles,
+        fuelPrices: prices.pins,
         rich: RouteMapRich(
           style: _richStyle(context, ref, credited: photosCredited),
           art: ref.watch(richArtProvider),
@@ -1275,6 +1385,10 @@ final class _OverTheMap {
   /// The road's name on a screen on its side.
   Size? road;
 
+  /// The camera's or the zone's pill beside the speed, empty while there
+  /// is none.
+  Size? aid;
+
   /// Their rooms on the map, placed by the layout's anchors.
   List<Rect> rects({
     required Rect Function(Size size) buttons,
@@ -1282,12 +1396,14 @@ final class _OverTheMap {
     required Rect Function(Size size) credit,
     required Rect Function(Size size) middle,
     Rect Function(Size size)? road,
+    Rect Function(Size size)? aid,
   }) => [
     if (this.buttons case final size?) buttons(size),
     if (this.pill case final size? when !size.isEmpty) pill(size),
     if (this.credit case final size? when !size.isEmpty) credit(size),
     if (this.middle case final size? when !size.isEmpty) middle(size),
     if ((this.road, road) case (final size?, final place?) when !size.isEmpty) place(size),
+    if ((this.aid, aid) case (final size?, final place?) when !size.isEmpty) place(size),
   ];
 }
 
@@ -1373,6 +1489,40 @@ class _RoadIfFollowing extends ConsumerWidget {
     );
     return following ? RoadNamePill(session: session) : const SizedBox.shrink();
   }
+}
+
+/// The camera or the danger zone beside the speed ([GuidanceAidNotices]),
+/// on its own board, at the start of the room the layout gives it, its
+/// size told back: the map's credit stands over it, and no place drawn
+/// large goes under it.
+class _AidPill extends StatelessWidget {
+  const new({required this.board, required this.session, required this.onSize});
+
+  final NoticeBoard board;
+  final GuidanceSession session;
+  final ValueChanged<Size> onSize;
+
+  /// The step the size is told in, rounded up: the distance changes at
+  /// each fix and the pill eases into its new width, which told to the pixel
+  /// rebuilt the whole layout at every frame of the easing.
+  static const double _step = 4;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.bottomStart,
+    child: ReportsRect(
+      onRect: (rect) => onSize(
+        Size(
+          (rect.width / _step).ceilToDouble() * _step,
+          (rect.height / _step).ceilToDouble() * _step,
+        ),
+      ),
+      child: NoticeScope(
+        board: board,
+        child: GuidanceAidNotices(session: session),
+      ),
+    ),
+  );
 }
 
 /// Back behind the vehicle, at the foot of the map once the user moved it

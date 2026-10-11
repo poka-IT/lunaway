@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
+import 'package:lunaway/features/favorites/data/home_repository.dart';
+import 'package:lunaway/features/favorites/data/home_sync.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -23,6 +28,37 @@ FavoritesRepository favoritesRepository(Ref ref) =>
 @riverpod
 Stream<List<FavoriteList>> favoriteLists(Ref ref) =>
     ref.watch(favoritesRepositoryProvider).watchLists();
+
+// keepAlive: a repository over the app-wide database.
+@Riverpod(keepAlive: true)
+HomeRepository homeRepository(Ref ref) =>
+    DriftHomeRepository(ref.watch(userDatabaseProvider), clock: ref.watch(clockProvider));
+
+/// The user's home: the head of the favourites and of the search, the end
+/// of a route in one tap; null while there is none.
+@riverpod
+Stream<SavedPoint?> userHome(Ref ref) => ref.watch(homeRepositoryProvider).watch();
+
+/// The user asked, in the favourites, to place their home on the map: the
+/// card of the next point held on the map offers "Mon domicile est ici".
+/// The choice ends with the home set or removed (`makeHome`, `removeHome`),
+/// and with the card of a point closed without it: a point held days later
+/// is not taken for the home.
+// keepAlive: the choice made on the favourites tab waits for the map's.
+@Riverpod(keepAlive: true)
+class HomePicking extends _$HomePicking {
+  @override
+  bool build() {
+    ref.listen(mapFlowProvider.select((flow) => flow.selection), (previous, next) {
+      if (previous is PointSelection && next is! PointSelection) state = false;
+    });
+    return false;
+  }
+
+  void start() => state = true;
+
+  void stop() => state = false;
+}
 
 @riverpod
 Stream<List<FavoriteEntry>> favoriteEntries(Ref ref, int listId) =>
@@ -97,6 +133,11 @@ FavoritesSync favoritesSync(Ref ref) => FavoritesSync(
   remote: GraphQLFavoritesRemote(ref.watch(accountServiceProvider)),
   lookup: (id) async => (await ref.read(placesRepositoryProvider).watchPlace(id).first)?.summary,
   defaultName: () => t.favorites.defaultList,
+  home: HomeSync(
+    db: ref.watch(userDatabaseProvider),
+    home: ref.watch(homeRepositoryProvider),
+    remote: GraphQLHomeRemote(ref.watch(accountServiceProvider)),
+  ),
   clock: ref.watch(clockProvider),
 );
 
@@ -140,6 +181,7 @@ class FavoritesSyncController extends _$FavoritesSyncController {
   Timer? _timer;
   AppLifecycleListener? _lifecycle;
   StreamSubscription<List<FavoriteList>>? _changes;
+  StreamSubscription<SavedPoint?>? _homeChanges;
   Future<void>? _running;
   bool _again = false;
 
@@ -149,6 +191,7 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       _timer?.cancel();
       _lifecycle?.dispose();
       unawaited(_changes?.cancel());
+      unawaited(_homeChanges?.cancel());
     });
     ref.listen(accountControllerProvider, (previous, next) {
       if (next is SignedIn && previous is SignedIn && next.account.id != previous.account.id) {
@@ -179,15 +222,53 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       }
       _schedule(debounce);
     });
+    // The home goes with the lists: a change of it is a change to sync.
+    var firstHome = true;
+    _homeChanges = ref.read(homeRepositoryProvider).watch().listen(
+      (_) {
+        if (firstHome) {
+          firstHome = false;
+          return;
+        }
+        _schedule(debounce);
+      },
+      // The storage refused the read: the favourites say it
+      // (`HomeCard`); the next sync reads the home again.
+      onError: (Object e) => _log.info('the home not watched: ${e.runtimeType}'),
+    );
     _schedule(Duration.zero);
   }
 
   void _schedule(Duration wait) {
     _timer?.cancel();
+    if (_holds > 0) return;
     _timer = Timer(wait, () => unawaited(_syncIfSignedIn()));
   }
 
+  /// Held while the device changes accounts: no sync starts meanwhile, so
+  /// none runs under the account left while its lists are cleared or moved.
+  int _holds = 0;
+
+  /// Runs [action] once the sync under way, if any, has ended, with no
+  /// sync starting until it ends; then syncs.
+  Future<T> holding<T>(Future<T> Function() action) async {
+    _holds++;
+    _timer?.cancel();
+    try {
+      // Until none runs: a sync asked during one starts as it ends.
+      for (var running = _running; running != null; running = _running) {
+        await running;
+      }
+      return await action();
+    } finally {
+      _holds--;
+      if (_holds == 0 && ref.mounted) _schedule(Duration.zero);
+    }
+  }
+
   Future<void> _syncIfSignedIn() async {
+    // Held: the hold's end syncs.
+    if (_holds > 0) return;
     if (ref.read(accountControllerProvider) is SignedIn) await _run();
   }
 

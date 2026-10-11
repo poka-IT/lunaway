@@ -4,9 +4,10 @@
 /// [searchingNotice], [avoidedNotice]) and from every message of the app
 /// while the guidance is up: a new route and why, a closure met, a stop
 /// added or removed, a report sent. Standing, while their state holds
-/// ([GuidanceNotices]): the route left, the position lost or old, a danger
-/// zone, a restriction or a road event ahead, a community report just
-/// passed, the voice missing.
+/// ([GuidanceNotices]): the route left, the position lost or old, a
+/// restriction or a road event ahead, a community report just passed, the
+/// voice missing. A camera or a danger zone stands apart, beside the speed
+/// ([GuidanceAidNotices]).
 library;
 
 import 'dart:async';
@@ -18,7 +19,6 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
-import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
@@ -222,16 +222,6 @@ class GuidanceNotices extends ConsumerWidget {
           icon: AppIcons.inAppNavigation,
           text: t.navigation.guidance.demoDrive,
         ),
-      if (session.aids.alert case final aid?)
-        StandingNotice(
-          id: ('aid', aid.id),
-          icon: aid.kind == EnforcementKind.camera ? AppIcons.camera : AppIcons.warning,
-          text: enforcementText(t, aid, units),
-          strong: true,
-          // In the zone is graver than ahead of it, over its limit graver still.
-          level: enforcementLevel(aid),
-          look: EnforcementNotice(alert: aid, units: units, now: now),
-        ),
       if (session.positionLost)
         StandingNotice(
           id: 'position',
@@ -394,6 +384,28 @@ class GuidanceNotices extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The camera, the section or the danger zone the vehicle comes to or is
+/// in, beside the speed and its limit: a small pill ([EnforcementChip]),
+/// folded by a tap and open again when it grows graver; then the end of
+/// the zone or the section, a passing notice in its place. On the board of
+/// their own ([NoticeScope] above): they follow the app's rule, apart from
+/// the notices under the maneuver.
+class GuidanceAidNotices extends ConsumerWidget {
+  const new({required this.session, super.key});
+
+  final GuidanceSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
+    return NoticeColumn(
+      atStart: true,
+      gap: Space.xs,
+      standing: [if (session.aids.alert case final aid?) enforcementNotice(context.t, aid, units)],
     );
   }
 }

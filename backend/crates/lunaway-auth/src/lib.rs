@@ -26,8 +26,8 @@ pub use keys::{DevicePublicKey, MAX_JWK_BYTES, MAX_SIGNATURE_CHARS};
 pub use pseudonym::{Locale, MAX_GENERATED_CHARS, generate_pseudonym};
 pub use recovery::{RECOVERY_SYMBOLS, RecoveryCode};
 pub use tokens::{
-    CHALLENGE_PREFIX, NewSession, TOKEN_CHARS, challenge_message, is_token_shaped, new_nonce,
-    new_session_token, token_hash,
+    CHALLENGE_PREFIX, MERGE_PREFIX, NewSession, TOKEN_CHARS, challenge_message, is_token_shaped,
+    merge_message, new_nonce, new_session_token, token_hash,
 };
 
 /// What can go wrong with a key, a signature, or the server's own secrets.
