@@ -275,16 +275,19 @@ void main() {
     });
 
     test('only a ramp shows an exit, and only the numbers of its exits', () {
-      String? exitAt(String type, String exits) {
+      String? exitAt(String type, String exits, {String? left, String? taken}) {
         final plan = routeFixture(
           'limoges_drive',
           edit: (answer) {
             final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
             final route = (osrm['routes'] as List).first as Map<String, dynamic>;
             final leg = (route['legs'] as List).first as Map<String, dynamic>;
-            final step = (leg['steps'] as List)[2] as Map;
+            final steps = leg['steps'] as List;
+            final step = steps[2] as Map;
             (step['maneuver'] as Map)['type'] = type;
             step['exits'] = exits;
+            step['ref'] = taken;
+            (steps[1] as Map)['ref'] = left;
             answer['osrmJson'] = jsonEncode(osrm);
           },
         );
@@ -292,12 +295,15 @@ void main() {
       }
 
       expect(exitAt('off ramp', '17'), '17');
-      expect(exitAt('on ramp', '6.1'), '6.1', reason: 'an expressway left by a ramp');
+      expect(exitAt('on ramp', '6.1'), '6.1', reason: "Valhalla's ramp left from a lesser road");
       expect(exitAt('off ramp', '31b'), '31b');
       expect(exitAt('off ramp', '17; A 411'), '17');
       expect(exitAt('off ramp', 'A 411'), isNull);
       expect(exitAt('off ramp', 'N205'), isNull);
       expect(exitAt('off ramp', 'E 712; A 41'), isNull);
+      expect(exitAt('off ramp', '111', taken: '111; E 712'), isNull, reason: 'the road taken');
+      expect(exitAt('off ramp', '1', left: '1'), isNull, reason: 'the road left');
+      expect(exitAt('off ramp', '17', left: '1', taken: '111'), '17');
       expect(exitAt('fork', '17'), isNull, reason: 'a fork is no exit');
       expect(exitAt('turn', '17'), isNull);
     });

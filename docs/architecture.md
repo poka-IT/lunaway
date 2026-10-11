@@ -735,10 +735,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   navigation apps (`plan/research/120-guidage-facon-gmaps.md`): the
   maneuver at the top (its arrow, the distance over the road, a motorway
   exit's number, on a ramp and only when Valhalla's `exits` reads as a
-  number: the map gives the lanes of some junctions a road's number, "A
-  411" at the Thônex-Vallard customs), the lanes on a deeper band under
-  it, "Puis" on a tab
-  when the next maneuver follows within 300 m; the notices under it; at
+  number and names no road around it: the map gives the lanes of some
+  junctions a road's number, "A 411" at the Thônex-Vallard customs), the
+  lanes on a deeper band under it, "Puis" on a tab when the next
+  maneuver follows within 300 m; the notices under it; at
   the foot of the map the speed and its limit on the left (or "Recentrer"
   once the map is moved or the whole route shown), a camera or a danger
   zone on its pill over them (in the panel over the bar on a screen on its
