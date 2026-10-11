@@ -148,6 +148,9 @@ final class _Once implements RouteService {
   // An answer that fails, as a server without the query: the preview then
   // leaves the trip to the route request (a synchronous throw would fail it).
   Future<RoutingInfo> info() async => throw UnimplementedError();
+
+  @override
+  Future<LaterRoutes> alternatives(String token) async => LaterRoutes.none;
 }
 
 /// The route settings in memory: the device's own are left alone.

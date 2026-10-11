@@ -585,15 +585,17 @@ class GuidanceController extends _$GuidanceController {
     List<RouteStop> stops = const [],
     GuidanceEngine? engine,
   }) {
-    final json = plan.osrmJson;
+    // An alternative that came after the best route is in an answer of its
+    // own.
+    final osrm = plan.osrmOf(routeIndex);
     final library = engine ?? ref.read(guidanceEngineProvider).value;
-    if (library == null || json == null) return false;
+    if (library == null || osrm == null) return false;
     _release();
     state = null;
     try {
       _track = developer.Timeline.timeSync(
         'lunaway-guidance-engine',
-        () => library.start(json, routeIndex),
+        () => library.start(osrm.json, osrm.index),
       );
       _setUp(plan: plan, routeIndex: routeIndex, target: target, words: words, stops: stops);
     } on GuidanceUnavailable catch (e) {

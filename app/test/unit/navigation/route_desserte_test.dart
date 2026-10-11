@@ -224,7 +224,7 @@ void main() {
       );
     });
 
-    test('leaves the flag out for every older API', () {
+    test('leaves the flag out for every API before the moved stops', () {
       final driving = routeVariables(
         origin: const LatLng(45.84719, 1.28476),
         destination: const LatLng(45.84510, 1.28637),
@@ -234,8 +234,11 @@ void main() {
         headingDeg: 90,
         fromVehicle: true,
       );
+      // The API before the alternatives sent after the best route knows it.
+      final beforeLater = routeOperation.older!;
+      expect(origin(beforeLater.variables(driving))['vehiclePosition'], isTrue);
       var n = 0;
-      for (var form = routeOperation.older; form != null; form = form.older) {
+      for (var form = beforeLater.older; form != null; form = form.older) {
         n++;
         final sent = origin(form.variables(driving));
         expect(sent, isNot(contains('vehiclePosition')), reason: 'form $n');

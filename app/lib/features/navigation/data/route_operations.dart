@@ -7,7 +7,11 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 
 /// The routing operations the app sends, held to the schema by
 /// `test/contract/navigation_contract_test.dart`.
-final navigationOperations = <GraphQLOperation<Object?>>[routeOperation, routingInfoOperation];
+final navigationOperations = <GraphQLOperation<Object?>>[
+  routeOperation,
+  routeAlternativesOperation,
+  routingInfoOperation,
+];
 
 /// The fields of a restriction; whether it spares local access when
 /// [desserte], which an API before 2026-10-08 does not know.
@@ -91,13 +95,15 @@ fragment FerryCrossingFields on FerryCrossing {
 /// [speedLimits], why there is no route and the ferry crossings when
 /// [reasons], the cruising speed the times assume when [cruise], and the
 /// stops the server moved and the limits that spare local access when
-/// [desserte]: an API without them refuses the fields, and gets the request
-/// without them.
+/// [desserte], and the best route alone first, its alternatives after it,
+/// when [later]: an API without them refuses the fields, and gets the
+/// request without them.
 String _routeDocument({
   required bool speedLimits,
   required bool reasons,
   bool cruise = false,
   bool desserte = false,
+  bool later = false,
 }) =>
     '''
 query Route(\$input: RouteInput!) {
@@ -124,7 +130,7 @@ query Route(\$input: RouteInput!) {
       options { avoidTolls avoidMotorways avoidFerries avoidUnpaved }
       language${cruise ? '\n      topSpeedKph' : ''}
     }
-    graph { ...RoutingGraphFields }
+    graph { ...RoutingGraphFields }${later ? '\n    alternativesToken' : ''}
   }
 }
 ${_warningFields(desserte: desserte)}
@@ -143,26 +149,67 @@ const _reasonsSelection = '''
 /// two.
 final routeOperation = GraphQLOperation<RoutePlan>(
   name: 'Route',
-  document: _routeDocument(speedLimits: true, reasons: true, cruise: true, desserte: true),
-  // The API before the moved stops and the limits that spare local access
-  // (2026-10-08): it moves no stop, so the vehicle's own position needs no
-  // flag. Then the one before the cruising speed (2026-10-07), the one
-  // before the reasons and the crossings, the one before the speed limits.
-  // None of these knows the cruising speed: the route is timed without it,
-  // and the preview then tells no speed.
-  older: OlderForm(
-    document: _routeDocument(speedLimits: true, reasons: true, cruise: true),
-    variables: withoutVehiclePosition,
-    withoutFields: true,
-    older: _withoutCruise(
-      _routeDocument(speedLimits: true, reasons: true),
+  document: _routeDocument(
+    speedLimits: true,
+    reasons: true,
+    cruise: true,
+    desserte: true,
+    later: true,
+  ),
+  // The API before the alternatives sent after the best route
+  // (2026-10-11): every route comes in one answer. Then the one before the
+  // moved stops and the limits that spare local access (2026-10-08): it
+  // moves no stop, so the vehicle's own position needs no flag. Then the
+  // one before the cruising speed (2026-10-07), the one before the reasons
+  // and the crossings, the one before the speed limits. None of these
+  // knows the cruising speed: the route is timed without it, and the
+  // preview then tells no speed.
+  older: OlderForm.selecting(
+    _routeDocument(speedLimits: true, reasons: true, cruise: true, desserte: true),
+    older: OlderForm(
+      document: _routeDocument(speedLimits: true, reasons: true, cruise: true),
+      variables: withoutVehiclePosition,
+      withoutFields: true,
       older: _withoutCruise(
-        _routeDocument(speedLimits: true, reasons: false),
-        older: _withoutCruise(_routeDocument(speedLimits: false, reasons: false)),
+        _routeDocument(speedLimits: true, reasons: true),
+        older: _withoutCruise(
+          _routeDocument(speedLimits: true, reasons: false),
+          older: _withoutCruise(_routeDocument(speedLimits: false, reasons: false)),
+        ),
       ),
     ),
   ),
   parse: (data) => routePlanFromJson(data['route'] as Map<String, dynamic>),
+);
+
+/// The alternatives of a best route sent alone, by the token its answer
+/// carried: once, within a minute, from the same device.
+final routeAlternativesOperation = GraphQLOperation<LaterRoutes>(
+  name: 'RouteAlternatives',
+  document:
+      '''
+query RouteAlternatives(\$token: String!) {
+  routeAlternatives(token: \$token) {
+    status
+    osrmJson
+    routes {
+      index
+      distanceM
+      durationS
+      hasToll
+      hasFerry
+      hasMotorway
+      warnings { ...RouteWarningFields }
+      roadEvents { ...RoadEventWarningFields }
+      speedLimits { fromM toM kmh source }
+      notices { kind ferry { ...FerryCrossingFields } }
+    }
+  }
+}
+${_warningFields(desserte: true)}
+$_roadEventFields
+$_ferryFields''',
+  parse: (data) => laterRoutesFromJson(data['routeAlternatives'] as Map<String, dynamic>),
 );
 
 /// [document] for an API before the cruising speed: its request leaves the
@@ -352,22 +399,8 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
       final other => throw FormatException('unknown route status $other'),
     },
     osrmJson: json['osrmJson'] as String?,
-    routes: [
-      for (final r in json['routes'] as List)
-        if (r is Map<String, dynamic>)
-          RouteOption(
-            index: (r['index'] as num).toInt(),
-            distanceM: (r['distanceM'] as num).toDouble(),
-            durationS: (r['durationS'] as num).toDouble(),
-            hasToll: r['hasToll'] == true,
-            hasFerry: r['hasFerry'] == true,
-            hasMotorway: r['hasMotorway'] == true,
-            warnings: _warnings(r['warnings']),
-            speedLimits: _speedLimits(r['speedLimits']),
-            roadEvents: _roadEvents(r['roadEvents']),
-            ferries: _ferries(r['notices']),
-          ),
-    ],
+    routes: _routeOptions(json['routes']),
+    alternativesToken: json['alternativesToken'] as String?,
     noRouteReasons: [
       if (json['noRouteReasons'] case final List<dynamic> list)
         for (final n in list)
@@ -415,6 +448,33 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
     graph: _graph(json['graph'] as Map<String, dynamic>),
   );
 }
+
+/// The answer of [routeAlternativesOperation], without the shapes, read
+/// apart as a route's are. A status this app does not know (a newer
+/// server) counts as none: the best route stands alone.
+LaterRoutes laterRoutesFromJson(Map<String, dynamic> json) => LaterRoutes(
+  status: _enum(LaterStatus.values, json['status']) ?? LaterStatus.none,
+  osrmJson: json['osrmJson'] as String?,
+  routes: _routeOptions(json['routes']),
+);
+
+List<RouteOption> _routeOptions(Object? list) => [
+  if (list is List)
+    for (final r in list)
+      if (r is Map<String, dynamic>)
+        RouteOption(
+          index: (r['index'] as num).toInt(),
+          distanceM: (r['distanceM'] as num).toDouble(),
+          durationS: (r['durationS'] as num).toDouble(),
+          hasToll: r['hasToll'] == true,
+          hasFerry: r['hasFerry'] == true,
+          hasMotorway: r['hasMotorway'] == true,
+          warnings: _warnings(r['warnings']),
+          speedLimits: _speedLimits(r['speedLimits']),
+          roadEvents: _roadEvents(r['roadEvents']),
+          ferries: _ferries(r['notices']),
+        ),
+];
 
 List<String> _codes(Object? list) => [
   if (list is List)

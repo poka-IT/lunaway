@@ -25,6 +25,7 @@ import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/maneuver.dart';
+import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -82,11 +83,12 @@ Future<(TestApp, FakeRouteService)> openPreview(
   AppLocale locale = AppLocale.fr,
   VoiceOutput? voice,
   FakeScreenWake? wake,
+  Map<String, Object> later = const {},
 }) async {
   final routes = FakeRouteService(
     answers ?? [routeFixture('utrillo_motorhome')],
     routingInfo: routing,
-  );
+  )..later.addAll(later);
   final app = await pumpLunaway(
     tester,
     size: size,
@@ -109,6 +111,47 @@ Future<(TestApp, FakeRouteService)> openPreview(
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
   await settleShort(tester);
   return (app, routes);
+}
+
+/// The recorded answer [name] as the server sends it to an app that reads
+/// the token: the best route alone, then the others by `token-1`, numbered
+/// from 0 in an answer of their own.
+(RoutePlan, LaterRoutes) bestFirst(String name) {
+  final answer = routeAnswer(name);
+  final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+  final routes = osrm['routes'] as List<dynamic>;
+  final summaries = answer['routes'] as List<dynamic>;
+  final best = routeFixture(
+    name,
+    edit: (a) {
+      a['osrmJson'] = jsonEncode({...osrm, 'routes': routes.sublist(0, 1)});
+      a['routes'] = summaries.sublist(0, 1);
+      a['alternativesToken'] = 'token-1';
+    },
+  );
+  final parsed = laterRoutesFromJson({
+    'status': 'OK',
+    'osrmJson': jsonEncode({...osrm, 'routes': routes.sublist(1)}),
+    'routes': [
+      for (final (i, s) in summaries.sublist(1).indexed) {...s as Map<String, dynamic>, 'index': i},
+    ],
+  });
+  final shapes = readOsrmShapes(parsed.osrmJson!);
+  return (
+    best,
+    LaterRoutes(
+      status: parsed.status,
+      osrmJson: parsed.osrmJson,
+      routes: [
+        for (final r in parsed.routes)
+          r.withShape(
+            line: shapes[r.index].line,
+            steps: shapes[r.index].steps,
+            crossings: shapes[r.index].crossings,
+          ),
+      ],
+    ),
+  );
 }
 
 /// Speed camera data held back until [gate] completes: the zones come
@@ -318,6 +361,90 @@ void main() {
         find.text('Aucune limite proche du gabarit de votre véhicule sur ce trajet.'),
         findsOneWidget,
       );
+    });
+
+    testWidgets(
+      'the best route shows and starts at once, its alternatives join without moving the camera',
+      (tester) async {
+        final (best, later) = bestFirst('utrillo_motorhome');
+        final held = Completer<LaterRoutes>();
+        // The guidance engine reads an alternative in its own answer.
+        final alone = RoutePlan(
+          status: RouteStatus.ok,
+          routes: later.routes,
+          blockers: const [],
+          recalculations: 0,
+          applied: best.applied,
+          graph: best.graph,
+          osrmJson: later.osrmJson,
+        );
+        final engine = LineEngine([best, alone]);
+        final (app, routes) = await openPreview(
+          tester,
+          answers: [best],
+          engine: engine,
+          later: {'token-1': held},
+        );
+        expect(routes.laterAsked, ['token-1']);
+        expect(find.text('Recommandé'), findsOneWidget);
+        expect(find.text('Variante 1'), findsNothing, reason: 'not come yet');
+        final start = find.ancestor(
+          of: find.text("C'est parti !"),
+          matching: find.bySubtype<FilledButton>(),
+        );
+        expect(
+          tester.widget<FilledButton>(start).onPressed,
+          isNotNull,
+          reason: 'the guidance may start on the best route without its alternatives',
+        );
+        expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0]);
+        final camera = SchematicRouteMap.last!.camera;
+
+        held.complete(later);
+        await settleShort(tester);
+        expect(find.text('Variante 1'), findsOneWidget);
+        expect(find.text('4,9 km'), findsOneWidget);
+        expect(SchematicRouteMap.last!.lines.map((l) => l.index), [0, 1]);
+        expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, 0);
+        expect(SchematicRouteMap.last!.camera, camera, reason: 'the camera stays where it was');
+        final bounds = (camera as FitCamera).bounds;
+        expect(
+          SchematicRouteMap.last!.lines.last.points.every(bounds.contains),
+          isFalse,
+          reason: 'the alternative reaches out of the view the best route framed',
+        );
+
+        await tester.tap(find.text('Variante 1'));
+        await settleShort(tester);
+        await tester.tap(find.text("C'est parti !"));
+        await settleShort(tester);
+        final session = app.container(tester).read(guidanceControllerProvider);
+        expect(session?.routeIndex, 1);
+        expect(
+          engine.tracks.single.route.distanceM,
+          later.routes.single.distanceM,
+          reason: 'the guidance follows the alternative chosen, read in its own answer',
+        );
+      },
+    );
+
+    testWidgets('alternatives that do not come leave the best route alone, unsaid', (tester) async {
+      final (best, _) = bestFirst('utrillo_motorhome');
+      final plan = routeFixture('utrillo_motorhome');
+      await openPreview(
+        tester,
+        answers: [best],
+        engine: LineEngine([plan, best]),
+        later: {'token-1': const RouteFailure(RouteFailureKind.offline)},
+      );
+      expect(find.text('Recommandé'), findsOneWidget);
+      expect(find.text('Variante 1'), findsNothing);
+      expect(find.text('Pas de connexion'), findsNothing, reason: 'the route stands');
+      final start = find.ancestor(
+        of: find.text("C'est parti !"),
+        matching: find.bySubtype<FilledButton>(),
+      );
+      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
     });
 
     testWidgets('a 2.50 m van is told of the 2.70 m bridge, where and from which source', (

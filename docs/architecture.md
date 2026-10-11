@@ -649,7 +649,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   gives up only after 15 s. The route map draws the
   images of its style (the badges, the arrows) as it is built, all at
   once, while its style loads, and a camera move never holds the route
-  that comes during it (`plan/research/125-calcul-itineraire.md`).
+  that comes during it (`plan/research/125-calcul-itineraire.md`). The
+  route request reads `alternativesToken`: the best route comes alone,
+  drawn and ready for "C'est parti !" at once, and its alternatives join
+  it when `routeAlternatives` answers (`RoutePlan.withAlternatives`),
+  where the camera already stands (it framed the routes that came at
+  once) and with the route chosen kept; when they do not come, nothing
+  says so. The guidance reads such an alternative in its own OSRM answer
+  (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
   (`core/http/app_http_client_io.dart`). A mobile network or a move from

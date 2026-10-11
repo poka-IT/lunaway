@@ -290,6 +290,17 @@ final class RoutePreview {
     unreachable: unreachable,
     coveredCountries: coveredCountries,
   );
+
+  /// The same preview over [plan], the route chosen kept.
+  RoutePreview withPlan(RoutePlan plan) => RoutePreview(
+    vehicle: vehicle,
+    origin: origin,
+    plan: plan,
+    selected: selected,
+    stops: stops,
+    unreachable: unreachable,
+    coveredCountries: coveredCountries,
+  );
 }
 
 /// A start the user chose for the routes previewed instead of the device's
@@ -426,6 +437,13 @@ Future<LatLng?> previewOrigin(Ref ref) async {
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
 /// refused, rate-limited or offline request shows at once (`noRetry`).
+///
+/// The best route shows, and the guidance may start, as soon as it comes:
+/// the server sends it alone, then the alternatives it computed meanwhile
+/// ([RoutePlan.alternativesToken]), which join the preview without moving
+/// the camera or the route chosen. They took half the server's time of
+/// the trips that have them (`plan/research/130-alternatives-apres.md`).
+/// When they do not come, the best route stands alone and nothing says so.
 @Riverpod(retry: noRetry)
 class RoutePreviewController extends _$RoutePreviewController {
   @override
@@ -480,6 +498,9 @@ class RoutePreviewController extends _$RoutePreviewController {
         stops: stops,
       ),
     );
+    if (plan.alternativesToken case final token?) {
+      unawaited(_alternatives(service, plan, token));
+    }
     return RoutePreview(
       vehicle: check,
       origin: start,
@@ -488,6 +509,27 @@ class RoutePreviewController extends _$RoutePreviewController {
       stops: stops,
       coveredCountries: covered,
     );
+  }
+
+  /// Adds the alternatives of [plan] once they come, to the preview that
+  /// still shows it: a preview computed again meanwhile (another vehicle,
+  /// another start) is left alone. A failure leaves the best route alone,
+  /// unsaid: it is a route the vehicle may drive.
+  Future<void> _alternatives(RouteService service, RoutePlan plan, String token) async {
+    final LaterRoutes later;
+    try {
+      later = await service.alternatives(token);
+      // The build that sent [plan] has handed its preview over.
+      await future;
+    } on Object catch (e) {
+      _log.fine('no alternatives after the best route: $e');
+      return;
+    }
+    if (!ref.mounted || later.status != LaterStatus.ok) return;
+    final current = state;
+    if (current is! AsyncData<RoutePreview> || current.isLoading) return;
+    if (!identical(current.value.plan, plan)) return;
+    state = AsyncData(current.value.withPlan(plan.withAlternatives(later)));
   }
 
   /// The device's reading of countries; none where the guidance library
