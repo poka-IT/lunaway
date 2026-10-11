@@ -422,7 +422,7 @@ final class RouteStep {
   final String? roadRef;
 
   /// The number of the motorway exit taken at this maneuver (`17`), as its
-  /// sign shows it.
+  /// sign shows it: a ramp's only, never a road's number.
   final String? exitRef;
 
   /// What the direction signs at this maneuver point to (`A 41: Genève,

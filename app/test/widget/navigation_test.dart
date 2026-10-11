@@ -36,6 +36,7 @@ import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
@@ -1468,6 +1469,21 @@ void main() {
         expect(find.text('Sortie 17'), findsOneWidget);
       },
     );
+
+    testWidgets('the lanes of the Thônex-Vallard customs show no exit, the map names them A 411', (
+      tester,
+    ) async {
+      // Recorded on 2026-10-11: four ramps from 1 214 m, each with
+      // `exits` "A 411", the motorway they end.
+      final plan = routeFixture('vallard_customs');
+      await guide(tester, plan);
+      for (final toM in [1100.0, 1230.0, 1290.0, 1350.0]) {
+        await drive(tester, plan, toM: toM);
+        expect(find.text('Autoroute Blanche'), findsWidgets, reason: 'the road, at $toM m');
+        expect(find.byType(ExitBadge), findsNothing, reason: 'no exit at $toM m');
+        expect(find.text('Sortie A 411'), findsNothing);
+      }
+    });
 
     testWidgets('the bar opens its options at a tap or a swipe up; a choice closes them', (
       tester,

@@ -226,7 +226,7 @@ RouteStep _step(
     ferry: s['mode'] == 'ferry',
     lanes: _lanesBefore(s, next),
     roadRef: _text(s['ref']),
-    exitRef: _text(s['exits']),
+    exitRef: _exitNumber(type, s['exits']),
     signs: _text(s['destinations']),
     motorway: switch (s['intersections']) {
       [final Map<String, dynamic> first, ...] =>
@@ -241,6 +241,26 @@ String? _text(Object? value) {
   final text = value is String ? value.trim() : null;
   return text == null || text.isEmpty ? null : text;
 }
+
+/// The exit's number a sign shows at a maneuver of [type], from the
+/// step's `exits`: on a ramp only (`off ramp`, `on ramp`), and only the
+/// values that read as a number (`17`, `6.1`, `25a`). Valhalla fills
+/// `exits` from the map's `junction:ref`, which some links carry with a
+/// road's number: the lanes of the Thônex-Vallard customs, at the end of
+/// the A 411, say `A 411`, and the banner read "Sortie A 411".
+String? _exitNumber(String type, Object? exits) {
+  if (type != 'off ramp' && type != 'on ramp') return null;
+  final numbers = [
+    for (final value in (_text(exits) ?? '').split(';'))
+      if (value.trim() case final number when _exitShape.hasMatch(number)) number,
+  ];
+  return numbers.isEmpty ? null : numbers.join('; ');
+}
+
+/// A digit first, then digits, letters and the marks that join them
+/// (`6.1`, `12b`, `8-9`), no space: a road's number starts with its
+/// network's letters (`A 411`, `N205`, `E 712`).
+final _exitShape = RegExp(r'^\d[\dA-Za-z./-]*$');
 
 Map<String, dynamic> _maneuverOf(Map<String, dynamic>? step) =>
     step?['maneuver'] is Map<String, dynamic>
