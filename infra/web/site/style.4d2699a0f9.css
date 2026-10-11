@@ -4,26 +4,12 @@
    hills holding the page title, dark in both themes; the page below follows
    prefers-color-scheme. */
 
+/* The app's face, one variable file: text at 420, headings at 650, what
+   stands out at 700 (the weights of app/lib/shared/theme/typography.dart). */
 @font-face {
-  font-family: "Fraunces";
-  src: url("/fonts/fraunces-semibold.14f03e86a5.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Atkinson Next Lunaway";
-  src: url("/fonts/atkinson-next-lunaway-regular.d26ebc00e1.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Atkinson Next Lunaway";
-  src: url("/fonts/atkinson-next-lunaway-bold.427c0a8279.woff2") format("woff2");
-  font-weight: 700;
+  font-family: "Figtree Lunaway";
+  src: url("/fonts/figtree-lunaway.ea5b212b7b.woff2") format("woff2");
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
@@ -61,8 +47,7 @@
   --ok-soft: #dcefd6;
   --chip: #d5ecec;
 
-  --font-title: "Fraunces", "Iowan Old Style", Georgia, serif;
-  --font-text: "Atkinson Next Lunaway", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-text: "Figtree Lunaway", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius: 1.25rem;
   --radius-s: 0.75rem;
   --wide: 72rem;
@@ -110,7 +95,7 @@ body {
   flex-direction: column;
   background: var(--bg);
   color: var(--text);
-  font: 400 1.0625rem/1.65 var(--font-text);
+  font: 420 1.0625rem/1.65 var(--font-text);
   font-variant-numeric: lining-nums;
 }
 
@@ -154,8 +139,7 @@ a:hover {
 h1,
 h2,
 h3 {
-  font-family: var(--font-title);
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.15;
   margin: 0 0 0.5em;
   text-wrap: balance;
@@ -420,7 +404,7 @@ strong {
   max-width: 13ch;
   font-size: clamp(2.3rem, 1.3rem + 4.2vw, 4.4rem);
   line-height: 1.04;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .hero-lead {
@@ -1081,7 +1065,7 @@ label {
   border-radius: var(--radius-s);
   background: var(--bg);
   color: var(--text);
-  font: 400 1.2rem/1.3 var(--font-text);
+  font: 420 1.2rem/1.3 var(--font-text);
   letter-spacing: 0.06em;
 }
 
@@ -1173,7 +1157,7 @@ label {
 
 .footer-title {
   margin: 0 0 0.5rem;
-  font: 600 1.5rem/1.2 var(--font-title);
+  font: 650 1.5rem/1.2 var(--font-text);
 }
 
 .footer-heading {

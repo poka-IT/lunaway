@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
@@ -323,6 +324,27 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text(t.account.title), findsOneWidget, reason: 'the profile is still there');
     });
+  });
+
+  testWidgets('the cruise speed, titled by its heading alone, is still named to a screen reader', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _openEditor(tester);
+    final dropdown = find.byType(DropdownButton<int?>);
+    await tester.scrollUntilVisible(dropdown, 200, scrollable: _editorList());
+    // The field shows no label of its own: the name comes with the value
+    // and the tap, on the one node a screen reader stops on.
+    expect(
+      find.semantics.byPredicate(
+        (node) =>
+            node.label.contains(t.vehicle.cruiseTitle) &&
+            node.label.contains(t.vehicle.cruiseNone) &&
+            node.getSemanticsData().hasAction(SemanticsAction.tap),
+      ),
+      findsOne,
+    );
+    semantics.dispose();
   });
 
   group('a button that waits', () {

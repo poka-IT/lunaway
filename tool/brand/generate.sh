@@ -186,10 +186,9 @@ IOS=app/ios/Runner/Assets.xcassets
 png plate.svg 1024 "$IOS/AppIcon.appiconset/AppIcon-1024.png" large
 png bare-60.svg 1024 "$IOS/AppIcon.appiconset/AppIcon-1024-dark.png" large
 png tinted.svg 1024 "$IOS/AppIcon.appiconset/AppIcon-1024-tinted.png" large
-# Launch image: 240 pt square, light and dark appearances.
-png splash.svg 240 "$IOS/LaunchImage.imageset/LaunchImage.png"
-png splash.svg 480 "$IOS/LaunchImage.imageset/LaunchImage@2x.png"
-png splash.svg 720 "$IOS/LaunchImage.imageset/LaunchImage@3x.png" large
+# Launch image: 240 pt square, the night one alone. The launch screen is
+# navy in every theme (the image set's README), so the set holds no light
+# image.
 png splash-night.svg 240 "$IOS/LaunchImage.imageset/LaunchImageDark.png"
 png splash-night.svg 480 "$IOS/LaunchImage.imageset/LaunchImageDark@2x.png"
 png splash-night.svg 720 "$IOS/LaunchImage.imageset/LaunchImageDark@3x.png" large

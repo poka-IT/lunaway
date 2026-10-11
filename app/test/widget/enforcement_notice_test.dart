@@ -190,7 +190,9 @@ void main() {
           undated('${de.listName(dsr)} · ${de.listName(osm)}'),
         ],
       ),
-      (650.0, [undated(de.listName(map)), undated(de.listName(dsr))]),
+      // At 640 the dated first line (42 squares, 567 px) misses its 560 px
+      // of room whatever the theme's tracking at this size.
+      (640.0, [undated(de.listName(map)), undated(de.listName(dsr))]),
     ]) {
       await _pump(tester, zone, width: width, scale: 1);
       final lines = _citedLines(tester, names);

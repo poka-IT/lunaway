@@ -15,7 +15,7 @@ where fastlane reads them:
   device class from the size).
 
 The band takes 16 % of the height, in Minuit (light scenes) or Clair de
-lune (dark scenes), the caption centred in Fraunces 600 on two lines at
+lune (dark scenes), the caption centred in Figtree 650 on two lines at
 most; the shot is scaled to the rest of the height, centred on the band's
 colour. The images are JPEG at quality 90 without chroma subsampling, which
 both stores take: a PNG of the same image weighs about 2.4 times as much,
@@ -40,7 +40,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.abspath(os.path.join(HERE, "..", ".."))
 REPO = os.path.abspath(os.path.join(APP, ".."))
-FONT = os.path.join(APP, "assets", "fonts", "fraunces", "Fraunces-Variable.ttf")
+FONT = os.path.join(APP, "assets", "fonts", "figtree-lunaway", "FigtreeLunaway-Variable.ttf")
 CAPTIONS = os.path.join(HERE, "store_captions.json")
 
 MINUIT = (0x06, 0x1F, 0x43)
@@ -95,8 +95,8 @@ PROFILES = {
 
 def font(size):
     f = ImageFont.truetype(FONT, size)
-    # Optical size 72 (display), weight 600 (semibold), as the app's titles.
-    f.set_variation_by_axes([72, 600])
+    # The weight of the app's headings (LunaType.heading).
+    f.set_variation_by_axes([650])
     return f
 
 

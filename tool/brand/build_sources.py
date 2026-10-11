@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the derived brand SVG sources from brand/lunaway-mark.svg and the Fraunces font.
+"""Build the derived brand SVG sources from brand/lunaway-mark.svg and the app's typeface.
 
     python3 tool/brand/build_sources.py
 
@@ -10,21 +10,18 @@ Writes, in brand/:
   feature-graphic-<lang>.svg    store feature graphic (1024 x 500), tagline in en, fr, de, es, it, nl
   social-preview.svg            repository social preview (1280 x 640)
 
-Text is converted to outlines, so the outputs need no font. The fonts are
-fetched once from the official Fraunces repository at a pinned commit, checked
-against their SHA-256, and kept in the gitignored data/tmp/brand/fonts/.
+Text is converted to outlines, so the outputs need no font. The face is the
+app's own, Figtree Lunaway (app/assets/fonts/figtree-lunaway/, built from its
+pinned upstream and checked by app/tool/fonts/build.sh), at the weights below.
 Needs fontTools (pip install fonttools) and hb-shape (HarfBuzz utilities,
 `brew install harfbuzz` or the distribution package) for kerning and accents.
 The rasters are made from these files by tool/brand/generate.sh.
 """
 
-import hashlib
 import json
 import os
 import re
 import subprocess
-import sys
-import urllib.request
 import xml.etree.ElementTree as ET
 
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -33,14 +30,9 @@ from fontTools.ttLib import TTFont
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BRAND = os.path.join(ROOT, "brand")
-FONT_DIR = os.path.join(ROOT, "data", "tmp", "brand", "fonts")
-
-FRAUNCES_COMMIT = "7ccdec31c6028118dce3e47fe864e3744460371d"
-FRAUNCES_URL = "https://raw.githubusercontent.com/undercasetype/Fraunces/%s/fonts/ttf/%s"
-FONTS = {
-    "Fraunces72pt-SemiBold.ttf": "ea45a557b4dd7e9fee6e263211b72986879d6bde518dbe18338d0478b91ab93c",
-    "Fraunces72pt-Regular.ttf": "12681469ade31179b299a8cdf23765f16a717a7563e4d3c17d9c21e938cdf2b7",
-}
+FONT = os.path.join(ROOT, "app", "assets", "fonts", "figtree-lunaway", "FigtreeLunaway-Variable.ttf")
+WORD_WEIGHT = 650   # the wordmark, at the app's heading weight
+TAG_WEIGHT = 480    # the taglines, cream on the night sky: a little above the app's text weight
 
 NAVY = "#061F43"
 CREAM = "#FDF1DB"
@@ -59,22 +51,6 @@ TAGLINES = {
 }
 
 
-def fetch_fonts():
-    os.makedirs(FONT_DIR, exist_ok=True)
-    for name, digest in FONTS.items():
-        path = os.path.join(FONT_DIR, name)
-        if not os.path.exists(path):
-            req = urllib.request.Request(FRAUNCES_URL % (FRAUNCES_COMMIT, name),
-                                         headers={"User-Agent": "lunaway-brand (+https://lunaway.net)"})
-            with urllib.request.urlopen(req, timeout=60) as r, open(path, "wb") as out:
-                out.write(r.read())
-        with open(path, "rb") as f:
-            got = hashlib.sha256(f.read()).hexdigest()
-        if got != digest:
-            sys.exit("%s: SHA-256 %s, expected %s" % (path, got, digest))
-    return {name: os.path.join(FONT_DIR, name) for name in FONTS}
-
-
 def num(v):
     s = ("%.1f" % v).rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
@@ -85,14 +61,15 @@ def round_path(d):
 
 
 class Text:
-    """A line of text shaped by HarfBuzz and drawn as one SVG path."""
+    """A line of text shaped by HarfBuzz at one weight of the variable face, drawn as one SVG path."""
 
-    def __init__(self, font_path, text, size, tracking=0.0, kerning=None):
-        self.font = TTFont(font_path)
-        self.glyphs = self.font.getGlyphSet()
+    def __init__(self, text, size, weight, tracking=0.0, kerning=None):
+        self.font = TTFont(FONT)
+        self.glyphs = self.font.getGlyphSet(location={"wght": weight})
         self.upm = self.font["head"].unitsPerEm
+        self.x_height = self.font["OS/2"].sxHeight / self.upm
         self.scale = size / self.upm
-        out = subprocess.run(["hb-shape", "--output-format=json", font_path, text],
+        out = subprocess.run(["hb-shape", "--output-format=json", "--variations=wght=%g" % weight, FONT, text],
                              check=True, capture_output=True, text=True).stdout
         self.run = json.loads(out)
         self.tracking = tracking * self.upm   # in font units, added after every glyph but the last
@@ -208,25 +185,26 @@ def mono():
 WORD_SIZE = 335.0          # font size: the capital L is 0.70 em, about 0.42 of the pin height
 WORD_GAP = 118.0           # between the pin and the L
 WORD_CENTRE = 250.0        # the x-height band is centred here, between the head's centre and the pin's middle
-WORD_KERNING = {("uni004C", "uni0075"): -70}   # L-u: the open right side of the L reads as a gap
+WORD_TRACKING = -0.01      # em: Figtree set large reads better a little closer, as in the app
+WORD_KERNING = {("L", "u"): -50}   # L-u: the open right side of the L reads as a gap
 
 
-def wordmark(fonts, size):
-    return Text(fonts["Fraunces72pt-SemiBold.ttf"], "Lunaway", size, kerning=WORD_KERNING)
+def wordmark(size):
+    return Text("Lunaway", size, WORD_WEIGHT, tracking=WORD_TRACKING, kerning=WORD_KERNING)
 
 
-def lockup_layout(fonts, mark_h):
+def lockup_layout(mark_h):
     """Positions of the lockup parts for a mark `mark_h` tall, with the mark's top-left at (0, 0)."""
     k = mark_h / MARK_H
-    word = wordmark(fonts, WORD_SIZE * k)
-    x_height = 0.458 * WORD_SIZE * k
+    word = wordmark(WORD_SIZE * k)
+    x_height = word.x_height * WORD_SIZE * k
     baseline = WORD_CENTRE * k + x_height / 2
     x = MARK_W * k + WORD_GAP * k
     return word, x, baseline, x + word.width()
 
 
-def lockup(fonts, text_fill, title):
-    word, x, baseline, right = lockup_layout(fonts, MARK_H)
+def lockup(text_fill, title):
+    word, x, baseline, right = lockup_layout(MARK_H)
     w = right + 4
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {num(w)} {num(MARK_H)}">
   <title>{title}</title>
@@ -286,10 +264,10 @@ def hills(width, height, horizon):
     ])
 
 
-def scene(fonts, width, height, mark_h, tagline, tag_size, star_items, title):
+def scene(width, height, mark_h, tagline, tag_size, star_items, title):
     """Night scene: gradient sky, a halo behind the mark, the lockup and a tagline, hills at the bottom."""
-    word, wx, baseline, right = lockup_layout(fonts, mark_h)
-    tag = Text(fonts["Fraunces72pt-Regular.ttf"], tagline, tag_size) if tagline else None
+    word, wx, baseline, right = lockup_layout(mark_h)
+    tag = Text(tagline, tag_size, TAG_WEIGHT) if tagline else None
     block_w = max(right, wx + (tag.width() if tag else 0))
     left = (width - block_w) / 2
     top = (height - mark_h) / 2 - 0.08 * height
@@ -331,14 +309,13 @@ SOCIAL_STARS = [(k, x * 1.25, y * 1.28, s * 1.25, o) for k, x, y, s, o in FEATUR
 
 
 def main():
-    fonts = fetch_fonts()
     write("lunaway-mark-mono.svg", mono())
-    write("lunaway-lockup.svg", HEADER + lockup(fonts, NAVY, "Lunaway"))
-    write("lunaway-lockup-dark.svg", HEADER + lockup(fonts, CREAM, "Lunaway"))
+    write("lunaway-lockup.svg", HEADER + lockup(NAVY, "Lunaway"))
+    write("lunaway-lockup-dark.svg", HEADER + lockup(CREAM, "Lunaway"))
     for lang, tagline in TAGLINES.items():
         write("feature-graphic-%s.svg" % lang,
-              HEADER + scene(fonts, 1024, 500, 196, tagline, 30, FEATURE_STARS, "Lunaway: " + tagline))
-    write("social-preview.svg", HEADER + scene(fonts, 1280, 640, 250, TAGLINES["en"], 38, SOCIAL_STARS,
+              HEADER + scene(1024, 500, 196, tagline, 30, FEATURE_STARS, "Lunaway: " + tagline))
+    write("social-preview.svg", HEADER + scene(1280, 640, 250, TAGLINES["en"], 38, SOCIAL_STARS,
                                                "Lunaway: " + TAGLINES["en"]))
 
 
