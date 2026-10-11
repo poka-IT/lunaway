@@ -3259,7 +3259,10 @@ speed-limit traces once the check is over: they are traced one at a time
 during the check, in pieces of 150 km, 40 at most), the routes kept and
 `osrm_bytes`; durations and
 counts only, no position. `journalctl -u lunaway-api | grep "route
-computed"` reads them. A recalculation writes `route recalculated around
+computed"` reads them; `alternatives_later=true` marks a best route sent
+alone, whose alternatives follow on a line of their own, `route
+alternatives computed`, with their `status` (`Ok`, `None`, `Busy` when no
+engine slot was spare, `Failed`) and the same durations. A recalculation writes `route recalculated around
 limits ...` with the blockers met and, since 2026-10-11, `on_points`, those
 standing on a point (a bar on a node, a community report) rather than
 along a road: before that, the journal could not say what a recalculation

@@ -44,13 +44,14 @@ use tower::ServiceExt;
 
 /// A 2.5 m van's route under the 2.7 m railway bridge of Rue Maurice
 /// Utrillo (way 52984577), 269 m.
-const ROUTE_UNDER: &str = "yhhmvAshlmAD_@^wBlAcCnAiAvAy@jB_@tC]hDm@jj@q`@hd@c]~G_EjPyIlAu@";
+pub(super) const ROUTE_UNDER: &str =
+    "yhhmvAshlmAD_@^wBlAcCnAiAvAy@jB_@tC]hDm@jj@q`@hd@c]~G_EjPyIlAu@";
 /// A 3.3 m motorhome's route between the same points, around the bridge,
 /// 2 020 m.
-const ROUTE_AROUND: &str = "yhhmvAshlmAObBFtCZvCjAzFxFbPnKp_@l@hCx@bGD~Ds@~EaAvEwXttAwOb{@eAdGdLfQxBtD`BjCnAxBjA`CjAxCrEzLtBhF|AjDnAzBlA~AtA`BbB~AvHpHhD~ExF~LhF|NtGzQ~EzLn@zAlBbEpFuAn@S~b@iNxa@sOpNyDfSoCxCc@`Cs@fMoDjCoA|ByAzM{J`BmBfBiAde@uT~FeE|EaG|JqLnHkJdr@o{@}@_Aq|@}_AmAmArCy@vFiNpBeFGoCeBgJ_XuaA_YufAoAoFaBgDdEiDbRiWo@iA]s@}Pw[yF}GgKoF}g@cXq@OmCi@mGIeHvBaHvEak@p]";
+pub(super) const ROUTE_AROUND: &str = "yhhmvAshlmAObBFtCZvCjAzFxFbPnKp_@l@hCx@bGD~Ds@~EaAvEwXttAwOb{@eAdGdLfQxBtD`BjCnAxBjA`CjAxCrEzLtBhF|AjDnAzBlA~AtA`BbB~AvHpHhD~ExF~LhF|NtGzQ~EzLn@zAlBbEpFuAn@S~b@iNxa@sOpNyDfSoCxCc@`Cs@fMoDjCoA|ByAzM{J`BmBfBiAde@uT~FeE|EaG|JqLnHkJdr@o{@}@_Aq|@}_AmAmArCy@vFiNpBeFGoCeBgJ_XuaA_YufAoAoFaBgDdEiDbRiWo@iA]s@}Pw[yF}GgKoF}g@cXq@OmCi@mGIeHvBaHvEak@p]";
 const GRAPH: &str = "20261006T0300Z-fr";
 
-fn osrm(geometries: &[&str]) -> Value {
+pub(super) fn osrm(geometries: &[&str]) -> Value {
     let routes: Vec<Value> = geometries
         .iter()
         .map(|g| {
@@ -91,7 +92,10 @@ async fn fake_route(State(f): State<Fake>, Json(body): Json<Value>) -> (StatusCo
 }
 
 /// Starts a fake engine; its URL and the requests it receives.
-async fn engine(answers: Vec<(u16, Value)>, delay: Duration) -> (String, Arc<Mutex<Vec<Value>>>) {
+pub(super) async fn engine(
+    answers: Vec<(u16, Value)>,
+    delay: Duration,
+) -> (String, Arc<Mutex<Vec<Value>>>) {
     let fake = Fake {
         answers: Arc::new(answers),
         asked: Arc::new(Mutex::new(Vec::new())),
@@ -111,7 +115,7 @@ async fn engine(answers: Vec<(u16, Value)>, delay: Duration) -> (String, Arc<Mut
     (url, asked)
 }
 
-fn config(url: &str) -> ApiConfig {
+pub(super) fn config(url: &str) -> ApiConfig {
     ApiConfig {
         routing: RoutingConfig {
             valhalla_url: Some(url.to_owned()),
@@ -146,7 +150,7 @@ fn tunnel_record() -> (RestrictionRecord, Vec<Position>) {
     (r, points)
 }
 
-async fn seed(pool: &PgPool) {
+pub(super) async fn seed(pool: &PgPool) {
     routing::load_graph(
         pool,
         &NewGraph {
@@ -177,7 +181,7 @@ query Route($input: RouteInput!) {
   }
 }";
 
-fn input(height_m: f64) -> Value {
+pub(super) fn input(height_m: f64) -> Value {
     json!({"input": {
         "origin": {"lat": 45.84719, "lon": 1.28476},
         "destination": {"lat": 45.84510, "lon": 1.28637},
@@ -187,7 +191,7 @@ fn input(height_m: f64) -> Value {
     }})
 }
 
-async fn gql(app: &Router, query: &str, variables: Value) -> (StatusCode, Value) {
+pub(super) async fn gql(app: &Router, query: &str, variables: Value) -> (StatusCode, Value) {
     let request = Request::post("/graphql")
         .header("content-type", "application/json")
         .body(Body::from(
@@ -200,7 +204,7 @@ async fn gql(app: &Router, query: &str, variables: Value) -> (StatusCode, Value)
     (status, serde_json::from_slice(&bytes).unwrap())
 }
 
-fn code(body: &Value) -> &str {
+pub(super) fn code(body: &Value) -> &str {
     body["errors"][0]["extensions"]["code"]
         .as_str()
         .unwrap_or("")

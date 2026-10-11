@@ -1,0 +1,376 @@
+//! A route's alternatives after its best route: `RouteResult.alternativesToken`
+//! and `Query.routeAlternatives`, against the fake engine of `route.rs`.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "a test states its preconditions with unwrap"
+)]
+
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+
+use axum::{
+    Json, Router,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
+    routing::{get, post},
+};
+use http_body_util::BodyExt;
+use lunaway_api::{ApiState, config::Quota};
+use lunaway_db::PgPool;
+use lunaway_domain::{Position, routing::polyline};
+use serde_json::{Value, json};
+use tower::ServiceExt;
+
+use super::route::{ROUTE_AROUND, ROUTE_UNDER, code, config, engine, gql, input, osrm, seed};
+
+/// The route as the app reads it from 0.4 on: the token selected.
+const LATER_QUERY: &str = r"
+query Route($input: RouteInput!) {
+  route(input: $input) {
+    status osrmJson alternativesToken recalculations
+    routes { index distanceM }
+  }
+}";
+
+/// The route as the app 0.1.0 reads it: no token.
+const ONCE_QUERY: &str = r"
+query Route($input: RouteInput!) {
+  route(input: $input) {
+    status osrmJson
+    routes { index distanceM }
+  }
+}";
+
+const ALTERNATIVES_QUERY: &str = r"
+query Alternatives($token: String!) {
+  routeAlternatives(token: $token) {
+    status osrmJson
+    routes { index distanceM warnings { externalId } }
+  }
+}";
+
+/// A third way between the stops of `route.rs`, east of the bridge: a
+/// route no limit blocks.
+fn detour() -> String {
+    polyline::encode(&[
+        Position::new(45.847_19, 1.284_76).unwrap(),
+        Position::new(45.846_8, 1.288_5).unwrap(),
+        Position::new(45.845_1, 1.286_37).unwrap(),
+    ])
+}
+
+/// `height_m`'s trip with two alternatives.
+fn wanting_two(height_m: f64) -> Value {
+    let mut v = input(height_m);
+    v["input"]["alternatives"] = 2.into();
+    v
+}
+
+fn shapes(osrm_json: &Value) -> Vec<String> {
+    let osrm: Value = serde_json::from_str(osrm_json.as_str().unwrap()).unwrap();
+    osrm["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["geometry"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+async fn alternatives(app: &Router, token: &str) -> Value {
+    gql(app, ALTERNATIVES_QUERY, json!({"token": token}))
+        .await
+        .1
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_best_route_comes_alone_and_its_alternatives_follow_once(pool: PgPool) {
+    seed(&pool).await;
+    let detour = detour();
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER, ROUTE_AROUND, &detour])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let mut c = config(&url);
+    c.quotas.route = Quota {
+        count: 1,
+        period: Duration::from_secs(600),
+    };
+    let app = lunaway_api::router(ApiState::new(pool, c));
+
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(2.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        shapes(&r["osrmJson"]),
+        [ROUTE_UNDER],
+        "the best route alone, without waiting for the others"
+    );
+    let token = r["alternativesToken"].as_str().unwrap().to_owned();
+
+    let a = alternatives(&app, &token).await;
+    let a = &a["data"]["routeAlternatives"];
+    assert_eq!(a["status"], "OK", "{a}");
+    assert_eq!(
+        shapes(&a["osrmJson"]),
+        [ROUTE_AROUND, detour.as_str()],
+        "the alternatives alone: the best route is not sent twice"
+    );
+    assert_eq!(a["routes"][0]["index"], 0);
+    assert_eq!(a["routes"][1]["index"], 1);
+
+    let asked = asked.lock().unwrap().clone();
+    assert_eq!(
+        asked.len(),
+        2,
+        "one call for the best route, one for the rest"
+    );
+    assert!(
+        asked[0].get("alternates").is_none(),
+        "the best route's call asks for no alternative: {}",
+        asked[0]
+    );
+    assert_eq!(asked[1]["alternates"], 2);
+    assert_eq!(
+        asked[1]["locations"], asked[0]["locations"],
+        "the same trip, the same stops"
+    );
+    assert_eq!(asked[1]["costing_options"], asked[0]["costing_options"]);
+
+    let again = alternatives(&app, &token).await;
+    assert_eq!(code(&again), "NOT_FOUND", "once per token: {again}");
+    let (_, spent) = gql(&app, LATER_QUERY, wanting_two(2.5)).await;
+    assert_eq!(
+        code(&spent),
+        "RATE_LIMITED",
+        "the quota of one route was the route's: the alternatives took none"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_request_without_the_token_gets_its_alternatives_in_one_answer(pool: PgPool) {
+    seed(&pool).await;
+    let detour = detour();
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER, ROUTE_AROUND, &detour]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ONCE_QUERY, wanting_two(2.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        shapes(&r["osrmJson"]),
+        [ROUTE_UNDER, ROUTE_AROUND, detour.as_str()],
+        "the app 0.1.0 gets every route in one answer, as before"
+    );
+    let asked = asked.lock().unwrap().clone();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(asked[0]["alternates"], 2);
+
+    // Selected without alternatives wanted: nothing follows.
+    let (_, body) = gql(&app, LATER_QUERY, input(2.5)).await;
+    assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+    assert!(body["data"]["route"]["alternativesToken"].is_null());
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn alternatives_the_vehicle_may_not_drive_or_none_at_all_are_told_none(pool: PgPool) {
+    seed(&pool).await;
+    // A 3.3 m motorhome: the way under the 2.7 m bridge is no alternative.
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_AROUND])),
+            (200, osrm(&[ROUTE_AROUND, ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+            (200, osrm(&[ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(3.3)).await;
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let a = alternatives(&app, &token).await;
+    let a = &a["data"]["routeAlternatives"];
+    assert_eq!(
+        a["status"], "NONE",
+        "a route under a bridge too low never reaches the app: {a}"
+    );
+    assert!(a["osrmJson"].is_null());
+    assert_eq!(a["routes"], json!([]));
+
+    // The engine finds the best route alone.
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(3.3)).await;
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let a = alternatives(&app, &token).await;
+    assert_eq!(a["data"]["routeAlternatives"]["status"], "NONE", "{a}");
+    assert_eq!(asked.lock().unwrap().len(), 4);
+}
+
+/// A router whose requests come through the local proxy, as in
+/// production: each request names its client in `X-Forwarded-For`.
+fn behind_proxy(state: ApiState) -> Router {
+    lunaway_api::router(state).layer(axum::extract::connect_info::MockConnectInfo(
+        "127.0.0.1:40000".parse::<std::net::SocketAddr>().unwrap(),
+    ))
+}
+
+async fn gql_from(app: &Router, ip: &str, query: &str, variables: Value) -> Value {
+    let request = Request::post("/graphql")
+        .header("content-type", "application/json")
+        .header("x-forwarded-for", ip)
+        .body(Body::from(
+            json!({"query": query, "variables": variables}).to_string(),
+        ))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_token_gives_nothing_to_another_client(pool: PgPool) {
+    seed(&pool).await;
+    let (url, _) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER, ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = behind_proxy(ApiState::new(pool, config(&url)));
+    let body = gql_from(&app, "198.51.100.7", LATER_QUERY, wanting_two(2.5)).await;
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let other = gql_from(
+        &app,
+        "203.0.113.9",
+        ALTERNATIVES_QUERY,
+        json!({"token": token}),
+    )
+    .await;
+    assert_eq!(code(&other), "NOT_FOUND", "{other}");
+    assert!(other["data"].is_null() || other["data"]["routeAlternatives"].is_null());
+    let mine = gql_from(
+        &app,
+        "198.51.100.7",
+        ALTERNATIVES_QUERY,
+        json!({"token": token}),
+    )
+    .await;
+    assert_eq!(
+        mine["data"]["routeAlternatives"]["status"], "OK",
+        "another client's attempt does not spend the token: {mine}"
+    );
+    let forged = gql_from(
+        &app,
+        "198.51.100.7",
+        ALTERNATIVES_QUERY,
+        json!({"token": "not-a-token"}),
+    )
+    .await;
+    assert_eq!(code(&forged), "NOT_FOUND");
+}
+
+/// What a fake engine slow for one trip records.
+#[derive(Clone)]
+struct Slow {
+    asked: Arc<Mutex<Vec<Value>>>,
+    slow_lat: f64,
+}
+
+async fn slow_route(State(s): State<Slow>, Json(body): Json<Value>) -> Json<Value> {
+    let slow = body["locations"][1]["lat"].as_f64() == Some(s.slow_lat);
+    s.asked.lock().unwrap().push(body);
+    if slow {
+        tokio::time::sleep(Duration::from_millis(1_500)).await;
+    }
+    Json(osrm(&[ROUTE_AROUND]))
+}
+
+/// A fake engine that takes 1.5 s for the trips to `slow_lat` and answers
+/// the others at once.
+async fn slow_engine(slow_lat: f64) -> (String, Arc<Mutex<Vec<Value>>>) {
+    let s = Slow {
+        asked: Arc::new(Mutex::new(Vec::new())),
+        slow_lat,
+    };
+    let asked = Arc::clone(&s.asked);
+    let app = Router::new()
+        .route("/route", post(slow_route))
+        .route(
+            "/status",
+            get(|| async { Json(json!({"version": "3.9.1"})) }),
+        )
+        .with_state(s);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, asked)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn alternatives_take_an_engine_call_only_while_another_stays_free(pool: PgPool) {
+    seed(&pool).await;
+    let slow_lat = 45.845_2;
+    let (url, asked) = slow_engine(slow_lat).await;
+    let mut c = config(&url);
+    c.routing.concurrency = 2;
+    c.routing.timeout = Duration::from_secs(3);
+    let app = behind_proxy(ApiState::new(pool, c));
+    // Another client's trip holds one of the two calls.
+    let mut slow = input(3.3);
+    slow["input"]["destination"]["lat"] = slow_lat.into();
+    let other = {
+        let app = app.clone();
+        tokio::spawn(async move { gql_from(&app, "203.0.113.20", ONCE_QUERY, slow).await })
+    };
+    while asked.lock().unwrap().is_empty() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let body = gql_from(&app, "198.51.100.7", LATER_QUERY, wanting_two(3.3)).await;
+    assert_eq!(
+        body["data"]["route"]["status"], "OK",
+        "the best route takes the call left: {body}"
+    );
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let a = gql_from(
+        &app,
+        "198.51.100.7",
+        ALTERNATIVES_QUERY,
+        json!({"token": token}),
+    )
+    .await;
+    assert_eq!(
+        a["data"]["routeAlternatives"]["status"], "BUSY",
+        "the last free call stays for the clients' routes: {a}"
+    );
+    let other = other.await.unwrap();
+    assert_eq!(other["data"]["route"]["status"], "OK", "{other}");
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 2, "no call for the alternatives");
+    assert!(asked.iter().all(|b| b.get("alternates").is_none()));
+}

@@ -388,6 +388,20 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   (the graph, the restriction table, the list of capitals) when the graph
   or the rows outside it change, never from a request
   (`routing::public`, `docs/deploy.md`).
+- **Alternatives after the best route.** A request that selects
+  `RouteResult.alternativesToken` (the app from 0.4) asks the engine for
+  the best route alone, checks it and answers; a task then asks the same
+  call (its stops, its rings) with the alternatives, only while another
+  engine slot stays free, leaves out the route identical to the best one,
+  and checks and traces the others. The result waits in memory 60 s under
+  a random token bound to the client (`routing::later`, 256 tokens and
+  64 MB at most), for `Query.routeAlternatives(token)`, once, outside the
+  quota of routes. A request without the field (the app 0.1.0) gets every
+  route in one answer, as before. On 120 trips of the production graph
+  the engine's best route was the same with and without alternatives; the
+  API's differed once, a best route blocked by closures that an
+  alternative of the first answer replaced as it stood, where computed
+  again alone it came out 39 km shorter (`plan/research/130-alternatives-apres.md`).
 - **Ferries.** Avoiding ferries is a preference of the engine; a route
   that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
   (`routing::ferries`: the line's name and ports, where it is boarded and

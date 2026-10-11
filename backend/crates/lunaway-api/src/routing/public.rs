@@ -388,14 +388,9 @@ impl Routing {
     /// An engine slot, taken only while another one stays free for the
     /// clients' trips.
     async fn spare_slot(&self) -> SemaphorePermit<'_> {
-        let keep_free = u32::from(self.concurrency > 1);
         loop {
-            // Both slots taken at once, the second given back: a client's
-            // call between a count and a take cannot leave the refresh
-            // holding the last one.
-            if let Ok(mut both) = self.slots.try_acquire_many(keep_free + 1) {
-                drop(both.split(keep_free as usize));
-                return both;
+            if let Some(slot) = self.try_spare_slot() {
+                return slot;
             }
             tokio::time::sleep(BUSY_WAIT).await;
         }

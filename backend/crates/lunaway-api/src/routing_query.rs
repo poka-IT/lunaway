@@ -10,21 +10,24 @@ use lunaway_domain::{
 
 use crate::{
     client::ClientKey,
-    error::{internal, invalid_input, quota_spent, rate_limited_error, unavailable},
+    error::{internal, invalid_input, not_found, quota_spent, rate_limited_error, unavailable},
     quota::{Action, Subject},
     road_event_types::{RoadEvent, RoadEventSourceStatus},
     routing::{
-        MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest, Routed, Spent,
+        After, CheckedRoute, LaterCall, MAX_ATTEMPTS, NoRoute, Outcome, ROUTE_DEADLINE, RouteError,
+        RouteRequest, Routed, Spent,
         events::Freshness,
-        valhalla::{Avoid, EngineError, Stop},
+        later::Refused,
+        valhalla::{self, Avoid, EngineError, Stop},
     },
     routing_types::{
         CoveredArea, DISCLAIMER_KEY, MovedStop, NoRouteReason, NoRouteReasonKind,
-        RerouteParameters, RouteInput, RouteOptions, RoutePointInput, RouteResult, RouteStatus,
-        RouteSummary, RouteWarning, RoutingGraph, RoutingInfo, SpeedLimitSpan, VehicleBounds,
-        VehicleProfileInput, presets, road_event_warning,
+        RerouteParameters, RouteAlternatives, RouteAlternativesStatus, RouteInput, RouteOptions,
+        RoutePointInput, RouteResult, RouteStatus, RouteSummary, RouteWarning, RoutingGraph,
+        RoutingInfo, SpeedLimitSpan, VehicleBounds, VehicleProfileInput, presets,
+        road_event_warning,
     },
-    schema::{RouteOnce, db as db_share, state},
+    schema::{ApiState, RouteOnce, db as db_share, state},
 };
 
 /// The vehicle as its speed ceilings see it: its gross weight and its
@@ -161,6 +164,7 @@ fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
             alternatives: u8::try_from(input.alternatives).unwrap_or(0),
             language: input.language.tag(),
             depart_at,
+            later: false,
         },
         options,
     ))
@@ -173,14 +177,21 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
     {
         return Err(invalid_input("one route per request"));
     }
-    let (request, options) = request(&input)?;
+    let (mut request, options) = request(&input)?;
     let started = std::time::Instant::now();
-    let client = Subject::Client(
-        ctx.data_opt::<ClientKey>()
-            .copied()
-            .unwrap_or(ClientKey::Unknown),
-    );
+    let key = ctx
+        .data_opt::<ClientKey>()
+        .copied()
+        .unwrap_or(ClientKey::Unknown);
+    let client = Subject::Client(key);
     let st = state(ctx);
+    // A document that reads the token takes the best route alone, sooner,
+    // and its alternatives afterwards; one that does not (the app until
+    // 0.4) gets them in this answer, as always.
+    request.later = ctx.look_ahead().field("alternativesToken").exists()
+        && request.stops.len() == 2
+        && valhalla::alternates_for(request.alternatives, request.straight_m()) > 0
+        && st.routing.later.has_room();
     // A stop where the graph has no road: the engine is not asked, and the
     // quota not taken.
     let outside: Vec<usize> = request
@@ -243,6 +254,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             result: Ok(Outcome::NoRoute(NoRoute::OutsideCoverage(outside))),
             engine_answered: false,
             spent: Spent::default(),
+            later: None,
         }
     };
     // Once the engine has answered, the work was done: a failure after it
@@ -254,6 +266,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         }
     };
     let spent = routed.spent;
+    let later = routed.later;
     let outcome = match routed.result {
         Ok(o) => o,
         Err(RouteError::Busy) => {
@@ -331,6 +344,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         reroute: reroute.clone(),
         graph: RoutingGraph::from(graph.clone()),
         disclaimer_key: DISCLAIMER_KEY.to_owned(),
+        alternatives_token: None,
     };
     let result = match outcome {
         Outcome::Found {
@@ -342,23 +356,16 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             moved,
         } => RouteResult {
             moved_stops: moved.iter().map(MovedStop::from).collect(),
-            routes: routes
-                .iter()
-                .map(|r| RouteSummary {
-                    speed_limits: limits
-                        .get(r.index)
-                        .cloned()
-                        .flatten()
-                        .map(|spans| spans.iter().map(SpeedLimitSpan::from).collect()),
-                    ..RouteSummary::of(r, &fresh, now)
-                })
-                .collect(),
+            routes: summaries(&routes, &limits, &fresh, now),
             osrm_json: Some({
                 let text = osrm.to_string();
                 osrm_bytes = text.len();
                 text
             }),
             avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
+            alternatives_token: later.and_then(|call| {
+                alternatives_after(st, key, pool, &graph.id, call, request.clone(), &fresh)
+            }),
             ..base(RouteStatus::Ok, recalculations)
         },
         Outcome::NoRoute(NoRoute::Unreachable(reasons)) => RouteResult {
@@ -408,9 +415,120 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         limits_ms = spent.limits.as_millis(),
         routes = result.routes.len(),
         osrm_bytes,
+        alternatives_later = result.alternatives_token.is_some(),
         "route computed"
     );
     Ok(result)
+}
+
+/// The summaries of `routes`, each with its speed limits from `limits`
+/// when they were traced.
+fn summaries(
+    routes: &[CheckedRoute],
+    limits: &[Option<Vec<lunaway_domain::speed::Span>>],
+    fresh: &Freshness,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Vec<RouteSummary> {
+    routes
+        .iter()
+        .map(|r| RouteSummary {
+            speed_limits: limits
+                .get(r.index)
+                .cloned()
+                .flatten()
+                .map(|spans| spans.iter().map(SpeedLimitSpan::from).collect()),
+            ..RouteSummary::of(r, fresh, now)
+        })
+        .collect()
+}
+
+/// How long past the alternatives' own deadline their reader waits: the
+/// task's answer, a failure included, comes first.
+const ALTERNATIVES_WAIT_MARGIN: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// Starts the alternatives of the route `call` gave for `request`, and the
+/// token `routeAlternatives` takes them by, bound to `client`; none when no
+/// token could be drawn. Their time is logged on a line of their own,
+/// without a position nor the token.
+fn alternatives_after(
+    st: &ApiState,
+    client: ClientKey,
+    pool: &lunaway_db::PgPool,
+    graph_id: &str,
+    call: LaterCall,
+    request: RouteRequest,
+    fresh: &Freshness,
+) -> Option<String> {
+    let deadline = tokio::time::Instant::now() + ROUTE_DEADLINE + ALTERNATIVES_WAIT_MARGIN;
+    let (token, slot) = st.routing.later.open(client, deadline)?;
+    let routing = std::sync::Arc::clone(&st.routing);
+    let pool = pool.clone();
+    let graph_id = graph_id.to_owned();
+    let fresh = fresh.clone();
+    tokio::spawn(async move {
+        let started = std::time::Instant::now();
+        let (after, spent) = routing
+            .alternatives_after(&pool, &graph_id, call, &request, &fresh)
+            .await;
+        let now = chrono::Utc::now();
+        let answer = match after {
+            After::Found {
+                osrm,
+                routes,
+                limits,
+            } => RouteAlternatives {
+                status: RouteAlternativesStatus::Ok,
+                routes: summaries(&routes, &limits, &fresh, now),
+                osrm_json: Some(osrm.to_string()),
+            },
+            After::None => RouteAlternatives::none(RouteAlternativesStatus::None),
+            After::Busy => RouteAlternatives::none(RouteAlternativesStatus::Busy),
+            After::Failed => RouteAlternatives::none(RouteAlternativesStatus::Failed),
+        };
+        tracing::info!(
+            status = ?answer.status,
+            total_ms = started.elapsed().as_millis(),
+            engine_ms = spent.engine.as_millis(),
+            engine_calls = spent.engine_calls,
+            corridor_ms = spent.corridor.as_millis(),
+            check_ms = spent.check.as_millis(),
+            limits_ms = spent.limits.as_millis(),
+            routes = answer.routes.len(),
+            osrm_bytes = answer.osrm_json.as_ref().map_or(0, String::len),
+            "route alternatives computed"
+        );
+        slot.fill(answer, || {
+            RouteAlternatives::none(RouteAlternativesStatus::Busy)
+        });
+    });
+    Some(token)
+}
+
+/// `Query.routeAlternatives`.
+pub(crate) async fn route_alternatives(
+    ctx: &Context<'_>,
+    token: &str,
+) -> Result<RouteAlternatives> {
+    if let Some(once) = ctx.data_opt::<RouteOnce>()
+        && once.0.swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        return Err(invalid_input("one route per request"));
+    }
+    let key = ctx
+        .data_opt::<ClientKey>()
+        .copied()
+        .unwrap_or(ClientKey::Unknown);
+    // A malformed token costs nothing more than an unknown one.
+    if !lunaway_auth::is_token_shaped(token) {
+        return Err(not_found("alternatives for this token"));
+    }
+    match state(ctx).routing.later.take(token, key).await {
+        Ok(Some(answer)) => {
+            Ok(std::sync::Arc::try_unwrap(answer).unwrap_or_else(|shared| (*shared).clone()))
+        }
+        Ok(None) => Ok(RouteAlternatives::none(RouteAlternativesStatus::Failed)),
+        Err(Refused::Unknown) => Err(not_found("alternatives for this token")),
+    }
 }
 
 /// Logs an engine failure with its causes (a timeout, a refused

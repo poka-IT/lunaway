@@ -55,6 +55,9 @@ image.workspace = true
 lunaway-ingest.workspace = true
 p256.workspace = true
 sqlx.workspace = true
+# `test-util` pauses tokio's clock: a token of a route's alternatives
+# expires after a minute, tested without waiting one.
+tokio = { workspace = true, features = ["test-util"] }
 tower.workspace = true
 
 [lints]

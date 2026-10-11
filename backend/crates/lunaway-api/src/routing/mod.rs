@@ -22,6 +22,7 @@
 pub(crate) mod diagnose;
 pub(crate) mod events;
 pub(crate) mod ferries;
+pub(crate) mod later;
 pub(crate) mod limits;
 pub(crate) mod public;
 pub(crate) mod valhalla;
@@ -63,7 +64,7 @@ pub(crate) const MAX_ATTEMPTS: usize = 4;
 /// engine calls, corridor queries, matching): under the API's request
 /// timeout (20 s by default), so a slow engine ends in `UNAVAILABLE` and a
 /// refunded quota rather than a cut connection.
-const ROUTE_DEADLINE: Duration = Duration::from_secs(15);
+pub(crate) const ROUTE_DEADLINE: Duration = Duration::from_secs(15);
 /// Most exclusion rings sent at once: 200 octagons of 9 points are 1 800
 /// vertices, within the 2 000 of `max_exclude_polygons_vertices` in
 /// `infra/routing/valhalla.json` (a test reads it), and 6.2 km of
@@ -139,6 +140,9 @@ pub(crate) struct RouteRequest {
     /// When the trip starts: road events count at the time the vehicle
     /// reaches them.
     pub(crate) depart_at: DateTime<Utc>,
+    /// Whether the best route goes alone, its alternatives asked of the
+    /// engine afterwards ([`later`]): the engine is asked for none here.
+    pub(crate) later: bool,
 }
 
 impl RouteRequest {
@@ -287,6 +291,47 @@ pub(crate) struct Routed {
     pub(crate) engine_answered: bool,
     /// Where the time went.
     pub(crate) spent: Spent,
+    /// What the alternatives asked afterwards start from: the best route's
+    /// engine call and what its check read. Only for a request asked
+    /// [`RouteRequest::later`] that found a route.
+    pub(crate) later: Option<LaterCall>,
+}
+
+/// The engine call that gave the best route of a request asked
+/// [`RouteRequest::later`], for the same call with alternatives.
+pub(crate) struct LaterCall {
+    /// The body sent, its stops (moved ones included) and its rings.
+    body: Value,
+    /// The best route's shape, as the engine wrote it: the route identical
+    /// to it among the alternatives is the best route again.
+    best: String,
+    /// Alternatives to ask for.
+    alternates: u8,
+    /// What the corridor queries of the best route found: an alternative
+    /// shares most of its road.
+    known: Known,
+    /// The vehicle whose speed limits the routes carry, when asked.
+    limits: Option<lunaway_domain::speed::Vehicle>,
+}
+
+/// What the alternatives asked after the best route gave.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum After {
+    /// Alternatives the vehicle may drive.
+    Found {
+        /// The engine's OSRM answer, with only these routes.
+        osrm: Value,
+        /// The routes, in the answer's order.
+        routes: Vec<CheckedRoute>,
+        /// The speed limits along each route, when asked.
+        limits: Vec<Option<Vec<lunaway_domain::speed::Span>>>,
+    },
+    /// No other route the vehicle may drive.
+    None,
+    /// No engine call to spare.
+    Busy,
+    /// The engine or the database failed, or time ran out.
+    Failed,
 }
 
 /// Where a route's time went, logged once per route by the resolver: the
@@ -331,6 +376,8 @@ pub(crate) struct Routing {
     public: std::sync::RwLock<Option<Arc<public::Lists>>>,
     /// Held by the refresh of [`Self::public`] that runs.
     refreshing: tokio::sync::Mutex<()>,
+    /// The alternatives computed after their best route, by token.
+    pub(crate) later: Arc<later::Later>,
 }
 
 /// How long a status read stays good: `Query.routing` is public, and its
@@ -354,6 +401,7 @@ impl Routing {
             concurrency: config.concurrency.max(1),
             public: std::sync::RwLock::new(None),
             refreshing: tokio::sync::Mutex::new(()),
+            later: Arc::default(),
         }
     }
 
@@ -597,6 +645,109 @@ impl Routing {
         Ok(engine.trace(body).await?)
     }
 
+    /// The routes of the engine's answer `osrm` checked, and the speed
+    /// limits of those the vehicle may drive traced meanwhile when
+    /// `work.limits` asks for them: the traces of a route of 3 000 km take
+    /// 0.3 to 0.5 s of the engine, its check about as long (2026-10-07,
+    /// `plan/research/53-obstacles-publics.md`). The traces of an answer
+    /// whose every route is blocked are dropped unfinished. The caller holds
+    /// the engine slot of the call until this returns: the traces run under
+    /// it.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the route's own inputs, passed on to its check"
+    )]
+    async fn check_answer(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        osrm: &Arc<Value>,
+        dims: &RoutingDimensions,
+        depart_at: DateTime<Utc>,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        work: &mut Work,
+    ) -> Result<CheckedAnswer, RouteError> {
+        let routes_in_answer = osrm
+            .get("routes")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        let skip: Arc<Vec<std::sync::atomic::AtomicBool>> = Arc::new(
+            (0..routes_in_answer)
+                .map(|_| std::sync::atomic::AtomicBool::new(false))
+                .collect(),
+        );
+        let traces = work.limits.map(|vehicle| {
+            let shared = Arc::clone(osrm);
+            let skip = Arc::clone(&skip);
+            Box::pin(async move { self.speed_limits(&shared, vehicle, &skip).await })
+        });
+        let check = Box::pin(check_routes(
+            pool, graph_id, osrm, dims, depart_at, fresh, work,
+        ));
+        let (checked, traces) = match traces {
+            None => (check.await?, Traces::None),
+            Some(traces) => match futures_util::future::select(check, traces).await {
+                futures_util::future::Either::Left((checked, pending)) => {
+                    (checked?, Traces::Pending(pending))
+                }
+                futures_util::future::Either::Right((done, check)) => {
+                    (check.await?, Traces::Done(done))
+                }
+            },
+        };
+        let (safe, blocked): (Vec<_>, Vec<_>) = checked
+            .into_iter()
+            .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
+        // The routes that will not be sent are traced no further: on a
+        // long trip with alternatives, their pieces would hold the slot
+        // a second more.
+        for (i, flag) in skip.iter().enumerate() {
+            if !safe.iter().any(|(r, _, _)| r.index == i) {
+                flag.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        let safe: Vec<CheckedRoute> = safe.into_iter().map(|(r, _, _)| r).collect();
+        if safe.is_empty() {
+            return Ok(CheckedAnswer {
+                safe,
+                blocked,
+                traced: Vec::new(),
+            });
+        }
+        let waited = std::time::Instant::now();
+        let traced = match traces {
+            Traces::None => Vec::new(),
+            Traces::Done(t) => t,
+            // Never past the route's deadline: the route is sent
+            // without its limits rather than lost.
+            Traces::Pending(p) => tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, p)
+                .await
+                .unwrap_or_else(|_| {
+                    tracing::warn!("the speed limits of a route ran out of time");
+                    Vec::new()
+                }),
+        };
+        work.spent.limits += waited.elapsed();
+        Ok(CheckedAnswer {
+            safe,
+            blocked,
+            traced,
+        })
+    }
+
+    /// An engine slot, taken only while another one stays free for the
+    /// clients' trips (with a single slot, while it is free); none
+    /// otherwise.
+    pub(crate) fn try_spare_slot(&self) -> Option<tokio::sync::SemaphorePermit<'_>> {
+        let keep_free = u32::from(self.concurrency > 1);
+        // Both slots taken at once, the second given back: a client's call
+        // between a count and a take cannot leave this holding the last one.
+        let mut both = self.slots.try_acquire_many(keep_free + 1).ok()?;
+        drop(both.split(keep_free as usize));
+        Some(both)
+    }
+
     /// Computes and checks routes for `request` on graph `graph_id`, and
     /// the speed limits of the routes found for `limits`, when given.
     pub(crate) async fn route(
@@ -647,11 +798,139 @@ impl Routing {
         .await
         .map_err(|_| RouteError::Deadline)
         .and_then(|r| r);
+        let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
+        let later = match (&result, work.found.take()) {
+            (Ok(Outcome::Found { .. }), Some((body, best)))
+                if request.later && alternates > 0 && request.stops.len() == 2 =>
+            {
+                Some(LaterCall {
+                    body,
+                    best,
+                    alternates,
+                    known: std::mem::take(&mut work.known),
+                    limits: work.limits,
+                })
+            }
+            _ => None,
+        };
         Routed {
             result,
             engine_answered: work.answered,
             spent: work.spent,
+            later,
         }
+    }
+
+    /// The alternatives of a route already sent: the engine call `call`
+    /// that gave it, asked again with its alternatives, the route identical
+    /// to the best one left out, the others checked and traced as the best
+    /// one was, within [`ROUTE_DEADLINE`]. One engine call, and only while
+    /// another stays free for the clients' trips: the best route of a
+    /// client waits for no one's alternatives.
+    pub(crate) async fn alternatives_after(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        call: LaterCall,
+        request: &RouteRequest,
+        fresh: &Freshness,
+    ) -> (After, Spent) {
+        let deadline = tokio::time::Instant::now() + ROUTE_DEADLINE;
+        let LaterCall {
+            body,
+            best,
+            alternates,
+            known,
+            limits,
+        } = call;
+        let mut work = Work {
+            known,
+            limits,
+            ..Work::default()
+        };
+        let asked = self.alternatives_within(
+            pool, graph_id, body, &best, alternates, request, fresh, deadline, &mut work,
+        );
+        let after = match tokio::time::timeout_at(deadline, asked).await {
+            Ok(Ok(after)) => after,
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "the alternatives of a route failed");
+                After::Failed
+            }
+            Err(_) => {
+                tracing::warn!("the alternatives of a route ran out of time");
+                After::Failed
+            }
+        };
+        (after, work.spent)
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the route's own inputs, as its first call had them"
+    )]
+    async fn alternatives_within(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        mut body: Value,
+        best: &str,
+        alternates: u8,
+        request: &RouteRequest,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        work: &mut Work,
+    ) -> Result<After, RouteError> {
+        let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
+        let Some(slot) = self.try_spare_slot() else {
+            return Ok(After::Busy);
+        };
+        body["alternates"] = alternates.into();
+        let called = std::time::Instant::now();
+        let answer = engine.route(&body).await;
+        work.spent.engine += called.elapsed();
+        work.spent.engine_calls += 1;
+        let Answer::Routes(mut osrm) = answer? else {
+            return Ok(After::None);
+        };
+        // The engine's best route again, written the same way: the
+        // alternatives are the others.
+        let left = match osrm.get_mut("routes").and_then(Value::as_array_mut) {
+            Some(routes) => {
+                routes.retain(|r| r.get("geometry").and_then(Value::as_str) != Some(best));
+                routes.truncate(usize::from(alternates));
+                routes.len()
+            }
+            None => 0,
+        };
+        if left == 0 {
+            return Ok(After::None);
+        }
+        let dims = request.vehicle.routing();
+        let osrm = Arc::new(osrm);
+        let checked = self
+            .check_answer(
+                pool,
+                graph_id,
+                &osrm,
+                &dims,
+                request.depart_at,
+                fresh,
+                deadline,
+                work,
+            )
+            .await?;
+        drop(slot);
+        if checked.safe.is_empty() {
+            return Ok(After::None);
+        }
+        let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
+        let (osrm, routes, limits) = kept(osrm, checked, request.language)?;
+        Ok(After::Found {
+            osrm,
+            routes,
+            limits,
+        })
     }
 
     /// The trip asked again with the stops at `moving` looked for farther
@@ -873,7 +1152,13 @@ impl Routing {
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
-        let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
+        // Asked afterwards, the alternatives make no part of this call.
+        let alternates = if request.later {
+            0
+        } else {
+            valhalla::alternates_for(request.alternatives, request.straight_m())
+        };
+        work.found = None;
         if !work.without_ahead {
             for centre in self.ahead(graph_id, &request.stops, &dims) {
                 if centres.iter().all(|c| c.distance_m(centre) >= RING_M / 2.0) {
@@ -995,88 +1280,30 @@ impl Routing {
             // for each route: 1.3 ms for a 650 km route (measured, test
             // `copying_a_long_route_costs_little`).
             let osrm = Arc::new(osrm);
-            // The speed limits are traced while the routes are checked: the
-            // traces of a route of 3 000 km take 0.3 to 0.5 s of the engine,
-            // its check about as long (2026-10-07,
-            // `plan/research/53-obstacles-publics.md`). Those of an answer
-            // whose every route is blocked are dropped unfinished.
-            let routes_in_answer = osrm
-                .get("routes")
-                .and_then(Value::as_array)
-                .map_or(0, Vec::len);
-            let skip: Arc<Vec<std::sync::atomic::AtomicBool>> = Arc::new(
-                (0..routes_in_answer)
-                    .map(|_| std::sync::atomic::AtomicBool::new(false))
-                    .collect(),
-            );
-            let traces = work.limits.map(|vehicle| {
-                let shared = Arc::clone(&osrm);
-                let skip = Arc::clone(&skip);
-                Box::pin(async move { self.speed_limits(&shared, vehicle, &skip).await })
-            });
-            let check = Box::pin(check_routes(
-                pool,
-                graph_id,
-                &osrm,
-                &dims,
-                request.depart_at,
-                fresh,
-                work,
-            ));
-            let (checked, traces) = match traces {
-                None => (check.await?, Traces::None),
-                Some(traces) => match futures_util::future::select(check, traces).await {
-                    futures_util::future::Either::Left((checked, pending)) => {
-                        (checked?, Traces::Pending(pending))
-                    }
-                    futures_util::future::Either::Right((done, check)) => {
-                        (check.await?, Traces::Done(done))
-                    }
-                },
-            };
-            let (safe, blocked): (Vec<_>, Vec<_>) = checked
-                .into_iter()
-                .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
-            // The routes that will not be sent are traced no further: on a
-            // long trip with alternatives, their pieces would hold the slot
-            // a second more.
-            for (i, flag) in skip.iter().enumerate() {
-                if !safe.iter().any(|(r, _, _)| r.index == i) {
-                    flag.store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-            if !safe.is_empty() {
-                let waited = std::time::Instant::now();
-                let traced = match traces {
-                    Traces::None => Vec::new(),
-                    Traces::Done(t) => t,
-                    // Never past the route's deadline: the route is sent
-                    // without its limits rather than lost.
-                    Traces::Pending(p) => tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, p)
-                        .await
-                        .unwrap_or_else(|_| {
-                            tracing::warn!("the speed limits of a route ran out of time");
-                            Vec::new()
-                        }),
-                };
-                work.spent.limits += waited.elapsed();
+            let checked = self
+                .check_answer(
+                    pool,
+                    graph_id,
+                    &osrm,
+                    &dims,
+                    request.depart_at,
+                    fresh,
+                    deadline,
+                    work,
+                )
+                .await?;
+            if !checked.safe.is_empty() {
                 // The traces ran under the route's slot: it goes back now.
                 drop(slot);
                 // The checks and the traces are over and dropped their
                 // shares: no copy.
                 let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
-                let routes: Vec<CheckedRoute> = safe.into_iter().map(|(r, _, _)| r).collect();
-                let order: Vec<usize> = routes.iter().map(|r| r.index).collect();
-                let (osrm, routes) = keep_routes(osrm, routes, request.language)?;
-                let limits = if traced.is_empty() {
-                    Vec::new()
-                } else {
-                    order
-                        .iter()
-                        .take(routes.len())
-                        .map(|&i| traced.get(i).cloned().flatten())
-                        .collect()
-                };
+                let (osrm, routes, limits) = kept(osrm, checked, request.language)?;
+                if request.later
+                    && let Some(best) = osrm["routes"][0].get("geometry").and_then(Value::as_str)
+                {
+                    work.found = Some((body, best.to_owned()));
+                }
                 return Ok(Outcome::Found {
                     osrm,
                     routes,
@@ -1086,7 +1313,7 @@ impl Routing {
                     moved: Vec::new(),
                 });
             }
-            drop(traces);
+            let blocked = checked.blocked;
             blockers = Vec::new();
             event_blockers = Vec::new();
             for (_, b, e) in blocked {
@@ -1164,6 +1391,51 @@ const SPLIT_DOWN_TO: usize = 16;
 /// route gets no limits: one bad place in a piece of 10 000 points costs
 /// ten, and a route may start and end on one each.
 const MAX_REFUSALS: usize = 24;
+
+/// An engine answer once checked.
+struct CheckedAnswer {
+    /// Its routes the vehicle may drive, in the answer's order.
+    safe: Vec<CheckedRoute>,
+    /// The others, with what blocks them.
+    blocked: Vec<Checked>,
+    /// The speed limits of its routes, by their index in the answer, when
+    /// asked; empty otherwise.
+    traced: Vec<Option<Vec<lunaway_domain::speed::Span>>>,
+}
+
+/// `osrm` with only the safe routes of `checked`, as [`keep_routes`] keeps
+/// them, and the speed limits of those kept, in the same order (none when
+/// none were traced).
+#[allow(
+    clippy::type_complexity,
+    reason = "the three parts of a route's answer, taken apart at once"
+)]
+fn kept(
+    osrm: Value,
+    checked: CheckedAnswer,
+    language: &str,
+) -> Result<
+    (
+        Value,
+        Vec<CheckedRoute>,
+        Vec<Option<Vec<lunaway_domain::speed::Span>>>,
+    ),
+    RouteError,
+> {
+    let CheckedAnswer { safe, traced, .. } = checked;
+    let order: Vec<usize> = safe.iter().map(|r| r.index).collect();
+    let (osrm, routes) = keep_routes(osrm, safe, language)?;
+    let limits = if traced.is_empty() {
+        Vec::new()
+    } else {
+        order
+            .iter()
+            .take(routes.len())
+            .map(|&i| traced.get(i).cloned().flatten())
+            .collect()
+    };
+    Ok((osrm, routes, limits))
+}
 
 /// The speed limits of an answer while its routes are checked.
 enum Traces<F> {
@@ -1413,6 +1685,9 @@ struct Work {
     /// it was asked: a vehicle farther than its radius from any road it
     /// may take keeps that distance when looked for again.
     first_snapped: Option<Vec<f64>>,
+    /// For a request asked [`RouteRequest::later`]: the engine body that
+    /// gave the routes found, and the best route's shape.
+    found: Option<(Value, String)>,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
