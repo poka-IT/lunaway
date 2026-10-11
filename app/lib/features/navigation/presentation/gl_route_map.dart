@@ -397,8 +397,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
     );
   }
 
-  /// The whole look of the route's line layer [id] ([routeLinePaint]):
-  /// maplibre_gl resets every property a change leaves out.
+  /// The whole look of the route's line layer [id] ([routeLinePaint]), as
+  /// the layer is added.
   gl.LineLayerProperties _lineLook(String id) {
     final paint = routeLinePaint(id, dark: _props.dark, traveledShare: _traveled.share);
     return gl.LineLayerProperties(
@@ -841,7 +841,13 @@ class _GlRouteMapState extends State<GlRouteMap> {
       if (_traveled.share != share || !_gradientSent) {
         _gradientSent = true;
         for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
-          await c.updateLayerProperties(id, {'line-gradient': _lineLook(id).lineGradient});
+          await c.updateLayerProperties(id, {
+            'line-gradient': routeLinePaint(
+              id,
+              dark: p.dark,
+              traveledShare: _traveled.share,
+            )['line-gradient'],
+          });
         }
       }
       await c.setGeoJsonSource(RouteLayers.traveledSource, routeTraveledCollection(_traveled.tail));

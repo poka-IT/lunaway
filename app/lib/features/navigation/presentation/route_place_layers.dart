@@ -159,11 +159,13 @@ abstract final class RoutePlaceLayers {
   };
 
   /// The layout of the points' pins, a station's price under its tip.
-  /// MapLibre places the pins from the bottom of the screen up
-  /// (`viewport-y`): a pin is placed before the station above it, whose
-  /// price then gives way to it. In the order of the tiles, a price took the
-  /// room of the pin just under it, which went (seen on the emulator in
-  /// Valence, 2026-10-11).
+  /// Within a tile, MapLibre places the pins from the bottom of the screen
+  /// up (`viewport-y`): a pin is placed before the station above it, whose
+  /// price then gives way to it. In the order of the tile's features, a
+  /// price took the room of the pin just under it, which went (seen on the
+  /// emulator in Valence, 2026-10-11). Across a tile's edge the tiles keep
+  /// their own order; the tiles stop at zoom 14, so an edge on the screen
+  /// is rare at the guidance's zooms.
   static Map<String, Object?> poiLayout(double scale, {List<FuelLabel> prices = const []}) => {
     'icon-image': PoiMapStyle.iconImage(),
     'icon-size': poiSize(scale),

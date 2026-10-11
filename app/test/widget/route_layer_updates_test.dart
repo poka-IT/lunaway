@@ -25,14 +25,22 @@ const _places = RouteMapPlaces(
   poiFilter: ['has', 'kind'],
 );
 
-RouteMapProps _props(List<FuelLabel> prices) => RouteMapProps(
+RouteMapProps _props(List<FuelLabel> prices, {double? traveledM}) => RouteMapProps(
   style: _aube,
   dark: false,
   lines: [RouteMapLine(index: 0, points: _line, selected: true)],
   camera: FitCamera(GeoBounds.around(_line)!),
   places: _places,
   fuelPrices: prices,
+  traveledM: traveledM,
 );
+
+/// The calls that changed the properties of [layers], in order.
+List<Map<Object?, Object?>> _updates(LayerStackEngine engine, Set<String> layers) => [
+  for (final c in engine.calls)
+    if (c.method == 'layer#setProperties' && layers.contains((c.arguments as Map)['layerId']))
+      c.arguments as Map<Object?, Object?>,
+];
 
 /// The test view's pixel ratio.
 const _ratio = 3.0;
@@ -58,11 +66,7 @@ void main() {
     // vehicle) are not this test's.
     const pins = {'lw-route-poi-pins', 'lw-route-poi-pins-more'};
     expect(engine.layers, containsAll(pins));
-    List<Map<Object?, Object?>> updates() => [
-      for (final c in engine.calls)
-        if (c.method == 'layer#setProperties' && pins.contains((c.arguments as Map)['layerId']))
-          c.arguments as Map<Object?, Object?>,
-    ];
+    List<Map<Object?, Object?>> updates() => _updates(engine, pins);
     expect(updates(), isEmpty, reason: 'the pins came with the prices known');
 
     const prices = [
@@ -87,6 +91,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
     }
     expect(updates(), hasLength(2));
+  });
+
+  testWidgets("the grey behind the vehicle changes the route's gradient, nothing else", (
+    tester,
+  ) async {
+    final engine = LayerStackEngine(_aube)..install(tester);
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(const []))));
+    await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
+    const lines = {'lw-route-casing', 'lw-route-line'};
+    final before = _updates(engine, lines).length;
+    // 1.2 km driven of a route of about 2.7.
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(const [], traveledM: 1200))));
+    await until(tester, () => _updates(engine, lines).length >= before + 2);
+    final sent = _updates(engine, lines).skip(before).toList();
+    expect([for (final u in sent) u['layerId']], ['lw-route-casing', 'lw-route-line']);
+    for (final u in sent) {
+      expect((u['properties']! as Map).keys, ['line-gradient'], reason: '${u['layerId']}');
+    }
   });
 
   // The phone's layer lists the layout's properties one by one: one left

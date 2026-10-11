@@ -747,9 +747,8 @@ Map<String, Object?> routeZonesCollection(List<RouteMapLine> lines, List<RouteSp
 
 /// The paint of the route's line layer [id] ([RouteLayers.lineLayers]) in
 /// the style's terms, the same on every engine; the chosen route grey up
-/// to [traveledShare] of its length ([RouteProgress]). Every engine sends
-/// the whole of it when the share moves: maplibre_gl resets a property it
-/// is not given.
+/// to [traveledShare] of its length ([RouteProgress]). When the share
+/// moves, every engine sends the gradient alone.
 Map<String, Object> routeLinePaint(String id, {required bool dark, double traveledShare = 0}) =>
     switch (id) {
       RouteLayers.zones => {
