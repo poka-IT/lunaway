@@ -276,9 +276,9 @@ void paintRouteBadge(
   }
 }
 
-/// The height of figures and capitals over the font's size: Atkinson's
-/// digits run 680 units of 1000 up from the baseline.
-const double _figureHeight = 0.68;
+/// The height of figures and capitals over the font's size: Figtree's
+/// digits run 700 units of 1000 up from the baseline.
+const double _figureHeight = 0.70;
 
 /// Where to paint the one line of [painter] so its figures (a limit, a
 /// count, a rating) stand centred on [center]. Centred on its line box,

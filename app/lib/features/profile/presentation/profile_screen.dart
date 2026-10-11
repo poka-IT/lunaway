@@ -680,7 +680,7 @@ class _Attributions extends ConsumerWidget {
             ),
           ],
           group(t.profile.creditsApp),
-          entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
+          entry(t.profile.attributionFonts, 'https://github.com/erikdkennedy/figtree'),
           entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),
         ],
       ),

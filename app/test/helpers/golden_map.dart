@@ -7,6 +7,7 @@ import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
 import 'package:lunaway/shared/theme/palette.dart';
+import 'package:lunaway/shared/theme/typography.dart';
 
 import 'fakes.dart';
 
@@ -137,7 +138,7 @@ class _Cluster extends StatelessWidget {
     child: Text(
       '$count',
       style: TextStyle(
-        fontFamily: 'Atkinson',
+        fontFamily: LunaType.family,
         fontWeight: FontWeight.w600,
         fontSize: 13,
         color: dark ? Palette.minuit : Palette.creme,

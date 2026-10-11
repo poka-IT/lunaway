@@ -213,20 +213,24 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
           field(_length, t.vehicle.length, 'm', AppIcons.length),
           field(_weight, t.vehicle.weight, 't', AppIcons.weight),
           heading(t.vehicle.cruiseTitle, t.vehicle.cruiseHint),
-          DropdownButtonFormField<int?>(
-            initialValue: _draft.cruiseSpeedKph,
-            decoration: InputDecoration(
-              labelText: t.vehicle.cruiseTitle,
-              prefixIcon: const Icon(AppIcons.hours),
+          // The heading names the field, so the field repeats no label (in
+          // German at large text sizes, the same words ran past its width);
+          // a screen reader still hears the name with the value.
+          Semantics(
+            label: t.vehicle.cruiseTitle,
+            child: DropdownButtonFormField<int?>(
+              initialValue: _draft.cruiseSpeedKph,
+              decoration: const InputDecoration(prefixIcon: Icon(AppIcons.hours)),
+              items: [
+                DropdownMenuItem(child: Text(t.vehicle.cruiseNone)),
+                for (final kmh in Vehicle.cruiseSpeeds)
+                  DropdownMenuItem(value: kmh, child: Text(t.speedLimit(kmh, units))),
+              ],
+              onChanged: (kmh) =>
+                  setState(() => _draft = _draft.copyWith(cruiseSpeedKph: () => kmh)),
+              mouseCursor: WidgetStateMouseCursor.clickable,
+              dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
             ),
-            items: [
-              DropdownMenuItem(child: Text(t.vehicle.cruiseNone)),
-              for (final kmh in Vehicle.cruiseSpeeds)
-                DropdownMenuItem(value: kmh, child: Text(t.speedLimit(kmh, units))),
-            ],
-            onChanged: (kmh) => setState(() => _draft = _draft.copyWith(cruiseSpeedKph: () => kmh)),
-            mouseCursor: WidgetStateMouseCursor.clickable,
-            dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
           ),
           heading(t.vehicle.fuelTitle, t.vehicle.fuelHint),
           Wrap(

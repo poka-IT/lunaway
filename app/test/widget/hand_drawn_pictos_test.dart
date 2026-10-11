@@ -13,6 +13,7 @@ import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_silhouette.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/palette.dart';
+import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 
 import '../helpers/fonts.dart';
@@ -148,7 +149,7 @@ void main() {
             badge,
             size.center(Offset.zero),
             text: '12',
-            fontFamily: 'Atkinson',
+            fontFamily: LunaType.family,
           ),
         ),
       ),

@@ -68,6 +68,10 @@ Many users are 55 to 75 and read the app at arm's length in a van cab. So:
   number, so it follows; one drawn smaller (a chip of the filters) keeps
   its look inside a `TouchTarget` (`app/lib/shared/widgets/touch_target.dart`),
   which answers over the whole 48;
+- one typeface, Figtree (`LunaType`, `app/lib/shared/theme/typography.dart`):
+  a weight comes from `LunaType` (`regular` 420 for text, `strong` 620,
+  `heading` 650), and every theme style carries tabular figures, so a
+  distance, a speed or a price that changes keeps its width;
 - contrast from the colour scheme roles (`onSurface`, `onPrimaryContainer`),
   never a hard-coded grey;
 - one primary action per screen, named with a verb;

@@ -1,18 +1,12 @@
 import 'package:flutter/services.dart';
+import 'package:lunaway/shared/theme/typography.dart';
 
-/// Loads the app's typefaces under the families the theme names (Atkinson,
-/// Fraunces and the Phosphor icons), so golden images show the real text and
-/// icons rather than test boxes. Each face carries its own weight.
+/// Loads the app's typefaces under the families the theme names (Figtree and
+/// the Phosphor icons), so golden images show the real text and icons rather
+/// than test boxes. Figtree is one variable file for every weight.
 Future<void> loadRealFonts() async {
   const families = {
-    'Atkinson': [
-      'atkinson-next-lunaway/AtkinsonNextLunaway-Regular.ttf',
-      'atkinson-next-lunaway/AtkinsonNextLunaway-Medium.ttf',
-      'atkinson-next-lunaway/AtkinsonNextLunaway-SemiBold.ttf',
-      'atkinson-next-lunaway/AtkinsonNextLunaway-Bold.ttf',
-      'atkinson-next-lunaway/AtkinsonNextLunaway-ExtraBold.ttf',
-    ],
-    'Fraunces': ['fraunces/Fraunces-Variable.ttf'],
+    LunaType.family: ['figtree-lunaway/FigtreeLunaway-Variable.ttf'],
     'PhosphorRegular': ['phosphor/Phosphor-Regular.ttf'],
     'PhosphorFill': ['phosphor/Phosphor-Fill.ttf'],
   };

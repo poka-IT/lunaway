@@ -338,7 +338,7 @@ void main() {
             final where = '$degrees, exit $exit${left ? ', left-hand' : ''}';
             expect(label.center, roundaboutLabelCentre, reason: where);
             // The figures' box, generously: 0.62 of the size wide per
-            // figure, 0.72 tall (Atkinson's figures are 0.68).
+            // figure, 0.72 tall (Figtree's figures are 0.70).
             final box = Rect.fromCenter(
               center: label.center,
               width: label.size * 0.62 * label.text.length,
