@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 
 import '../helpers/map_engine.dart';
@@ -20,6 +23,31 @@ const _ratio = 3.0;
 
 final _line = [const LatLng(44.93, 4.89), const LatLng(44.94, 4.90), const LatLng(44.95, 4.91)];
 
+/// Draws no mark: the passes are counted by what they ask of the map.
+final class _NoArt implements RichArt {
+  @override
+  RichPlan? plan(PlaceSummary place, RichStyle style, {bool ask = true, VoidCallback? onReady}) =>
+      null;
+
+  @override
+  Future<RichArtwork?> draw(
+    PlaceSummary place,
+    RichPlan plan, {
+    required double size,
+    required double ratio,
+    required RichStyle style,
+  }) async => null;
+}
+
+final _art = _NoArt();
+
+final _words = RichWords(
+  free: 'Gratuit',
+  nightOk: 'Nuit OK',
+  price: (e) => '$e',
+  rating: (r) => '$r',
+);
+
 RouteMapProps _props(LatLng at, double speedMps) => RouteMapProps(
   style: _aube,
   dark: false,
@@ -29,7 +57,27 @@ RouteMapProps _props(LatLng at, double speedMps) => RouteMapProps(
   // measured.
   camera: FollowCamera(position: at, course: 40, speedMps: speedMps, ease: Duration.zero),
   guiding: true,
+  places: const RouteMapPlaces(
+    placeTileJsonUrl: 'https://api.example/places/tiles.json',
+    poiTileJsonUrl: 'https://api.example/poi/tiles.json',
+    placeFilter: ['has', 'kind'],
+    poiFilter: ['has', 'kind'],
+  ),
+  // The places of the tiles in view, as the guidance has them online;
+  // where the vehicle is changes with each fix.
+  rich: RouteMapRich(
+    style: RichStyle(look: GuidanceLook.photos, words: _words),
+    art: _art,
+    tiles: true,
+    speedMps: speedMps,
+    vehicleAlongM: at.distanceTo(_line.first),
+  ),
 );
+
+/// The questions the rich marks' passes ask the map: the places of the
+/// tiles in view.
+int _placeQueries(LayerStackEngine engine) =>
+    engine.calls.where((c) => c.method == 'map#queryRenderedFeatures').length;
 
 /// The calls that draw a frame of the glide: the camera moved, the vehicle
 /// moved.
@@ -85,6 +133,31 @@ void main() {
       await _wait(tester, const Duration(milliseconds: 250));
     }
     expect(_frameCalls(engine), before, reason: 'no glide, no camera moved, nothing sent');
+  });
+
+  testWidgets('parked, the fixes ask the map for no place; the map gone idle does, once a while', (
+    tester,
+  ) async {
+    const parked = LatLng(44.94, 4.90);
+    final engine = await drawn(tester, parked, 0);
+    // The pass of the start, then none while the fixes wander.
+    await _wait(tester, const Duration(milliseconds: 800));
+    final before = _placeQueries(engine);
+    for (final dLat in [0.00003, -0.00004, 0.00002]) {
+      await tester.pumpWidget(
+        MaterialApp(home: GlRouteMap(_props(LatLng(parked.lat + dLat, parked.lon), 0.3))),
+      );
+      await _wait(tester, const Duration(milliseconds: 800));
+    }
+    expect(_placeQueries(engine), before, reason: 'nothing moved on the map');
+    // The places' tiles came late: the map goes idle once they are drawn.
+    engine.onMapIdlePlatform(null);
+    await _wait(tester, const Duration(milliseconds: 800));
+    expect(_placeQueries(engine), before + 1);
+    // Idle again at once (the pass redrew a mark): not asked again yet.
+    engine.onMapIdlePlatform(null);
+    await _wait(tester, const Duration(milliseconds: 800));
+    expect(_placeQueries(engine), before + 1);
   });
 
   testWidgets('the vehicle sets off: it glides again', (tester) async {
