@@ -135,7 +135,10 @@ class AccountController extends _$AccountController {
     }
     if (!ref.mounted) return;
     if (stored == null) {
-      if (state is AccountLoading) state = const NoAccount();
+      // An account merged into another, since: the profile keeps saying
+      // where it went until that account comes here.
+      final merged = await service.mergedFrom();
+      if (ref.mounted && state is AccountLoading) state = NoAccount(mergedInto: merged?.into);
       return;
     }
     state = SignedIn(account: stored.account, recoveryCardAt: stored.recoveryCardAt);
@@ -219,6 +222,9 @@ class AccountController extends _$AccountController {
     final account = await ref
         .read(accountServiceProvider)
         .recover(code, revokeOthers: revokeOthers);
+    // The account the device's went into, from elsewhere: what waited for
+    // it leaves under it.
+    await ref.read(accountSwitchProvider).claimMerged(account);
     if (ref.mounted) {
       state = SignedIn(account: account, recoveryCardAt: ref.read(clockProvider)());
       unawaited(refresh());
@@ -232,6 +238,9 @@ class AccountController extends _$AccountController {
       ref.read(accountSwitchProvider).import(code);
 
   /// Merges the device's account into [imported], which the device keeps.
+  /// The caller holds the favourites' sync meanwhile
+  /// (`FavoritesSyncController.holding`): none runs under the account
+  /// merged.
   Future<MergeResult> merge(ImportedAccount imported) async {
     final current = state;
     if (current is! SignedIn) throw const NoAccountException();
@@ -242,7 +251,22 @@ class AccountController extends _$AccountController {
     return result;
   }
 
+  /// After a merge whose answer did not come: finishes it when the server
+  /// made it (true), else leaves everything as it was (false). Throws while
+  /// the server does not answer.
+  Future<bool> settleImport(ImportedAccount imported) async {
+    final current = state;
+    if (current is! SignedIn) return false;
+    final landed = await ref
+        .read(accountSwitchProvider)
+        .settle(imported, currentId: current.account.id);
+    if (landed) _imported(imported.account);
+    return landed;
+  }
+
   /// Takes [imported] in place of the device's account, without merging.
+  /// The caller holds the favourites' sync meanwhile: none runs under the
+  /// account left while its lists leave the device.
   Future<void> replace(ImportedAccount imported) async {
     await ref.read(accountSwitchProvider).replace(imported);
     _imported(imported.account);

@@ -2180,8 +2180,8 @@ class Translations$account$en {
 	/// en: 'Use another account'
 	String get useAnother => 'Use another account';
 
-	/// en: 'This account was merged into “$name” on another device. Open “$name” here with its recovery card.'
-	String merged({required Object name}) => 'This account was merged into “${name}” on another device. Open “${name}” here with its recovery card.';
+	/// en: 'This account was merged into “$name”. Open “$name” here with its recovery card.'
+	String merged({required Object name}) => 'This account was merged into “${name}”. Open “${name}” here with its recovery card.';
 
 	/// en: 'Open'
 	String get mergedAction => 'Open';
@@ -2189,8 +2189,8 @@ class Translations$account$en {
 	/// en: 'Account merged into “$name”'
 	String mergedTitle({required Object name}) => 'Account merged into “${name}”';
 
-	/// en: 'This account was merged into “$name” on another device. Your favourites stay here and join “$name” when you open it with its recovery card.'
-	String mergedBody({required Object name}) => 'This account was merged into “${name}” on another device. Your favourites stay here and join “${name}” when you open it with its recovery card.';
+	/// en: 'This account was merged into “$name”. Your favourites stay here and join “$name” when you open it with its recovery card.'
+	String mergedBody({required Object name}) => 'This account was merged into “${name}”. Your favourites stay here and join “${name}” when you open it with its recovery card.';
 
 	/// en: 'Open “$name” here'
 	String mergedOpen({required Object name}) => 'Open “${name}” here';
@@ -2425,6 +2425,12 @@ class Translations$accountImport$en {
 
 	/// en: 'The server refuses this merge. Both accounts stay as they are.'
 	String get refused => 'The server refuses this merge. Both accounts stay as they are.';
+
+	/// en: 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.'
+	String get replaceFailed => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.';
+
+	/// en: 'Too many merges for now. Try again later.'
+	String get tooMany => 'Too many merges for now. Try again later.';
 
 	/// en: 'Accounts merged: you are using “$name”.'
 	String merged({required Object name}) => 'Accounts merged: you are using “${name}”.';
@@ -8698,10 +8704,10 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists, addresses and notes included, are now kept with your account.',
 			'account.useAnother' => 'Use another account',
-			'account.merged' => ({required Object name}) => 'This account was merged into “${name}” on another device. Open “${name}” here with its recovery card.',
+			'account.merged' => ({required Object name}) => 'This account was merged into “${name}”. Open “${name}” here with its recovery card.',
 			'account.mergedAction' => 'Open',
 			'account.mergedTitle' => ({required Object name}) => 'Account merged into “${name}”',
-			'account.mergedBody' => ({required Object name}) => 'This account was merged into “${name}” on another device. Your favourites stay here and join “${name}” when you open it with its recovery card.',
+			'account.mergedBody' => ({required Object name}) => 'This account was merged into “${name}”. Your favourites stay here and join “${name}” when you open it with its recovery card.',
 			'account.mergedOpen' => ({required Object name}) => 'Open “${name}” here',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
@@ -8769,6 +8775,8 @@ extension on Translations {
 			'accountImport.back' => 'Back',
 			'accountImport.failed' => 'The merge could not finish. Your data stays on this device. Try again once the network answers.',
 			'accountImport.refused' => 'The server refuses this merge. Both accounts stay as they are.',
+			'accountImport.replaceFailed' => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.',
+			'accountImport.tooMany' => 'Too many merges for now. Try again later.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts merged: you are using “${name}”.',
 			'accountImport.replaced' => ({required Object name}) => 'This device now uses “${name}”.',
 			'accountImport.cancelled' => ({required Object name}) => 'Nothing changed: this device still uses “${name}”.',
@@ -9121,10 +9129,10 @@ extension on Translations {
 			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',
 			'poi.kind.hairdresser' => 'Hairdresser',
-			'poi.kind.beauty' => 'Beauty salon',
-			'poi.kind.massage' => 'Massage',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Beauty salon',
+			'poi.kind.massage' => 'Massage',
 			'poi.kind.tattoo' => 'Tattoo studio',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Currency exchange',

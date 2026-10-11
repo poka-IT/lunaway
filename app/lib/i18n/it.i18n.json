@@ -1369,10 +1369,10 @@
     "welcomeCard": "Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.",
     "welcomeFavorites": "Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.",
     "useAnother": "Usa un altro account",
-    "merged": "Questo account è stato unito a «$name» su un altro dispositivo. Apri «$name» qui con la sua scheda di recupero.",
+    "merged": "Questo account è stato unito a «$name». Apri «$name» qui con la sua scheda di recupero.",
     "mergedAction": "Apri",
     "mergedTitle": "Account unito a «$name»",
-    "mergedBody": "Questo account è stato unito a «$name» su un altro dispositivo. I tuoi preferiti restano qui e passano a «$name» quando lo apri con la sua scheda di recupero.",
+    "mergedBody": "Questo account è stato unito a «$name». I tuoi preferiti restano qui e passano a «$name» quando lo apri con la sua scheda di recupero.",
     "mergedOpen": "Apri «$name» qui"
   },
   "recovery": {
@@ -1433,7 +1433,7 @@
     "choiceTitle": "Due account su questo dispositivo",
     "choiceBody": "Questo dispositivo usa «$current». Hai appena aperto «$imported».",
     "merge": "Unisci a «$imported»",
-    "mergeMoves": "Gli elenchi dei preferiti, la casa, gli autori nascosti e i contributi in attesa di «$current» passano a «$imported».",
+    "mergeMoves": "Le liste di preferiti, la casa, gli autori nascosti e i contributi in attesa di «$current» passano a «$imported».",
     "mergePublic": "Le sue recensioni, foto, luoghi e modifiche pubblicati passano a nome di «$imported».",
     "mergeHomeKept": "Entrambi gli account hanno una casa: resta quella di «$imported».",
     "mergeDuplicates": "Un luogo valutato da entrambi gli account mantiene la valutazione di «$imported».",
@@ -1442,7 +1442,7 @@
     "replaceTitle": "Sostituisci «$current» con «$imported»",
     "replaceKeeps": "«$current» resta sul server. Solo la sua scheda di recupero permette di tornarci.",
     "replaceNoCard": "Non si conosce nessuna scheda di recupero di «$current». Se non è aperto su nessun altro dispositivo, viene cancellato dal server, perché nulla potrebbe più aprirlo.",
-    "replaceLocal": "I suoi elenchi dei preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelli di «$imported».",
+    "replaceLocal": "Le sue liste di preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelle di «$imported».",
     "replacePending(param=n)": {
       "one": "Il suo contributo in attesa non verrà inviato.",
       "other": "I suoi $n contributi in attesa non verranno inviati."
@@ -1452,6 +1452,8 @@
     "back": "Indietro",
     "failed": "L'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.",
     "refused": "Il server rifiuta questa unione. Entrambi gli account restano come sono.",
+    "replaceFailed": "La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.",
+    "tooMany": "Troppe unioni per ora. Riprova più tardi.",
     "merged": "Account uniti: stai usando «$name».",
     "replaced": "Questo dispositivo ora usa «$name».",
     "cancelled": "Non è cambiato nulla: questo dispositivo usa ancora «$name»."

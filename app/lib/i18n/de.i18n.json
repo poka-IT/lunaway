@@ -1369,10 +1369,10 @@
     "welcomeCard": "Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.",
     "welcomeFavorites": "Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.",
     "useAnother": "Anderes Konto verwenden",
-    "merged": "Dieses Konto wurde auf einem anderen Gerät mit „$name“ zusammengeführt. Öffnen Sie „$name“ hier mit seiner Sicherungskarte.",
+    "merged": "Dieses Konto wurde mit „$name“ zusammengeführt. Öffnen Sie „$name“ hier mit seiner Sicherungskarte.",
     "mergedAction": "Öffnen",
     "mergedTitle": "Konto mit „$name“ zusammengeführt",
-    "mergedBody": "Dieses Konto wurde auf einem anderen Gerät mit „$name“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „$name“, sobald Sie es mit seiner Sicherungskarte öffnen.",
+    "mergedBody": "Dieses Konto wurde mit „$name“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „$name“, sobald Sie es mit seiner Sicherungskarte öffnen.",
     "mergedOpen": "„$name“ hier öffnen"
   },
   "recovery": {
@@ -1452,6 +1452,8 @@
     "back": "Zurück",
     "failed": "Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.",
     "refused": "Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.",
+    "replaceFailed": "Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.",
+    "tooMany": "Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.",
     "merged": "Konten zusammengeführt: Sie verwenden „$name“.",
     "replaced": "Dieses Gerät verwendet jetzt „$name“.",
     "cancelled": "Nichts geändert: Dieses Gerät verwendet weiterhin „$name“."

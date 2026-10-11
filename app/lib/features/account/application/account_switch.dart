@@ -1,6 +1,7 @@
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/data/account_operations.dart';
 import 'package:lunaway/features/account/data/account_service.dart';
+import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/outbox.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
@@ -34,6 +35,9 @@ final class AccountSwitch {
   /// Forgets the home kept on the device and what its sync knew of it.
   final Future<void> Function() forgetHome;
 
+  /// The merge under way, which a choice made meanwhile waits for.
+  Future<MergeResult>? _merging;
+
   /// Opens the account of [code] beside the device's.
   Future<ImportedAccount> import(String code) => service.importAccount(code);
 
@@ -57,25 +61,75 @@ final class AccountSwitch {
   /// unchanged, when the merge did not answer: asked again, the server
   /// answers the same whether it merged or not.
   Future<MergeResult> merge(ImportedAccount imported, {required String currentId}) async {
+    final running = _merge(imported, currentId);
+    _merging = running;
+    try {
+      return await running;
+    } finally {
+      if (identical(_merging, running)) _merging = null;
+    }
+  }
+
+  Future<MergeResult> _merge(ImportedAccount imported, String currentId) async {
     final (target, result) = await service.mergeOnServer(imported);
     await outbox.reassign(from: currentId, to: result.account.id);
     await service.adopt(target, result.account);
     return result;
   }
 
+  /// After a merge whose answer did not come: when the server made it, the
+  /// device finishes it as [merge] would and returns true; when it did
+  /// not, returns false and nothing changed. Throws while the server does
+  /// not answer.
+  Future<bool> settle(ImportedAccount imported, {required String currentId}) async {
+    await _waitForMerge();
+    if (!await service.mergeLanded(imported)) return false;
+    await outbox.reassign(from: currentId, to: imported.account.id);
+    await service.adopt(imported, imported.account);
+    return true;
+  }
+
   /// Takes [imported] in place of the device's account, without merging:
-  /// the device's lists, home and waiting contributions go first (they are
-  /// the account left's, which keeps on the server what it synced), then
-  /// the device switches.
+  /// the device leaves the account first (its key detached on the server,
+  /// which throws, nothing changed, when the server does not answer); then
+  /// the device's lists, home and waiting contributions go (they are the
+  /// account left's, which keeps on the server what it synced), and the
+  /// device switches.
   Future<void> replace(ImportedAccount imported) async {
+    await service.leaveForReplace();
     await favorites.clearLocal();
     await forgetHome();
     await outbox.clear();
-    await service.replaceWith(imported);
+    await service.adopt(imported, imported.account);
   }
 
-  /// Gives [imported] up; the device keeps its account.
-  Future<void> cancel(ImportedAccount imported) => service.cancelImport(imported);
+  /// Gives [imported] up; the device keeps its account. A merge under way
+  /// ends first: given up after it landed, the import is the device's and
+  /// stays.
+  Future<void> cancel(ImportedAccount imported) async {
+    await _waitForMerge();
+    await service.cancelImport(imported);
+  }
+
+  Future<void> _waitForMerge() async {
+    try {
+      await _merging;
+    } on Object {
+      // Its failure is the sheet's to show.
+    }
+  }
+
+  /// [account] came to this device: when it is the account the device's
+  /// went into from elsewhere, the contributions that waited for it leave
+  /// under it.
+  Future<void> claimMerged(Account account) async {
+    final merged = await service.mergedFrom();
+    if (merged == null) return;
+    if (merged.into == account.pseudonym) {
+      await outbox.reassign(from: merged.from, to: account.id);
+    }
+    await service.forgetMergedFrom();
+  }
 }
 
 // keepAlive: one switch for the run, over the services that outlive it.

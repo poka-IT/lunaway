@@ -126,10 +126,84 @@ void main() {
     expect((await keys.load())!.publicJwk, before, reason: 'the device has not switched');
     expect((await service.restore())!.account.id, oldId);
 
+    // Meanwhile a request of the device's account (a sync) neither forgets
+    // its key nor says the account is lost: it waits, as offline.
+    await expectLater(service.run(myAccountOperation), throwsA(isA<AccountMergingException>()));
+    expect((await keys.load())!.publicJwk, before, reason: 'the key that proves the merge stays');
+
     final again = await accounts.merge(imported, currentId: oldId);
     expect(again.account.id, FakeApi.otherId);
     expect((await service.restore())!.account.id, FakeApi.otherId);
   });
+
+  test('given up after a lost answer, the merge the server made is finished', () async {
+    final oldId = await currentId();
+    final imported = await accounts.import(FakeApi.otherRecoveryCode);
+    api.loseMergeAnswer = true;
+    await expectLater(accounts.merge(imported, currentId: oldId), throwsA(anything));
+    expect(await accounts.settle(imported, currentId: oldId), isTrue);
+    expect((await service.restore())!.account.id, FakeApi.otherId);
+    await accounts.cancel(imported);
+    expect(api.forgotten, isEmpty, reason: 'the key adopted is not detached by a late cancel');
+  });
+
+  test('a merge never made leaves the device to its choice', () async {
+    final oldId = await currentId();
+    final imported = await accounts.import(FakeApi.otherRecoveryCode);
+    expect(await accounts.settle(imported, currentId: oldId), isFalse);
+    expect((await service.restore())!.account.id, oldId);
+  });
+
+  test(
+    'stopped during a merge, the device keeps what waits for the account it went into',
+    () async {
+      final oldId = await currentId();
+      final waiting = await outbox.add(
+        ContributionKind.confirm,
+        placeId: lakeArea.id,
+        payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+        accountId: oldId,
+      );
+      final imported = await accounts.import(FakeApi.otherRecoveryCode);
+      api.loseMergeAnswer = true;
+      await expectLater(accounts.merge(imported, currentId: oldId), throwsA(anything));
+      // The app ends: what it held in memory goes, its storage stays.
+      final restarted = AccountService(
+        client: GraphQLClient(
+          endpoint: Uri.parse('$testApiBase/graphql'),
+          httpClient: api.client(MockClient((_) async => http.Response('', 404))),
+          userAgent: 'Lunaway/test (+https://lunaway.net)',
+        ),
+        keys: keys,
+        secrets: secrets,
+        locale: () => 'fr',
+        clock: () => testNow,
+      );
+      await expectLater(
+        restarted.run(myAccountOperation),
+        throwsA(
+          isA<AccountLostException>().having((e) => e.mergedInto, 'into', 'Hérisson du Morvan'),
+        ),
+      );
+      expect(await restarted.mergedFrom(), (from: oldId, into: 'Hérisson du Morvan'));
+      // The user opens the account it went into with its card.
+      final again = AccountSwitch(
+        service: restarted,
+        outbox: outbox,
+        favorites: accounts.favorites,
+        deviceHasHome: () async => false,
+        forgetHome: () async {},
+      );
+      final account = await restarted.recover(FakeApi.otherRecoveryCode, revokeOthers: false);
+      await again.claimMerged(account);
+      expect(
+        (await outbox.byId(waiting!.id))!.accountId,
+        FakeApi.otherId,
+        reason: 'what waited under the merged account leaves under the one it went into',
+      );
+      expect(await restarted.mergedFrom(), isNull);
+    },
+  );
 
   test('replacing clears what the device held of the account left and detaches its key', () async {
     final list = await db
@@ -162,6 +236,28 @@ void main() {
     expect(await outbox.all(), isEmpty);
     expect(homeForgotten, isTrue);
     expect((await service.restore())!.account.id, FakeApi.otherId);
+  });
+
+  test('a replacement the server did not hear changes nothing on the device', () async {
+    final oldId = await currentId();
+    final before = (await keys.load())!.publicJwk;
+    await outbox.add(
+      ContributionKind.confirm,
+      placeId: lakeArea.id,
+      payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      accountId: oldId,
+    );
+    final imported = await accounts.import(FakeApi.otherRecoveryCode);
+    api.offline = true;
+    await expectLater(accounts.replace(imported), throwsA(anything));
+    expect(
+      (await keys.load())!.publicJwk,
+      before,
+      reason: 'the key of an account the server still keeps is never forgotten unheard',
+    );
+    expect((await service.restore())!.account.id, oldId);
+    expect(await outbox.all(), hasLength(1), reason: 'what waits stays');
+    expect(homeForgotten, isFalse);
   });
 
   test('giving up detaches the new key from the imported account', () async {

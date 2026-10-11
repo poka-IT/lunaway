@@ -1038,10 +1038,10 @@ class _Translations$account$de extends Translations$account$en {
 	@override String get welcomeCard => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.';
 	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.';
 	@override String get useAnother => 'Anderes Konto verwenden';
-	@override String merged({required Object name}) => 'Dieses Konto wurde auf einem anderen Gerät mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.';
+	@override String merged({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.';
 	@override String get mergedAction => 'Öffnen';
 	@override String mergedTitle({required Object name}) => 'Konto mit „${name}“ zusammengeführt';
-	@override String mergedBody({required Object name}) => 'Dieses Konto wurde auf einem anderen Gerät mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.';
+	@override String mergedBody({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.';
 	@override String mergedOpen({required Object name}) => '„${name}“ hier öffnen';
 }
 
@@ -1142,6 +1142,8 @@ class _Translations$accountImport$de extends Translations$accountImport$en {
 	@override String get back => 'Zurück';
 	@override String get failed => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.';
 	@override String get refused => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.';
+	@override String get replaceFailed => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String get tooMany => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.';
 	@override String merged({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.';
 	@override String replaced({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.';
 	@override String cancelled({required Object name}) => 'Nichts geändert: Dieses Gerät verwendet weiterhin „${name}“.';
@@ -4613,10 +4615,10 @@ extension on TranslationsDe {
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.',
 			'account.useAnother' => 'Anderes Konto verwenden',
-			'account.merged' => ({required Object name}) => 'Dieses Konto wurde auf einem anderen Gerät mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.',
+			'account.merged' => ({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.',
 			'account.mergedAction' => 'Öffnen',
 			'account.mergedTitle' => ({required Object name}) => 'Konto mit „${name}“ zusammengeführt',
-			'account.mergedBody' => ({required Object name}) => 'Dieses Konto wurde auf einem anderen Gerät mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.',
+			'account.mergedBody' => ({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.',
 			'account.mergedOpen' => ({required Object name}) => '„${name}“ hier öffnen',
 			'recovery.title' => 'Sicherungskarte',
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
@@ -4684,6 +4686,8 @@ extension on TranslationsDe {
 			'accountImport.back' => 'Zurück',
 			'accountImport.failed' => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.',
 			'accountImport.refused' => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.',
+			'accountImport.replaceFailed' => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.tooMany' => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.',
 			'accountImport.merged' => ({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.',
 			'accountImport.replaced' => ({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.',
 			'accountImport.cancelled' => ({required Object name}) => 'Nichts geändert: Dieses Gerät verwendet weiterhin „${name}“.',
@@ -5036,10 +5040,10 @@ extension on TranslationsDe {
 			'poi.kind.hearingAids' => 'Hörakustik',
 			'poi.kind.medicalSupply' => 'Sanitätshaus',
 			'poi.kind.hairdresser' => 'Friseur',
-			'poi.kind.beauty' => 'Kosmetikstudio',
-			'poi.kind.massage' => 'Massage',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Kosmetikstudio',
+			'poi.kind.massage' => 'Massage',
 			'poi.kind.tattoo' => 'Tattoostudio',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Wechselstube',

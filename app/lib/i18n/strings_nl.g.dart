@@ -1038,10 +1038,10 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
 	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
 	@override String get useAnother => 'Een ander account gebruiken';
-	@override String merged({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.';
+	@override String merged({required Object name}) => 'Dit account is samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.';
 	@override String get mergedAction => 'Openen';
 	@override String mergedTitle({required Object name}) => 'Account samengevoegd met “${name}”';
-	@override String mergedBody({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.';
+	@override String mergedBody({required Object name}) => 'Dit account is samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.';
 	@override String mergedOpen({required Object name}) => '“${name}” hier openen';
 }
 
@@ -1142,6 +1142,8 @@ class _Translations$accountImport$nl extends Translations$accountImport$en {
 	@override String get back => 'Terug';
 	@override String get failed => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.';
 	@override String get refused => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.';
+	@override String get replaceFailed => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.';
+	@override String get tooMany => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.';
 	@override String merged({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.';
 	@override String replaced({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.';
 	@override String cancelled({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.';
@@ -4613,10 +4615,10 @@ extension on TranslationsNl {
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
 			'account.useAnother' => 'Een ander account gebruiken',
-			'account.merged' => ({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.',
+			'account.merged' => ({required Object name}) => 'Dit account is samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.',
 			'account.mergedAction' => 'Openen',
 			'account.mergedTitle' => ({required Object name}) => 'Account samengevoegd met “${name}”',
-			'account.mergedBody' => ({required Object name}) => 'Dit account is op een ander apparaat samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.',
+			'account.mergedBody' => ({required Object name}) => 'Dit account is samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.',
 			'account.mergedOpen' => ({required Object name}) => '“${name}” hier openen',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
@@ -4684,6 +4686,8 @@ extension on TranslationsNl {
 			'accountImport.back' => 'Terug',
 			'accountImport.failed' => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.',
 			'accountImport.refused' => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.',
+			'accountImport.replaceFailed' => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.tooMany' => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.',
 			'accountImport.replaced' => ({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.',
 			'accountImport.cancelled' => ({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.',
@@ -5036,10 +5040,10 @@ extension on TranslationsNl {
 			'poi.kind.hearingAids' => 'Audicien',
 			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',
 			'poi.kind.hairdresser' => 'Kapper',
-			'poi.kind.beauty' => 'Schoonheidssalon',
-			'poi.kind.massage' => 'Massage',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Schoonheidssalon',
+			'poi.kind.massage' => 'Massage',
 			'poi.kind.tattoo' => 'Tattooshop',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Wisselkantoor',

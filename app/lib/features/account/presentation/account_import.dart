@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +12,7 @@ import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -53,11 +56,16 @@ Future<void> chooseForImported(
   final router = GoRouter.of(context);
   final navigator = Navigator.of(context);
   final controller = ref.read(accountControllerProvider.notifier);
+  final switcher = ref.read(accountSwitchProvider);
+  final outboxStore = ref.read(outboxStoreProvider);
   final start = ref.read(accountControllerProvider);
-  if (start is! SignedIn) return;
+  if (start is! SignedIn) {
+    await controller.cancelImport(imported);
+    return;
+  }
   final current = start.account;
-  final homeWins = await ref.read(accountSwitchProvider).importedHomeWins(imported);
-  final outbox = await ref.read(outboxStoreProvider).all();
+  final homeWins = await switcher.importedHomeWins(imported);
+  final outbox = await outboxStore.all();
   final waiting = outbox.where((e) => e.state != OutboxState.failed).length;
   var replacing = false;
   for (;;) {
@@ -69,6 +77,10 @@ Future<void> chooseForImported(
     final hasCard = state is SignedIn && state.recoveryCardAt != null;
     final outcome = await showSheet<ImportOutcome>(
       context,
+      // Over the whole window, the dock and the rail with it: nothing but
+      // the sheet's own buttons ends the choice while the server is asked.
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       dismissible: false,
       builder: (_) => ImportChoice(
@@ -145,32 +157,61 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
   /// the explanation of what fails.
   String? _failure;
 
-  Future<void> _run(ImportOutcome outcome, Future<void> Function() action) async {
+  /// A merge was asked and its answer did not come: the server may have
+  /// made it. Any other choice first asks whether it did, and finishes it
+  /// if so: the device then holds the merged account, nothing is lost.
+  bool _uncertain = false;
+
+  /// The server refused the merge for good: asked again, it refuses again.
+  bool _refused = false;
+
+  /// Runs [action] in the sheet, which closes with [outcome] once it is
+  /// done; a failure stays in the sheet, said in its words. A merge that
+  /// may have been made is settled first ([_uncertain]).
+  Future<void> _run(
+    ImportOutcome outcome,
+    Future<void> Function() action, {
+    required bool merging,
+  }) async {
     final t = context.t;
     final navigator = Navigator.of(context);
+    final controller = ref.read(accountControllerProvider.notifier);
+    // No sync of the favourites runs while the device changes accounts:
+    // one under the account left would bring back the lists it clears.
+    final favorites = ref.read(favoritesSyncControllerProvider.notifier);
     setState(() {
       _busy = true;
       _failure = null;
     });
     try {
-      await action();
-      if (mounted) navigator.pop(outcome);
+      final settled = await favorites.holding(() async {
+        if (!merging && _uncertain) {
+          if (await controller.settleImport(widget.imported)) return true;
+          _uncertain = false;
+        }
+        await action();
+        return false;
+      });
+      if (mounted) navigator.pop(settled ? ImportOutcome.merged : outcome);
     } on GraphQLRateLimitedException {
-      _failed(t.recover.tooMany);
+      _failed(t.accountImport.tooMany);
     } on GraphQLResponseException catch (e) {
       _log.info('the account import did not finish: ${e.errors.map((x) => x.code).join(',')}');
-      _failed(
-        e.hasCode(GraphQLError.rateLimited)
-            ? t.recover.tooMany
-            : e.transient
-            ? t.accountImport.failed
-            : t.accountImport.refused,
-      );
+      if (e.hasCode(GraphQLError.rateLimited)) {
+        _failed(t.accountImport.tooMany);
+      } else if (e.transient) {
+        if (merging) _uncertain = true;
+        _failed(merging ? t.accountImport.failed : t.accountImport.replaceFailed);
+      } else {
+        if (merging) _refused = true;
+        _failed(merging ? t.accountImport.refused : t.accountImport.replaceFailed);
+      }
     } on Object catch (e) {
-      // Offline, a timeout, a lost answer: the server answers the same
-      // merge again, whether it made it or not.
+      // Offline, a timeout, a lost answer: the server may have made the
+      // merge, and answers the same when asked again.
       _log.info('the account import did not finish: ${e.runtimeType}');
-      _failed(t.accountImport.failed);
+      if (merging) _uncertain = true;
+      _failed(merging ? t.accountImport.failed : t.accountImport.replaceFailed);
     }
   }
 
@@ -185,12 +226,17 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
   Future<void> _merge() => _run(
     ImportOutcome.merged,
     () => ref.read(accountControllerProvider.notifier).merge(widget.imported),
+    merging: true,
   );
 
   Future<void> _replace() => _run(
     ImportOutcome.replaced,
     () => ref.read(accountControllerProvider.notifier).replace(widget.imported),
+    merging: false,
   );
+
+  /// Gives up; a merge that may have been made is settled first.
+  Future<void> _cancel() => _run(ImportOutcome.cancelled, () async {}, merging: false);
 
   @override
   Widget build(BuildContext context) {
@@ -220,10 +266,10 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       if (failure != null) line(failure, color: scheme.error),
       const SizedBox(height: Space.m),
       BusyButton(
-        onPressed: _busy ? null : _merge,
+        onPressed: _busy || _refused ? null : _merge,
         busy: _busy,
         icon: const Icon(AppIcons.mergeAccounts),
-        label: Text(failure == null ? t.accountImport.merge(imported: imported) : t.common.retry),
+        label: Text(_uncertain ? t.common.retry : t.accountImport.merge(imported: imported)),
         style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
       ),
       const SizedBox(height: Space.s),
@@ -236,10 +282,7 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
               }),
         child: Text(t.accountImport.replace),
       ),
-      TextButton(
-        onPressed: _busy ? null : () => Navigator.of(context).pop(ImportOutcome.cancelled),
-        child: Text(t.common.cancel),
-      ),
+      TextButton(onPressed: _busy ? null : _cancel, child: Text(t.common.cancel)),
     ];
     final replace = <Widget>[
       Semantics(
@@ -287,9 +330,13 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       ),
     ];
     return PopScope(
-      // The system back gives up, as "Annuler" does; never while the
-      // server is asked.
-      canPop: !_busy,
+      // The system back gives up, as "Annuler" does: never while the server
+      // is asked, and after a merge that may have been made, by asking
+      // first.
+      canPop: !_busy && !_uncertain,
+      onPopInvokedWithResult: (popped, _) {
+        if (!popped && !_busy) unawaited(_cancel());
+      },
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(

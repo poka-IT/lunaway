@@ -225,7 +225,26 @@ class FavoritesSyncController extends _$FavoritesSyncController {
 
   void _schedule(Duration wait) {
     _timer?.cancel();
+    if (_holds > 0) return;
     _timer = Timer(wait, () => unawaited(_syncIfSignedIn()));
+  }
+
+  /// Held while the device changes accounts: no sync starts meanwhile, so
+  /// none runs under the account left while its lists are cleared or moved.
+  int _holds = 0;
+
+  /// Runs [action] once the sync under way, if any, has ended, with no
+  /// sync starting until it ends; then syncs.
+  Future<T> holding<T>(Future<T> Function() action) async {
+    _holds++;
+    _timer?.cancel();
+    try {
+      await _running;
+      return await action();
+    } finally {
+      _holds--;
+      if (_holds == 0 && ref.mounted) _schedule(Duration.zero);
+    }
   }
 
   Future<void> _syncIfSignedIn() async {

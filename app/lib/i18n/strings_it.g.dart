@@ -1038,10 +1038,10 @@ class _Translations$account$it extends Translations$account$en {
 	@override String get welcomeCard => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.';
 	@override String get welcomeFavorites => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.';
 	@override String get useAnother => 'Usa un altro account';
-	@override String merged({required Object name}) => 'Questo account è stato unito a «${name}» su un altro dispositivo. Apri «${name}» qui con la sua scheda di recupero.';
+	@override String merged({required Object name}) => 'Questo account è stato unito a «${name}». Apri «${name}» qui con la sua scheda di recupero.';
 	@override String get mergedAction => 'Apri';
 	@override String mergedTitle({required Object name}) => 'Account unito a «${name}»';
-	@override String mergedBody({required Object name}) => 'Questo account è stato unito a «${name}» su un altro dispositivo. I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.';
+	@override String mergedBody({required Object name}) => 'Questo account è stato unito a «${name}». I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.';
 	@override String mergedOpen({required Object name}) => 'Apri «${name}» qui';
 }
 
@@ -1123,7 +1123,7 @@ class _Translations$accountImport$it extends Translations$accountImport$en {
 	@override String get choiceTitle => 'Due account su questo dispositivo';
 	@override String choiceBody({required Object current, required Object imported}) => 'Questo dispositivo usa «${current}». Hai appena aperto «${imported}».';
 	@override String merge({required Object imported}) => 'Unisci a «${imported}»';
-	@override String mergeMoves({required Object current, required Object imported}) => 'Gli elenchi dei preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».';
+	@override String mergeMoves({required Object current, required Object imported}) => 'Le liste di preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».';
 	@override String mergePublic({required Object imported}) => 'Le sue recensioni, foto, luoghi e modifiche pubblicati passano a nome di «${imported}».';
 	@override String mergeHomeKept({required Object imported}) => 'Entrambi gli account hanno una casa: resta quella di «${imported}».';
 	@override String mergeDuplicates({required Object imported}) => 'Un luogo valutato da entrambi gli account mantiene la valutazione di «${imported}».';
@@ -1132,7 +1132,7 @@ class _Translations$accountImport$it extends Translations$accountImport$en {
 	@override String replaceTitle({required Object current, required Object imported}) => 'Sostituisci «${current}» con «${imported}»';
 	@override String replaceKeeps({required Object current}) => '«${current}» resta sul server. Solo la sua scheda di recupero permette di tornarci.';
 	@override String replaceNoCard({required Object current}) => 'Non si conosce nessuna scheda di recupero di «${current}». Se non è aperto su nessun altro dispositivo, viene cancellato dal server, perché nulla potrebbe più aprirlo.';
-	@override String replaceLocal({required Object imported}) => 'I suoi elenchi dei preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelli di «${imported}».';
+	@override String replaceLocal({required Object imported}) => 'Le sue liste di preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelle di «${imported}».';
 	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
 		one: 'Il suo contributo in attesa non verrà inviato.',
 		other: 'I suoi ${n} contributi in attesa non verranno inviati.',
@@ -1142,6 +1142,8 @@ class _Translations$accountImport$it extends Translations$accountImport$en {
 	@override String get back => 'Indietro';
 	@override String get failed => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.';
 	@override String get refused => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.';
+	@override String get replaceFailed => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.';
+	@override String get tooMany => 'Troppe unioni per ora. Riprova più tardi.';
 	@override String merged({required Object name}) => 'Account uniti: stai usando «${name}».';
 	@override String replaced({required Object name}) => 'Questo dispositivo ora usa «${name}».';
 	@override String cancelled({required Object name}) => 'Non è cambiato nulla: questo dispositivo usa ancora «${name}».';
@@ -4613,10 +4615,10 @@ extension on TranslationsIt {
 			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
 			'account.welcomeFavorites' => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.',
 			'account.useAnother' => 'Usa un altro account',
-			'account.merged' => ({required Object name}) => 'Questo account è stato unito a «${name}» su un altro dispositivo. Apri «${name}» qui con la sua scheda di recupero.',
+			'account.merged' => ({required Object name}) => 'Questo account è stato unito a «${name}». Apri «${name}» qui con la sua scheda di recupero.',
 			'account.mergedAction' => 'Apri',
 			'account.mergedTitle' => ({required Object name}) => 'Account unito a «${name}»',
-			'account.mergedBody' => ({required Object name}) => 'Questo account è stato unito a «${name}» su un altro dispositivo. I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.',
+			'account.mergedBody' => ({required Object name}) => 'Questo account è stato unito a «${name}». I tuoi preferiti restano qui e passano a «${name}» quando lo apri con la sua scheda di recupero.',
 			'account.mergedOpen' => ({required Object name}) => 'Apri «${name}» qui',
 			'recovery.title' => 'Scheda di recupero',
 			'recovery.intro' => 'Un codice che riporta il tuo account su un nuovo dispositivo. Lunaway ne conserva solo un\'impronta, che serve a verificarlo: il codice stesso non potrà mai più essere mostrato, e ogni nuova scheda ha un codice diverso.',
@@ -4668,7 +4670,7 @@ extension on TranslationsIt {
 			'accountImport.choiceTitle' => 'Due account su questo dispositivo',
 			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Questo dispositivo usa «${current}». Hai appena aperto «${imported}».',
 			'accountImport.merge' => ({required Object imported}) => 'Unisci a «${imported}»',
-			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Gli elenchi dei preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Le liste di preferiti, la casa, gli autori nascosti e i contributi in attesa di «${current}» passano a «${imported}».',
 			'accountImport.mergePublic' => ({required Object imported}) => 'Le sue recensioni, foto, luoghi e modifiche pubblicati passano a nome di «${imported}».',
 			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Entrambi gli account hanno una casa: resta quella di «${imported}».',
 			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Un luogo valutato da entrambi gli account mantiene la valutazione di «${imported}».',
@@ -4677,13 +4679,15 @@ extension on TranslationsIt {
 			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Sostituisci «${current}» con «${imported}»',
 			'accountImport.replaceKeeps' => ({required Object current}) => '«${current}» resta sul server. Solo la sua scheda di recupero permette di tornarci.',
 			'accountImport.replaceNoCard' => ({required Object current}) => 'Non si conosce nessuna scheda di recupero di «${current}». Se non è aperto su nessun altro dispositivo, viene cancellato dal server, perché nulla potrebbe più aprirlo.',
-			'accountImport.replaceLocal' => ({required Object imported}) => 'I suoi elenchi dei preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelli di «${imported}».',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Le sue liste di preferiti e la sua casa lasciano questo dispositivo; al loro posto arrivano quelle di «${imported}».',
 			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Il suo contributo in attesa non verrà inviato.', other: 'I suoi ${n} contributi in attesa non verranno inviati.', ), 
 			'accountImport.card' => ({required Object current}) => 'Scheda di recupero di «${current}»',
 			'accountImport.replaceConfirm' => 'Sostituisci',
 			'accountImport.back' => 'Indietro',
 			'accountImport.failed' => 'L\'unione non è andata a buon fine. I tuoi dati restano su questo dispositivo. Riprova quando la rete risponde.',
 			'accountImport.refused' => 'Il server rifiuta questa unione. Entrambi gli account restano come sono.',
+			'accountImport.replaceFailed' => 'La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.',
+			'accountImport.tooMany' => 'Troppe unioni per ora. Riprova più tardi.',
 			'accountImport.merged' => ({required Object name}) => 'Account uniti: stai usando «${name}».',
 			'accountImport.replaced' => ({required Object name}) => 'Questo dispositivo ora usa «${name}».',
 			'accountImport.cancelled' => ({required Object name}) => 'Non è cambiato nulla: questo dispositivo usa ancora «${name}».',
@@ -5036,10 +5040,10 @@ extension on TranslationsIt {
 			'poi.kind.hearingAids' => 'Apparecchi acustici',
 			'poi.kind.medicalSupply' => 'Sanitaria',
 			'poi.kind.hairdresser' => 'Parrucchiere',
-			'poi.kind.beauty' => 'Centro estetico',
-			'poi.kind.massage' => 'Massaggi',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Centro estetico',
+			'poi.kind.massage' => 'Massaggi',
 			'poi.kind.tattoo' => 'Studio tatuaggi',
 			'poi.kind.bank' => 'Banca',
 			'poi.kind.moneyExchange' => 'Cambiavalute',

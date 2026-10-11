@@ -484,11 +484,12 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
         await _import(code);
         return;
       }
+      final outbox = ref.read(outboxStoreProvider);
       final account = await ref
           .read(accountControllerProvider.notifier)
           .recover(code, revokeOthers: _revoke);
       // The contributions waiting on this device belong to the account now.
-      await ref.read(outboxStoreProvider).claimFor(account.id);
+      await outbox.claimFor(account.id);
       showMessage(messenger, t.recover.done(name: account.pseudonym));
       router.go(AppRoutes.profile);
     } on FormRefused {
@@ -520,18 +521,18 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   Future<void> _import(String code) async {
     final t = context.t;
     final controller = ref.read(accountControllerProvider.notifier);
-    final imported = await controller.importAccount(code);
     final current = ref.read(accountControllerProvider);
-    if (current is SignedIn && current.account.id == imported.account.id) {
+    final imported = await controller.importAccount(code);
+    if (!mounted || current is! SignedIn) {
+      await controller.cancelImport(imported);
+      return;
+    }
+    if (current.account.id == imported.account.id) {
       await controller.cancelImport(imported);
       if (mounted) {
         setState(() => _refused = t.accountImport.same(current: current.account.pseudonym));
       }
       throw const FormRefused();
-    }
-    if (!mounted) {
-      await controller.cancelImport(imported);
-      return;
     }
     await chooseForImported(context, ref, imported);
   }

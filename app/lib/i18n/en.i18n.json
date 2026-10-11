@@ -1369,10 +1369,10 @@
     "welcomeCard": "Make your recovery card to find this account on another device.",
     "welcomeFavorites": "Your favourite lists, addresses and notes included, are now kept with your account.",
     "useAnother": "Use another account",
-    "merged": "This account was merged into “$name” on another device. Open “$name” here with its recovery card.",
+    "merged": "This account was merged into “$name”. Open “$name” here with its recovery card.",
     "mergedAction": "Open",
     "mergedTitle": "Account merged into “$name”",
-    "mergedBody": "This account was merged into “$name” on another device. Your favourites stay here and join “$name” when you open it with its recovery card.",
+    "mergedBody": "This account was merged into “$name”. Your favourites stay here and join “$name” when you open it with its recovery card.",
     "mergedOpen": "Open “$name” here"
   },
   "recovery": {
@@ -1452,6 +1452,8 @@
     "back": "Back",
     "failed": "The merge could not finish. Your data stays on this device. Try again once the network answers.",
     "refused": "The server refuses this merge. Both accounts stay as they are.",
+    "replaceFailed": "The replacement could not finish. Nothing changed on this device. Try again once the network answers.",
+    "tooMany": "Too many merges for now. Try again later.",
     "merged": "Accounts merged: you are using “$name”.",
     "replaced": "This device now uses “$name”.",
     "cancelled": "Nothing changed: this device still uses “$name”."

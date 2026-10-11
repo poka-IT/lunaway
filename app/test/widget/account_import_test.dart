@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -113,6 +116,17 @@ void main() {
       expect((await saved(app)).map((r) => r.placeId), [
         lakeArea.id,
       ], reason: 'the device keeps its favourites: they join the imported account');
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(
+        api.calls.any(
+          (c) =>
+              c.operation == 'ImportFavorites' &&
+              (c.token ?? '').startsWith('other-') &&
+              jsonEncode(c.variables).contains(lakeArea.id),
+        ),
+        isTrue,
+        reason: "the first sync of the imported account carries the device's lists to it",
+      );
     });
   }
 
@@ -217,6 +231,46 @@ void main() {
     expect((await saved(app)).map((r) => r.placeId), [lakeArea.id]);
   });
 
+  testWidgets('given up after a cut merge, the merge the server made is finished', (tester) async {
+    final api = FakeApi()..loseMergeAnswer = true;
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
+    expect(find.text(t.accountImport.failed), findsOneWidget);
+
+    await tapInSheet(tester, find.text(t.common.cancel));
+    expect(
+      find.text(t.accountImport.merged(name: _imported)),
+      findsOneWidget,
+      reason: 'the account the device held is gone: the device keeps the one it went into',
+    );
+    expect(signedIn(app, tester), _imported);
+    expect(api.forgotten, isEmpty);
+  });
+
+  testWidgets('the dock does not end the choice while the merge is under way', (tester) async {
+    final api = FakeApi()
+      ..held = {'MergeAccount'}
+      ..hold = Completer<void>();
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    final merge = find.descendant(
+      of: find.byType(ImportChoice),
+      matching: find.text(t.accountImport.merge(imported: _imported)),
+    );
+    await tester.ensureVisible(merge);
+    await tester.tap(merge);
+    await tester.pump(const Duration(milliseconds: 300));
+    // The profile's destination, tapped again: the sheet covers it.
+    await tester.tap(find.text(t.nav.profile).last, warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(ImportChoice), findsOneWidget);
+    api.hold!.complete();
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(signedIn(app, tester), _imported);
+    expect(api.forgotten, isEmpty, reason: 'no cancel ran beside the merge');
+  });
+
   testWidgets("the card of the device's own account is said on the field", (tester) async {
     final api = FakeApi();
     final (app, _) = await openImport(tester, api);
@@ -228,6 +282,7 @@ void main() {
     expect(find.text(t.accountImport.same(current: _current)), findsOneWidget);
     expect(find.byType(ImportChoice), findsNothing);
     expect(signedIn(app, tester), _current);
+    expect(api.forgotten, hasLength(1), reason: 'the new key of the same account goes at once');
   });
 
   testWidgets('a device of an account merged elsewhere says where it went', (tester) async {

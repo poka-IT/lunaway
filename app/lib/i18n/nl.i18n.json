@@ -1369,10 +1369,10 @@
     "welcomeCard": "Maak je herstelkaart om dit account op een ander apparaat terug te vinden.",
     "welcomeFavorites": "Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.",
     "useAnother": "Een ander account gebruiken",
-    "merged": "Dit account is op een ander apparaat samengevoegd met “$name”. Open “$name” hier met de herstelkaart ervan.",
+    "merged": "Dit account is samengevoegd met “$name”. Open “$name” hier met de herstelkaart ervan.",
     "mergedAction": "Openen",
     "mergedTitle": "Account samengevoegd met “$name”",
-    "mergedBody": "Dit account is op een ander apparaat samengevoegd met “$name”. Je favorieten blijven hier en gaan naar “$name” zodra je het opent met de herstelkaart ervan.",
+    "mergedBody": "Dit account is samengevoegd met “$name”. Je favorieten blijven hier en gaan naar “$name” zodra je het opent met de herstelkaart ervan.",
     "mergedOpen": "“$name” hier openen"
   },
   "recovery": {
@@ -1452,6 +1452,8 @@
     "back": "Terug",
     "failed": "Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.",
     "refused": "De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.",
+    "replaceFailed": "Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.",
+    "tooMany": "Te veel samenvoegingen op dit moment. Probeer het later opnieuw.",
     "merged": "Accounts samengevoegd: je gebruikt “$name”.",
     "replaced": "Dit apparaat gebruikt nu “$name”.",
     "cancelled": "Er is niets veranderd: dit apparaat gebruikt nog steeds “$name”."

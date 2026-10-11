@@ -1038,10 +1038,10 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
 	@override String get welcomeFavorites => 'Vos listes de favoris, adresses et notes comprises, sont maintenant gardées avec votre compte.';
 	@override String get useAnother => 'Utiliser un autre compte';
-	@override String merged({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Ouvrez « ${name} » ici avec sa carte de secours.';
+	@override String merged({required Object name}) => 'Ce compte a été fusionné dans « ${name} ». Ouvrez « ${name} » ici avec sa carte de secours.';
 	@override String get mergedAction => 'Ouvrir';
 	@override String mergedTitle({required Object name}) => 'Compte fusionné dans « ${name} »';
-	@override String mergedBody({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.';
+	@override String mergedBody({required Object name}) => 'Ce compte a été fusionné dans « ${name} ». Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.';
 	@override String mergedOpen({required Object name}) => 'Ouvrir « ${name} » ici';
 }
 
@@ -1142,6 +1142,8 @@ class _Translations$accountImport$fr extends Translations$accountImport$en {
 	@override String get back => 'Retour';
 	@override String get failed => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.';
 	@override String get refused => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.';
+	@override String get replaceFailed => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.';
+	@override String get tooMany => 'Trop de fusions pour l\'instant. Réessayez plus tard.';
 	@override String merged({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».';
 	@override String replaced({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».';
 	@override String cancelled({required Object name}) => 'Rien n\'a changé : cet appareil utilise toujours « ${name} ».';
@@ -4613,10 +4615,10 @@ extension on TranslationsFr {
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris, adresses et notes comprises, sont maintenant gardées avec votre compte.',
 			'account.useAnother' => 'Utiliser un autre compte',
-			'account.merged' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Ouvrez « ${name} » ici avec sa carte de secours.',
+			'account.merged' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} ». Ouvrez « ${name} » ici avec sa carte de secours.',
 			'account.mergedAction' => 'Ouvrir',
 			'account.mergedTitle' => ({required Object name}) => 'Compte fusionné dans « ${name} »',
-			'account.mergedBody' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} » sur un autre appareil. Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.',
+			'account.mergedBody' => ({required Object name}) => 'Ce compte a été fusionné dans « ${name} ». Vos favoris restent ici et rejoignent « ${name} » quand vous l\'ouvrez avec sa carte de secours.',
 			'account.mergedOpen' => ({required Object name}) => 'Ouvrir « ${name} » ici',
 			'recovery.title' => 'Carte de secours',
 			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.',
@@ -4684,6 +4686,8 @@ extension on TranslationsFr {
 			'accountImport.back' => 'Retour',
 			'accountImport.failed' => 'La fusion n\'a pas pu se terminer. Vos données restent sur cet appareil. Réessayez quand le réseau répond.',
 			'accountImport.refused' => 'Le serveur refuse cette fusion. Les deux comptes restent tels quels.',
+			'accountImport.replaceFailed' => 'Le remplacement n\'a pas pu se terminer. Rien n\'a changé sur cet appareil. Réessayez quand le réseau répond.',
+			'accountImport.tooMany' => 'Trop de fusions pour l\'instant. Réessayez plus tard.',
 			'accountImport.merged' => ({required Object name}) => 'Comptes fusionnés : vous utilisez « ${name} ».',
 			'accountImport.replaced' => ({required Object name}) => 'Cet appareil utilise maintenant « ${name} ».',
 			'accountImport.cancelled' => ({required Object name}) => 'Rien n\'a changé : cet appareil utilise toujours « ${name} ».',
@@ -5036,10 +5040,10 @@ extension on TranslationsFr {
 			'poi.kind.hearingAids' => 'Audioprothésiste',
 			'poi.kind.medicalSupply' => 'Matériel médical',
 			'poi.kind.hairdresser' => 'Coiffeur',
-			'poi.kind.beauty' => 'Institut de beauté',
-			'poi.kind.massage' => 'Massages',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Institut de beauté',
+			'poi.kind.massage' => 'Massages',
 			'poi.kind.tattoo' => 'Tatoueur',
 			'poi.kind.bank' => 'Banque',
 			'poi.kind.moneyExchange' => 'Bureau de change',

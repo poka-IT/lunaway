@@ -1038,10 +1038,10 @@ class _Translations$account$es extends Translations$account$en {
 	@override String get welcomeCard => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.';
 	@override String get welcomeFavorites => 'Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta.';
 	@override String get useAnother => 'Usar otra cuenta';
-	@override String merged({required Object name}) => 'Esta cuenta se fusionó con «${name}» en otro dispositivo. Abre «${name}» aquí con su tarjeta de recuperación.';
+	@override String merged({required Object name}) => 'Esta cuenta se fusionó con «${name}». Abre «${name}» aquí con su tarjeta de recuperación.';
 	@override String get mergedAction => 'Abrir';
 	@override String mergedTitle({required Object name}) => 'Cuenta fusionada con «${name}»';
-	@override String mergedBody({required Object name}) => 'Esta cuenta se fusionó con «${name}» en otro dispositivo. Tus favoritos se quedan aquí y pasan a «${name}» cuando la abres con su tarjeta de recuperación.';
+	@override String mergedBody({required Object name}) => 'Esta cuenta se fusionó con «${name}». Tus favoritos se quedan aquí y pasan a «${name}» cuando la abres con su tarjeta de recuperación.';
 	@override String mergedOpen({required Object name}) => 'Abrir «${name}» aquí';
 }
 
@@ -1142,6 +1142,8 @@ class _Translations$accountImport$es extends Translations$accountImport$en {
 	@override String get back => 'Volver';
 	@override String get failed => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
 	@override String get refused => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.';
+	@override String get replaceFailed => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.';
+	@override String get tooMany => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.';
 	@override String merged({required Object name}) => 'Cuentas fusionadas: usas «${name}».';
 	@override String replaced({required Object name}) => 'Este dispositivo usa ahora «${name}».';
 	@override String cancelled({required Object name}) => 'No ha cambiado nada: este dispositivo sigue usando «${name}».';
@@ -4613,10 +4615,10 @@ extension on TranslationsEs {
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			'account.welcomeFavorites' => 'Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta.',
 			'account.useAnother' => 'Usar otra cuenta',
-			'account.merged' => ({required Object name}) => 'Esta cuenta se fusionó con «${name}» en otro dispositivo. Abre «${name}» aquí con su tarjeta de recuperación.',
+			'account.merged' => ({required Object name}) => 'Esta cuenta se fusionó con «${name}». Abre «${name}» aquí con su tarjeta de recuperación.',
 			'account.mergedAction' => 'Abrir',
 			'account.mergedTitle' => ({required Object name}) => 'Cuenta fusionada con «${name}»',
-			'account.mergedBody' => ({required Object name}) => 'Esta cuenta se fusionó con «${name}» en otro dispositivo. Tus favoritos se quedan aquí y pasan a «${name}» cuando la abres con su tarjeta de recuperación.',
+			'account.mergedBody' => ({required Object name}) => 'Esta cuenta se fusionó con «${name}». Tus favoritos se quedan aquí y pasan a «${name}» cuando la abres con su tarjeta de recuperación.',
 			'account.mergedOpen' => ({required Object name}) => 'Abrir «${name}» aquí',
 			'recovery.title' => 'Tarjeta de recuperación',
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
@@ -4684,6 +4686,8 @@ extension on TranslationsEs {
 			'accountImport.back' => 'Volver',
 			'accountImport.failed' => 'La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
 			'accountImport.refused' => 'El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.',
+			'accountImport.replaceFailed' => 'La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.',
+			'accountImport.tooMany' => 'Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.',
 			'accountImport.merged' => ({required Object name}) => 'Cuentas fusionadas: usas «${name}».',
 			'accountImport.replaced' => ({required Object name}) => 'Este dispositivo usa ahora «${name}».',
 			'accountImport.cancelled' => ({required Object name}) => 'No ha cambiado nada: este dispositivo sigue usando «${name}».',
@@ -5036,10 +5040,10 @@ extension on TranslationsEs {
 			'poi.kind.hearingAids' => 'Audífonos',
 			'poi.kind.medicalSupply' => 'Ortopedia',
 			'poi.kind.hairdresser' => 'Peluquería',
-			'poi.kind.beauty' => 'Centro de estética',
-			'poi.kind.massage' => 'Masajes',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.beauty' => 'Centro de estética',
+			'poi.kind.massage' => 'Masajes',
 			'poi.kind.tattoo' => 'Estudio de tatuajes',
 			'poi.kind.bank' => 'Banco',
 			'poi.kind.moneyExchange' => 'Casa de cambio',

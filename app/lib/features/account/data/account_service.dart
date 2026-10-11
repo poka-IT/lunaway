@@ -177,6 +177,26 @@ final class AccountService {
   static const _accountSlot = 'account';
   static const _recoverySlot = 'recovery_card';
 
+  /// The account this device held before it learnt that account went into
+  /// another (`from`, its id, and `into`, the pseudonym it went into): its
+  /// waiting contributions wait for that account to come here.
+  static const _mergedSlot = 'merged_from';
+
+  /// The account this device's went into, while that account has not come
+  /// to the device yet; null otherwise.
+  Future<({String from, String into})?> mergedFrom() async {
+    final m = _decode(await secrets.read(_mergedSlot));
+    if (m is! Map<String, dynamic>) return null;
+    final from = m['from'];
+    final into = m['into'];
+    if (from is! String || into is! String) return null;
+    return (from: from, into: into);
+  }
+
+  /// The account the device's went into came here, or the user gave up on
+  /// it.
+  Future<void> forgetMergedFrom() => secrets.delete(_mergedSlot);
+
   final _events = StreamController<AccountEvent>.broadcast();
   Session? _session;
   bool _loaded = false;
@@ -313,17 +333,25 @@ final class AccountService {
       if (reason != null && reason != GraphQLError.unknownKey) rethrow;
       if (!e.hasCode(GraphQLError.notFound)) rethrow;
       if (generation != _generation || previous == null) throw const NoAccountException();
-      // Merged into another account from another device: the server names
-      // it, so the device can say where its account went.
+      // Merged into another account: the server names it, so the device
+      // can say where its account went.
       final mergedInto = e.withCode(GraphQLError.notFound)?.mergedInto;
-      // Merged from this device, the answer lost on its way: the key stays,
-      // so the merge asked again proves the account and finishes.
-      if (mergedInto != null && _pending != null) throw AccountMergingException();
+      // Merged from this device into the account opened beside it, the
+      // answer lost on its way: the key stays, so the merge asked again
+      // proves the account and finishes.
+      if (mergedInto != null && mergedInto == _pending?.account.pseudonym) {
+        throw AccountMergingException();
+      }
       _log.warning(
         mergedInto == null
             ? 'the device key no longer opens its account'
             : 'the account of the device key was merged into another',
       );
+      if (mergedInto != null) {
+        // Its waiting contributions now belong to that account: they wait
+        // for it to come to this device (`mergedFrom`).
+        await secrets.write(_mergedSlot, jsonEncode({'from': previous.id, 'into': mergedInto}));
+      }
       await _forget(lost: true, mergedInto: mergedInto);
       throw AccountLostException(mergedInto: mergedInto);
     }
@@ -477,7 +505,7 @@ final class AccountService {
   /// Opens the account of [code] beside the one the device holds: a new key
   /// is attached to it and signs in, kept in memory only, and the device's
   /// own account stays as it is until the user chooses ([mergeOnServer],
-  /// [replaceWith], [cancelImport]).
+  /// [leaveForReplace], [cancelImport]).
   Future<ImportedAccount> importAccount(String code) async {
     final key = await keys.generate();
     final (nonce, signature) = await _answer(key);
@@ -579,7 +607,6 @@ final class AccountService {
   /// nothing of its answer.
   Future<void> adopt(ImportedAccount imported, Account account) async {
     _generation++;
-    _pending = null;
     await keys.save(imported.key);
     final session = imported.session;
     await secrets.write(_sessionSlot, session.toStored());
@@ -589,30 +616,52 @@ final class AccountService {
     await secrets.write(_recoverySlot, clock().toUtc().toIso8601String());
     _session = session;
     _loaded = true;
+    // Again once the account is written: a sign-in that began during the
+    // writes read the key of the account left, and keeps nothing.
+    _generation++;
+    _pending = null;
     _events.add(AccountSignedIn(account, created: false));
   }
 
-  /// Leaves the device's account for [imported] without merging: the key of
-  /// the account left is detached from it on the server (it stays there,
-  /// and its recovery card brings it back), then [adopt].
-  Future<void> replaceWith(ImportedAccount imported) async {
-    if (await _current() != null) {
-      try {
-        // Detaching a device needs a recent signed sign-in, as every
-        // action that could lock an owner out.
-        await run(signOutForgettingDeviceOperation, fresh: true);
-      } on Object catch (e) {
-        // Offline or already ended: the key is forgotten here all the same,
-        // and the account lists one device too many until it is removed.
-        _log.info('the device was not detached from the account left: ${e.runtimeType}');
-      }
+  /// Whether the device's account went into [imported] already, a merge
+  /// whose answer was lost: the device's key signs in, and either opens its
+  /// account (not merged) or the server names the account it went into.
+  /// Throws when the server does not answer: still unknown.
+  Future<bool> mergeLanded(ImportedAccount imported) async {
+    final current = await keys.load();
+    if (current == null) return false;
+    try {
+      await _openSession(current);
+      return false;
+    } on GraphQLResponseException catch (e) {
+      final into = e.withCode(GraphQLError.notFound)?.mergedInto;
+      if (into != null && into == imported.account.pseudonym) return true;
+      rethrow;
     }
-    await adopt(imported, imported.account);
+  }
+
+  /// Detaches this device's key from the account it holds, before another
+  /// takes its place without a merge (then [adopt]): the account stays on
+  /// the server and its recovery card brings it back; without a card nor
+  /// another device, the server deletes it rather than keep it out of
+  /// anyone's reach. Detaching needs a recent signed sign-in, as every
+  /// action that could lock an owner out. Throws, nothing changed, when the
+  /// server did not answer: the device must not forget a key whose account
+  /// the server still keeps for it alone.
+  Future<void> leaveForReplace() async {
+    try {
+      await run(signOutForgettingDeviceOperation, fresh: true);
+    } on AccountLostException {
+      // Gone already (removed, deleted or merged elsewhere): nothing left
+      // to detach.
+    }
   }
 
   /// Gives up [imported]: its new key is detached from it, and the device
-  /// keeps the account it held.
+  /// keeps the account it held. Nothing once [imported] was adopted or
+  /// given up already: its key is then the device's, or gone.
   Future<void> cancelImport(ImportedAccount imported) async {
+    if (!identical(_pending, imported)) return;
     _pending = null;
     try {
       var session = imported.session;

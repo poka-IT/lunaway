@@ -34,7 +34,9 @@ Future<T?> showSheet<T>(
       Flexible(child: builder(context)),
     ],
   );
-  final content = handle ? withHandle : builder;
+  // The handle closes a sheet at a click: one that only its buttons end
+  // shows none.
+  final content = handle && dismissible ? withHandle : builder;
   return showModalBottomSheet<T>(
     context: context,
     useRootNavigator: useRootNavigator,

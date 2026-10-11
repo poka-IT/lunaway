@@ -80,11 +80,14 @@ bool mayHaveMade(PendingContribution e, Object made) {
 /// No network stops the pass at once (every entry would fail the same
 /// way); a server error delays that entry only; a refusal fails it, for the
 /// user to see.
+Future<String?> _none() async => null;
+
 final class OutboxSender {
   new({
     required this.outbox,
     required this.api,
     required this.accountId,
+    this.mergedAway = _none,
     this.clock = DateTime.now,
     this.delays = const [
       Duration(seconds: 15),
@@ -103,6 +106,10 @@ final class OutboxSender {
   /// The account of this device, null before the first contribution makes
   /// it.
   final Future<String?> Function() accountId;
+
+  /// The account this device held before it went into another one from
+  /// elsewhere, whose entries wait for that one; null otherwise.
+  final Future<String?> Function() mergedAway;
   final DateTime Function() clock;
 
   /// The waits after a failed attempt, the last one repeated.
@@ -154,8 +161,11 @@ final class OutboxSender {
       e = current;
       account = await accountId();
       // Made under an account the device no longer holds: never sent under
-      // another one, nor under a new one made for it.
+      // another one, nor under a new one made for it. An account merged
+      // into another, since: its entries wait for that account to come to
+      // the device, which takes them (`AccountSwitch.claimMerged`).
       if (e.accountId != null && e.accountId != account) {
+        if (e.accountId == await mergedAway()) continue;
         await outbox.fail(e.id, code: OutboxError.otherAccount);
         failed++;
         continue;

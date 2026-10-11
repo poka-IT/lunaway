@@ -1369,10 +1369,10 @@
     "welcomeCard": "Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.",
     "welcomeFavorites": "Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta.",
     "useAnother": "Usar otra cuenta",
-    "merged": "Esta cuenta se fusionó con «$name» en otro dispositivo. Abre «$name» aquí con su tarjeta de recuperación.",
+    "merged": "Esta cuenta se fusionó con «$name». Abre «$name» aquí con su tarjeta de recuperación.",
     "mergedAction": "Abrir",
     "mergedTitle": "Cuenta fusionada con «$name»",
-    "mergedBody": "Esta cuenta se fusionó con «$name» en otro dispositivo. Tus favoritos se quedan aquí y pasan a «$name» cuando la abres con su tarjeta de recuperación.",
+    "mergedBody": "Esta cuenta se fusionó con «$name». Tus favoritos se quedan aquí y pasan a «$name» cuando la abres con su tarjeta de recuperación.",
     "mergedOpen": "Abrir «$name» aquí"
   },
   "recovery": {
@@ -1452,6 +1452,8 @@
     "back": "Volver",
     "failed": "La fusión no pudo terminar. Tus datos siguen en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
     "refused": "El servidor rechaza esta fusión. Las dos cuentas siguen como estaban.",
+    "replaceFailed": "La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
+    "tooMany": "Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.",
     "merged": "Cuentas fusionadas: usas «$name».",
     "replaced": "Este dispositivo usa ahora «$name».",
     "cancelled": "No ha cambiado nada: este dispositivo sigue usando «$name»."
