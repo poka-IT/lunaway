@@ -335,7 +335,7 @@ void main() {
       final along = driveFixes(plan.routes.first, toM: 80);
       final clock = along.last.at;
       var second = 0;
-      Future<void> fix(int index, double speedMps) async {
+      Future<void> fix(int index, double? speedMps) async {
         final f = along[index];
         feed.send(
           Fix(
@@ -362,6 +362,38 @@ void main() {
       await fix(7, 8);
       expect((map().camera as FollowCamera).tilt, lessThan(camera.tilt - 2));
       expect(map().traveledM, closeTo(62, 15));
+      // A fix without a speed moves the grey, as it moves the vehicle.
+      await fix(8, null);
+      expect(map().traveledM, closeTo(80, 15));
+    });
+
+    testWidgets('parked when a new route comes, the view frames its first turn', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      // The route to the place chosen: the same road, a route of its own.
+      final toPlace = routeFixture('limoges_drive');
+      await guide(tester, plan, answers: [toPlace]);
+      // 142 m before the left turn, then a stop 102 m before it.
+      await drive(tester, plan, toM: 50);
+      final f = driveFixes(plan.routes.first, toM: 90).last;
+      feed.send(
+        Fix(
+          position: f.position,
+          accuracyM: 5,
+          at: f.at.add(const Duration(seconds: 10)),
+          courseDeg: f.courseDeg,
+          speedMps: 0,
+        ),
+      );
+      await settleShort(tester);
+      final held = (map().camera as FollowCamera).tilt;
+      expect(held, greaterThan(AutoTilt.junction + 2), reason: 'parked, the aim of 142 m holds');
+      // Still parked, the driver goes to a place instead.
+      map().onPlaceTap!(_aire);
+      await settleShort(tester);
+      await tester.tap(find.text('Y aller directement'));
+      await settleShort(tester);
+      expect(map().lines.firstWhere((l) => l.selected).points, same(toPlace.routes.first.line));
+      expect((map().camera as FollowCamera).tilt, closeTo(AutoTilt.junction, 0.5));
     });
 
     testWidgets('a guidance that starts parked frames its first turn', (tester) async {

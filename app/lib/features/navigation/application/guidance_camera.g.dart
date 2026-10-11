@@ -99,8 +99,8 @@ abstract class _$GuidanceCamera extends $Notifier<GuidanceView> {
 /// at the arrival. Worked out once per maneuver: where it lies along the
 /// route, the distance driven plus the distance to it, is the same at
 /// every fix of a step (read to the metre, so a rounding of the engine's
-/// sum changes nothing), and a fix that wanders, parked, neither moves it
-/// nor redraws the map.
+/// sum changes nothing unless the sum falls on a half metre), and a fix
+/// that wanders, parked, neither moves it nor redraws the map.
 
 @ProviderFor(guidanceArrow)
 final guidanceArrowProvider = GuidanceArrowProvider._();
@@ -110,8 +110,8 @@ final guidanceArrowProvider = GuidanceArrowProvider._();
 /// at the arrival. Worked out once per maneuver: where it lies along the
 /// route, the distance driven plus the distance to it, is the same at
 /// every fix of a step (read to the metre, so a rounding of the engine's
-/// sum changes nothing), and a fix that wanders, parked, neither moves it
-/// nor redraws the map.
+/// sum changes nothing unless the sum falls on a half metre), and a fix
+/// that wanders, parked, neither moves it nor redraws the map.
 
 final class GuidanceArrowProvider
     extends $FunctionalProvider<ManeuverArrow?, ManeuverArrow?, ManeuverArrow?>
@@ -121,8 +121,8 @@ final class GuidanceArrowProvider
   /// at the arrival. Worked out once per maneuver: where it lies along the
   /// route, the distance driven plus the distance to it, is the same at
   /// every fix of a step (read to the metre, so a rounding of the engine's
-  /// sum changes nothing), and a fix that wanders, parked, neither moves it
-  /// nor redraws the map.
+  /// sum changes nothing unless the sum falls on a half metre), and a fix
+  /// that wanders, parked, neither moves it nor redraws the map.
   GuidanceArrowProvider._()
     : super(
         from: null,
@@ -209,7 +209,7 @@ final class GuidanceAimProvider
   }
 }
 
-String _$guidanceAimHash() => r'f7eeb325791601156591955a25b314218dfa78b3';
+String _$guidanceAimHash() => r'25966a2839f710d5a08d4fb5aca139528c063cab';
 
 /// The zoom and the tilt the guidance map aims at while it follows
 /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that

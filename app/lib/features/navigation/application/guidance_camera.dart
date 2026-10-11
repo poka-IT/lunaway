@@ -6,6 +6,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -210,8 +211,8 @@ class GuidanceCamera extends _$GuidanceCamera {
 /// at the arrival. Worked out once per maneuver: where it lies along the
 /// route, the distance driven plus the distance to it, is the same at
 /// every fix of a step (read to the metre, so a rounding of the engine's
-/// sum changes nothing), and a fix that wanders, parked, neither moves it
-/// nor redraws the map.
+/// sum changes nothing unless the sum falls on a half metre), and a fix
+/// that wanders, parked, neither moves it nor redraws the map.
 @riverpod
 ManeuverArrow? guidanceArrow(Ref ref) {
   final ahead = ref.watch(
@@ -259,12 +260,14 @@ ManeuverArrow? guidanceArrow(Ref ref) {
 class GuidanceAim extends _$GuidanceAim {
   final _speed = SpeedHold();
 
-  /// The aim last worked out on the route: parked, it holds, as the
-  /// drawn vehicle does ([AutoZoom.holdBelowMps]); a fix that wanders by a
-  /// few metres moves neither the zoom nor the tilt, and the map draws no
-  /// frame. One made before the first position frames nothing and is not
-  /// held: a guidance that starts parked frames its first maneuver.
-  CameraAim? _held;
+  /// The aim last worked out, with its route: parked on it, the aim holds, as
+  /// the drawn vehicle does ([AutoZoom.holdBelowMps]); a fix that wanders
+  /// by a few metres moves neither the zoom nor the tilt, and the map draws
+  /// no frame. One made before the first position frames nothing and is
+  /// not held, nor one of another route: a guidance that starts parked, or
+  /// a new route that comes while the vehicle stands, frames its first
+  /// maneuver.
+  ({CameraAim aim, RouteOption route})? _held;
 
   @override
   CameraAim build() {
@@ -287,11 +290,12 @@ class GuidanceAim extends _$GuidanceAim {
   CameraAim _aimOf(GuidanceSession? session) {
     final speed = session?.lastFix?.speedMps;
     final kmh = _speed.update(speed);
-    if (_held case final held? when speed != null && speed < AutoZoom.holdBelowMps) {
-      return held;
+    if (_held case (:final aim, :final route)
+        when speed != null && speed < AutoZoom.holdBelowMps && identical(route, session?.route)) {
+      return aim;
     }
     final aim = _aimMoving(session, kmh);
-    if (session?.snapshot != null) _held = aim;
+    if (session != null && session.snapshot != null) _held = (aim: aim, route: session.route);
     return aim;
   }
 

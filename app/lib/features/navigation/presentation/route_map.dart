@@ -609,9 +609,10 @@ abstract final class RouteLook {
 
   /// The chosen route's fill by zoom, logical pixels: about twice a road's
   /// width in town, a little wider than a motorway out of town. Over the
-  /// zooms the guidance follows at (14.4 to 17.1) it stays near 10, as
-  /// Google Maps' does (10.2 to 10.5 measured on the A41 at 110 km/h and
-  /// in Lyon); the whole route seen at once is thinner.
+  /// zooms the guidance follows at it is 9.4 (14.4, a motorway) to 11.7
+  /// (17.1, a street corner), where Google Maps' is 10.2 to 10.5 (measured
+  /// on the A41 at 110 km/h and in Lyon); the whole route seen at once is
+  /// thinner.
   static const List<(double, double)> lineStops = [
     (8, 3),
     (11, 4.5),
@@ -667,7 +668,8 @@ abstract final class RouteLook {
     fill,
   ];
 
-  /// The widths the legend's swatch draws, those of the map near zoom 14.
+  /// The widths the legend's swatch draws, those of the map a little above
+  /// zoom 13, the whole route seen at once.
   static const double lineWidth = 7;
   static const double casingWidth = lineWidth + 2 * rim;
   static const double alternativeWidth = lineWidth * alternativeShare;
