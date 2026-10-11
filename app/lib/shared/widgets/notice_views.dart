@@ -164,6 +164,10 @@ class _PassingSlot extends StatelessWidget {
         child: SizeTransition(
           sizeFactor: animation,
           alignment: across ? Alignment.topCenter : AlignmentDirectional.topStart,
+          // At its own width, the slot no wider than its notice: an empty
+          // slot as wide as the column made the pill beside the speed take
+          // the whole room it was given.
+          fixedCrossAxisSizeFactor: across ? null : 1,
           child: child,
         ),
       ),

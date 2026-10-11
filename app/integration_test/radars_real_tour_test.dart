@@ -739,6 +739,28 @@ void main() {
       return (_map()?.fuelPrices ?? const []).any((p) => p.position.distanceTo(at) < 700);
     }
 
+    // A station whose price the map writes, 120 to 400 m ahead of the
+    // vehicle, within 50 degrees of its course: on the screen.
+    bool priceAhead() {
+      final snap = session()?.snapshot;
+      final at = snap?.position;
+      if (at == null) return false;
+      final course = snap?.courseDeg;
+      return (_map()?.fuelPrices ?? const []).any((p) {
+        final d = p.position.distanceTo(at);
+        if (d < 120 || d > 400) return false;
+        if (course == null) return true;
+        final dy = p.position.lat - at.lat;
+        final dx = (p.position.lon - at.lon) * math.cos(at.lat * math.pi / 180);
+        final bearing = (math.atan2(dx, dy) * 180 / math.pi + 360) % 360;
+        final off = ((bearing - course) % 360 + 360) % 360;
+        return math.min(off, 360 - off) < 50;
+      });
+    }
+
+    var priceShots = 0;
+    var lastPriceShot = DateTime(2000);
+
     drive.pace = () {
       if (_realMinutes > 0) return _real;
       if (forceReal || recorder.speaking || drive.overKmh > 0) return _real;
@@ -866,7 +888,16 @@ void main() {
         }
       }
       if (aids.exit case final e?) await shot(e.section ? 'sortie-troncon' : 'sortie-zone');
-      if (_fuel.isNotEmpty && nearPrice()) await shot('prix');
+      // A priced station ahead, close enough for its pin to show: a few
+      // captures, apart.
+      if (_fuel.isNotEmpty &&
+          priceShots < 3 &&
+          DateTime.now().difference(lastPriceShot) > const Duration(seconds: 20) &&
+          priceAhead()) {
+        priceShots++;
+        lastPriceShot = DateTime.now();
+        await shot('prix-$priceShots');
+      }
       if (_stopAlerts > 0 && alerts >= _stopAlerts && a == null && aids.exit == null) break;
       if (_realMinutes > 0 && DateTime.now().isAfter(realEnd)) break;
       if (aids.ruleChange case final r?) await shot('frontiere-${r.country.toLowerCase()}');

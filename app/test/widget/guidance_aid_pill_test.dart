@@ -237,6 +237,24 @@ void main() {
     expect(pill, findsOneWidget, reason: 'open again');
   });
 
+  testWidgets('folded, the chip keeps its place beside "Recentrer", which it does not reach', (
+    tester,
+  ) async {
+    final app = await _driveTo(tester, size: const Size(390, 844), locale: AppLocale.fr, scale: 1);
+    await tester.tap(find.byType(EnforcementChip));
+    await settleShort(tester);
+    app.container(tester).read(guidanceCameraProvider.notifier).moved();
+    await settleShort(tester);
+    final chip = tester.getRect(
+      find.byWidgetPredicate((w) => w is Tooltip && (w.message ?? '').startsWith('Radar fixe')),
+    );
+    final recenter = tester.getRect(
+      find.ancestor(of: find.text('Recentrer'), matching: find.byType(Material)).first,
+    );
+    expect(chip.right, lessThan(recenter.left), reason: 'chip $chip, Recentrer $recenter');
+    expect(chip.bottom, closeTo(_bar(tester).top - Space.s, 0.5), reason: 'no need to rise');
+  });
+
   testWidgets('with "Recentrer" beside it, the pill rises over the button, the credit over both', (
     tester,
   ) async {
