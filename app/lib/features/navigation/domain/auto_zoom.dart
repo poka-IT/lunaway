@@ -65,8 +65,9 @@ abstract final class AutoZoom {
   /// and the view must not breathe with it.
   static const speedHysteresisKmh = 6.0;
 
-  /// Below this speed, metres per second, the vehicle is parked and the
-  /// aim holds, as the drawn vehicle holds (`VehicleMotion.parkedMps`).
+  /// Below this speed, metres per second, the vehicle is parked: the aim
+  /// holds, and so does the drawn vehicle (`VehicleMotion.parkedMps`, the
+  /// same value). A slow walk is 1.4.
   static const holdBelowMps = 1.0;
 
   /// The zooms the camera never leaves while following.

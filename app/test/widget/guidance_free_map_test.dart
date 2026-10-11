@@ -326,20 +326,22 @@ void main() {
     ) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
-      await drive(tester, plan, toM: 100);
+      // 142 m before the left turn: the view flattens as it comes.
+      await drive(tester, plan, toM: 50);
       final camera = map().camera as FollowCamera;
       final arrow = map().arrow;
       expect(arrow, isNotNull);
-      expect(map().traveledM, closeTo(90, 15));
-      final along = driveFixes(plan.routes.first, toM: 140);
-      var second = 100;
+      expect(map().traveledM, closeTo(40, 15));
+      final along = driveFixes(plan.routes.first, toM: 80);
+      final clock = along.last.at;
+      var second = 0;
       Future<void> fix(int index, double speedMps) async {
         final f = along[index];
         feed.send(
           Fix(
             position: f.position,
             accuracyM: 12,
-            at: f.at.add(Duration(seconds: ++second)),
+            at: clock.add(Duration(seconds: ++second)),
             courseDeg: f.courseDeg,
             speedMps: speedMps,
           ),
@@ -347,19 +349,31 @@ void main() {
         await settleShort(tester);
       }
 
-      // A parked receiver: under a walk, its place 10 to 40 m apart on the
-      // road, which would bring the turn closer and move the grey.
-      for (final i in [9, 13, 11, 14]) {
+      // A parked receiver: under a walk, its place wandering 122 to 182 m
+      // before the turn, where the view would flatten and the grey move.
+      for (final i in [7, 2, 6, 1]) {
         await fix(i, 0.4);
         final now = map().camera as FollowCamera;
         expect((now.zoom, now.tilt), (camera.zoom, camera.tilt));
         expect(map().arrow, same(arrow));
         expect(map().traveledM, isNull, reason: 'the grey drawn holds');
       }
-      // Driving off: the turn 52 m ahead, the camera closes in.
-      await fix(14, 8);
-      expect((map().camera as FollowCamera).zoom, greaterThan(camera.zoom));
-      expect(map().traveledM, closeTo(132, 15));
+      // Driving off 122 m before the turn: the view flattens toward it.
+      await fix(7, 8);
+      expect((map().camera as FollowCamera).tilt, lessThan(camera.tilt - 2));
+      expect(map().traveledM, closeTo(62, 15));
+    });
+
+    testWidgets('a guidance that starts parked frames its first turn', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      // The first position, at a stop 102 m before the left turn.
+      final f = driveFixes(plan.routes.first, toM: 90).last;
+      feed.send(
+        Fix(position: f.position, accuracyM: 5, at: f.at, courseDeg: f.courseDeg, speedMps: 0),
+      );
+      await settleShort(tester);
+      expect((map().camera as FollowCamera).tilt, closeTo(AutoTilt.junction, 0.5));
     });
 
     testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (

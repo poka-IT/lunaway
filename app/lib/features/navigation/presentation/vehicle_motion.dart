@@ -32,9 +32,9 @@ final class VehicleMotion {
   /// tunnel) is not reached at a crawl.
   static const maxGlide = Duration(milliseconds: 1500);
 
-  /// Below this speed, metres per second, the vehicle is parked (a slow
-  /// walk is 1.4).
-  static const parkedMps = 1.0;
+  /// Below this speed, metres per second, the vehicle is parked, as the
+  /// camera's aim is ([AutoZoom.holdBelowMps]).
+  static const double parkedMps = AutoZoom.holdBelowMps;
 
   /// A parked vehicle's fix within this of where it is drawn, metres, is
   /// the receiver wandering: the vehicle stays, and the map draws nothing

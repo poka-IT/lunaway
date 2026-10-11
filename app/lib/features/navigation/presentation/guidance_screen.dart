@@ -1161,10 +1161,11 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         // The drawn vehicle reaches each fix as the next one comes: the grey
         // stops a second's drive behind it, under the arrow. Parked, it
-        // holds: a fix that wanders does not redraw the route.
+        // holds: a fix that wanders does not redraw the route. An unknown
+        // speed moves it, as it moves the vehicle.
         traveledM: switch ((alongOnRoute, session.lastFix?.speedMps)) {
-          (final along?, final speed?) when speed >= VehicleMotion.parkedMps =>
-            math.max(0, along - speed).toDouble(),
+          (final along?, final speed) when speed == null || speed >= VehicleMotion.parkedMps =>
+            math.max(0, along - (speed ?? 0)).toDouble(),
           _ => null,
         },
         arrow: ref.watch(guidanceArrowProvider),
