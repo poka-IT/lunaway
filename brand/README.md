@@ -95,7 +95,8 @@ files. It writes:
   monochrome layers (the background is the `ic_launcher_background` colour
   resource), and the splash icon, for every density;
 - iOS: the 1024 px app icon (opaque) with its dark and tinted variants, and
-  the launch image in light and dark;
+  the launch image on its cream disc, the one the navy launch screen shows
+  in every theme;
 - macOS: the app icon from 16 to 1024 px on the system icon grid;
 - Windows: `app_icon.ico` with 16, 24, 32, 48, 64, 128 and 256 px entries;
 - web: favicons (PNG and an SVG that follows the browser theme), the PWA
