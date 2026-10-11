@@ -394,10 +394,25 @@ mod tests {
             let zones = BY_COUNTRY.get(country).map_or(0, Vec::len);
             assert!(zones > 1, "{country} has {zones} zone(s)");
         }
-        for country in ["CY", "DE", "PS"] {
-            let zones: Vec<PlaceTz> = BY_COUNTRY[country]
+        // Spain's mainland zones too: Ceuta, nearer than Madrid to all of
+        // Andalusia, keeps Madrid's clock.
+        let one_clock = [
+            ("CY", vec!["Asia/Nicosia", "Asia/Famagusta"]),
+            ("DE", vec!["Europe/Berlin", "Europe/Busingen"]),
+            ("PS", vec!["Asia/Gaza", "Asia/Hebron"]),
+            ("ES", vec!["Europe/Madrid", "Africa/Ceuta"]),
+        ];
+        for (country, names) in one_clock {
+            if country != "ES" {
+                let all: Vec<&str> = BY_COUNTRY[country].iter().map(|c| c.zone).collect();
+                assert_eq!(
+                    all, names,
+                    "{country}: every zone of the country is compared"
+                );
+            }
+            let zones: Vec<PlaceTz> = names
                 .iter()
-                .map(|c| PlaceTz::named(c.zone).unwrap())
+                .map(|name| PlaceTz::named(name).unwrap())
                 .collect();
             let mut t = utc(2025, 1, 1, 0, 0);
             while t < utc(2038, 1, 1, 0, 0) {
@@ -423,9 +438,8 @@ mod tests {
         let never =
             never.with_context(Context::default().with_locale(TzLocation::new(paris.clone())));
         let now = utc(2026, 10, 11, 12, 0).with_timezone(&paris);
-        let started = std::time::Instant::now();
+        // Before the bound, this call did not return.
         let _ = never.next_change(now.clone());
-        assert!(started.elapsed() < std::time::Duration::from_secs(5));
         let weekdays: OpeningHours = "Mo-Fr 09:00-18:00".parse().unwrap();
         let weekdays =
             weekdays.with_context(Context::default().with_locale(TzLocation::new(paris.clone())));

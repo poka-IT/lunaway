@@ -30,11 +30,11 @@ because the offline map of Morocco and the graph's cut of Morocco both
 hold it. The region and its offline map are named after both in each
 language ("Maroc et Sahara occidental", `areas.ma`), and so are the
 server's names and the pack outline's (decision of the product owner,
-2026-10-11); the code stays `MA`. The places of every other country (40 on 2026-10-11, Turkey,
-Romania and Hungary the largest; `plan/research/132-hors-ligne-pays.md`)
-are served online only: no pack is built for them, `changes(region:)`
-refuses their codes, and the app says, offline over one of them, that the
-area is online only.
+2026-10-11); the code stays `MA`. The places of every other country (40
+on 2026-10-11, Turkey, Romania and Hungary the largest;
+`plan/research/132-hors-ligne-pays.md`) are served online only: no pack
+is built for them, `changes(region:)` refuses their codes, and the app
+says, offline over one of them, that the area is online only.
 
 `Place.region` gives the region of a place. A place whose commune or
 country changes moves to another region: the feed of the region it left

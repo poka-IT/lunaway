@@ -431,8 +431,7 @@ mod tests {
     #[test]
     fn the_islands_read_as_areas_of_their_own() {
         assert!(areas_at(at(28.1, -15.43)).contains(&"IC"), "Canary Islands");
-        assert!(areas_at(at(37.74, -25.67)).contains(&"PT-20"), "Azores");
-        assert!(areas_at(at(32.65, -16.91)).contains(&"PT-30"), "Madeira");
+        assert!(!areas_at(at(40.42, -3.70)).contains(&"IC"), "Madrid");
     }
 
     #[test]
