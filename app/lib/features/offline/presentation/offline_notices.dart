@@ -82,8 +82,13 @@ class _OfflineLine extends ConsumerWidget {
     // A country the offline maps leave out: no download would help, and the
     // last pack still drawn is not this area's.
     final onlineOnly = supported && ref.watch(viewOnlineOnlyProvider);
+    // An island no offline map holds whose places sync with its country
+    // (Åland, Svalbard): its places are here, only its map is online.
+    final placesKept = onlineOnly && (ref.watch(placesWithoutOfflineMapProvider).value ?? false);
     final mapDrawn = pack != null && !onlineOnly;
-    final text = onlineOnly
+    final text = placesKept
+        ? t.offlineMaps.noticePlacesMapOnline
+        : onlineOnly
         ? t.offlineMaps.noticeOnlineOnly
         : pack != null
         ? t.offlineMaps.noticePack(

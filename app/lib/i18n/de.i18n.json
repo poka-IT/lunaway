@@ -2304,6 +2304,7 @@
     "noticeNone": "Offline: Laden Sie für das nächste Mal eine Region herunter",
     "noticeOnline": "Offline: Die Karte braucht das Netz",
     "noticeOnlineOnly": "Offline: Dieses Gebiet ist nur online verfügbar",
+    "noticePlacesMapOnline": "Offline: Plätze auf dem Gerät, Karte dieses Gebiets nur online",
     "placesTitle": "Plätze",
     "placesHint": "Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.",
     "mapsTitle": "Karten",
@@ -2428,6 +2429,7 @@
     "gf": "Französisch-Guayana",
     "re": "Réunion",
     "yt": "Mayotte",
+    "ma": "Marokko und Westsahara",
     "franceRest": "Frankreich, ohne Gemeindezuordnung"
   },
   "forms": {

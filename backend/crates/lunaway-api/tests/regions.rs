@@ -793,7 +793,7 @@ async fn morocco_keeps_western_sahara_offline_and_turkey_stays_online(pool: PgPo
         .expect("Morocco is a region a device can keep");
     assert_eq!(
         morocco,
-        &json!({"code": "MA", "country": "MA", "name": "Morocco", "nameFr": "Maroc"})
+        &json!({"code": "MA", "country": "MA", "name": "Morocco and Western Sahara", "nameFr": "Maroc et Sahara occidental"})
     );
     assert!(
         listed

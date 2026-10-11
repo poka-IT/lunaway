@@ -1655,6 +1655,7 @@ class _Translations$offlineMaps$de extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Offline: Laden Sie für das nächste Mal eine Region herunter';
 	@override String get noticeOnline => 'Offline: Die Karte braucht das Netz';
 	@override String get noticeOnlineOnly => 'Offline: Dieses Gebiet ist nur online verfügbar';
+	@override String get noticePlacesMapOnline => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nur online';
 	@override String get placesTitle => 'Plätze';
 	@override String get placesHint => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.';
 	@override String get mapsTitle => 'Karten';
@@ -1801,6 +1802,7 @@ class _Translations$areas$de extends Translations$areas$en {
 	@override String get gf => 'Französisch-Guayana';
 	@override String get re => 'Réunion';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Marokko und Westsahara';
 	@override String get franceRest => 'Frankreich, ohne Gemeindezuordnung';
 }
 
@@ -5439,6 +5441,7 @@ extension on TranslationsDe {
 			'offlineMaps.noticeNone' => 'Offline: Laden Sie für das nächste Mal eine Region herunter',
 			'offlineMaps.noticeOnline' => 'Offline: Die Karte braucht das Netz',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: Dieses Gebiet ist nur online verfügbar',
+			'offlineMaps.noticePlacesMapOnline' => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nur online',
 			'offlineMaps.placesTitle' => 'Plätze',
 			'offlineMaps.placesHint' => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.',
 			'offlineMaps.mapsTitle' => 'Karten',
@@ -5544,6 +5547,7 @@ extension on TranslationsDe {
 			'areas.gf' => 'Französisch-Guayana',
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Marokko und Westsahara',
 			'areas.franceRest' => 'Frankreich, ohne Gemeindezuordnung',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Feld zu korrigieren', other: '${n} Felder zu korrigieren', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

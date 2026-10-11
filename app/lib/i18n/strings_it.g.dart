@@ -1655,6 +1655,7 @@ class _Translations$offlineMaps$it extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Offline: scarica una regione per la prossima volta';
 	@override String get noticeOnline => 'Offline: la mappa ha bisogno della rete';
 	@override String get noticeOnlineOnly => 'Offline: quest\'area è disponibile solo online';
+	@override String get noticePlacesMapOnline => 'Offline: luoghi sul dispositivo, mappa di quest\'area solo online';
 	@override String get placesTitle => 'Luoghi';
 	@override String get placesHint => 'Pochi megabyte per regione: elenco, ricerca, schede e filtri funzionano senza rete.';
 	@override String get mapsTitle => 'Mappe';
@@ -1801,6 +1802,7 @@ class _Translations$areas$it extends Translations$areas$en {
 	@override String get gf => 'Guyana francese';
 	@override String get re => 'Riunione';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Marocco e Sahara Occidentale';
 	@override String get franceRest => 'Resto della Francia';
 }
 
@@ -5439,6 +5441,7 @@ extension on TranslationsIt {
 			'offlineMaps.noticeNone' => 'Offline: scarica una regione per la prossima volta',
 			'offlineMaps.noticeOnline' => 'Offline: la mappa ha bisogno della rete',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: quest\'area è disponibile solo online',
+			'offlineMaps.noticePlacesMapOnline' => 'Offline: luoghi sul dispositivo, mappa di quest\'area solo online',
 			'offlineMaps.placesTitle' => 'Luoghi',
 			'offlineMaps.placesHint' => 'Pochi megabyte per regione: elenco, ricerca, schede e filtri funzionano senza rete.',
 			'offlineMaps.mapsTitle' => 'Mappe',
@@ -5544,6 +5547,7 @@ extension on TranslationsIt {
 			'areas.gf' => 'Guyana francese',
 			'areas.re' => 'Riunione',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Marocco e Sahara Occidentale',
 			'areas.franceRest' => 'Resto della Francia',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} campo da correggere', other: '${n} campi da correggere', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

@@ -228,7 +228,12 @@ pub const SYNC_REGIONS: &[SyncRegion] = &[
     region("IE", "IE", "Ireland", "Irlande"),
     region("IT", "IT", "Italy", "Italie"),
     region("LU", "LU", "Luxembourg", "Luxembourg"),
-    region("MA", "MA", "Morocco", "Maroc"),
+    region(
+        "MA",
+        "MA",
+        "Morocco and Western Sahara",
+        "Maroc et Sahara occidental",
+    ),
     region("NL", "NL", "Netherlands", "Pays-Bas"),
     region("NO", "NO", "Norway", "Norvège"),
     region("PL", "PL", "Poland", "Pologne"),

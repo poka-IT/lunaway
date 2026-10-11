@@ -2304,6 +2304,7 @@
     "noticeNone": "Sin conexión: descarga una región para la próxima vez",
     "noticeOnline": "Sin conexión: el mapa necesita conexión",
     "noticeOnlineOnly": "Sin conexión: esta zona solo está disponible en línea",
+    "noticePlacesMapOnline": "Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea",
     "placesTitle": "Lugares",
     "placesHint": "Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.",
     "mapsTitle": "Mapas",
@@ -2428,6 +2429,7 @@
     "gf": "Guayana Francesa",
     "re": "Reunión",
     "yt": "Mayotte",
+    "ma": "Marruecos y Sáhara Occidental",
     "franceRest": "Francia, sin municipio"
   },
   "forms": {

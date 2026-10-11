@@ -16,6 +16,8 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/data/pack_files.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'offline_providers.g.dart';
@@ -747,9 +749,10 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): there the places kept show, under the same words. False
-/// until the outlines are read, and under a pack on the device, one this
-/// build has no outline of included (read by its box).
+/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// changes the words. False until the outlines are read, and under a pack
+/// on the device, one this build has no outline of included (read by its
+/// box).
 @riverpod
 bool viewOnlineOnly(Ref ref) {
   final outlines = ref.watch(packOutlinesProvider).value;
@@ -765,6 +768,24 @@ bool viewOnlineOnly(Ref ref) {
     bounds: (p) => p.bounds,
   );
   return drawn == null && !outlines.near(view.center, view.bounds);
+}
+
+/// Whether the device holds places in the area [viewOnlineOnly] reads
+/// while no offline map covers it: an island whose places sync with its
+/// country but which no outline holds (Åland with Finland, Svalbard with
+/// Norway, Kastellorizo with Greece). Offline its places show, only its map
+/// does not. False wherever an offline map does cover the view.
+@riverpod
+Future<bool> placesWithoutOfflineMap(Ref ref) async {
+  if (!ref.watch(viewOnlineOnlyProvider)) return false;
+  // Counted again when a sync writes.
+  ref.watch(placeCountProvider);
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  final area = PackOutlines.nearArea(view.center, view.bounds);
+  final held = await ref
+      .watch(placesRepositoryProvider)
+      .countMatching(PlaceFilter.none, bounds: area);
+  return held > 0;
 }
 
 /// The places and the saved points of the favourites, for the packs to

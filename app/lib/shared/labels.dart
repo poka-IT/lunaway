@@ -345,6 +345,10 @@ extension Labels on Translations {
       'FR-973' => _t.areas.gf,
       'FR-974' => _t.areas.re,
       'FR-976' => _t.areas.yt,
+      // Western Sahara's places sync with Morocco and its outline lies in
+      // Morocco's map, so the region is named after both. A place's
+      // address keeps its own country (countryName).
+      'MA' => _t.areas.ma,
       _ => null,
     };
     if (area != null) return area;

@@ -195,12 +195,15 @@ class _EmptyList extends ConsumerWidget {
 
 /// Whether the list is offline where the device holds nothing of the
 /// view (the region at its centre not kept, or at sea): its title then
-/// says there is no connection.
+/// says there is no connection. An island no offline map holds (Åland,
+/// Svalbard) has no region at its centre, yet its places may be kept with
+/// its country's: then the device holds the view.
 bool offlineHere(WidgetRef ref) {
   if (ref.watch(placesFromTilesProvider) || ref.watch(basemapReachabilityProvider) != false) {
     return false;
   }
-  return !(ref.watch(viewRegionProvider)?.held ?? false);
+  if (ref.watch(viewRegionProvider)?.held ?? false) return false;
+  return !(ref.watch(placesWithoutOfflineMapProvider).value ?? false);
 }
 
 /// The list offline where the device holds nothing of the view: under its

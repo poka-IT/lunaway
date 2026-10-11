@@ -554,9 +554,10 @@ abstract class _$ActiveOfflinePack extends $Notifier<InstalledPack?> {
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): there the places kept show, under the same words. False
-/// until the outlines are read, and under a pack on the device, one this
-/// build has no outline of included (read by its box).
+/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// changes the words. False until the outlines are read, and under a pack
+/// on the device, one this build has no outline of included (read by its
+/// box).
 
 @ProviderFor(viewOnlineOnly)
 final viewOnlineOnlyProvider = ViewOnlineOnlyProvider._();
@@ -568,9 +569,10 @@ final viewOnlineOnlyProvider = ViewOnlineOnlyProvider._();
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): there the places kept show, under the same words. False
-/// until the outlines are read, and under a pack on the device, one this
-/// build has no outline of included (read by its box).
+/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// changes the words. False until the outlines are read, and under a pack
+/// on the device, one this build has no outline of included (read by its
+/// box).
 
 final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
@@ -581,9 +583,10 @@ final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
   /// offline the app says the area is online only rather than offer a
   /// download. A few islands whose places sync with their country lie outside
   /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-  /// with Greece): there the places kept show, under the same words. False
-  /// until the outlines are read, and under a pack on the device, one this
-  /// build has no outline of included (read by its box).
+  /// with Greece): their places kept show, and [placesWithoutOfflineMap]
+  /// changes the words. False until the outlines are read, and under a pack
+  /// on the device, one this build has no outline of included (read by its
+  /// box).
   ViewOnlineOnlyProvider._()
     : super(
         from: null,
@@ -618,6 +621,57 @@ final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
 }
 
 String _$viewOnlineOnlyHash() => r'959232bbaf3892234fbc833132ec5f7ff2e400c7';
+
+/// Whether the device holds places in the area [viewOnlineOnly] reads
+/// while no offline map covers it: an island whose places sync with its
+/// country but which no outline holds (Åland with Finland, Svalbard with
+/// Norway, Kastellorizo with Greece). Offline its places show, only its map
+/// does not. False wherever an offline map does cover the view.
+
+@ProviderFor(placesWithoutOfflineMap)
+final placesWithoutOfflineMapProvider = PlacesWithoutOfflineMapProvider._();
+
+/// Whether the device holds places in the area [viewOnlineOnly] reads
+/// while no offline map covers it: an island whose places sync with its
+/// country but which no outline holds (Åland with Finland, Svalbard with
+/// Norway, Kastellorizo with Greece). Offline its places show, only its map
+/// does not. False wherever an offline map does cover the view.
+
+final class PlacesWithoutOfflineMapProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// Whether the device holds places in the area [viewOnlineOnly] reads
+  /// while no offline map covers it: an island whose places sync with its
+  /// country but which no outline holds (Åland with Finland, Svalbard with
+  /// Norway, Kastellorizo with Greece). Offline its places show, only its map
+  /// does not. False wherever an offline map does cover the view.
+  PlacesWithoutOfflineMapProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placesWithoutOfflineMapProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placesWithoutOfflineMapHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    return placesWithoutOfflineMap(ref);
+  }
+}
+
+String _$placesWithoutOfflineMapHash() =>
+    r'd6d54e95f75f7b4c1e9deff5f5561bb8b55a734e';
 
 /// The places and the saved points of the favourites, for the packs to
 /// suggest.

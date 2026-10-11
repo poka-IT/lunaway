@@ -15,6 +15,8 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/fakes.dart';
@@ -228,6 +230,73 @@ void main() {
     expect(find.text(t.offlineMaps.noticeOnlineOnly), findsOneWidget);
     expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsNothing);
     expect(find.text(t.offlineMaps.noticeOutside), findsNothing, reason: 'no download would help');
+  });
+
+  testWidgets('offline on Åland and on Svalbard, outside every offline map, the places kept with '
+      'Finland and Norway are said to be on the device and only the map online', (tester) async {
+    Place kept(String city, String country, double lat, double lon) => Place(
+      id: 'test-$city',
+      name: 'Parking $city',
+      kind: PlaceKind.parking,
+      lat: lat,
+      lon: lon,
+      overnight: OvernightStatus.allowed,
+      address: Address(city: city, countryCode: country),
+      updatedAt: DateTime.utc(2026, 9),
+    );
+    final map = FakeMap()
+      ..viewport = const MapViewport(
+        bounds: GeoBounds(south: 60.05, west: 19.85, north: 60.15, east: 20.05),
+        center: LatLng(60.1, 19.94),
+        zoom: 12,
+      );
+    final app = await pumpLunaway(
+      tester,
+      map: map,
+      packFiles: _withCorsica(),
+      reachable: false,
+      places: [kept('Mariehamn', 'AX', 60.097, 19.935), kept('Longyearbyen', 'SJ', 78.223, 15.647)],
+    );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticePlacesMapOnline), findsOneWidget, reason: 'Mariehamn');
+    expect(find.text(t.offlineMaps.noticeOnlineOnly), findsNothing, reason: 'its places are here');
+
+    void moveTo(MapViewport view) =>
+        app.container(tester).read(viewportProvider.notifier).update(view);
+    // A few kilometres east, no place in the view: the list says the view
+    // is empty, as anywhere the places are kept.
+    moveTo(
+      const MapViewport(
+        bounds: GeoBounds(south: 60.1, west: 20.05, north: 60.13, east: 20.1),
+        center: LatLng(60.115, 20.075),
+        zoom: 14,
+      ),
+    );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticePlacesMapOnline), findsOneWidget);
+    expect(find.text(t.list.offlineOnlineOnly), findsNothing);
+    expect(find.text(t.list.empty), findsOneWidget);
+    moveTo(
+      const MapViewport(
+        bounds: GeoBounds(south: 78.18, west: 15.5, north: 78.26, east: 15.8),
+        center: LatLng(78.22, 15.65),
+        zoom: 12,
+      ),
+    );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticePlacesMapOnline), findsOneWidget, reason: 'Longyearbyen');
+
+    // Istanbul: no place of the device around, the area is online only.
+    moveTo(
+      const MapViewport(
+        bounds: GeoBounds(south: 40.85, west: 28.7, north: 41.17, east: 29.24),
+        center: LatLng(41.01, 28.97),
+        zoom: 11,
+      ),
+    );
+    await settleShort(tester);
+    expect(find.text(t.offlineMaps.noticeOnlineOnly), findsOneWidget);
+    expect(find.text(t.offlineMaps.noticePlacesMapOnline), findsNothing);
   });
 
   testWidgets('offline, a view moved from Ajaccio to the middle of its gulf, outside every '

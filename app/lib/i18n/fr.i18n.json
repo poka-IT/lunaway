@@ -2304,6 +2304,7 @@
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
     "noticeOnline": "Hors ligne : la carte a besoin du réseau",
     "noticeOnlineOnly": "Hors ligne : cette zone n'est disponible qu'en ligne",
+    "noticePlacesMapOnline": "Hors ligne : lieux sur l'appareil, carte de cette zone en ligne seulement",
     "placesTitle": "Lieux",
     "placesHint": "Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.",
     "mapsTitle": "Cartes",
@@ -2428,6 +2429,7 @@
     "gf": "Guyane",
     "re": "La Réunion",
     "yt": "Mayotte",
+    "ma": "Maroc et Sahara occidental",
     "franceRest": "France, hors commune"
   },
   "forms": {

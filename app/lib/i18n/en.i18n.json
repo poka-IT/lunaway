@@ -2304,6 +2304,7 @@
     "noticeNone": "Offline: download a region for next time",
     "noticeOnline": "Offline: the map needs the network",
     "noticeOnlineOnly": "Offline: this area is only available online",
+    "noticePlacesMapOnline": "Offline: places on the device, the map of this area online only",
     "placesTitle": "Places",
     "placesHint": "A few megabytes per region: the list, the search, the place pages and the filters work without network.",
     "mapsTitle": "Maps",
@@ -2428,6 +2429,7 @@
     "gf": "French Guiana",
     "re": "Réunion",
     "yt": "Mayotte",
+    "ma": "Morocco and Western Sahara",
     "franceRest": "France, outside any commune"
   },
   "forms": {

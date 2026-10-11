@@ -1655,6 +1655,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
 	@override String get noticeOnlineOnly => 'Hors ligne : cette zone n\'est disponible qu\'en ligne';
+	@override String get noticePlacesMapOnline => 'Hors ligne : lieux sur l\'appareil, carte de cette zone en ligne seulement';
 	@override String get placesTitle => 'Lieux';
 	@override String get placesHint => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.';
 	@override String get mapsTitle => 'Cartes';
@@ -1801,6 +1802,7 @@ class _Translations$areas$fr extends Translations$areas$en {
 	@override String get gf => 'Guyane';
 	@override String get re => 'La Réunion';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Maroc et Sahara occidental';
 	@override String get franceRest => 'France, hors commune';
 }
 
@@ -5439,6 +5441,7 @@ extension on TranslationsFr {
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
 			'offlineMaps.noticeOnlineOnly' => 'Hors ligne : cette zone n\'est disponible qu\'en ligne',
+			'offlineMaps.noticePlacesMapOnline' => 'Hors ligne : lieux sur l\'appareil, carte de cette zone en ligne seulement',
 			'offlineMaps.placesTitle' => 'Lieux',
 			'offlineMaps.placesHint' => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.',
 			'offlineMaps.mapsTitle' => 'Cartes',
@@ -5544,6 +5547,7 @@ extension on TranslationsFr {
 			'areas.gf' => 'Guyane',
 			'areas.re' => 'La Réunion',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Maroc et Sahara occidental',
 			'areas.franceRest' => 'France, hors commune',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} champ à corriger', other: '${n} champs à corriger', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label} : ${error}',

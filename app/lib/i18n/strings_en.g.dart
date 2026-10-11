@@ -3578,6 +3578,9 @@ class Translations$offlineMaps$en {
 	/// en: 'Offline: this area is only available online'
 	String get noticeOnlineOnly => 'Offline: this area is only available online';
 
+	/// en: 'Offline: places on the device, the map of this area online only'
+	String get noticePlacesMapOnline => 'Offline: places on the device, the map of this area online only';
+
 	/// en: 'Places'
 	String get placesTitle => 'Places';
 
@@ -3924,6 +3927,9 @@ class Translations$areas$en {
 
 	/// en: 'Mayotte'
 	String get yt => 'Mayotte';
+
+	/// en: 'Morocco and Western Sahara'
+	String get ma => 'Morocco and Western Sahara';
 
 	/// en: 'France, outside any commune'
 	String get franceRest => 'France, outside any commune';
@@ -9550,6 +9556,7 @@ extension on Translations {
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: this area is only available online',
+			'offlineMaps.noticePlacesMapOnline' => 'Offline: places on the device, the map of this area online only',
 			'offlineMaps.placesTitle' => 'Places',
 			'offlineMaps.placesHint' => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.',
 			'offlineMaps.mapsTitle' => 'Maps',
@@ -9655,6 +9662,7 @@ extension on Translations {
 			'areas.gf' => 'French Guiana',
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Morocco and Western Sahara',
 			'areas.franceRest' => 'France, outside any commune',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} field to correct', other: '${n} fields to correct', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

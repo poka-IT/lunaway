@@ -2304,6 +2304,7 @@
     "noticeNone": "Offline: download een regio voor de volgende keer",
     "noticeOnline": "Offline: de kaart heeft internet nodig",
     "noticeOnlineOnly": "Offline: dit gebied is alleen online beschikbaar",
+    "noticePlacesMapOnline": "Offline: plekken op het apparaat, kaart van dit gebied alleen online",
     "placesTitle": "Plekken",
     "placesHint": "Een paar megabyte per regio: de lijst, het zoeken, de detailpagina's en de filters werken zonder internet.",
     "mapsTitle": "Kaarten",
@@ -2428,6 +2429,7 @@
     "gf": "Frans-Guyana",
     "re": "Réunion",
     "yt": "Mayotte",
+    "ma": "Marokko en Westelijke Sahara",
     "franceRest": "Frankrijk, overig"
   },
   "forms": {

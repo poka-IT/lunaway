@@ -1655,6 +1655,7 @@ class _Translations$offlineMaps$es extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Sin conexión: descarga una región para la próxima vez';
 	@override String get noticeOnline => 'Sin conexión: el mapa necesita conexión';
 	@override String get noticeOnlineOnly => 'Sin conexión: esta zona solo está disponible en línea';
+	@override String get noticePlacesMapOnline => 'Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea';
 	@override String get placesTitle => 'Lugares';
 	@override String get placesHint => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.';
 	@override String get mapsTitle => 'Mapas';
@@ -1801,6 +1802,7 @@ class _Translations$areas$es extends Translations$areas$en {
 	@override String get gf => 'Guayana Francesa';
 	@override String get re => 'Reunión';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Marruecos y Sáhara Occidental';
 	@override String get franceRest => 'Francia, sin municipio';
 }
 
@@ -5439,6 +5441,7 @@ extension on TranslationsEs {
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',
 			'offlineMaps.noticeOnline' => 'Sin conexión: el mapa necesita conexión',
 			'offlineMaps.noticeOnlineOnly' => 'Sin conexión: esta zona solo está disponible en línea',
+			'offlineMaps.noticePlacesMapOnline' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea',
 			'offlineMaps.placesTitle' => 'Lugares',
 			'offlineMaps.placesHint' => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.',
 			'offlineMaps.mapsTitle' => 'Mapas',
@@ -5544,6 +5547,7 @@ extension on TranslationsEs {
 			'areas.gf' => 'Guayana Francesa',
 			'areas.re' => 'Reunión',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Marruecos y Sáhara Occidental',
 			'areas.franceRest' => 'Francia, sin municipio',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} campo por corregir', other: '${n} campos por corregir', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

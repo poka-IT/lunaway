@@ -50,6 +50,19 @@ void main() {
     }
   });
 
+  test('the region and the offline map of Morocco name Western Sahara too, in each language; '
+      'an address keeps its own country', () {
+    for (final locale in AppLocale.values) {
+      final t = locale.buildSync();
+      expect(t.areaName('MA', fallback: 'Morocco'), t.areas.ma, reason: locale.languageCode);
+      expect(t.areaName('ma', fallback: 'Morocco'), t.areas.ma, reason: 'the offline map');
+      expect(t.areas.ma, contains(t.countries.ma));
+      expect(t.countryName('MA'), t.countries.ma);
+      expect(t.countryName('EH'), t.countries.eh);
+    }
+    expect(AppLocale.fr.buildSync().areas.ma, 'Maroc et Sahara occidental');
+  });
+
   test("a list of countries reads in the order of the reader's alphabet", () {
     final de = AppLocale.de.buildSync();
     final list = de.countryList(['NL', 'AT', 'BE']);

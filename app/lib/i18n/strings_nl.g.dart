@@ -1655,6 +1655,7 @@ class _Translations$offlineMaps$nl extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Offline: download een regio voor de volgende keer';
 	@override String get noticeOnline => 'Offline: de kaart heeft internet nodig';
 	@override String get noticeOnlineOnly => 'Offline: dit gebied is alleen online beschikbaar';
+	@override String get noticePlacesMapOnline => 'Offline: plekken op het apparaat, kaart van dit gebied alleen online';
 	@override String get placesTitle => 'Plekken';
 	@override String get placesHint => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.';
 	@override String get mapsTitle => 'Kaarten';
@@ -1801,6 +1802,7 @@ class _Translations$areas$nl extends Translations$areas$en {
 	@override String get gf => 'Frans-Guyana';
 	@override String get re => 'Réunion';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Marokko en Westelijke Sahara';
 	@override String get franceRest => 'Frankrijk, overig';
 }
 
@@ -5439,6 +5441,7 @@ extension on TranslationsNl {
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',
 			'offlineMaps.noticeOnline' => 'Offline: de kaart heeft internet nodig',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: dit gebied is alleen online beschikbaar',
+			'offlineMaps.noticePlacesMapOnline' => 'Offline: plekken op het apparaat, kaart van dit gebied alleen online',
 			'offlineMaps.placesTitle' => 'Plekken',
 			'offlineMaps.placesHint' => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.',
 			'offlineMaps.mapsTitle' => 'Kaarten',
@@ -5544,6 +5547,7 @@ extension on TranslationsNl {
 			'areas.gf' => 'Frans-Guyana',
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Marokko en Westelijke Sahara',
 			'areas.franceRest' => 'Frankrijk, overig',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} veld te verbeteren', other: '${n} velden te verbeteren', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

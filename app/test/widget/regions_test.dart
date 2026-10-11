@@ -319,6 +319,41 @@ void main() {
     expect(find.text('Télécharger, ${t.fileSize(1200 * 1024)}'), findsOneWidget);
   });
 
+  testWidgets('from Laayoune, the region found and listed is named after Morocco and Western '
+      'Sahara', (tester) async {
+    final catalog = RegionCatalog([
+      ..._catalog.regions,
+      RegionInfo(
+        code: 'MA',
+        country: 'MA',
+        name: 'Morocco',
+        nameFr: 'Maroc',
+        pack: _pack(1800 * 1024, 4510),
+      ),
+    ]);
+    final app = await pumpLunaway(
+      tester,
+      regions: catalog,
+      overrides: [
+        ...quietSync(_Quiet()),
+        locationFeedProvider.overrideWithValue(
+          FakeLocationFeed(position: const LatLng(27.15, -13.2)),
+        ),
+      ],
+    );
+    await KeptRegionsStore(app.user).save({'FR-BRE', 'FR'});
+    app.container(tester).invalidate(keptRegionsControllerProvider);
+    await settleShort(tester);
+    final context = tester.element(find.byType(Scaffold).first);
+    unawaited(showRegionPicker(context));
+    await settleShort(tester);
+    expect(find.text('Maroc et Sahara occidental'), findsOneWidget);
+    expect(find.text('Maroc'), findsNothing, reason: "the server's name stays unused");
+    await tester.tap(find.text('Trouver ma région'));
+    await settleShort(tester);
+    expect(find.text('Près de vous : Maroc et Sahara occidental'), findsOneWidget);
+  });
+
   testWidgets('"Trouver ma région" that fails stops turning and says so', (tester) async {
     final feed = _Quiet();
     final app = await pumpLunaway(
