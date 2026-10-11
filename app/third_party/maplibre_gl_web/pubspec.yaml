@@ -27,7 +27,9 @@
 # layout property to setLayoutProperty, by its name: given first to
 # setPaintProperty, which reports a validation error rather than throw, it
 # was never set (the price under a station's pin of the guidance, the sort
-# key of the main map's pins).
+# key of the main map's pins). A null over a property the layer has no value
+# for is skipped there: the typed properties send every unset one as null,
+# and GL JS took each for a change and loaded the source's tiles again.
 # Also: `resolution: workspace` and the dev_dependencies of the upstream
 # repository are dropped, as is analysis_options.yaml, which included a file
 # of that repository. Drop this copy and the override once a release carries

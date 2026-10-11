@@ -1721,7 +1721,20 @@ class MapLibreMapController extends MapLibrePlatform
       // paint one: it reports a validation error and changes nothing. Each
       // property goes to its own setter, by its name.
       try {
-        if (_layoutProperties.contains(entry.key)) {
+        final layout = isLayoutProperty(entry.key);
+        // The typed properties of maplibre_gl send every one they know, the
+        // unset ones as null. A null over a property the layer has no
+        // value for changes nothing, yet GL JS counts it a change (null is
+        // not undefined) and, for a layout one, loads the source's tiles
+        // again.
+        if (entry.value == null &&
+            (layout
+                    ? _map.getLayoutProperty(layerId, entry.key)
+                    : _map.getPaintProperty(layerId, entry.key)) ==
+                null) {
+          continue;
+        }
+        if (layout) {
           _map.setLayoutProperty(layerId, entry.key, entry.value);
         } else {
           _map.setPaintProperty(layerId, entry.key, entry.value);
@@ -1734,63 +1747,6 @@ class MapLibreMapController extends MapLibrePlatform
       }
     }
   }
-
-  /// The layout properties of the style specification (symbol, line, fill,
-  /// circle); every other property is a paint one.
-  static const _layoutProperties = {
-    'visibility',
-    'symbol-placement',
-    'symbol-spacing',
-    'symbol-avoid-edges',
-    'symbol-sort-key',
-    'symbol-z-order',
-    'icon-allow-overlap',
-    'icon-overlap',
-    'icon-ignore-placement',
-    'icon-optional',
-    'icon-rotation-alignment',
-    'icon-size',
-    'icon-text-fit',
-    'icon-text-fit-padding',
-    'icon-image',
-    'icon-rotate',
-    'icon-padding',
-    'icon-keep-upright',
-    'icon-offset',
-    'icon-anchor',
-    'icon-pitch-alignment',
-    'text-pitch-alignment',
-    'text-rotation-alignment',
-    'text-field',
-    'text-font',
-    'text-size',
-    'text-max-width',
-    'text-line-height',
-    'text-letter-spacing',
-    'text-justify',
-    'text-radial-offset',
-    'text-variable-anchor',
-    'text-variable-anchor-offset',
-    'text-anchor',
-    'text-max-angle',
-    'text-writing-mode',
-    'text-rotate',
-    'text-padding',
-    'text-keep-upright',
-    'text-transform',
-    'text-offset',
-    'text-allow-overlap',
-    'text-overlap',
-    'text-ignore-placement',
-    'text-optional',
-    'line-cap',
-    'line-join',
-    'line-miter-limit',
-    'line-round-limit',
-    'line-sort-key',
-    'fill-sort-key',
-    'circle-sort-key',
-  };
 
   @override
   Future<void> addSymbolLayer(
