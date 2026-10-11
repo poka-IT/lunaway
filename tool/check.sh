@@ -77,6 +77,9 @@ if command -v python3 >/dev/null 2>&1; then
   run "job pause tests" python3 infra/tests/pause-jobs.py
   run "translation server tests" python3 infra/tests/translate-server.py
   run "external probe tests" python3 infra/tests/external-probe.py
+  # Needs GNU find and du, as on the backend: skipped on macOS, run by the CI.
+  run "photo backup tests" python3 infra/tests/media-offsite.py
+  run "Mac photo set-aside tests" python3 infra/tests/mac-photo-set-aside.py
 else
   echo "==> hook tests: skipped (no python3)"
 fi

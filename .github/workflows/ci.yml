@@ -57,6 +57,10 @@ jobs:
         run: python3 infra/tests/translate-server.py
       - name: external probe tests
         run: python3 infra/tests/external-probe.py
+      - name: photo backup tests
+        run: python3 infra/tests/media-offsite.py
+      - name: Mac photo set-aside tests
+        run: python3 infra/tests/mac-photo-set-aside.py
       - name: caddy package tests
         run: bash infra/tests/caddy-package.sh
       - name: workflow lint
