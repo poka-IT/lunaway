@@ -243,16 +243,17 @@ String? _text(Object? value) {
 }
 
 /// The exit's number a sign shows at a maneuver of [type], from the
-/// step's `exits`: on a ramp only (Valhalla's `off ramp` leaves a
-/// motorway, its `on ramp` leaves another road), and only the values that
-/// read as a number (`17`, `6.1`, `25a`) and name none of [roads], the
-/// road left and the road taken. Valhalla fills `exits` from the map's
-/// `junction:ref`, which some links carry with a road's number: the lanes
-/// of the Thônex-Vallard customs, at the end of the A 411, say `A 411`,
-/// and a road numbered with digits alone (a Swiss main road) would read
-/// as an exit.
+/// step's `exits`: on an `off ramp` only, Valhalla's way off a motorway
+/// (its `on ramp` leads onto one, where a link that carries its
+/// junction's number would read "Sortie" at an entrance), and only the
+/// values that read as a number (`17`, `6.1`, `25a`) and name none of
+/// [roads], the road left and the road taken. Valhalla fills `exits` from
+/// the map's `junction:ref`, which some links carry with a road's number:
+/// the lanes of the Thônex-Vallard customs, at the end of the A 411, say
+/// `A 411`, and a road numbered with digits alone (a Swiss main road)
+/// would read as an exit.
 String? _exitNumber(String type, Object? exits, {required List<Object?> roads}) {
-  if (type != 'off ramp' && type != 'on ramp') return null;
+  if (type != 'off ramp') return null;
   List<String> values(Object? text) => [
     for (final value in (_text(text) ?? '').split(';'))
       if (value.trim() case final v when v.isNotEmpty) v,

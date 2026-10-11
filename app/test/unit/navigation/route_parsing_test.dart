@@ -274,7 +274,7 @@ void main() {
       expect(exitOf('brive_ussel_en'), '23');
     });
 
-    test('only a ramp shows an exit, and only the numbers of its exits', () {
+    test('only a way off a motorway shows an exit, and only the numbers of its exits', () {
       String? exitAt(String type, String exits, {String? left, String? taken}) {
         final plan = routeFixture(
           'limoges_drive',
@@ -295,7 +295,8 @@ void main() {
       }
 
       expect(exitAt('off ramp', '17'), '17');
-      expect(exitAt('on ramp', '6.1'), '6.1', reason: "Valhalla's ramp left from a lesser road");
+      expect(exitAt('off ramp', '6.1'), '6.1');
+      expect(exitAt('on ramp', '16'), isNull, reason: 'a ramp onto a motorway is no exit');
       expect(exitAt('off ramp', '31b'), '31b');
       expect(exitAt('off ramp', '17; A 411'), '17');
       expect(exitAt('off ramp', 'A 411'), isNull);
