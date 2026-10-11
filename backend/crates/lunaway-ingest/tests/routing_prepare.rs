@@ -601,3 +601,105 @@ fn a_bar_on_a_node_closes_a_stretch_of_each_way_through_it_and_the_relations_fol
         }
     }
 }
+
+/// The ramps of a motorway's end at a customs, as mapped at Thônex-Vallard
+/// (ways 8037008, 207376619, 753760288: `junction:ref=A 411`, the motorway
+/// they end), an exit numbered 31, and two motorway junctions, one whose
+/// `ref` names the road and one numbered 16.
+fn extract_with_junctions(dir: &std::path::Path) -> std::path::PathBuf {
+    let mut s = Strings(vec![String::new()]);
+    let mut nodes = Vec::new();
+    nodes.extend(street(&mut s, 1, 46.187, 6.204));
+    nodes.extend(street(&mut s, 11, 46.100, 6.300));
+    nodes.push(node(
+        &mut s,
+        21,
+        46.181,
+        6.228,
+        &[("highway", "motorway_junction"), ("ref", "A 411")],
+    ));
+    nodes.push(node(
+        &mut s,
+        22,
+        46.120,
+        6.320,
+        &[("highway", "motorway_junction"), ("ref", "16")],
+    ));
+    let ways = vec![
+        way(
+            &mut s,
+            100,
+            &[1, 2, 3],
+            &[
+                ("highway", "motorway_link"),
+                ("oneway", "yes"),
+                ("int_ref", "E 712"),
+                ("name", "Autoroute Blanche"),
+                ("junction:ref", "A 411"),
+            ],
+        ),
+        way(
+            &mut s,
+            200,
+            &[11, 12, 13],
+            &[
+                ("highway", "motorway_link"),
+                ("oneway", "yes"),
+                ("junction:ref", "31"),
+                ("destination", "Sainte-Anne-d'Auray"),
+            ],
+        ),
+    ];
+    let path = dir.join("junctions.osm.pbf");
+    std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
+    path
+}
+
+#[test]
+fn a_junction_reference_that_names_a_road_never_reaches_valhalla_as_an_exit() {
+    let dir = tempfile::tempdir().unwrap();
+    let pbf = extract_with_junctions(dir.path());
+    let at = Utc.with_ymd_and_hms(2026, 10, 11, 20, 0, 0).unwrap();
+    let prepared = routing::prepare(&pbf, &[], at, at).unwrap();
+    assert_eq!(
+        prepared.report.exit_refs_dropped, 2,
+        "{:?}",
+        prepared.report
+    );
+    assert_eq!(prepared.report.fixed_ways, 1);
+    assert_eq!(prepared.report.fixed_nodes, 1);
+    routing::write(&prepared, dir.path()).unwrap();
+    let mut osc = String::new();
+    flate2::read::GzDecoder::new(std::fs::File::open(dir.path().join("fixes.osc.gz")).unwrap())
+        .read_to_string(&mut osc)
+        .unwrap();
+
+    let customs = element(&osc, "way", 100);
+    assert!(
+        !customs.is_empty() && !customs.contains("junction:ref"),
+        "Valhalla would say 'Prenez la sortie A 411' at the customs: {osc}"
+    );
+    for kept in [
+        r#"<tag k="highway" v="motorway_link"/>"#,
+        r#"<tag k="int_ref" v="E 712"/>"#,
+        r#"<tag k="name" v="Autoroute Blanche"/>"#,
+    ] {
+        assert!(customs.contains(kept), "the ramp keeps {kept}: {customs}");
+    }
+    assert_eq!(nds(&customs), vec![1, 2, 3], "the ramp keeps its nodes");
+    assert!(
+        element(&osc, "way", 200).is_empty(),
+        "exit 31 reaches the graph as mapped: {osc}"
+    );
+
+    let junction = element(&osc, "node", 21);
+    assert!(
+        junction.contains(r#"<tag k="highway" v="motorway_junction"/>"#)
+            && !junction.contains(r#"k="ref""#),
+        "a junction named after its road gives no exit number: {osc}"
+    );
+    assert!(
+        element(&osc, "node", 22).is_empty(),
+        "junction 16 stays: {osc}"
+    );
+}

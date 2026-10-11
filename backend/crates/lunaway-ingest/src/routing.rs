@@ -119,6 +119,11 @@ pub struct PrepareReport {
     pub weight_rating_copied: usize,
     /// Ways and nodes whose `motorhome` access was copied to `motorcar`.
     pub motorhome_access_copied: usize,
+    /// Ways and motorway junctions whose junction reference holds something
+    /// other than an exit number (a road's number, `A 411` at the
+    /// Thônex-Vallard customs), left out of what Valhalla writes on a
+    /// ramp's sign ([`tags::exit_number_fixes`]).
+    pub exit_refs_dropped: usize,
     /// Limits whose exception for local access ("sauf desserte") the
     /// change file writes in the form Valhalla reads.
     pub local_access_written: usize,
@@ -403,6 +408,11 @@ struct NodePass {
     near_ign: HashSet<i64>,
     /// The highest node id: the cut points take the ids above it.
     max_id: i64,
+    /// Nodes whose `motorhome` access the change file copies to `motorcar`.
+    motorcar_copied: usize,
+    /// Motorway junctions whose `ref` the change file leaves out, no exit
+    /// number ([`tags::exit_number_fixes`]).
+    exit_refs_dropped: usize,
 }
 
 impl NodePass {
@@ -411,6 +421,8 @@ impl NodePass {
         self.rewrites.extend(other.rewrites);
         self.near_ign.extend(other.near_ign);
         self.max_id = self.max_id.max(other.max_id);
+        self.motorcar_copied += other.motorcar_copied;
+        self.exit_refs_dropped += other.exit_refs_dropped;
         self
     }
 }
@@ -510,8 +522,16 @@ fn node_element(
         return out;
     }
     let mut fixes = tags::graph_fixes(&tags, &BTreeMap::new());
-    // Valhalla reads no limit on a node; only the access matters there.
-    fixes.retain(|k, _| k == "motorcar");
+    // Valhalla reads no limit on a node; only the access matters there, and
+    // the exit number of a motorway junction.
+    let exits = tags::exit_number_fixes(&tags);
+    fixes.retain(|k, _| k == "motorcar" || exits.contains_key(k));
+    if fixes.contains_key("motorcar") {
+        out.motorcar_copied += 1;
+    }
+    if !exits.is_empty() {
+        out.exit_refs_dropped += 1;
+    }
     if !fixes.is_empty() {
         let mut new_tags = tags.clone();
         tags::apply_fixes(&mut new_tags, fixes);
@@ -763,7 +783,8 @@ pub fn prepare(
     let mut records = Vec::new();
     let mut rewrites = nodes.rewrites;
     report.fixed_nodes = rewrites.len();
-    report.motorhome_access_copied = rewrites.len();
+    report.motorhome_access_copied = nodes.motorcar_copied;
+    report.exit_refs_dropped = nodes.exit_refs_dropped;
 
     for (wi, w) in ways.kept.iter().enumerate() {
         let ign: BTreeMap<RestrictionKind, f64> = extra
@@ -787,6 +808,9 @@ pub fn prepare(
             }
             if fixes.contains_key("motorcar") {
                 report.motorhome_access_copied += 1;
+            }
+            if fixes.keys().any(|k| k.starts_with("junction:ref")) {
+                report.exit_refs_dropped += 1;
             }
             let applied_ign = ign.iter().any(|(kind, v)| {
                 fixes.get(kind.graph_key()).and_then(Option::as_deref)
