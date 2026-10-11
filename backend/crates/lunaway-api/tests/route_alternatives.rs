@@ -89,6 +89,45 @@ async fn alternatives(app: &Router, token: &str) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn alternatives_too_large_are_asked_again_one_less(pool: PgPool) {
+    seed(&pool).await;
+    // Long trips off motorways: three routes weighed more than the API reads
+    // of an answer, two did not (2026-10-11).
+    let heavy = json!({"code": "Ok", "routes": [], "padding": "x".repeat(17 * 1024 * 1024)});
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, heavy),
+            (200, osrm(&[ROUTE_UNDER, ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let mut c = config(&url);
+    c.routing.timeout = Duration::from_secs(5);
+    let app = lunaway_api::router(ApiState::new(pool, c));
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(2.5)).await;
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let a = alternatives(&app, &token).await;
+    let a = &a["data"]["routeAlternatives"];
+    assert_eq!(a["status"], "OK", "{a}");
+    assert_eq!(
+        shapes(&a["osrmJson"]),
+        [ROUTE_AROUND],
+        "the alternative that fits comes back"
+    );
+    let asked = asked.lock().unwrap();
+    let alternates: Vec<Option<u64>> = asked
+        .iter()
+        .map(|b| b.get("alternates").and_then(Value::as_u64))
+        .collect();
+    assert_eq!(alternates, [None, Some(2), Some(1)]);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn the_best_route_comes_alone_and_its_alternatives_follow_once(pool: PgPool) {
     seed(&pool).await;
     let detour = detour();

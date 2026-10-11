@@ -916,11 +916,26 @@ impl Routing {
         let Some(slot) = self.try_spare_slot() else {
             return Ok(After::Busy);
         };
-        body["alternates"] = alternates.into();
-        let called = std::time::Instant::now();
-        let answer = engine.route(&body).await;
-        work.spent.engine += called.elapsed();
-        work.spent.engine_calls += 1;
+        let mut alternates = alternates;
+        let answer = loop {
+            body["alternates"] = alternates.into();
+            let called = std::time::Instant::now();
+            let answer = engine.route(&body).await;
+            work.spent.engine += called.elapsed();
+            work.spent.engine_calls += 1;
+            match answer {
+                // As for the best route (`route_within`): the routes did not
+                // fit the answer's limit, one alternative less.
+                Err(EngineError::TooLarge) if alternates > 1 => {
+                    alternates -= 1;
+                    tracing::info!(
+                        alternates,
+                        "the engine's answer exceeds its limit: alternatives asked again, one less"
+                    );
+                }
+                other => break other,
+            }
+        };
         let Answer::Routes(mut osrm) = answer? else {
             return Ok(After::None);
         };
