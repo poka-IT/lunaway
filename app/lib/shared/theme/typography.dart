@@ -23,26 +23,33 @@ abstract final class LunaType {
   /// Headings, from the title of a sheet to the display sizes.
   static const double heading = 650;
 
-  /// Every figure has one width: a distance, a speed, a duration or a price
-  /// that changes while it is read keeps its place, and the figures of a list
-  /// stand in columns.
+  /// Every figure one width, for the styles that carry numbers which change
+  /// or stand in columns: the guidance's distances, speeds and times, the
+  /// prices and durations, the counts of a list or a chip keep their place
+  /// as their figures change. Text read at length keeps Figtree's
+  /// proportional figures, where the "1" of "11 lits" stays narrow.
   static const List<FontFeature> figures = [FontFeature.tabularFigures()];
 
-  /// A style at [size] and weight [weight] (300 to 900, any value). The
-  /// tracking is Figtree's own at the sizes of text, whose spacing is drawn
-  /// for them, and closes a little from the titles up, where its large sizes
-  /// read better.
-  static TextStyle style(double size, double weight, {double height = 1.2, double? spacing}) =>
-      TextStyle(
-        fontFamily: family,
-        fontSize: size,
-        height: height,
-        letterSpacing: spacing ?? _tracking(size),
-        // FontWeight alone: an explicit weight variation below a bold
-        // FontWeight would make the engine embolden the outlines on top.
-        fontWeight: FontWeight(weight.round()),
-        fontFeatures: figures,
-      );
+  /// A style at [size] and weight [weight] (300 to 900, any value), with
+  /// [figures] when [tabular]. The tracking is Figtree's own at the sizes of
+  /// text, whose spacing is drawn for them, and closes a little from the
+  /// titles up, where its large sizes read better.
+  static TextStyle style(
+    double size,
+    double weight, {
+    double height = 1.2,
+    double? spacing,
+    bool tabular = true,
+  }) => TextStyle(
+    fontFamily: family,
+    fontSize: size,
+    height: height,
+    letterSpacing: spacing ?? _tracking(size),
+    // FontWeight alone: an explicit weight variation below a bold
+    // FontWeight would make the engine embolden the outlines on top.
+    fontWeight: FontWeight(weight.round()),
+    fontFeatures: tabular ? figures : null,
+  );
 
   static double _tracking(double size) => size >= 36
       ? -0.8
@@ -58,7 +65,10 @@ abstract final class LunaType {
   /// the app is read at arm's length, often by older eyes. Every size still
   /// follows the system text size, since widgets read these styles. [dense]
   /// is the desktop scale, a point smaller: read at a desk, closer to the
-  /// eyes, and still above the Material sizes.
+  /// eyes, and still above the Material sizes. The body styles, read at
+  /// length, keep proportional figures; the display, headline, title and
+  /// label styles, where the guidance, the lists and the chips set their
+  /// numbers, take tabular ones.
   static TextTheme textTheme(Color onSurface, {bool dense = false}) {
     double size(double touch, double desk) => dense ? desk : touch;
     return TextTheme(
@@ -71,9 +81,9 @@ abstract final class LunaType {
       titleLarge: style(size(20, 19), heading, height: 1.22),
       titleMedium: style(size(17, 16), strong, height: 1.3),
       titleSmall: style(size(15, 14.5), strong, height: 1.3),
-      bodyLarge: style(size(17, 16), regular, height: 1.45),
-      bodyMedium: style(size(15.5, 14.5), regular, height: 1.42),
-      bodySmall: style(size(13.5, 13), regular, height: 1.38),
+      bodyLarge: style(size(17, 16), regular, height: 1.45, tabular: false),
+      bodyMedium: style(size(15.5, 14.5), regular, height: 1.42, tabular: false),
+      bodySmall: style(size(13.5, 13), regular, height: 1.38, tabular: false),
       labelLarge: style(size(15.5, 14.5), strong, height: 1.25),
       labelMedium: style(size(13.5, 13), strong, height: 1.25),
       // A touch open at the smallest size, no more: the map's credit, in

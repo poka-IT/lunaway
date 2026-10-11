@@ -71,8 +71,11 @@ Many users are 55 to 75 and read the app at arm's length in a van cab. So:
 - one typeface, Figtree (`LunaType`, `app/lib/shared/theme/typography.dart`):
   the theme's styles take their weights from it (`regular` 420 for text,
   `strong` 620, `heading` 650; Figtree's own 400 is thinner than the text
-  weight) and all carry tabular figures, so a distance, a speed or a price
-  that changes keeps its width;
+  weight). The display, headline, title and label styles and
+  `LunaType.number` carry tabular figures, so a distance, a speed, a price or
+  a count that changes keeps its width; the body styles keep proportional
+  ones for text read at length. A live number goes in one of the former;
+  `test/widget/typography_test.dart` holds the split;
 - contrast from the colour scheme roles (`onSurface`, `onPrimaryContainer`),
   never a hard-coded grey;
 - one primary action per screen, named with a verb;
