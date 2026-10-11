@@ -152,73 +152,77 @@ final class GuidanceArrowProvider
 
 String _$guidanceArrowHash() => r'6c35c80d08241f841c0126aeaf63f1d7e352edb7';
 
-/// The zoom the guidance map aims at while it follows ([autoZoom]): the
-/// speed held through [SpeedHold], so a GPS speed that wavers does not make
-/// the view breathe, and the next maneuver's distance and kind, so the
-/// camera closes in before a turn and widens down a long straight. The
+/// The zoom and the tilt the guidance map aims at while it follows
+/// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+/// wavers does not make the view breathe, and the next maneuver's distance
+/// and kind, so the camera frames it, closer as it comes, flatter over a
+/// junction, wider and toward the horizon down a long straight. The
 /// engines ease toward it at each frame of the glide.
 
-@ProviderFor(GuidanceZoom)
-final guidanceZoomProvider = GuidanceZoomProvider._();
+@ProviderFor(GuidanceAim)
+final guidanceAimProvider = GuidanceAimProvider._();
 
-/// The zoom the guidance map aims at while it follows ([autoZoom]): the
-/// speed held through [SpeedHold], so a GPS speed that wavers does not make
-/// the view breathe, and the next maneuver's distance and kind, so the
-/// camera closes in before a turn and widens down a long straight. The
+/// The zoom and the tilt the guidance map aims at while it follows
+/// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+/// wavers does not make the view breathe, and the next maneuver's distance
+/// and kind, so the camera frames it, closer as it comes, flatter over a
+/// junction, wider and toward the horizon down a long straight. The
 /// engines ease toward it at each frame of the glide.
-final class GuidanceZoomProvider
-    extends $NotifierProvider<GuidanceZoom, double> {
-  /// The zoom the guidance map aims at while it follows ([autoZoom]): the
-  /// speed held through [SpeedHold], so a GPS speed that wavers does not make
-  /// the view breathe, and the next maneuver's distance and kind, so the
-  /// camera closes in before a turn and widens down a long straight. The
+final class GuidanceAimProvider
+    extends $NotifierProvider<GuidanceAim, CameraAim> {
+  /// The zoom and the tilt the guidance map aims at while it follows
+  /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+  /// wavers does not make the view breathe, and the next maneuver's distance
+  /// and kind, so the camera frames it, closer as it comes, flatter over a
+  /// junction, wider and toward the horizon down a long straight. The
   /// engines ease toward it at each frame of the glide.
-  GuidanceZoomProvider._()
+  GuidanceAimProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'guidanceZoomProvider',
+        name: r'guidanceAimProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$guidanceZoomHash();
+  String debugGetCreateSourceHash() => _$guidanceAimHash();
 
   @$internal
   @override
-  GuidanceZoom create() => GuidanceZoom();
+  GuidanceAim create() => GuidanceAim();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(double value) {
+  Override overrideWithValue(CameraAim value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<double>(value),
+      providerOverride: $SyncValueProvider<CameraAim>(value),
     );
   }
 }
 
-String _$guidanceZoomHash() => r'd519c8153123cf804683e8a1eebcfeef88ebf069';
+String _$guidanceAimHash() => r'a279e11e9f154c8e2a75e4379b83519ae7e66513';
 
-/// The zoom the guidance map aims at while it follows ([autoZoom]): the
-/// speed held through [SpeedHold], so a GPS speed that wavers does not make
-/// the view breathe, and the next maneuver's distance and kind, so the
-/// camera closes in before a turn and widens down a long straight. The
+/// The zoom and the tilt the guidance map aims at while it follows
+/// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+/// wavers does not make the view breathe, and the next maneuver's distance
+/// and kind, so the camera frames it, closer as it comes, flatter over a
+/// junction, wider and toward the horizon down a long straight. The
 /// engines ease toward it at each frame of the glide.
 
-abstract class _$GuidanceZoom extends $Notifier<double> {
-  double build();
+abstract class _$GuidanceAim extends $Notifier<CameraAim> {
+  CameraAim build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<double, double>;
+    final ref = this.ref as $Ref<CameraAim, CameraAim>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<double, double>,
-              double,
+              AnyNotifier<CameraAim, CameraAim>,
+              CameraAim,
               Object?,
               Object?
             >;

@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 
-/// How far the guidance camera tilts, degrees from straight down: the road
-/// ahead reads as a driver sees it, and MapLibre still draws the horizon
-/// sharp (its limit is 60).
-const followTiltDeg = 55.0;
+/// How far the guidance camera tilts while it cruises, degrees from straight
+/// down ([AutoTilt]): the road ahead reads as a driver sees it, and
+/// MapLibre still draws the horizon sharp (its limit is 60).
+const double followTiltDeg = AutoTilt.cruise;
 
 /// The angle from [a] to [b] the short way round, degrees in (-180, 180].
 double angleDelta(double a, double b) {
@@ -80,7 +80,7 @@ final class VehicleMotion {
   }
 }
 
-/// The zoom moving toward the one the camera aims at ([autoZoom]), a
+/// The zoom moving toward the one the camera aims at ([autoAim]), a
 /// little each frame: the view widens as the vehicle speeds up, and closes
 /// in before a turn, without a visible step.
 double easeZoom(double shown, double wanted, Duration frame) {
@@ -88,6 +88,10 @@ double easeZoom(double shown, double wanted, Duration frame) {
   final k = math.min(1, frame.inMicroseconds / settle.inMicroseconds);
   return shown + (wanted - shown) * k;
 }
+
+/// The tilt moving toward the one the camera aims at ([autoAim]), as the
+/// zoom does ([easeZoom]).
+double easeTilt(double shown, double wanted, Duration frame) => easeZoom(shown, wanted, frame);
 
 /// How long the map takes to turn most of the way to a new course: the
 /// arrow turns with the road, the map follows a moment later, so a bend

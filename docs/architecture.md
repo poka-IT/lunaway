@@ -639,15 +639,18 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   opening its options. A toll booth (1.5 km ahead) and a border (3 km)
   are told as standing notices, read from Valhalla's `toll_collection`
   and `admins` (`RouteOption.crossings`).
-- **The guidance's camera**: the zoom the follow camera eases to is
-  `autoZoom` (`domain/auto_zoom.dart`): a cruising zoom by speed (17.1 at
-  30 km/h, 14.8 at 130), the speed held through 6 km/h of hysteresis
-  (`SpeedHold`), closer as a turn, a roundabout, a ramp or the arrival
-  comes (the maneuver at 55 % of the road in view, capped 1.1 levels in),
-  wider by up to 0.6 down a straight longer than two minutes. The map
-  turns to the course with a 400 ms ease, and the vehicle stands 80 % down
-  the free map. Each engine animates only while the vehicle glides or
-  the camera has not reached its target; a vehicle parked draws no frame.
+- **The guidance's camera**: the zoom and the tilt the follow camera
+  eases to are `autoAim`'s (`domain/auto_zoom.dart`), measured against
+  Google Maps: the next maneuver framed (at 55 % of the road in view),
+  never wider than the speed allows (`AutoZoom.wide`, 16.0 at 30 km/h,
+  14.4 at 130) nor closer (`AutoZoom.close`, 17.7 at 30 km/h, 16.3 at
+  130), the speed held through 6 km/h of hysteresis (`SpeedHold`); a road
+  that only changes its name counts as far as the maneuver after it. The
+  tilt is 52° cruising, 60° down a straight shown at its widest, 42° over
+  a junction and 30° over a roundabout within 120 m. The map turns to the
+  course with a 400 ms ease, and the vehicle stands 76 px over the foot of
+  the free map. Each engine animates only while the vehicle glides or the
+  camera has not reached its aim; a vehicle parked draws no frame.
 - **The route line**: wider than every road of the basemap at each zoom
   (`RouteLook.lineStops`, 11.5 px at 17 inside a 2 px rim), a saturated
   teal by day; greyed behind the vehicle by a `line-gradient` on

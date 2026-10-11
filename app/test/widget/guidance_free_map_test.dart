@@ -249,21 +249,25 @@ void main() {
   });
 
   group('the camera', () {
-    testWidgets('closes in as a turn nears, cruises down the avenue after it', (tester) async {
+    testWidgets('closes in and flattens as a turn nears, widens down the avenue after it', (
+      tester,
+    ) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
-      double zoom() => (map().camera as FollowCamera).zoom;
+      FollowCamera camera() => map().camera as FollowCamera;
       // 36 km/h, the left turn onto Boulevard Carnot at 192 m.
       await drive(tester, plan, toM: 20);
-      final far = zoom();
+      final far = camera();
       await drive(tester, plan, toM: 160, fromM: 20);
-      final near = zoom();
-      expect(near, greaterThan(far + 0.2), reason: '32 m from the turn against 172');
-      expect(near, lessThanOrEqualTo(cruiseZoom(10) + AutoZoom.maxCloseIn));
-      // Avenue des Bénédictins, 800 m from its end: the cruise again.
+      final near = camera();
+      expect(near.zoom, greaterThan(far.zoom + 0.2), reason: '32 m from the turn against 172');
+      expect(near.zoom, closeTo(closeZoom(36), 0.01), reason: 'the closest at 36 km/h');
+      expect(near.tilt, AutoTilt.junction, reason: 'the junction seen from above');
+      // Avenue des Bénédictins, 800 m from its end: the widest at that
+      // speed, toward the horizon.
       await drive(tester, plan, toM: 500, fromM: 160);
-      expect(zoom(), closeTo(cruiseZoom(10), 0.01));
-      expect(zoom(), lessThan(near));
+      expect(camera().zoom, closeTo(wideZoom(36), 0.01));
+      expect(camera().tilt, AutoTilt.straight);
     });
 
     testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (

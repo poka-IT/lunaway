@@ -1,30 +1,45 @@
 import 'dart:math' as math;
 
-/// The guidance camera's zoom while it follows the vehicle, as a driver's
-/// app frames the road: wider the faster the vehicle goes, closer as a turn
-/// comes so the junction shows whole, wider again down a long straight.
+/// The guidance camera's framing while it follows the vehicle, as the big
+/// navigation apps frame the road: the next maneuver in view, the camera
+/// closing in as it comes and easing back out past it; never wider than the
+/// speed allows (a long straight shows more road the faster the vehicle
+/// goes), never closer than it allows (a motorway exit is not seen at a
+/// street's scale). Tilted toward the horizon down a straight, flatter over
+/// a junction so it reads from above.
+///
+/// Measured on Google Maps on 2026-10-11
+/// (`plan/research/120-guidage-facon-gmaps.md`): its zoom
+/// follows the distance to the next maneuver far more than the speed (the
+/// same 1.3 m a pixel on a motorway straight at 30 and at 130 km/h, the
+/// maneuver 4 km off, MapLibre zoom 14.5); tilted about 52° cruising, 63°
+/// down long straights, 23° within 150 m of a roundabout.
 ///
 /// Zooms are MapLibre's (tiles of 512 pixels). At 45° of latitude a level
 /// halves or doubles the metres a pixel covers: 0.42 m at 17, 0.84 m at 16,
-/// 1.7 m at 15. With the camera tilted as it follows and the vehicle in the
-/// lower third of a phone's map, about 420 m of road lie ahead at 17.
+/// 1.7 m at 15. With the camera tilted as it follows and the vehicle low on
+/// a phone's map, about 420 m of road lie ahead at 17.
 abstract final class AutoZoom {
-  /// The cruising zoom by speed, km/h to zoom, interpolated between: a
-  /// street at 30 km/h shows its next junctions, a motorway at 130 shows
-  /// about two kilometres.
-  static const List<(double, double)> cruise = [
-    (0, parkedZoom),
-    (30, 17.1),
-    (50, 16.6),
-    (70, 16.0),
-    (90, 15.5),
-    (110, 15.1),
-    (130, 14.8),
+  /// The widest the camera goes at a speed, km/h to zoom, interpolated
+  /// between: down a long straight a street at 30 km/h shows its next few
+  /// hundred metres, a motorway at 130 about four kilometres.
+  static const List<(double, double)> wide = [
+    (0, 16.2),
+    (30, 16.0),
+    (50, 15.6),
+    (70, 15.2),
+    (90, 14.9),
+    (110, 14.6),
+    (130, 14.4),
   ];
 
-  /// The zoom of a vehicle standing still, or of one whose speed is not
-  /// known yet.
-  static const parkedZoom = 17.4;
+  /// The closest the camera comes before a maneuver at a speed: a street
+  /// corner at 17.9, a motorway exit at 16.3.
+  static const List<(double, double)> close = [(0, 17.9), (50, 17.6), (90, 16.8), (130, 16.3)];
+
+  /// The zoom of a vehicle with nothing ahead to frame: off the route, or
+  /// before the first position.
+  static const parkedZoom = 17.0;
 
   /// The road ahead in view at zoom 17, metres, the reference of [seeZoom].
   static const aheadAt17M = 420.0;
@@ -33,26 +48,9 @@ abstract final class AutoZoom {
   /// closes in on it: a little past the middle, its exits in sight.
   static const maneuverShare = 0.55;
 
-  /// The closest the camera comes before a maneuver, by the speed: a
-  /// street corner at 17.9, a motorway exit at 16.3, never more than
-  /// [maxCloseIn] levels in from the cruising zoom.
-  static const List<(double, double)> close = [(0, 17.9), (50, 17.6), (90, 16.8), (130, 16.3)];
-
-  /// Levels in at most from the cruising zoom before a maneuver: in a
-  /// town where turns come every 150 m the view breathes, it does not
-  /// pump.
-  static const maxCloseIn = 1.1;
-
-  /// A straight longer than this many seconds at the speed, and
-  /// [straightMinM] at least, widens the view by up to [straightWiden]
-  /// levels, reached at twice that length.
-  static const straightS = 120.0;
-  static const straightMinM = 3000.0;
-  static const straightWiden = 0.6;
-
-  /// The speed the cruising zoom reads changes only once the vehicle's
-  /// moves this far from it, km/h: a GPS speed wavers by a few km/h at a
-  /// steady pace, and the view must not breathe with it.
+  /// The speed the framing reads changes only once the vehicle's moves this
+  /// far from it, km/h: a GPS speed wavers by a few km/h at a steady pace,
+  /// and the view must not breathe with it.
   static const speedHysteresisKmh = 6.0;
 
   /// The zooms the camera never leaves while following.
@@ -60,9 +58,37 @@ abstract final class AutoZoom {
   static const maxZoom = 18.0;
 }
 
-/// The cruising zoom for [speedMps] ([AutoZoom.cruise]); a vehicle with no
-/// known speed is taken as parked.
-double cruiseZoom(double? speedMps) => _along(AutoZoom.cruise, (speedMps ?? 0) * 3.6);
+/// How the follow camera tilts, degrees from straight down.
+abstract final class AutoTilt {
+  /// Cruising.
+  static const cruise = 52.0;
+
+  /// Down a long straight, shown at its widest: the road toward the
+  /// horizon. MapLibre draws up to 60.
+  static const straight = 60.0;
+
+  /// Over a roundabout, and over another junction, close to it: flatter,
+  /// so its branches read from above.
+  static const roundabout = 30.0;
+  static const junction = 42.0;
+
+  /// The camera starts flattening this far from the junction, metres, and
+  /// is flat enough within [flatM].
+  static const flattenFromM = 300.0;
+  static const flatM = 120.0;
+}
+
+/// The zoom and the tilt the follow camera eases to.
+typedef CameraAim = ({double zoom, double tilt});
+
+/// The aim of a vehicle with nothing to frame.
+const CameraAim restingAim = (zoom: AutoZoom.parkedZoom, tilt: AutoTilt.cruise);
+
+/// The widest the camera goes at [speedKmh] ([AutoZoom.wide]).
+double wideZoom(double speedKmh) => _along(AutoZoom.wide, speedKmh);
+
+/// The closest the camera comes at [speedKmh] ([AutoZoom.close]).
+double closeZoom(double speedKmh) => _along(AutoZoom.close, speedKmh);
 
 /// The zoom at which a point [distanceM] ahead stands at
 /// [AutoZoom.maneuverShare] of the road in view.
@@ -72,50 +98,64 @@ double seeZoom(double distanceM) {
 }
 
 /// Whether the maneuver of OSRM [type] and [modifier] is one the camera
-/// closes in on: a turn, a roundabout, a fork, a ramp, the arrival. A road
-/// that only changes its name, or goes straight on, is not.
+/// frames: a turn, a roundabout, a fork, a ramp, the arrival. A road that
+/// only changes its name, or goes straight on, is not.
 bool maneuverDrawsZoom(String? type, String? modifier) => switch (type) {
-  'turn' || 'end of road' || 'fork' || 'off ramp' || 'on ramp' || 'merge' => true,
+  'end of road' || 'fork' || 'off ramp' || 'on ramp' || 'merge' => true,
   'roundabout' || 'rotary' || 'roundabout turn' || 'exit roundabout' || 'exit rotary' => true,
   'arrive' => true,
-  'continue' => switch (modifier) {
-    null || 'straight' => false,
-    _ => true,
-  },
+  'turn' || 'continue' => modifier != null && modifier != 'straight',
   _ => false,
 };
 
-/// The zoom the following camera aims at: [cruiseKmh]'s cruising zoom,
-/// closer as a maneuver that draws the eye ([maneuverDrawsZoom]) comes
-/// within [distanceToManeuverM], wider when it is far down a straight.
-/// Continuous in the distance, so the view never jumps as the vehicle
-/// nears a turn; after the turn the next maneuver's distance takes over
-/// and the camera eases back out (the engines ease toward this).
-double autoZoom({
-  required double cruiseKmh,
+bool _roundabout(String? type) => switch (type) {
+  'roundabout' || 'rotary' || 'roundabout turn' || 'exit roundabout' || 'exit rotary' => true,
+  _ => false,
+};
+
+/// The zoom and the tilt the follow camera aims at, at [speedKmh] (the
+/// speed held, [SpeedHold]), the next maneuver [distanceToManeuverM] ahead.
+/// A maneuver the camera does not frame ([maneuverDrawsZoom]) counts as far
+/// as the one after it, [afterM] further. The next maneuver framed, within
+/// what the speed allows ([wideZoom], [closeZoom]): continuous in the
+/// distance, so the view never jumps as the vehicle nears a turn; past it,
+/// the next one takes over and the engines ease back out.
+CameraAim autoAim({
+  required double speedKmh,
   required double? distanceToManeuverM,
   String? maneuverType,
   String? modifier,
+  double? afterM,
 }) {
-  final base = _along(AutoZoom.cruise, cruiseKmh);
+  final wide = wideZoom(speedKmh);
+  final close = math.max(wide, closeZoom(speedKmh));
   final d = distanceToManeuverM;
-  if (d == null || !d.isFinite) return base.clamp(AutoZoom.minZoom, AutoZoom.maxZoom);
-  var zoom = base;
-  if (maneuverDrawsZoom(maneuverType, modifier)) {
-    final closest = math.min(_along(AutoZoom.close, cruiseKmh), base + AutoZoom.maxCloseIn);
-    zoom = math.max(base, math.min(closest, seeZoom(d)));
+  if (d == null || !d.isFinite) {
+    return (
+      zoom: ((wide + close) / 2).clamp(AutoZoom.minZoom, AutoZoom.maxZoom),
+      tilt: AutoTilt.cruise,
+    );
   }
-  // Down a long straight: the next maneuver far off, the view widens.
-  final straight = math.max(AutoZoom.straightMinM, cruiseKmh / 3.6 * AutoZoom.straightS);
-  if (d > straight) {
-    final k = math.min(1, (d - straight) / straight);
-    zoom -= AutoZoom.straightWiden * k;
+  final framed = maneuverDrawsZoom(maneuverType, modifier);
+  final ahead = framed ? d : d + (afterM ?? double.infinity);
+  final zoom = seeZoom(ahead).clamp(wide, close).clamp(AutoZoom.minZoom, AutoZoom.maxZoom);
+  // Toward the horizon as the view reaches its widest, half a level in.
+  var tilt =
+      AutoTilt.cruise +
+      (AutoTilt.straight - AutoTilt.cruise) * ((wide + 0.5 - zoom) / 0.5).clamp(0.0, 1.0);
+  if (framed && maneuverType != 'arrive') {
+    final flat = _roundabout(maneuverType) ? AutoTilt.roundabout : AutoTilt.junction;
+    final k = ((AutoTilt.flattenFromM - d) / (AutoTilt.flattenFromM - AutoTilt.flatM)).clamp(
+      0.0,
+      1.0,
+    );
+    tilt += (flat - tilt) * k;
   }
-  return zoom.clamp(AutoZoom.minZoom, AutoZoom.maxZoom);
+  return (zoom: zoom, tilt: tilt);
 }
 
-/// The speed the cruising zoom reads, held while the vehicle's stays
-/// within [AutoZoom.speedHysteresisKmh] of it.
+/// The speed the framing reads, held while the vehicle's stays within
+/// [AutoZoom.speedHysteresisKmh] of it.
 final class SpeedHold {
   double? _held;
 

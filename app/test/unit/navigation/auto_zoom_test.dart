@@ -2,29 +2,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 
 void main() {
-  group('the cruising zoom', () {
-    test('widens the faster the vehicle goes, a town street closest, a motorway widest', () {
-      final town = cruiseZoom(30 / 3.6);
-      final road = cruiseZoom(80 / 3.6);
-      final motorway = cruiseZoom(130 / 3.6);
-      expect(town, closeTo(17.1, 1e-9));
-      expect(road, closeTo(15.75, 1e-9));
-      expect(motorway, closeTo(14.8, 1e-9));
+  CameraAim at(
+    double kmh,
+    double? d, {
+    String type = 'turn',
+    String? modifier = 'right',
+    double? afterM,
+  }) => autoAim(
+    speedKmh: kmh,
+    distanceToManeuverM: d,
+    maneuverType: type,
+    modifier: modifier,
+    afterM: afterM,
+  );
+
+  group('the bounds the speed sets', () {
+    test('the widest view widens with the speed, a motorway widest', () {
+      expect(wideZoom(30), closeTo(16.0, 1e-9));
+      expect(wideZoom(80), closeTo(15.05, 1e-9));
+      expect(wideZoom(130), closeTo(14.4, 1e-9));
       var last = double.infinity;
-      for (var kmh = 0; kmh <= 150; kmh += 5) {
-        final z = cruiseZoom(kmh / 3.6);
-        expect(z, lessThanOrEqualTo(last), reason: '$kmh km/h');
-        last = z;
+      for (var kmh = 0.0; kmh <= 150; kmh += 5) {
+        expect(wideZoom(kmh), lessThanOrEqualTo(last), reason: '$kmh km/h');
+        expect(closeZoom(kmh), greaterThan(wideZoom(kmh)), reason: '$kmh km/h');
+        last = wideZoom(kmh);
       }
     });
 
-    test('a vehicle without a speed is taken as parked', () {
-      expect(cruiseZoom(null), AutoZoom.parkedZoom);
-      expect(cruiseZoom(0), AutoZoom.parkedZoom);
+    test('a motorway exit is never seen at the scale of a street corner', () {
+      expect(closeZoom(130), lessThan(closeZoom(40) - 1));
     });
   });
 
-  group('the speed the zoom reads', () {
+  group('the speed the framing reads', () {
     test('holds while the GPS speed wavers by a few km/h, moves past the hysteresis', () {
       final hold = SpeedHold();
       expect(hold.update(50 / 3.6), closeTo(50, 1e-9));
@@ -37,98 +47,88 @@ void main() {
     });
   });
 
-  group('closing in before a maneuver', () {
-    double at(double kmh, double d, {String type = 'turn', String? modifier = 'right'}) =>
-        autoZoom(cruiseKmh: kmh, distanceToManeuverM: d, maneuverType: type, modifier: modifier);
-
-    test('far from the turn the camera cruises; near it, it comes closer', () {
-      final cruise = cruiseZoom(40 / 3.6);
-      expect(at(40, 1000), closeTo(cruise, 1e-9));
-      expect(at(40, 150), greaterThan(cruise + 0.3));
-      expect(at(40, 30), closeTo(at(40, 5), 1e-9), reason: 'held at its closest');
-      expect(at(40, 30), lessThanOrEqualTo(cruise + AutoZoom.maxCloseIn));
+  group('the next maneuver framed', () {
+    test('far off, the widest the speed allows; near, the closest', () {
+      expect(at(40, 3000).zoom, closeTo(wideZoom(40), 1e-9));
+      expect(at(40, 20).zoom, closeTo(closeZoom(40), 1e-9));
+      expect(at(130, 5000, type: 'off ramp').zoom, closeTo(wideZoom(130), 1e-9));
+      expect(at(130, 50, type: 'off ramp').zoom, closeTo(closeZoom(130), 1e-9));
     });
 
     test('the closer the turn, the closer the camera, never a jump', () {
       for (final kmh in [30.0, 50.0, 90.0, 130.0]) {
-        var last = at(kmh, 3000);
-        for (var d = 2999.0; d >= 0; d -= 1) {
-          final z = at(kmh, d);
-          expect(z, greaterThanOrEqualTo(last - 1e-9), reason: '$kmh km/h, $d m');
-          expect(z - last, lessThan(0.02), reason: 'a metre moves the view a little, $kmh km/h');
-          last = z;
+        var last = at(kmh, 6000);
+        for (var d = 5999.0; d >= 0; d -= 1) {
+          final aim = at(kmh, d);
+          expect(aim.zoom, greaterThanOrEqualTo(last.zoom - 1e-9), reason: '$kmh km/h, $d m');
+          expect(aim.zoom - last.zoom, lessThan(0.02), reason: 'a metre moves the view a little');
+          expect((aim.tilt - last.tilt).abs(), lessThan(0.2), reason: 'and tilts it a little');
+          last = aim;
         }
       }
     });
 
     test('a fast road starts closing in further from the maneuver', () {
       double start(double kmh) {
-        final cruise = cruiseZoom(kmh / 3.6);
-        for (var d = 3000.0; d >= 0; d -= 5) {
-          if (at(kmh, d, type: 'off ramp') > cruise + 0.01) return d;
+        for (var d = 6000.0; d >= 0; d -= 5) {
+          if (at(kmh, d, type: 'off ramp').zoom > wideZoom(kmh) + 0.01) return d;
         }
         return 0;
       }
 
-      expect(start(30), inInclusiveRange(150, 260));
-      expect(start(130), inInclusiveRange(800, 1300));
+      expect(start(30), inInclusiveRange(350, 550));
+      expect(start(130), inInclusiveRange(1200, 2000));
     });
 
-    test('a motorway exit stays wider at its closest than a town corner', () {
-      expect(at(130, 0, type: 'off ramp'), lessThan(at(40, 0)));
-    });
-
-    test('a road that only changes its name, or goes straight on, keeps the cruise', () {
-      final cruise = cruiseZoom(50 / 3.6);
-      expect(at(50, 40, type: 'new name', modifier: 'straight'), closeTo(cruise, 1e-9));
-      expect(at(50, 40, type: 'continue', modifier: 'straight'), closeTo(cruise, 1e-9));
-      expect(at(50, 40, type: 'continue', modifier: 'slight left'), greaterThan(cruise));
-      expect(at(50, 40, type: 'roundabout'), greaterThan(cruise));
-      expect(at(50, 40, type: 'arrive', modifier: 'left'), greaterThan(cruise));
-    });
-
-    test('off the route, with no maneuver, the camera cruises', () {
+    test('a road that only changes its name counts as far as the maneuver after it', () {
+      final named = at(50, 40, type: 'new name', modifier: 'straight', afterM: 900);
+      expect(named.zoom, closeTo(at(50, 940).zoom, 1e-9));
       expect(
-        autoZoom(cruiseKmh: 90, distanceToManeuverM: null),
-        closeTo(cruiseZoom(90 / 3.6), 1e-9),
+        at(50, 40, type: 'continue', modifier: 'straight', afterM: 50).zoom,
+        greaterThan(16.5),
+      );
+      expect(at(50, 40, type: 'continue', modifier: 'straight').zoom, closeTo(wideZoom(50), 1e-9));
+      expect(at(50, 40, type: 'continue', modifier: 'slight left').zoom, greaterThan(wideZoom(50)));
+      expect(at(50, 40, type: 'roundabout').zoom, greaterThan(wideZoom(50)));
+      expect(at(50, 40, type: 'arrive', modifier: 'left').zoom, greaterThan(wideZoom(50)));
+    });
+
+    test('off the route, with no maneuver, between the bounds of the speed', () {
+      final aim = at(90, null);
+      expect(aim.zoom, inExclusiveRange(wideZoom(90), closeZoom(90)));
+      expect(aim.tilt, AutoTilt.cruise);
+    });
+  });
+
+  group('the tilt', () {
+    test('toward the horizon down a long straight, cruising otherwise', () {
+      expect(at(130, 8000, type: 'off ramp').tilt, AutoTilt.straight);
+      final cruising = at(50, 330);
+      expect(cruising.zoom, greaterThan(wideZoom(50) + 0.5));
+      expect(cruising.tilt, AutoTilt.cruise);
+    });
+
+    test('flatter over a junction close by, flattest over a roundabout', () {
+      expect(at(40, 100, type: 'roundabout').tilt, AutoTilt.roundabout);
+      expect(at(40, 100).tilt, AutoTilt.junction);
+      expect(
+        at(40, 200, type: 'roundabout').tilt,
+        inExclusiveRange(AutoTilt.roundabout, AutoTilt.cruise),
+      );
+      expect(
+        at(40, 20, type: 'arrive', modifier: 'right').tilt,
+        AutoTilt.cruise,
+        reason: 'the arrival keeps it',
       );
     });
   });
 
-  group('down a long straight', () {
-    test('the view widens with the distance to the next maneuver, smoothly', () {
-      final cruise = cruiseZoom(130 / 3.6);
-      // 130 km/h: two minutes are 4.3 km.
-      expect(
-        autoZoom(cruiseKmh: 130, distanceToManeuverM: 4000, maneuverType: 'off ramp'),
-        closeTo(cruise, 1e-9),
-      );
-      expect(
-        autoZoom(cruiseKmh: 130, distanceToManeuverM: 30000, maneuverType: 'off ramp'),
-        closeTo(cruise - AutoZoom.straightWiden, 1e-9),
-      );
-      var last = autoZoom(cruiseKmh: 130, distanceToManeuverM: 4000);
-      for (var d = 4000.0; d <= 12000; d += 10) {
-        final z = autoZoom(cruiseKmh: 130, distanceToManeuverM: d);
-        expect(last - z, lessThan(0.01), reason: '$d m');
-        last = z;
-      }
-    });
-
-    test('a town street with a far turn widens only past three kilometres', () {
-      expect(
-        autoZoom(cruiseKmh: 40, distanceToManeuverM: 2500),
-        closeTo(cruiseZoom(40 / 3.6), 1e-9),
-      );
-      expect(autoZoom(cruiseKmh: 40, distanceToManeuverM: 4500), lessThan(cruiseZoom(40 / 3.6)));
-    });
-  });
-
-  test('the zoom stays within the bounds the camera follows in', () {
+  test('the zoom and the tilt stay within the bounds the camera follows in', () {
     for (final kmh in [0.0, 30.0, 200.0]) {
       for (final d in [0.0, 50.0, 100000.0]) {
-        final z = autoZoom(cruiseKmh: kmh, distanceToManeuverM: d, maneuverType: 'turn');
-        expect(z, inInclusiveRange(AutoZoom.minZoom, AutoZoom.maxZoom));
+        final aim = at(kmh, d);
+        expect(aim.zoom, inInclusiveRange(AutoZoom.minZoom, AutoZoom.maxZoom));
+        expect(aim.tilt, inInclusiveRange(AutoTilt.roundabout, AutoTilt.straight));
       }
     }
   });

@@ -20,7 +20,8 @@
     // A fix this far from the drawn vehicle is a jump (a new route from
     // elsewhere), not a move to glide through, metres.
     var JUMP_M = 500;
-    var TILT = 55;
+    // The tilt of a follow without one (AutoTilt.cruise).
+    var TILT = 52;
     // The map turns to the vehicle's course a moment after the arrow
     // (courseSettle and easeCourse in vehicle_motion.dart): a bend sweeps
     // rather than snaps.
@@ -77,10 +78,11 @@
       var start = 0;
       var length = 0;
       var lastTarget = null;
-      // While following: { zoom, padding, ease }.
+      // While following: { zoom, tilt, padding }.
       var follow = null;
       var entry = null;
       var zoom = null;
+      var pitch = null;
       // The course the camera has turned to; null until following draws.
       var bearing = null;
       var lastFrame = 0;
@@ -135,6 +137,8 @@
         if (follow && pressedCount === 0) {
           zoom = zoom === null ? follow.zoom : zoom + (follow.zoom - zoom) * Math.min(1, dt / 2000);
           if (Math.abs(follow.zoom - zoom) > 0.01) settled = false;
+          pitch = pitch === null ? follow.tilt : pitch + (follow.tilt - pitch) * Math.min(1, dt / 2000);
+          if (Math.abs(follow.tilt - pitch) > 0.05) settled = false;
           if (shown.course !== null) {
             bearing = bearing === null
               ? shown.course
@@ -145,7 +149,7 @@
             center: [shown.lon, shown.lat],
             zoom: zoom,
             bearing: bearing === null ? map.getBearing() : bearing,
-            pitch: TILT,
+            pitch: pitch,
             padding: follow.padding
           };
           // Into following: from the view the map had to the driver's.
@@ -161,7 +165,7 @@
               camera.center = [lerp(f.lon, shown.lon, e), lerp(f.lat, shown.lat, e)];
               camera.zoom = lerp(f.zoom, zoom, e);
               camera.bearing = (((f.bearing + delta(f.bearing, camera.bearing) * e) % 360) + 360) % 360;
-              camera.pitch = lerp(f.pitch, TILT, e);
+              camera.pitch = lerp(f.pitch, pitch, e);
               camera.padding = {
                 top: lerp(f.padding.top, p.top, e),
                 bottom: lerp(f.padding.bottom, p.bottom, e),
@@ -187,6 +191,7 @@
         follow = null;
         entry = null;
         zoom = null;
+        pitch = null;
         bearing = null;
       }
 
@@ -358,7 +363,7 @@
           lastTarget = null;
           return true;
         },
-        // Following: { zoom, padding, ease (ms, the way in), enter }. From
+        // Following: { zoom, tilt, padding, ease (ms, the way in), enter }. From
         // another view, the camera eases from it into the driver's. Only
         // `enter` starts following: a fix that comes after a gesture
         // stopped it, before the app heard of the gesture, changes nothing.
@@ -382,7 +387,7 @@
             };
             userMoved = false;
           }
-          follow = { zoom: next.zoom, padding: pad };
+          follow = { zoom: next.zoom, tilt: next.tilt === undefined ? TILT : next.tilt, padding: pad };
           kick();
           return true;
         },

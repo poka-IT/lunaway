@@ -41,10 +41,12 @@ abstract final class Palette {
   static const sarcelle800 = Color(0xFF0F4558);
   static const sarcelle900 = Color(0xFF0A3343);
 
-  /// The teal at its most saturated: the route the guidance follows, which
+  /// The teal deep and saturated: the route the guidance follows, which
   /// must stand out of a cream basemap, its roads and its water, at a
-  /// glance (3.4:1 against the land, where the brand's teal gives 2.6).
-  static const sarcelleVive = Color(0xFF178C99);
+  /// glance (4.8:1 against the land and 4.2:1 against a motorway, where the
+  /// brand's teal gives 2.6 and 2.3; the 4.5:1 Android for Cars asks of a
+  /// map's marks).
+  static const sarcelleVive = Color(0xFF06707D);
 
   // Lanterne: the warm light of a van window at night. The action and the
   // selection, and nothing else, so it always means "this".

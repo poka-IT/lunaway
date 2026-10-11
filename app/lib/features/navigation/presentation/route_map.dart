@@ -211,14 +211,16 @@ final class FitCamera extends RouteCamera {
 }
 
 /// Behind the vehicle, the map turned to its course and tilted, as a
-/// driver sees the road; closer in town and before a turn, further out on
-/// a fast road ([autoZoom]). The map glides the vehicle from fix to fix
-/// ([VehicleMotion]) and eases the camera toward [zoom] and the course.
+/// driver sees the road; framing the next maneuver, closer and flatter as
+/// it comes, wider and toward the horizon down a straight ([autoAim]). The
+/// map glides the vehicle from fix to fix ([VehicleMotion]) and eases the
+/// camera toward [zoom], [tilt] and the course.
 final class FollowCamera extends RouteCamera {
   const new({
     required this.position,
     this.course,
     this.zoom = AutoZoom.parkedZoom,
+    this.tilt = AutoTilt.cruise,
     this.ease = FreeMap.recenterEase,
     this.request = 0,
   });
@@ -226,8 +228,9 @@ final class FollowCamera extends RouteCamera {
   final LatLng position;
   final double? course;
 
-  /// The zoom the camera eases toward ([autoZoom]).
+  /// The zoom and the tilt the camera eases toward ([autoAim]).
   final double zoom;
+  final double tilt;
 
   /// How long the way in takes, from the view the map had.
   final Duration ease;
@@ -243,11 +246,12 @@ final class FollowCamera extends RouteCamera {
       other.position == position &&
       other.course == course &&
       other.zoom == zoom &&
+      other.tilt == tilt &&
       other.ease == ease &&
       other.request == request;
 
   @override
-  int get hashCode => Object.hash(position, course, zoom, ease, request);
+  int get hashCode => Object.hash(position, course, zoom, tilt, ease, request);
 }
 
 /// Where the user left it: the camera stays as the last gesture put it,
@@ -345,7 +349,7 @@ FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
     FollowCamera(:final position) => (
       target: position,
       zoom: camera.zoom,
-      tilt: followTiltDeg,
+      tilt: camera.tilt,
       bearing: camera.course ?? 0,
     ),
     FreeCamera(:final view) => (
@@ -568,11 +572,12 @@ Widget buildPlatformRouteMap(BuildContext context, RouteMapProps props) {
 abstract final class RouteLook {
   static String _hex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
-  /// The chosen route: the brand's teal inside a deep teal rim by day; a
-  /// light teal inside the night's darkest navy at night, lighter than the
-  /// night's motorways.
+  /// The chosen route: a deep saturated teal inside a darker rim by day
+  /// (4.8:1 against the land); a pale teal inside the night's darkest navy
+  /// at night (11:1 against the land, and lighter than the night's
+  /// slate motorways, 2.5:1, the rim between them).
   static String line({required bool dark}) =>
-      _hex(dark ? Palette.sarcelle300 : Palette.sarcelleVive);
+      _hex(dark ? Palette.sarcelle200 : Palette.sarcelleVive);
   static String casing({required bool dark}) =>
       _hex(dark ? Palette.minuit950 : Palette.sarcelle900);
 

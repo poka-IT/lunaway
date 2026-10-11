@@ -39,7 +39,6 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
-import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/legs_strip.dart';
@@ -1037,7 +1036,7 @@ class _GuidanceMap extends ConsumerWidget {
     final whole =
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
-    final followZoom = ref.watch(guidanceZoomProvider);
+    final aim = ref.watch(guidanceAimProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
     // clear of the column of buttons on the right (the arrival under the
@@ -1066,7 +1065,8 @@ class _GuidanceMap extends ConsumerWidget {
       GuidanceCameraMode.follow => FollowCamera(
         position: vehicle!.position,
         course: vehicle.course,
-        zoom: followZoom,
+        zoom: aim.zoom,
+        tilt: aim.tilt,
         ease: view.ease,
         request: view.follows,
       ),
@@ -1228,9 +1228,9 @@ class _GuidanceMap extends ConsumerWidget {
           if (magnetHolds(
             rest,
             padding: padding,
-            followZoom: ref.read(guidanceZoomProvider),
+            followZoom: ref.read(guidanceAimProvider).zoom,
             course: vehicle?.course,
-            followTilt: followTiltDeg,
+            followTilt: ref.read(guidanceAimProvider).tilt,
           )) {
             cameraModes.snap();
           }

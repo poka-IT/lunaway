@@ -482,6 +482,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       await _call('return window.lunawayRoute.follow(options);', {
         'options': {
           'zoom': camera.zoom,
+          'tilt': camera.tilt,
           'padding': {
             'top': padding.top,
             'bottom': padding.bottom,

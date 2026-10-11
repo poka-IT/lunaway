@@ -248,47 +248,50 @@ ManeuverArrow? guidanceArrow(Ref ref) {
   );
 }
 
-/// The zoom the guidance map aims at while it follows ([autoZoom]): the
-/// speed held through [SpeedHold], so a GPS speed that wavers does not make
-/// the view breathe, and the next maneuver's distance and kind, so the
-/// camera closes in before a turn and widens down a long straight. The
+/// The zoom and the tilt the guidance map aims at while it follows
+/// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
+/// wavers does not make the view breathe, and the next maneuver's distance
+/// and kind, so the camera frames it, closer as it comes, flatter over a
+/// junction, wider and toward the horizon down a long straight. The
 /// engines ease toward it at each frame of the glide.
 @riverpod
-class GuidanceZoom extends _$GuidanceZoom {
+class GuidanceAim extends _$GuidanceAim {
   final _speed = SpeedHold();
 
   @override
-  double build() {
+  CameraAim build() {
     // Listened rather than watched: the speed held lives in this notifier,
     // which a rebuild at each fix would start over.
     var building = true;
-    var first = AutoZoom.parkedZoom;
+    var first = restingAim;
     ref.listen(guidanceControllerProvider, (_, session) {
-      final zoom = _zoomOf(session);
+      final aim = _aimOf(session);
       if (building) {
-        first = zoom;
-      } else if (zoom != state) {
-        state = zoom;
+        first = aim;
+      } else if (aim != state) {
+        state = aim;
       }
     }, fireImmediately: true);
     building = false;
     return first;
   }
 
-  double _zoomOf(GuidanceSession? session) {
+  CameraAim _aimOf(GuidanceSession? session) {
     final kmh = _speed.update(session?.lastFix?.speedMps);
     final snap = session?.snapshot;
     // Off the route the maneuver is that of a road the vehicle left.
     if (session == null || snap == null || snap.offRoute) {
-      return autoZoom(cruiseKmh: kmh, distanceToManeuverM: null);
+      return autoAim(speedKmh: kmh, distanceToManeuverM: null);
     }
     final steps = session.route.steps;
     final next = snap.stepIndex + 1 < steps.length ? steps[snap.stepIndex + 1] : null;
-    return autoZoom(
-      cruiseKmh: kmh,
+    return autoAim(
+      speedKmh: kmh,
       distanceToManeuverM: snap.distanceToManeuverM,
       maneuverType: snap.banner?.maneuverType ?? next?.maneuverType,
       modifier: snap.banner?.modifier ?? next?.modifier,
+      // The road after the next maneuver, to the one after it.
+      afterM: next?.distanceM,
     );
   }
 }

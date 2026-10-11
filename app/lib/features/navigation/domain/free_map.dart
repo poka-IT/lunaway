@@ -42,22 +42,29 @@ abstract final class FreeMap {
   /// the view was.
   static const recenterEase = Duration(milliseconds: 900);
 
-  /// Where following puts the vehicle down the free part of the map: the
-  /// camera's centre sits this far down it, so the vehicle stands 80 % of
-  /// the way down, as the big navigation apps set it (HERE 77.5 %, OsmAnd
-  /// 85 %, Google's own about there on a phone, measured on its captures),
-  /// the road ahead over the rest.
-  static const followLift = 0.6;
+  /// How far above the foot of the free map following draws the vehicle,
+  /// logical pixels: room under it for the road's name, the road ahead
+  /// over all the rest. Google Maps draws its vehicle 67 dp over its bar,
+  /// 91 % down the map it leaves (measured on its captures, 2026-10-11).
+  static const followAbove = 76.0;
+
+  /// Never higher than this share of the way down the free map, on a short
+  /// one: the road ahead keeps most of it.
+  static const followAtLeast = 0.6;
 }
 
 /// The content insets of the following camera on a map of [size] with
 /// panels over [padding]: the camera's centre, where the vehicle is drawn,
-/// low in the free part of the map (under the banner, above the bar).
+/// low in the free part of the map (under the banner, above the bar),
+/// [FreeMap.followAbove] over its foot.
 EdgeInsets followInsets(Size size, EdgeInsets padding) {
   final free = math.max<double>(0, size.height - padding.top - padding.bottom);
+  final down = math.max(free * FreeMap.followAtLeast, free - FreeMap.followAbove);
+  // The centre of what the insets leave: halfway between their top and the
+  // foot of the free map.
   return EdgeInsets.fromLTRB(
     padding.left,
-    padding.top + free * FreeMap.followLift,
+    padding.top + 2 * down - free,
     padding.right,
     padding.bottom,
   );

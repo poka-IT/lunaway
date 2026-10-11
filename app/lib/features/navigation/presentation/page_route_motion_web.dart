@@ -45,12 +45,14 @@ final class _PageRouteMotion implements contract.PageRouteMotion {
   @override
   void follow({
     required double zoom,
+    required double tilt,
     required EdgeInsets padding,
     required Duration ease,
     required bool enter,
   }) => _run.follow(
     {
       'zoom': zoom,
+      'tilt': tilt,
       'padding': {
         'top': padding.top,
         'bottom': padding.bottom,

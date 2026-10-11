@@ -107,6 +107,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   bool _frameBusy = false;
   Duration _lastFrame = Duration.zero;
   double? _shownZoom;
+  double? _shownTilt;
   double _shownBearing = 0;
 
   /// The course the camera has turned to, easing toward the vehicle's
@@ -871,7 +872,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         final ease = Motion.reduced(context) ? Duration.zero : follow.ease;
         if (page != null) {
           _followTarget = insets;
-          page.follow(zoom: follow.zoom, padding: insets, ease: ease, enter: entering);
+          page.follow(
+            zoom: follow.zoom,
+            tilt: follow.tilt,
+            padding: insets,
+            ease: ease,
+            enter: entering,
+          );
           return;
         }
         if (entering) {
@@ -916,6 +923,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         }
         _followTarget = EdgeInsets.zero;
         _shownZoom = null;
+        _shownTilt = null;
         _shownCourse = null;
         await _moveCamera(c, camera);
     }
@@ -970,9 +978,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         if (angleDelta(_shownCourse!, course).abs() > courseSettledDeg) settled = false;
         _shownBearing = _shownCourse!;
       }
+      final shownTilt = _shownTilt;
+      var tilt = shownTilt == null ? camera.tilt : easeTilt(shownTilt, camera.tilt, dt);
+      _shownTilt = tilt;
+      if ((camera.tilt - tilt).abs() > 0.05) settled = false;
+      final aimTilt = tilt;
       var target = position;
       var bearing = _shownBearing;
-      var tilt = followTiltDeg;
       // Into following: from the view the user had to the driver's.
       if (_entryFrom case final from?) {
         final t = _entryLength <= Duration.zero
@@ -992,7 +1004,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           );
           zoom = from.zoom + (zoom - from.zoom) * k;
           bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
-          tilt = from.tilt + (followTiltDeg - from.tilt) * k;
+          tilt = from.tilt + (aimTilt - from.tilt) * k;
           final insets = EdgeInsets.lerp(_entryInsets, _followTarget, k)!;
           // Kept: a gesture that cuts the entry leaves the map with these.
           _sentInsets = insets;
