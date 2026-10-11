@@ -12,7 +12,9 @@
 //!
 //! Nothing here counts in the client's quota of routes: the route that
 //! issued the token did. The store is bounded in entries and in the bytes of
-//! the results it holds; a token is never logged, nor a position.
+//! the results it holds; a token is never logged, nor a position. Entries
+//! past their time go at the next issue, read or result: a minute of quiet
+//! keeps at most [`MAX_BYTES`] until the next route.
 
 use std::{
     collections::HashMap,
@@ -36,7 +38,7 @@ const MAX_ENTRIES: usize = 256;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 
 /// What a task leaves for the token's reader: none until it is done.
-type Result = Option<Arc<RouteAlternatives>>;
+type Filled = Option<Arc<RouteAlternatives>>;
 
 struct Entry {
     client: ClientKey,
@@ -45,7 +47,7 @@ struct Entry {
     deadline: Instant,
     /// The bytes of the result counted against [`MAX_BYTES`], once filled.
     bytes: usize,
-    result: watch::Receiver<Result>,
+    result: watch::Receiver<Filled>,
 }
 
 /// The tokens issued and their results.
@@ -57,7 +59,7 @@ pub(crate) struct Later {
 /// Where a task puts its result.
 pub(crate) struct Slot {
     token: String,
-    sender: watch::Sender<Result>,
+    sender: watch::Sender<Filled>,
     later: Arc<Later>,
 }
 
@@ -117,22 +119,18 @@ impl Later {
     /// The result of `token` for `client`, waited for until the task's
     /// deadline; once per token. A task that ended without a result (it
     /// stopped, or ran out of time) gives `None`.
-    pub(crate) async fn take(
-        &self,
-        token: &str,
-        client: ClientKey,
-    ) -> std::result::Result<Result, Refused> {
+    pub(crate) async fn take(&self, token: &str, client: ClientKey) -> Result<Filled, Refused> {
         let (mut result, deadline) = {
             let mut entries = self.lock();
             sweep(&mut entries, Instant::now());
-            match entries.get(token) {
-                Some(e) if e.client == client => {}
-                _ => return Err(Refused::Unknown),
-            }
-            let Some(e) = entries.remove(token) else {
+            // Another client's attempt leaves the entry to its own.
+            if entries.get(token).is_none_or(|e| e.client != client) {
                 return Err(Refused::Unknown);
-            };
-            (e.result, e.deadline)
+            }
+            match entries.remove(token) {
+                Some(e) => (e.result, e.deadline),
+                None => return Err(Refused::Unknown),
+            }
         };
         match tokio::time::timeout_at(deadline, result.wait_for(Option::is_some)).await {
             Ok(Ok(r)) => Ok(r.clone()),
@@ -161,6 +159,7 @@ impl Slot {
     pub(crate) fn fill(self, result: RouteAlternatives, busy: impl FnOnce() -> RouteAlternatives) {
         let bytes = result.bytes();
         let mut entries = self.later.lock();
+        sweep(&mut entries, Instant::now());
         let held: usize = entries.values().map(|e| e.bytes).sum();
         let result = match entries.get_mut(&self.token) {
             // Taken already: its reader waits on the channel, and the bytes

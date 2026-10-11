@@ -920,9 +920,10 @@ pub struct RouteResult {
     /// `alternatives` above 0): the best route alone comes in this answer,
     /// sooner, and its alternatives are asked of the engine meanwhile, for
     /// `routeAlternatives(token)`. Good for 60 seconds, once, from the
-    /// same client. Null when no alternative will follow: none asked,
-    /// `status` not `OK`, or the server short of room (the request then
-    /// gets its alternatives in this answer, as without the field).
+    /// same client. Null when no alternative follows: none asked, `status`
+    /// not `OK`, the server short of room or no safe route for the best
+    /// route alone (the alternatives then come in this answer, as without
+    /// the field), or no random token drawn (the best route stands alone).
     pub alternatives_token: Option<String>,
 }
 
@@ -951,7 +952,8 @@ pub struct RouteAlternatives {
     /// among them. Null unless `status` is `OK`.
     pub osrm_json: Option<String>,
     /// The alternatives, in the order of this `osrmJson.routes`: `index`
-    /// counts from 0 in it.
+    /// counts from 0 in it. Their `speedLimits` are traced when the route's
+    /// own document selected them, whatever this one selects.
     pub routes: Vec<RouteSummary>,
 }
 

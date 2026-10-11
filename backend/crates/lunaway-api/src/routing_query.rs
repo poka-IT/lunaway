@@ -364,7 +364,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             }),
             avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
             alternatives_token: later.and_then(|call| {
-                alternatives_after(st, key, pool, &graph.id, call, request.clone(), &fresh)
+                spawn_alternatives(st, key, pool, &graph.id, call, request.clone(), &fresh)
             }),
             ..base(RouteStatus::Ok, recalculations)
         },
@@ -450,7 +450,7 @@ const ALTERNATIVES_WAIT_MARGIN: std::time::Duration = std::time::Duration::from_
 /// token `routeAlternatives` takes them by, bound to `client`; none when no
 /// token could be drawn. Their time is logged on a line of their own,
 /// without a position nor the token.
-fn alternatives_after(
+fn spawn_alternatives(
     st: &ApiState,
     client: ClientKey,
     pool: &lunaway_db::PgPool,

@@ -24,6 +24,7 @@ use lunaway_api::{ApiState, config::Quota};
 use lunaway_db::PgPool;
 use lunaway_domain::{Position, routing::polyline};
 use serde_json::{Value, json};
+use tokio::sync::Notify;
 use tower::ServiceExt;
 
 use super::route::{ROUTE_AROUND, ROUTE_UNDER, code, config, engine, gql, input, osrm, seed};
@@ -292,32 +293,35 @@ async fn a_token_gives_nothing_to_another_client(pool: PgPool) {
     assert_eq!(code(&forged), "NOT_FOUND");
 }
 
-/// What a fake engine slow for one trip records.
+/// What a fake engine that holds one trip records, and what lets it go.
 #[derive(Clone)]
-struct Slow {
+struct Held {
     asked: Arc<Mutex<Vec<Value>>>,
-    slow_lat: f64,
+    held_lat: f64,
+    release: Arc<Notify>,
 }
 
-async fn slow_route(State(s): State<Slow>, Json(body): Json<Value>) -> Json<Value> {
-    let slow = body["locations"][1]["lat"].as_f64() == Some(s.slow_lat);
+async fn held_route(State(s): State<Held>, Json(body): Json<Value>) -> Json<Value> {
+    let held = body["locations"][1]["lat"].as_f64() == Some(s.held_lat);
     s.asked.lock().unwrap().push(body);
-    if slow {
-        tokio::time::sleep(Duration::from_millis(1_500)).await;
+    if held {
+        s.release.notified().await;
     }
     Json(osrm(&[ROUTE_AROUND]))
 }
 
-/// A fake engine that takes 1.5 s for the trips to `slow_lat` and answers
-/// the others at once.
-async fn slow_engine(slow_lat: f64) -> (String, Arc<Mutex<Vec<Value>>>) {
-    let s = Slow {
+/// A fake engine that answers the trips to `held_lat` once its `Notify` is
+/// told, and the others at once.
+async fn holding_engine(held_lat: f64) -> (String, Arc<Mutex<Vec<Value>>>, Arc<Notify>) {
+    let s = Held {
         asked: Arc::new(Mutex::new(Vec::new())),
-        slow_lat,
+        held_lat,
+        release: Arc::new(Notify::new()),
     };
     let asked = Arc::clone(&s.asked);
+    let release = Arc::clone(&s.release);
     let app = Router::new()
-        .route("/route", post(slow_route))
+        .route("/route", post(held_route))
         .route(
             "/status",
             get(|| async { Json(json!({"version": "3.9.1"})) }),
@@ -326,14 +330,14 @@ async fn slow_engine(slow_lat: f64) -> (String, Arc<Mutex<Vec<Value>>>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await });
-    (url, asked)
+    (url, asked, release)
 }
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn alternatives_take_an_engine_call_only_while_another_stays_free(pool: PgPool) {
     seed(&pool).await;
     let slow_lat = 45.845_2;
-    let (url, asked) = slow_engine(slow_lat).await;
+    let (url, asked, release) = holding_engine(slow_lat).await;
     let mut c = config(&url);
     c.routing.concurrency = 2;
     c.routing.timeout = Duration::from_secs(3);
@@ -368,9 +372,65 @@ async fn alternatives_take_an_engine_call_only_while_another_stays_free(pool: Pg
         a["data"]["routeAlternatives"]["status"], "BUSY",
         "the last free call stays for the clients' routes: {a}"
     );
+    release.notify_one();
     let other = other.await.unwrap();
     assert_eq!(other["data"]["route"]["status"], "OK", "{other}");
     let asked = asked.lock().unwrap();
     assert_eq!(asked.len(), 2, "no call for the alternatives");
     assert!(asked.iter().all(|b| b.get("alternates").is_none()));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_of_the_engine_for_the_alternatives_leaves_the_best_route_alone(pool: PgPool) {
+    seed(&pool).await;
+    let (url, _) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (500, json!({"error": "boom"}))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(2.5)).await;
+    assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+    let token = body["data"]["route"]["alternativesToken"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let a = alternatives(&app, &token).await;
+    assert_eq!(
+        a["data"]["routeAlternatives"]["status"], "FAILED",
+        "the engine failed for them, and the best route went before: {a}"
+    );
+    assert!(a["errors"].is_null(), "no error to show: {a}");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_left_without_a_safe_way_is_asked_again_with_its_alternatives(pool: PgPool) {
+    seed(&pool).await;
+    // The best route alone runs under the 2.7 m bridge, and again once a
+    // ring is put on it; asked with its alternatives, one goes round.
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER, ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, LATER_QUERY, wanting_two(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(
+        r["status"], "OK",
+        "the trip a request without the token would get: {body}"
+    );
+    assert_eq!(shapes(&r["osrmJson"]), [ROUTE_AROUND]);
+    assert!(
+        r["alternativesToken"].is_null(),
+        "the alternatives came in this answer: {body}"
+    );
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 3);
+    assert!(asked[0].get("alternates").is_none() && asked[1].get("alternates").is_none());
+    assert_eq!(asked[2]["alternates"], 2);
 }

@@ -786,6 +786,32 @@ impl Routing {
                 }
                 other => other,
             }?;
+            // A best route asked alone has no alternative to fall back on:
+            // a trip left without a safe one is asked once more with its
+            // alternatives, as a request without the token is, one of which
+            // may be safe where no recalculation of the best one was. When
+            // that finds none, fails or runs out of time, the first answer
+            // stands.
+            let first = match first {
+                first @ Outcome::NoSafeRoute { .. } if request.later => {
+                    let mut at_once = request.clone();
+                    at_once.later = false;
+                    let again =
+                        self.route_within(pool, graph_id, &at_once, fresh, deadline, &mut work);
+                    match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again).await {
+                        Ok(Ok(found @ Outcome::Found { .. })) => found,
+                        Ok(Err(error)) => {
+                            tracing::warn!(
+                                error = %crate::error::chain(&error),
+                                "a trip asked again with its alternatives failed"
+                            );
+                            first
+                        }
+                        Ok(Ok(_)) | Err(_) => first,
+                    }
+                }
+                other => other,
+            };
             let moving = stops_to_move(&first, &request.stops);
             if moving.is_empty() {
                 return Ok(first);
@@ -825,8 +851,9 @@ impl Routing {
     /// that gave it, asked again with its alternatives, the route identical
     /// to the best one left out, the others checked and traced as the best
     /// one was, within [`ROUTE_DEADLINE`]. One engine call, and only while
-    /// another stays free for the clients' trips: the best route of a
-    /// client waits for no one's alternatives.
+    /// another stays free for the clients' trips (with a single slot, only
+    /// while it is free): with more than one, a client's best route never
+    /// waits for another's alternatives.
     pub(crate) async fn alternatives_after(
         &self,
         pool: &PgPool,
@@ -854,7 +881,10 @@ impl Routing {
         let after = match tokio::time::timeout_at(deadline, asked).await {
             Ok(Ok(after)) => after,
             Ok(Err(error)) => {
-                tracing::warn!(%error, "the alternatives of a route failed");
+                tracing::warn!(
+                    error = %crate::error::chain(&error),
+                    "the alternatives of a route failed"
+                );
                 After::Failed
             }
             Err(_) => {
@@ -897,7 +927,16 @@ impl Routing {
         // alternatives are the others.
         let left = match osrm.get_mut("routes").and_then(Value::as_array_mut) {
             Some(routes) => {
+                let before = routes.len();
                 routes.retain(|r| r.get("geometry").and_then(Value::as_str) != Some(best));
+                // Measured the same on 120 trips (2026-10-11); a best route
+                // that differs would come back as an alternative.
+                if routes.len() == before {
+                    tracing::info!(
+                        routes = before,
+                        "the engine's best route with alternatives is not the one sent"
+                    );
+                }
                 routes.truncate(usize::from(alternates));
                 routes.len()
             }
