@@ -3,6 +3,7 @@
 //! One binary for the crate: each file of `tests/` is a module declared
 //! here (`autotests = false` in Cargo.toml), so a new file needs its line.
 
+mod account_merge;
 mod address;
 mod along;
 mod budget;
@@ -13,6 +14,7 @@ mod enforcement;
 mod extcom;
 mod favorite_points;
 mod fuel;
+mod home;
 mod http;
 mod mvt;
 mod place_tiles;

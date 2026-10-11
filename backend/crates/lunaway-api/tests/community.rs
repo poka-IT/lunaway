@@ -49,14 +49,14 @@ impl Device {
         Self(SigningKey::from_slice(&d).unwrap())
     }
 
-    fn jwk(&self) -> String {
+    pub(crate) fn jwk(&self) -> String {
         let point = self.0.verifying_key().to_sec1_point(false);
         let bytes = point.as_bytes();
         json!({"kty": "EC", "crv": "P-256", "x": b64(&bytes[1..33]), "y": b64(&bytes[33..65])})
             .to_string()
     }
 
-    fn sign(&self, message: &str) -> String {
+    pub(crate) fn sign(&self, message: &str) -> String {
         let signature: p256::ecdsa::Signature = self.0.sign(message.as_bytes());
         b64(&signature.to_bytes())
     }
@@ -137,7 +137,7 @@ mutation($jwk: String!, $nonce: String!, $sig: String!) {
   }
 }"#;
 
-async fn challenge(app: &axum::Router) -> (String, String) {
+pub(crate) async fn challenge(app: &axum::Router) -> (String, String) {
     let body = gql(
         app,
         None,
@@ -443,7 +443,7 @@ query($id: UUID!) {
   }
 }";
 
-const REVIEW: &str = r#"
+pub(crate) const REVIEW: &str = r#"
 mutation($id: UUID!, $text: String!) {
   review(placeId: $id, stars: 4, text: $text, visitedOn: "2026-09-20", vehicle: CAMPERVAN, lang: "fr") {
     id status rating
