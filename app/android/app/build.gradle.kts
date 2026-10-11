@@ -151,6 +151,14 @@ kotlin {
     }
 }
 
+dependencies {
+    // MainActivity turns the label fades of the guidance's map off, which
+    // the maplibre_gl plugin has no call for. The plugin brings the library
+    // at run time; its version (maplibre_gl's android/build.gradle) is named
+    // here to compile against it, and moves with it.
+    compileOnly("org.maplibre.gl:android-sdk-opengl:13.5.0")
+}
+
 flutter {
     source = "../.."
 }

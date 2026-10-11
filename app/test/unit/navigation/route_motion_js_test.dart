@@ -33,6 +33,8 @@ function fakeMap() {
     sets: 0,
     // GL JS asks itself to draw at each change of its data or camera.
     repaints: 0,
+    // GL JS's fade of its labels, its default.
+    _fadeDuration: 300,
     triggerRepaint() { map.repaints += 1; },
     getSource() { return { setData(d) { map.data = d; map.sets += 1; map.triggerRepaint(); } }; },
     jumpTo(c, own) {
@@ -150,6 +152,17 @@ const out = {};
   second();
   out.cadence = { steady, held: r.map.repaints - pressed };
   r.map.lift(1);
+}
+
+// The guidance's map places its labels without fading them; the preview's,
+// and the map once the guidance is over, fade them as GL JS does.
+{
+  const r = rig();
+  const before = r.map._fadeDuration;
+  r.run.guiding(true);
+  const guiding = r.map._fadeDuration;
+  r.run.guiding(false);
+  out.fades = { before, guiding, after: r.map._fadeDuration };
 }
 
 // The way in eases from the view the map had.
@@ -360,6 +373,10 @@ void main() {
       expect(steady['repaints']! as num, inInclusiveRange(16, 30));
       expect(steady['sets']! as num, greaterThanOrEqualTo(120), reason: 'sampled at every frame');
       expect(cadence['held']! as num, greaterThanOrEqualTo(60));
+    }, skip: skip);
+
+    test("places the guidance's labels without fading them, and gives the fade back", () {
+      expect(seen['fades'], {'before': 300, 'guiding': 0, 'after': 300});
     }, skip: skip);
 
     test('eases into following from the view the map had', () {

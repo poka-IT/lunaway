@@ -8,10 +8,14 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
+import android.view.View
+import android.view.ViewGroup
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.style.layers.TransitionOptions
 
 class MainActivity : FlutterActivity() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -42,6 +46,36 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "showsCopies" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                     else -> result.notImplemented()
+                }
+            }
+
+        // The guidance's map places its labels without fading them: with the
+        // fades, MapLibre keeps drawing between two moves of the camera
+        // whatever limit of frames the app set, and the guidance's cadence
+        // does not hold (plan/research/124-cadence-carte-guidage.md). The
+        // maplibre_gl plugin has no call for it; the map is the one whose
+        // style holds the source the app names, and the fades of the other
+        // maps (the main map, the preview) stay as they are.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lunaway/map")
+            .setMethodCallHandler { call, result ->
+                val source = call.argument<String>("source")
+                val on = call.argument<Boolean>("on")
+                when {
+                    call.method != "labelFades" -> result.notImplemented()
+                    source == null || on == null -> result.error("args", "a source and on are needed", null)
+                    else -> {
+                        for (view in mapViews(window.decorView)) {
+                            view.getMapAsync { map ->
+                                map.getStyle { style ->
+                                    if (style.getSource(source) != null) {
+                                        val now = style.transition
+                                        style.transition = TransitionOptions(now.duration, now.delay, on)
+                                    }
+                                }
+                            }
+                        }
+                        result.success(null)
+                    }
                 }
             }
 
@@ -101,6 +135,14 @@ class MainActivity : FlutterActivity() {
         networkCallback = null
         super.onDestroy()
     }
+
+    /** The maps under [view]: maplibre_gl's views sit in the window's hierarchy. */
+    private fun mapViews(view: View): List<MapView> =
+        when (view) {
+            is MapView -> listOf(view)
+            is ViewGroup -> (0 until view.childCount).flatMap { mapViews(view.getChildAt(it)) }
+            else -> emptyList()
+        }
 
     private fun networkState(connectivity: ConnectivityManager): Map<String, Boolean> {
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)

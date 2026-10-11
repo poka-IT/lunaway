@@ -173,6 +173,8 @@
       var running = false;
       var held = false;
       var repaint = map.triggerRepaint.bind(map);
+      // The map's own fade of its labels, given back once it no longer guides.
+      var fades = map._fadeDuration;
       map.triggerRepaint = function () {
         if (!running || fps >= MAX_FPS) return repaint();
         held = true;
@@ -579,9 +581,15 @@
           return true;
         },
         // The guidance's map tells the app of gestures, presses and rests;
-        // the preview's does not.
+        // the preview's does not. It also places its labels without fading
+        // them: while labels fade, GL JS draws at every frame of the
+        // screen whatever the cadence (measured: 56 frames a second for 10
+        // moves of the camera). GL JS reads its fade at each placement
+        // from this field (GL JS 6.4.1, web/maplibre-gl), which has no
+        // setter.
         guiding: function (on) {
           guiding = !!on;
+          if (typeof fades === 'number') map._fadeDuration = guiding ? 0 : fades;
           return true;
         },
         // Whether a map that is not guiding tells the app of the user's

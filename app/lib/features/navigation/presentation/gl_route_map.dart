@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/perf/timeline_mark.dart';
+import 'package:lunaway/core/platform/map_label_fades.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -101,9 +102,14 @@ class _GlRouteMapState extends State<GlRouteMap> {
 
   RouteMapProps get _props => widget.props;
 
-  /// The page's own source that names this map to its motion
-  /// (`lunawayRouteMotion.bind` in web/lunaway_maplibre.js).
+  /// A source of this map's own that names it: to the page's motion in a
+  /// browser (`lunawayRouteMotion.bind` in web/lunaway_maplibre.js), to
+  /// the Android host that turns its labels' fades off ([setMapLabelFades]).
   late final String _tag = 'lw-route-tag-${identityHashCode(this)}';
+
+  /// Whether the labels' fades were last asked on or off; null for a style
+  /// not told yet, which has them on.
+  bool? _sentFades;
 
   /// The browser's page draws the guidance's frames; null on a phone.
   PageRouteMotion? _page;
@@ -254,6 +260,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
     if (old.props.guiding != _props.guiding) {
       _page?.guiding(on: _props.guiding);
       _capFrames();
+      _setFades();
     }
     if ((old.props.onGesture == null) != (_props.onGesture == null)) {
       _page?.watch(on: _props.onGesture != null);
@@ -323,7 +330,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
         ...RouteLayers.markSources,
         RichLayers.source,
         RouteLayers.vehicleSource,
-        if (kIsWeb) _tag,
+        _tag,
       ]) {
         if (!current()) return;
         await _quietly(() => c.removeSource(id));
@@ -361,6 +368,9 @@ class _GlRouteMapState extends State<GlRouteMap> {
       if (!current()) return;
       timelineMark('lunaway-route-map-layers');
       _ready = true;
+      // Each style starts with its fades on.
+      _sentFades = null;
+      _setFades();
       _rich.reset();
       _richEngine.forget();
       _richHidden = null;
@@ -1150,6 +1160,19 @@ class _GlRouteMapState extends State<GlRouteMap> {
           .setMaximumFps(cap ?? _freeFps)
           .catchError((Object e, StackTrace st) => _log.fine('could not limit the frames', e, st)),
     );
+  }
+
+  /// The guidance's map places its labels without fading them, so the
+  /// engine draws when the app moves it and the cadence holds; the preview
+  /// keeps its fades ([setMapLabelFades]; the browser's and the desktop's
+  /// page do the same in their motion).
+  void _setFades() {
+    if (!_ready || kIsWeb) return;
+    final on = !_props.guiding;
+    // A style starts with its fades on: the preview's asks nothing.
+    if (on == (_sentFades ?? true)) return;
+    _sentFades = on;
+    unawaited(setMapLabelFades(_tag, on: on));
   }
 
   /// The limit the engine draws freely under: none on iOS (its default,

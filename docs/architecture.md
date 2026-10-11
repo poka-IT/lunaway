@@ -640,9 +640,12 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 - **The guidance map's frames on a phone** (`GlRouteMap`): the vehicle
   glides from fix to fix, one map frame per 33 ms at most, set by a
   timer once the last frame's calls are answered. The map engine keeps
-  drawing between two moves of the camera while it places its labels
-  (MapLibre Native and GL JS alike, measured), so the cadence of the
-  map's frames is the engine's own limit: `domain/frame_cadence.dart`
+  drawing between two moves of the camera while its labels fade
+  (MapLibre Native and GL JS alike, measured), so the guidance's map
+  places its labels without fading them (`setMapLabelFades` on Android,
+  the page's motion in a browser and on the desktop; the main map and
+  the preview keep their fades) and the cadence of the map's frames is
+  the engine's own limit: `domain/frame_cadence.dart`
   aims at about a pixel and a half of motion a frame, from how fast the
   picture moves (the road under the vehicle, a turn, a change of zoom or
   tilt); full under a finger, on the way into following and during an

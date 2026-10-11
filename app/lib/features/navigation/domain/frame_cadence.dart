@@ -17,15 +17,16 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 /// eases back into following, and during an animation of the camera, the
 /// cadence is full; it then comes down over a second ([releasePerS]).
 ///
-/// The map engine keeps drawing between two moves of the camera while it
-/// places its labels again: measured on an emulator, MapLibre Native drew a
-/// frame every 25 ms while the app moved the camera every 100 ms
+/// The map engine keeps drawing between two moves of the camera while its
+/// labels fade: measured on an emulator, MapLibre Native drew a frame every
+/// 25 ms while the app moved the camera every 100 ms
 /// (`plan/research/124-cadence-carte-guidage.md`). Sending fewer moves
-/// draws no fewer frames. So the cadence is the engine's own limit of
-/// frames ([renderCap]), while the app keeps sending the vehicle and the
-/// camera [sampleFps] times a second: a frame shows the latest state, set
-/// by the clock (`VehicleMotion.at`, the eases of the camera), never by the
-/// frame's number.
+/// draws no fewer frames. So the guidance's map places its labels without
+/// fading them (`setMapLabelFades`, and the pages' motion), the cadence is
+/// the engine's own limit of frames ([renderCap]), and the app keeps
+/// sending the vehicle and the camera [sampleFps] times a second: a frame
+/// shows the latest state, set by the clock (`VehicleMotion.at`, the eases
+/// of the camera), never by the frame's number.
 abstract final class FrameCadence {
   /// The motion a frame may show, logical pixels: the vehicle and the road
   /// glide in steps the eye reads as one motion.

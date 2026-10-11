@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
@@ -124,6 +125,45 @@ void main() {
     await _wait(tester, const Duration(milliseconds: 600));
     return engine;
   }
+
+  testWidgets(
+    'the guidance map places its labels without fading them; the preview keeps its fades',
+    (tester) async {
+      final asked = <Map<Object?, Object?>>[];
+      const channel = MethodChannel('lunaway/map');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'labelFades') asked.add(call.arguments as Map<Object?, Object?>);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null),
+      );
+      const at = LatLng(44.94, 4.90);
+      final engine = LayerStackEngine(_aube)..install(tester);
+      await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(at, 0, guiding: false))));
+      await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
+      await tester.pump();
+      expect(asked, isEmpty, reason: "the preview's labels fade as the style has them");
+      // The source that names this map to the Android host.
+      final tag = engine.calls
+          .map((c) => c.arguments)
+          .whereType<Map<Object?, Object?>>()
+          .map((a) => a['sourceId'])
+          .whereType<String>()
+          .firstWhere((id) => id.startsWith('lw-route-tag-'));
+      await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(at, 0))));
+      await tester.pump();
+      expect(asked, [
+        {'source': tag, 'on': false},
+      ]);
+      await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(at, 0, guiding: false))));
+      await tester.pump();
+      expect(asked.last, {
+        'source': tag,
+        'on': true,
+      }, reason: 'the guidance over, the fades come back');
+    },
+  );
 
   testWidgets('a parked vehicle whose fixes wander a few metres draws nothing', (tester) async {
     const parked = LatLng(44.94, 4.90);
