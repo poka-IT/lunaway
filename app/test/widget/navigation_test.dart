@@ -1076,7 +1076,7 @@ void main() {
       expect(map.vehicle, isNotNull);
     });
 
-    testWidgets("a motorway exit shows its number on the banner, as on its sign", (tester) async {
+    testWidgets('a motorway exit shows its number on the banner, as on its sign', (tester) async {
       final plan = routeFixture(
         'limoges_drive',
         edit: (answer) {

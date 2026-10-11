@@ -147,8 +147,9 @@ contribution sent once its sheet closed says "Envoi en cours"
 The preview's and the guidance's maps draw their layers in one order,
 `RouteLayerOrder` (`app/lib/features/navigation/presentation/route_layer_order.dart`),
 on every engine: a new layer joins that list, and no engine adds one at a
-place of its own. The pins lie over the route, the route's lines under the
-basemap's names of places; the towns' names lie over every pin, on these
+place of its own. The pins lie over the route, the route's lines (the
+arrow of the next maneuver on top of them) under the basemap's names of
+places; the towns' names lie over every pin, on these
 maps as on the main map, and a pin gives way to one (decision of the PO,
 2026-10-10). `test/widget/route_layer_order_test.dart` and
 `test/widget/map_layer_order_test.dart` read the order each engine draws

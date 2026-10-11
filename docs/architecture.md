@@ -625,6 +625,36 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   ask the engine for the places in view only when the camera moved
   enough (`tilePlacesStillHold`): each such query waits for the renderer
   on the thread that draws the app (`plan/research/112-perf-android.md`).
+- **The guidance's screen** (`guidance_screen.dart`,
+  `widgets/guidance_panels.dart`), laid out as drivers know it from the big
+  navigation apps (`plan/research/120-guidage-facon-gmaps.md`): the
+  maneuver at the top (its arrow, the distance over the road, a motorway
+  exit's number), the lanes on a deeper band under it, "Puis" on a tab
+  when the next maneuver follows within 300 m; the notices under it; at
+  the foot of the map the speed and its limit on the left (or "Recentrer"
+  once the map is moved or the whole route shown), the road the vehicle is
+  on in the middle, the voice, the places, "Sur le trajet" and the reports
+  on the right; the bar with the way out, the time left large, the
+  distance and the arrival, and the whole route, a tap or a swipe up
+  opening its options. A toll booth (1.5 km ahead) and a border (3 km)
+  are told as standing notices, read from Valhalla's `toll_collection`
+  and `admins` (`RouteOption.crossings`).
+- **The guidance's camera**: the zoom the follow camera eases to is
+  `autoZoom` (`domain/auto_zoom.dart`): a cruising zoom by speed (17.1 at
+  30 km/h, 14.8 at 130), the speed held through 6 km/h of hysteresis
+  (`SpeedHold`), closer as a turn, a roundabout, a ramp or the arrival
+  comes (the maneuver at 55 % of the road in view, capped 1.1 levels in),
+  wider by up to 0.6 down a straight longer than two minutes. The map
+  turns to the course with a 400 ms ease, and the vehicle stands 80 % down
+  the free map. Each engine animates only while the vehicle glides or
+  the camera has not reached its target; a vehicle parked draws no frame.
+- **The route line**: wider than every road of the basemap at each zoom
+  (`RouteLook.lineStops`, 11.5 px at 17 inside a 2 px rim), a saturated
+  teal by day; greyed behind the vehicle by a `line-gradient` on
+  `line-progress`, the share measured in Web Mercator as MapLibre does
+  (`RouteProgress`), sent at most once a fix; the arrow of the next
+  maneuver drawn on it (`ManeuverArrow`, 30 m either side, 60 at a ramp,
+  through a roundabout's ring). The preview draws the same line.
 - **A tap on the map** (`features/map/domain/map_taps.dart`): what the
   user chose (a place, a shop, an address, a town, a saved point) stays
   chosen, and a phone lowers its sheet to its header; a free point "Ici"
