@@ -10,8 +10,9 @@ public endpoints the way a client does:
   api     GET https://api.lunaway.net/health answers 200 and "ok"
   tiles   the basemap's TileJSON is version 3.0.0, and a z14 tile over
           Paris comes back with more than 1000 bytes as received (gzip)
-  search  the status page's check "Addresses (Europe)": complete, the
-          first address in Germany
+  search  the query of the status page's check "Addresses (Europe)":
+          complete, the first address in Germany (the status page checks
+          the address only)
   route   the status page's "Witness route": a 3.3 m motorhome in Limoges
           goes round the 2.7 m bridge, status OK and longer than 1000 m
 

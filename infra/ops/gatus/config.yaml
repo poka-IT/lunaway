@@ -230,9 +230,9 @@ endpoints:
   # check alone requires addressesComplete; a first address in Germany or
   # Morocco, which only Photon gives, says that Photon answered. Europe's
   # query stays the external probe's (infra/ops/probe/external-probe.py),
-  # which asks three times before it fails. Three
-  # searches every ten minutes are nothing to the Géoplateforme's 50 a
-  # second, nor to the quota of 300 every ten minutes per client.
+  # which asks three times before it fails. Three searches every ten
+  # minutes are nothing to the Géoplateforme's 50 a second, nor to the
+  # quota of 300 every ten minutes per client.
   - name: Addresses (France)
     group: public
     url: "https://__API_HOST__/graphql"

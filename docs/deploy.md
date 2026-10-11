@@ -313,13 +313,17 @@ compression. `vm.swappiness` is 10 (`infra/files/etc/sysctl.d/90-lunaway.conf`).
 
 **No swap for what a user waits on.** The API, PostgreSQL, Photon and the
 translation server run with `MemorySwapMax=0` since 2026-10-11: the kernel
-can take only their page cache, and swaps the memory of the units nobody
-waits on (the imports and the other jobs, the external feed's crawler,
-Gatus, the tile server, Caddy, journald). The routing engine may swap
-within its container's cap only: its private memory grows with the routes
-it computes and no setting bounds it, so at its cap it goes to zram rather
-than stopping the engine (at 8 GB it had 956 MiB swapped, 2026-10-11).
-On 2026-10-11 at 19:42 UTC the translation server held 0.43 GB in memory
+can take only their page cache. The other units keep their swap: the jobs,
+the external feed's crawler, Gatus and journald, which nobody waits on;
+Caddy and the tile server, small Go programs whose garbage collector goes
+through their live heap at least every two minutes, so their pages stay
+recent (69 KiB of Caddy's swapped, none of the tile server's, 2026-10-11);
+and the routing engine, whose private memory grows with the routes it
+computes and no setting bounds: its container (`--memory=10g`, and
+Podman's default swap limit of the same size, `memory.swap.max`) swaps at
+its cap rather than stopping the engine (at 8 GB it had 956 MiB swapped,
+2026-10-11). Swapped pages count in no unit's cap; zram holds 4 GiB of
+them at most. On 2026-10-11 at 19:42 UTC the translation server held 0.43 GB in memory
 and 2.8 GB of its models in zram, after a day without a translation: zram
 held 2.78 GiB of pages in 2.27 GiB of memory (`/sys/block/zram0/mm_stat`),
 the models' int8 weights barely compressing, and the first text of a pair
@@ -346,6 +350,7 @@ kernel takes back first):
 | `systemd-journald` | 0.67 GiB, the journals' page cache | | none | yes |
 | a job: an import, the open content's refresh, the packs, a basemap cut | 0.2 to 3 GiB | its cap | 0.25 to 4 GiB, per unit | yes |
 | the kernel: slab, page tables, stacks | 1.1 GiB | 1.2 GiB | | |
+| zram | 2.78 GiB of pages in 2.27 GiB at 19:42, 36 MiB in 24 MiB at 20:26 once the translation server had none | the pages of the units that swap, compressed | 4 GiB of pages | |
 
 Under the normal load, jobs aside, the private memory comes to about
 16 GiB, which leaves about 15 GiB of page cache to the database, the
@@ -462,11 +467,9 @@ extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
 server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB and
 the API's 3 GB since 2026-10-11 are not in it: `others` only sets
 `effective_cache_size`, a hint to the planner, and a new value restarts
-PostgreSQL; it follows at the next retune. The cluster has no swap
-(`memory.conf`, "Memory"), which `postgres.sh` gives the running cluster
-with `systemctl set-property --runtime` and no restart: a daemon-reload
-left its cgroup's `memory.swap.max` at `max` on 2026-10-11. Their page cache is the database's too, so PostgreSQL keeps a
-smaller share for itself than on a server of its own:
+PostgreSQL; it follows at the next retune. The other tenants' page cache
+is the database's too, so PostgreSQL keeps a smaller share for itself than
+on a server of its own:
 
 | setting | rule | 32 GB (cx53), 31,344 MB visible |
 |---|---|---|
@@ -482,6 +485,16 @@ memory for `shared_buffers` (3,905 MB) and 1/256 for `work_mem` (61 MB), and
 `effective_cache_size` the memory less 12 GB, half of it at least
 (7,810 MB). Applied at 13:03:41 UTC on 2026-10-10, with a restart of
 PostgreSQL.
+
+The cluster has no swap, and a process of it the kernel stops for want of
+memory is the postmaster's to replace: `postgresql@18-main.service.d/memory.conf`
+sets `MemorySwapMax=0` and `OOMPolicy=continue` (systemd's default, `stop`,
+would stop the whole cluster, and Debian's unit does not restart it). The
+postmaster itself has `OOMScoreAdjust=-900` from Debian's unit.
+`postgres.sh` applies the file without a restart: a daemon-reload for the
+policy, and `systemctl set-property --runtime` for its `Memory...=` lines,
+since a daemon-reload left the running cgroup's `memory.swap.max` at `max`
+on 2026-10-11.
 
 ## Deploying the API
 
@@ -614,12 +627,15 @@ under `/media/` with a year of cache.
   `infra/server/api.sh` from `LUNAWAY_MEDIA_BASE_URL` (configure.sh). URLs
   are built at each answer from the stored paths, so changing the base later
   changes every URL at once.
-- Two photo decodes at once take up to about 1 GB: the API's memory cap is
-  2 GB (`MemoryHigh` 1.5 GB), without swap.
-- The API allocates through jemalloc (`main.rs`), which gives freed pages
-  back after a few seconds, and logs every five minutes what it holds
-  (`memory allocated_mb resident_mb retained_mb`, `journalctl -u
-  lunaway-api | grep ' memory '`). The same 240 trips (one pass without
+- Two photo decodes at once take up to about 1 GB, six of the heaviest
+  routes at once 1.4 GiB: the API's memory cap is 3 GiB (`MemoryHigh`
+  2.5 GiB), without swap ("Memory").
+- The API's Rust code allocates through jemalloc (`main.rs`), whose
+  background thread gives freed pages back after about ten seconds, and
+  logs every five minutes what jemalloc holds, in MiB (`memory
+  allocated_mb resident_mb retained_mb`, `journalctl -u lunaway-api | grep
+  ' memory '`); libwebp and SQLite still allocate through glibc
+  (`MALLOC_ARENA_MAX=2`). The same 240 trips (one pass without
   preference, one off motorways) left glibc's allocator at 812 MB that it
   kept, with `MALLOC_ARENA_MAX=2` at 431 MB, and jemalloc at a peak of
   326 MB, back to 101 MB, at the same latency (2026-10-11,
@@ -3820,7 +3836,7 @@ sudo lunaway-admin road-events poll --force --only dir
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
 | web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]` and `/external-photos/[photo]`, no redirect target (`Location`), regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
-| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges, and limited by nftables to HTTPS and DNS for its user (for the external community source's photo proxy, which the code holds to the agreement's hosts, resolved to public addresses only, 5000 a day at most; the geocoders are reached through Caddy on the loopback, by configuration), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
+| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges, and limited by nftables to HTTPS and DNS for its user (for the external community source's photo proxy, which the code holds to the agreement's hosts, resolved to public addresses only, 5000 a day at most; the geocoders are reached through Caddy on the loopback, by configuration), may bind only 8484, memory capped at 3 GiB without swap; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user and role, with 2 GiB of memory |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the Mac runs; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
 | imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the external community feed imported under the same user with loopback only, seeing of `/srv` its inbox (read-only) and the import cache, its SHA-256 checked first, its settings (`/etc/lunaway/extcom.env`, root 0600) loaded by that unit alone; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |

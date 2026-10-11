@@ -306,7 +306,7 @@ mod tests {
         );
         assert!(
             tikv_jemalloc_ctl::background_thread::read().unwrap(),
-            "the background thread must be running"
+            "the background thread must be enabled"
         );
     }
 }

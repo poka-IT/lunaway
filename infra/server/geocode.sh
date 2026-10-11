@@ -64,11 +64,19 @@ for instance in europe morocco; do
       # 9201: the next one, started before this one has bound it, takes the
       # same and fails once (BindException, 2026-10-10 and 2026-10-11, 15 s
       # without Morocco's addresses). The next waits until this one answers.
+      # At boot both still start together, and Restart=on-failure brings
+      # back the one that lost.
       port="$(sed -n 's/^PHOTON_PORT=//p' "/usr/local/share/lunaway/geocode/$instance.env")"
+      [[ "$port" =~ ^[0-9]+$ ]] || die "no PHOTON_PORT in /usr/local/share/lunaway/geocode/$instance.env"
+      answered=0
       for _ in $(seq 1 60); do
-        curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/status" 2>/dev/null && break
+        if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/status" 2>/dev/null; then
+          answered=1
+          break
+        fi
         sleep 1
       done
+      [ "$answered" = 1 ] || log "warning: photon@$instance does not answer on 127.0.0.1:$port a minute after its restart"
     fi
     log "$instance: $(readlink "/srv/photon/$instance/current") of $(cat "/srv/photon/$instance/current/INSTALLED_AT" 2>/dev/null || echo '?'), $(systemctl is-active "photon@$instance")"
   else

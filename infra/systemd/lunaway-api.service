@@ -12,7 +12,7 @@ RequiresMountsFor=/srv/data
 # spaces the restarts instead.
 StartLimitIntervalSec=0
 # Before the first deploy there is no binary: skip the unit instead of
-# failing it into its start limit.
+# failing it.
 ConditionPathExists=/opt/lunaway/current/lunaway-api
 
 [Service]
@@ -35,11 +35,12 @@ Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
 Restart=on-failure
-# 2 s, then up to 30 s over five restarts in a row; a start by hand or a
-# deploy (install-release.sh) begins again at 2 s.
+# 2 s, growing to 10 s over the first five automatic restarts since the
+# last `systemctl reset-failed` (install-release.sh and api.sh run it before
+# their restart); 10 s from then on.
 RestartSec=2s
 RestartSteps=5
-RestartMaxDelaySec=30s
+RestartMaxDelaySec=10s
 TimeoutStopSec=20s
 # The C libraries (libwebp's photo encoding, SQLite's packs) allocate
 # through glibc, which keeps a heap arena per thread; two arenas hold what

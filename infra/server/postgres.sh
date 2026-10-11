@@ -69,10 +69,15 @@ install_file "$STAGING/postgresql-data-directory.conf" "$dropins/data-directory.
 units=0
 install_file systemd/postgresql@18-main.service.d/memory.conf "$dropins/memory.conf" 0644 && units=1
 if [ "$restart" = 1 ] || [ "$units" = 1 ]; then systemctl daemon-reload; fi
-# A daemon-reload leaves the running cluster's cgroup as it was (systemd
-# 257: memory.swap.max stayed at max on 2026-10-11): its lines go to the
-# running unit as well, until its next start reads the file.
-mapfile -t memory_settings < <(sed -n 's/^\(Memory[A-Za-z]*=[^[:space:]]*\)[[:space:]]*$/\1/p' "$dropins/memory.conf")
+# A daemon-reload carries OOMPolicy but leaves the running cluster's cgroup
+# as it was (systemd 257: memory.swap.max stayed at max on 2026-10-11): the
+# file's MemorySwapMax, MemoryHigh, MemoryLow and MemoryMin go to the running
+# unit as well. They land in /run/systemd/system.control until a reboot;
+# memory.conf sorts after that file, so its own values win at each start.
+# MemoryMax is left to the next start: set below the shared buffers, which
+# no longer swap, it would have the kernel stop the cluster's processes at
+# once.
+mapfile -t memory_settings < <(sed -n 's/^\(Memory\(SwapMax\|High\|Low\|Min\)=[^[:space:]]*\)[[:space:]]*$/\1/p' "$dropins/memory.conf")
 if [ "${#memory_settings[@]}" -gt 0 ] && systemctl is-active --quiet postgresql@18-main; then
   systemctl set-property --runtime postgresql@18-main.service "${memory_settings[@]}"
 fi
@@ -84,7 +89,10 @@ fi
 # extract 3 GB, Caddy, the tile server and the system about 1.5 GB; and
 # since the servers were merged (2026-10-10), Photon's two JVMs (heaps of
 # 2 GB and 512 MB, and the JVM's own) about 3.5 GB, the translation server
-# 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB.
+# 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB and the
+# API's 3 GB since 2026-10-11 are not counted yet: a new value restarts
+# PostgreSQL for a hint to the planner (docs/deploy.md, "PostgreSQL on the
+# root disk").
 mem="$(mem_mb)"
 cores="$(nproc)"
 others=21504

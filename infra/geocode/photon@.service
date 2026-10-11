@@ -94,10 +94,9 @@ SocketBindAllow=tcp:9200-9400
 # first when it reaches MemoryHigh.
 # No swap: the heap is fixed (-Xms = -Xmx) and the garbage collector reads
 # all of it, so a page swapped out comes back in a pause that the searches
-# wait on. Without swap, the
-# index's page cache is all the kernel can take from this cgroup; its
-# private memory (1.9 GB for Europe, 0.8 GB for Morocco on 2026-10-11)
-# stays far under MemoryHigh.
+# wait on. Without swap, the index's page cache is all the kernel can take
+# from this cgroup; its private memory (1.9 GB for Europe, 0.8 GB for
+# Morocco on 2026-10-11) stays far under MemoryHigh.
 MemoryHigh=6G
 MemoryMax=7G
 MemorySwapMax=0
