@@ -111,7 +111,7 @@ echo '{"version":8,"glyphs":"{{placeholder `http.vars.tiles_base`}}/fonts/{fonts
 rsync -a --delete "$INFRA/web/site/" "$SCRATCH/site/"
 css="$(find "$SCRATCH/site" -maxdepth 1 -name 'style.*.css' -exec basename {} \; | head -n 1)"
 js="$(find "$SCRATCH/site/js" -maxdepth 1 -name 'delete-account.*.js' -exec basename {} \; | head -n 1)"
-font="$(find "$SCRATCH/site/fonts" -maxdepth 1 -name 'atkinson-next-lunaway-regular.*.woff2' -exec basename {} \; | head -n 1)"
+font="$(find "$SCRATCH/site/fonts" -maxdepth 1 -name 'figtree-lunaway.*.woff2' -exec basename {} \; | head -n 1)"
 echo '<!doctype html><base href="/app/"><title>app</title>' > "$SCRATCH/web/index.html"
 echo 'console.log(1)' > "$SCRATCH/web/main.dart.js"
 echo '{}' > "$SCRATCH/web/assets/AssetManifest.json"

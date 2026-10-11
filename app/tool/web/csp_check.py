@@ -53,7 +53,7 @@ BROWSERS = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
 ]
-# Characters missing from Atkinson Hyperlegible Next and Roboto, so the web
+# Characters missing from Figtree and Roboto, so the web
 # engine has to fetch Noto Sans (polytonic Greek, Latin Extended-B) and the
 # Noto symbol fonts; the rest checks the fonts already loaded.
 GLYPHS = "Ἀθῆναι Ǥ ẞ Ştefan Łódź Пловдив Þingvellir → ★ ✓ 🚐 ⛺ 😀"

@@ -15,6 +15,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
+import 'package:lunaway/shared/theme/typography.dart';
 
 import '../../test/helpers/fonts.dart';
 import '../../test/helpers/maneuver_catalogue.dart';
@@ -55,7 +56,7 @@ Widget _sheet(Color ground, Color ink, List<double> sizes, {required bool names}
                 if (names)
                   Text(
                     name,
-                    style: TextStyle(color: ink, fontSize: 11, fontFamily: 'Atkinson'),
+                    style: TextStyle(color: ink, fontSize: 11, fontFamily: LunaType.family),
                   ),
               ],
             ),

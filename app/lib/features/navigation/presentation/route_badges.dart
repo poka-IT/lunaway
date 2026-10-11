@@ -276,9 +276,9 @@ void paintRouteBadge(
   }
 }
 
-/// The height of figures and capitals over the font's size: Atkinson's
-/// digits run 680 units of 1000 up from the baseline.
-const double _figureHeight = 0.68;
+/// The height of figures and capitals over the font's size: Figtree's
+/// digits run 700 units of 1000 up from the baseline.
+const double _figureHeight = 0.70;
 
 /// Where to paint the one line of [painter] so its figures (a limit, a
 /// count, a rating) stand centred on [center]. Centred on its line box,
@@ -289,10 +289,13 @@ Offset figuresCentred(TextPainter painter, Offset center) {
   if (lines.isEmpty) return center - Offset(painter.width / 2, painter.height / 2);
   final line = lines.first;
   final size = painter.text?.style?.fontSize ?? line.ascent;
-  return Offset(
-    center.dx - painter.width / 2,
-    center.dy - (line.baseline - size * _figureHeight / 2),
-  );
+  // The engine draws the glyphs at the line's ascent rounded to a whole
+  // pixel, whatever fraction the metrics report: Figtree at 12 px with a
+  // height of 1 reports 9.5 and draws at 9, the same on the test engine and
+  // on macOS. Placed on the reported baseline, the figure stood half a pixel
+  // high.
+  final baseline = line.ascent.roundToDouble();
+  return Offset(center.dx - painter.width / 2, center.dy - (baseline - size * _figureHeight / 2));
 }
 
 /// The badge as a PNG at [ratio] physical pixels per logical one.

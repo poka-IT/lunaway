@@ -35,7 +35,7 @@ class BrandMark extends StatelessWidget {
   }
 }
 
-/// The lockup: the mark and "Lunaway" set in Fraunces, as in
+/// The lockup: the mark and "Lunaway" at the heading weight, as in
 /// brand/lunaway-lockup.svg, for the rail of the wide layouts.
 class BrandLockup extends StatelessWidget {
   const new({this.height = 32, super.key});
@@ -59,9 +59,9 @@ class BrandLockup extends StatelessWidget {
             child: Text(
               context.t.appTitle,
               maxLines: 1,
-              style: LunaType.serif(
+              style: LunaType.style(
                 height * 0.8,
-                560,
+                LunaType.heading,
                 height: 1,
               ).copyWith(color: Theme.of(context).colorScheme.onSurface, letterSpacing: -0.4),
             ),

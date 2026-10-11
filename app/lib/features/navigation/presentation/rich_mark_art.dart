@@ -52,12 +52,11 @@ final class IllustratedFace extends RichFace {
   final double scale;
 }
 
-/// The label's text style: Atkinson Hyperlegible, bold, the body face drawn
-/// for low-vision readers, 13 px whatever the mark's size (more with a
-/// larger system text, [richLabelScale]): its capitals are 9 px tall,
-/// 1.5 mm on a phone, 8 minutes of arc at 65 cm.
+/// The label's text style: the app's face, bold, 13 px whatever the mark's
+/// size (more with a larger system text, [richLabelScale]): its capitals
+/// are 9 px tall, 1.5 mm on a phone, 8 minutes of arc at 65 cm.
 const TextStyle richLabelStyle = TextStyle(
-  fontFamily: LunaType.body,
+  fontFamily: LunaType.family,
   fontSize: 13,
   height: 1,
   fontWeight: FontWeight.w700,
