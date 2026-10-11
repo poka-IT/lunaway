@@ -573,6 +573,12 @@ class _Header extends ConsumerWidget {
         StartHereMenu(
           position: feature.position,
           label: ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value?.name ?? title,
+          // As a home it keeps what a save in the favourites keeps.
+          home: () => poiDraft(
+            t,
+            feature,
+            address: ref.read(poiPageProvider(feature.id)).value?.value?.poi.address,
+          ),
         ),
         if (onClose != null) ...[
           const SizedBox(width: Space.xs),

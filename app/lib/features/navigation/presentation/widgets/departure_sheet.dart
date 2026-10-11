@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -126,6 +127,15 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                   title: Text(t.navigation.preview.departure.myPositionChoice),
                   onTap: () => _choose(null),
                 ),
+                // A trip that starts at home, the user's own start.
+                if (ref.watch(userHomeProvider).value case final home?)
+                  ListTile(
+                    leading: icon(AppIcons.home),
+                    title: Text(t.home.title),
+                    subtitle: Text(home.address ?? home.name),
+                    onTap: () =>
+                        _choose(RouteDeparture(position: home.position, label: t.home.title)),
+                  ),
                 // The API out of reach: the regions kept answer alone.
                 if (found?.deviceOnly ?? false) note(t.search.deviceOnly),
                 // Said at once: no town and no place matched, which the

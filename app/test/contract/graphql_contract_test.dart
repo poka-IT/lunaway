@@ -7,6 +7,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/account/data/account_operations.dart';
 import 'package:lunaway/features/community/data/community_operations.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
+import 'package:lunaway/features/favorites/data/home_sync.dart';
 import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
 import 'package:lunaway/features/navigation/data/on_the_way_api.dart';
 import 'package:lunaway/features/navigation/data/place_thumbs.dart';
@@ -44,6 +45,7 @@ void main() {
     ...accountOperations,
     ...communityOperations,
     ...GraphQLFavoritesRemote.operations,
+    ...GraphQLHomeRemote.operations,
     ...poiOperations,
     ...regionOperations,
     ...fuelFeedOperations,

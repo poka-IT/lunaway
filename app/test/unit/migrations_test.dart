@@ -7,6 +7,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/data/home_repository.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -96,6 +97,9 @@ const _userV5BaseColumns = ['points', 'local_only_points'];
 /// place.
 const _userV6ItemColumns = ['street'];
 
+/// What version 7 of the user store added: the home.
+const _userV7Tables = {'favorite_home'};
+
 final class _Raw extends GeneratedDatabase {
   new(super.executor);
 
@@ -126,7 +130,13 @@ void main() {
         'favorite_items': _userV6ItemColumns,
         'vehicles': [..._fuelColumns, ..._cruiseColumns],
       },
-      dropTables: {'favorite_sync_base', 'outbox', 'outbox_files', ..._userV5Tables},
+      dropTables: {
+        'favorite_sync_base',
+        'outbox',
+        'outbox_files',
+        ..._userV5Tables,
+        ..._userV7Tables,
+      },
     );
     final old = sqlite3.open(file.path)
       ..execute("INSERT INTO favorite_lists (name, is_default, created_at) VALUES ('Été', 0, 1)")
@@ -500,7 +510,7 @@ void main() {
         'favorite_sync_base': _userV5BaseColumns,
         'favorite_items': _userV6ItemColumns,
       },
-      dropTables: _userV5Tables,
+      dropTables: const {..._userV5Tables, ..._userV7Tables},
       version: 2,
     );
     final old = sqlite3.open(file.path)
@@ -540,7 +550,7 @@ void main() {
         'favorite_sync_base': _userV5BaseColumns,
         'favorite_items': _userV6ItemColumns,
       },
-      dropTables: _userV5Tables,
+      dropTables: const {..._userV5Tables, ..._userV7Tables},
       version: 3,
     );
     final old = sqlite3.open(file.path)
@@ -579,7 +589,7 @@ void main() {
           'favorite_sync_base': _userV5BaseColumns,
           'favorite_items': _userV6ItemColumns,
         },
-        dropTables: _userV5Tables,
+        dropTables: const {..._userV5Tables, ..._userV7Tables},
         version: 4,
       );
       final old = sqlite3.open(file.path)
@@ -626,7 +636,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {'favorite_items': _userV6ItemColumns},
-      dropTables: const {},
+      dropTables: _userV7Tables,
       version: 5,
     );
     final old = sqlite3.open(file.path)
@@ -663,6 +673,44 @@ void main() {
     expect(filled, 1);
     final streets = {for (final e in await repo.watchEntries(list).first) e.placeId: e.street};
     expect(streets, {'p1': '4 Rue de la Gare', 'p2': null});
+    await upgraded.close();
+  });
+
+  test('a version 6 user database keeps its favourites and gains a home, none set', () async {
+    final fresh = UserDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/user6.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {},
+      dropTables: _userV7Tables,
+      version: 6,
+    );
+    final old = sqlite3.open(file.path)
+      ..execute('INSERT INTO favorite_lists (name, is_default, created_at) VALUES (NULL, 1, 1)')
+      ..execute(
+        'INSERT INTO favorite_items (list_id, place_id, kind, lat, lon, added_at) '
+        "VALUES (1, 'p1', 'PARKING', 45, 6, 1)",
+      );
+    expect(old.select("SELECT name FROM sqlite_master WHERE name = 'favorite_home'"), isEmpty);
+    old.close();
+
+    final upgraded = UserDatabase(NativeDatabase(file));
+    final lists = DriftFavoritesRepository(upgraded, clock: () => DateTime.utc(2026, 10, 11));
+    expect((await lists.watchLists().first).single.count, 1, reason: 'the favourites stay');
+    final home = DriftHomeRepository(upgraded, clock: () => DateTime.utc(2026, 10, 11));
+    expect(await home.read(), isNull);
+    await home.set(
+      SavedPoint(
+        id: savedPointIdAt(const LatLng(45.9, 6.1)),
+        kind: SavedPointKind.address,
+        name: '1 rue des Lilas',
+        position: const LatLng(45.9, 6.1),
+        address: '1 rue des Lilas, 74000 Annecy',
+      ),
+    );
+    expect((await home.read())?.address, '1 rue des Lilas, 74000 Annecy');
     await upgraded.close();
   });
 }

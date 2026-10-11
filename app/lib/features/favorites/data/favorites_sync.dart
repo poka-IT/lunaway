@@ -7,6 +7,7 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/account/data/account_service.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/data/home_sync.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
@@ -93,12 +94,17 @@ final class FavoritesSync {
     required this.remote,
     required this.lookup,
     required this.defaultName,
+    this.home,
     this.clock = DateTime.now,
   });
 
   final UserDatabase db;
   final FavoritesRemote remote;
   final PlaceLookup lookup;
+
+  /// The home's sync, which runs after the lists'; none in the tests of
+  /// the lists alone.
+  final HomeSync? home;
 
   /// The name the default list takes on the account (it has none on the
   /// device, where it follows the app's language).
@@ -126,11 +132,12 @@ final class FavoritesSync {
   static const _boundSetting = 'favorites_account';
 
   /// Forgets every link to an account (signed out, deleted, another
-  /// account): the lists stay on the device, unsynced.
+  /// account): the lists and the home stay on the device, unsynced.
   Future<void> unlink() => db.transaction(() async {
     await db.update(db.favoriteLists).write(const FavoriteListsCompanion(serverId: Value(null)));
     await db.delete(db.favoriteSyncBase).go();
     await (db.delete(db.settings)..where((r) => r.id.equals(_boundSetting))).go();
+    await HomeSync.forgetBase(db);
   });
 
   /// Syncs the lists with the account [accountId].
@@ -144,6 +151,7 @@ final class FavoritesSync {
         .into(db.settings)
         .insertOnConflictUpdate(SettingsCompanion.insert(id: _boundSetting, value: accountId));
     await _sync();
+    await home?.sync();
   }
 
   Future<void> _sync() async {

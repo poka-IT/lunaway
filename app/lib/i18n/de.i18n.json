@@ -1077,6 +1077,28 @@
     "offlineTitle": "Keine Verbindung",
     "offlineNotHere": "Nichts aus diesem Gebiet auf diesem Gerät."
   },
+  "home": {
+    "title": "Zuhause",
+    "setTitle": "Mein Zuhause festlegen",
+    "setHint": "Eine Adresse, Ihr Standort oder ein Punkt auf der Karte. Die Route nach Hause starten Sie danach mit einem Tippen.",
+    "privacy": "Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.",
+    "directionsHome": "Route nach Hause",
+    "actions": "Aktionen für Ihr Zuhause",
+    "change": "Zuhause ändern",
+    "remove": "Zuhause entfernen",
+    "removed": "Zuhause entfernt",
+    "saved": "Zuhause gespeichert",
+    "changed": "Zuhause geändert",
+    "setHere": "Als Zuhause festlegen",
+    "removeHere": "Nicht mehr mein Zuhause",
+    "sheetTitle": "Wo ist Ihr Zuhause?",
+    "searchHint": "Eine Adresse oder eine Gemeinde",
+    "myPosition": "Mein aktueller Standort",
+    "onMap": "Auf der Karte wählen",
+    "onMapNotice": "Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.",
+    "here": "Mein Zuhause ist hier",
+    "goHome": "Nach Hause fahren"
+  },
   "favorites": {
     "title": "Favoriten",
     "defaultList": "Meine Favoriten",

@@ -1077,6 +1077,28 @@
     "offlineTitle": "Geen verbinding",
     "offlineNotHere": "Niets van dit gebied op dit apparaat."
   },
+  "home": {
+    "title": "Thuis",
+    "setTitle": "Mijn thuis instellen",
+    "setHint": "Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.",
+    "privacy": "Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.",
+    "directionsHome": "Route naar huis",
+    "actions": "Acties voor thuis",
+    "change": "Thuis wijzigen",
+    "remove": "Thuis verwijderen",
+    "removed": "Thuis verwijderd",
+    "saved": "Thuis opgeslagen",
+    "changed": "Thuis gewijzigd",
+    "setHere": "Instellen als thuis",
+    "removeHere": "Niet meer mijn thuis",
+    "sheetTitle": "Waar is je thuis?",
+    "searchHint": "Een adres of een gemeente",
+    "myPosition": "Mijn huidige positie",
+    "onMap": "Kiezen op de kaart",
+    "onMapNotice": "Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.",
+    "here": "Mijn thuis is hier",
+    "goHome": "Naar huis"
+  },
   "favorites": {
     "title": "Favorieten",
     "defaultList": "Mijn favorieten",

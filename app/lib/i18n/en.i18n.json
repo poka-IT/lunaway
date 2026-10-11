@@ -1077,6 +1077,28 @@
     "offlineTitle": "No connection",
     "offlineNotHere": "Nothing of this area on this device."
   },
+  "home": {
+    "title": "Home",
+    "setTitle": "Set my home",
+    "setHint": "An address, your position or a point on the map. The route home then starts in one tap.",
+    "privacy": "Your home stays on this device and, if you have an account, in that account. Nobody else sees it.",
+    "directionsHome": "Route home",
+    "actions": "Home actions",
+    "change": "Change home",
+    "remove": "Remove home",
+    "removed": "Home removed",
+    "saved": "Home saved",
+    "changed": "Home changed",
+    "setHere": "Set as home",
+    "removeHere": "No longer my home",
+    "sheetTitle": "Where is your home?",
+    "searchHint": "An address or a town",
+    "myPosition": "My current position",
+    "onMap": "Choose on the map",
+    "onMapNotice": "Long press on the map where your home is, then tap \"My home is here\".",
+    "here": "My home is here",
+    "goHome": "Go home"
+  },
   "favorites": {
     "title": "Favourites",
     "defaultList": "My favourites",

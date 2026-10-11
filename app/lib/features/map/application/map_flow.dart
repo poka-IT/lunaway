@@ -190,6 +190,13 @@ class MapFlow extends _$MapFlow {
     _history.goToMap(MapLink.to(selection));
   }
 
+  /// The bare map from another tab, nothing open: the favourites send the
+  /// user there to hold a finger on their home.
+  void openBareMapFromElsewhere() {
+    select(null);
+    _history.goToMap(MapLink.none);
+  }
+
   /// A page opened over the map (the route preview), on the entry above
   /// the map's.
   void openPage(String location, {Object? extra}) {

@@ -136,6 +136,9 @@ final class FakeApi {
   /// account that holds as many points as it may.
   bool refuseImportedPoints = false;
 
+  /// The account's home as `myHome` answers it; null while it has none.
+  Map<String, Object?>? home;
+
   /// The pseudonyms `updateProfile` refuses (`INVALID_INPUT`), as the
   /// server does a link or an insult.
   final refusedPseudonyms = <String>{};
@@ -223,6 +226,11 @@ final class FakeApi {
           : RegExp(r'\bpoints \{').hasMatch(query)
           ? 'Unknown field "points" on type "FavoriteList".'
           : name.contains('PointFromList') || name.contains('PointToList')
+          ? 'Unknown field "${name[0].toLowerCase()}${name.substring(1)}" on type "Mutation".'
+          // Nor the home.
+          : name == 'MyHome'
+          ? 'Unknown field "myHome" on type "Query".'
+          : name == 'SetHome' || name == 'ClearHome'
           ? 'Unknown field "${name[0].toLowerCase()}${name.substring(1)}" on type "Mutation".'
           : null;
       if (message != null) {
@@ -314,6 +322,9 @@ final class FakeApi {
     'RemovePointFromList',
     'RenameList',
     'DeleteList',
+    'MyHome',
+    'SetHome',
+    'ClearHome',
   };
 
   static http.Response _json(Object body) => http.Response(
@@ -687,6 +698,25 @@ final class FakeApi {
         'renameList': {'id': id()},
       },
       'DeleteList' => {'deleteList': true},
+      'MyHome' => {'myHome': home},
+      'SetHome' => () {
+        final h = v['home']! as Map<String, Object?>;
+        home = {
+          'kind': h['kind'],
+          'name': h['name'],
+          'address': h['address'],
+          'lat': h['lat'],
+          'lon': h['lon'],
+          'poiId': h['poiId'],
+          'poiKind': h['poiKind'],
+        };
+        return {'setHome': home};
+      }(),
+      'ClearHome' => () {
+        final had = home != null;
+        home = null;
+        return {'clearHome': had};
+      }(),
       _ => throw _Refused('UNKNOWN $name'),
     };
   }

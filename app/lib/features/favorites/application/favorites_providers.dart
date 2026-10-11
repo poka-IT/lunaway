@@ -6,6 +6,8 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
+import 'package:lunaway/features/favorites/data/home_repository.dart';
+import 'package:lunaway/features/favorites/data/home_sync.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -23,6 +25,29 @@ FavoritesRepository favoritesRepository(Ref ref) =>
 @riverpod
 Stream<List<FavoriteList>> favoriteLists(Ref ref) =>
     ref.watch(favoritesRepositoryProvider).watchLists();
+
+// keepAlive: a repository over the app-wide database.
+@Riverpod(keepAlive: true)
+HomeRepository homeRepository(Ref ref) =>
+    DriftHomeRepository(ref.watch(userDatabaseProvider), clock: ref.watch(clockProvider));
+
+/// The user's home: the head of the favourites and of the search, the end
+/// of a route in one tap; null while there is none.
+@riverpod
+Stream<SavedPoint?> userHome(Ref ref) => ref.watch(homeRepositoryProvider).watch();
+
+/// The user asked, in the favourites, to place their home on the map: the
+/// card of the next point held on the map offers "Mon domicile est ici".
+// keepAlive: the choice made on the favourites tab waits for the map's.
+@Riverpod(keepAlive: true)
+class HomePicking extends _$HomePicking {
+  @override
+  bool build() => false;
+
+  void start() => state = true;
+
+  void stop() => state = false;
+}
 
 @riverpod
 Stream<List<FavoriteEntry>> favoriteEntries(Ref ref, int listId) =>
@@ -97,6 +122,11 @@ FavoritesSync favoritesSync(Ref ref) => FavoritesSync(
   remote: GraphQLFavoritesRemote(ref.watch(accountServiceProvider)),
   lookup: (id) async => (await ref.read(placesRepositoryProvider).watchPlace(id).first)?.summary,
   defaultName: () => t.favorites.defaultList,
+  home: HomeSync(
+    db: ref.watch(userDatabaseProvider),
+    home: ref.watch(homeRepositoryProvider),
+    remote: GraphQLHomeRemote(ref.watch(accountServiceProvider)),
+  ),
   clock: ref.watch(clockProvider),
 );
 
@@ -140,6 +170,7 @@ class FavoritesSyncController extends _$FavoritesSyncController {
   Timer? _timer;
   AppLifecycleListener? _lifecycle;
   StreamSubscription<List<FavoriteList>>? _changes;
+  StreamSubscription<SavedPoint?>? _homeChanges;
   Future<void>? _running;
   bool _again = false;
 
@@ -149,6 +180,7 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       _timer?.cancel();
       _lifecycle?.dispose();
       unawaited(_changes?.cancel());
+      unawaited(_homeChanges?.cancel());
     });
     ref.listen(accountControllerProvider, (previous, next) {
       if (next is SignedIn && previous is SignedIn && next.account.id != previous.account.id) {
@@ -175,6 +207,15 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       // The first value is the lists as they are, not a change.
       if (first) {
         first = false;
+        return;
+      }
+      _schedule(debounce);
+    });
+    // The home goes with the lists: a change of it is a change to sync.
+    var firstHome = true;
+    _homeChanges = ref.read(homeRepositoryProvider).watch().listen((_) {
+      if (firstHome) {
+        firstHome = false;
         return;
       }
       _schedule(debounce);

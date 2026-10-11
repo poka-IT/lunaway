@@ -61,6 +61,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$nl directions = _Translations$directions$nl._(_root);
 	@override late final _Translations$navigation$nl navigation = _Translations$navigation$nl._(_root);
 	@override late final _Translations$list$nl list = _Translations$list$nl._(_root);
+	@override late final _Translations$home$nl home = _Translations$home$nl._(_root);
 	@override late final _Translations$favorites$nl favorites = _Translations$favorites$nl._(_root);
 	@override late final _Translations$vehicle$nl vehicle = _Translations$vehicle$nl._(_root);
 	@override late final _Translations$vehicleHeight$nl vehicleHeight = _Translations$vehicleHeight$nl._(_root);
@@ -712,6 +713,35 @@ class _Translations$list$nl extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen';
 	@override String get offlineTitle => 'Geen verbinding';
 	@override String get offlineNotHere => 'Niets van dit gebied op dit apparaat.';
+}
+
+// Path: home
+class _Translations$home$nl extends Translations$home$en {
+	_Translations$home$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Thuis';
+	@override String get setTitle => 'Mijn thuis instellen';
+	@override String get setHint => 'Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.';
+	@override String get privacy => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.';
+	@override String get directionsHome => 'Route naar huis';
+	@override String get actions => 'Acties voor thuis';
+	@override String get change => 'Thuis wijzigen';
+	@override String get remove => 'Thuis verwijderen';
+	@override String get removed => 'Thuis verwijderd';
+	@override String get saved => 'Thuis opgeslagen';
+	@override String get changed => 'Thuis gewijzigd';
+	@override String get setHere => 'Instellen als thuis';
+	@override String get removeHere => 'Niet meer mijn thuis';
+	@override String get sheetTitle => 'Waar is je thuis?';
+	@override String get searchHint => 'Een adres of een gemeente';
+	@override String get myPosition => 'Mijn huidige positie';
+	@override String get onMap => 'Kiezen op de kaart';
+	@override String get onMapNotice => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.';
+	@override String get here => 'Mijn thuis is hier';
+	@override String get goHome => 'Naar huis';
 }
 
 // Path: favorites
@@ -4291,6 +4321,26 @@ extension on TranslationsNl {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen',
 			'list.offlineTitle' => 'Geen verbinding',
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
+			'home.title' => 'Thuis',
+			'home.setTitle' => 'Mijn thuis instellen',
+			'home.setHint' => 'Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.',
+			'home.privacy' => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.',
+			'home.directionsHome' => 'Route naar huis',
+			'home.actions' => 'Acties voor thuis',
+			'home.change' => 'Thuis wijzigen',
+			'home.remove' => 'Thuis verwijderen',
+			'home.removed' => 'Thuis verwijderd',
+			'home.saved' => 'Thuis opgeslagen',
+			'home.changed' => 'Thuis gewijzigd',
+			'home.setHere' => 'Instellen als thuis',
+			'home.removeHere' => 'Niet meer mijn thuis',
+			'home.sheetTitle' => 'Waar is je thuis?',
+			'home.searchHint' => 'Een adres of een gemeente',
+			'home.myPosition' => 'Mijn huidige positie',
+			'home.onMap' => 'Kiezen op de kaart',
+			'home.onMapNotice' => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.',
+			'home.here' => 'Mijn thuis is hier',
+			'home.goHome' => 'Naar huis',
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
@@ -4429,6 +4479,8 @@ extension on TranslationsNl {
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4449,8 +4501,6 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
@@ -4943,6 +4993,8 @@ extension on TranslationsNl {
 			'poi.kind.rental' => 'Verhuur',
 			'poi.kind.storageRental' => 'Opslagruimte',
 			'poi.kind.animalBoarding' => 'Dierenpension',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.ferryTerminal' => 'Veerhaven',
 			'poi.kind.clothes' => 'Kleding',
 			'poi.kind.shoes' => 'Schoenen',
@@ -4963,8 +5015,6 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',

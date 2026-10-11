@@ -34,6 +34,9 @@ abstract final class AppIcons {
   static const IconData moreVertical = PhosphorRegular.dotsThreeVertical;
   static const IconData coordinates = PhosphorRegular.gpsFix;
   static const IconData point = PhosphorFill.mapPin;
+
+  /// The user's home, at the head of the favourites and of the search.
+  static const IconData home = PhosphorFill.house;
   static const IconData town = PhosphorRegular.buildings;
   static const IconData address = PhosphorRegular.mapPin;
   static const IconData street = PhosphorRegular.signpost;
