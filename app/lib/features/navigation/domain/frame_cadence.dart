@@ -22,8 +22,9 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 /// 25 ms while the app moved the camera every 100 ms
 /// (`plan/research/124-cadence-carte-guidage.md`). Sending fewer moves
 /// draws no fewer frames. So the guidance's map places its labels without
-/// fading them (`setMapLabelFades`, and the pages' motion), the cadence is
-/// the engine's own limit of frames ([renderCap]), and the app keeps
+/// fading them (`setMapLabelFades` on Android, and the pages' motion; iOS
+/// keeps its fades, its display link alone holding the count), the cadence
+/// is the engine's own limit of frames ([renderCap]), and the app keeps
 /// sending the vehicle and the camera [sampleFps] times a second: a frame
 /// shows the latest state, set by the clock (`VehicleMotion.at`, the eases
 /// of the camera), never by the frame's number.

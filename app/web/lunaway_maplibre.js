@@ -1083,8 +1083,9 @@
         // them: while labels fade, GL JS draws at every frame of the
         // screen whatever the cadence (measured: 56 frames a second for 10
         // moves of the camera). GL JS reads its fade at each placement
-        // from this field (GL JS 6.4.1, web/maplibre-gl), which has no
-        // setter.
+        // from this field, which has no setter (GL JS 6.4.1 in
+        // web/maplibre-gl, 5.24.0 in assets/map; route_motion_js_test.dart
+        // checks both still read it).
         guiding: function (on) {
           guiding = !!on;
           if (typeof fades === 'number') map._fadeDuration = guiding ? 0 : fades;

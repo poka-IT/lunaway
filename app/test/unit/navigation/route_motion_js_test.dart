@@ -323,6 +323,17 @@ bool _hasNode() {
 }
 
 void main() {
+  test("both GL JS builds take the guidance's fade from the field the block sets", () {
+    // ROUTE MOTION turns the labels' fades off through GL JS's private
+    // `_fadeDuration`: an upgrade that renames it would bring the fades
+    // back without a word.
+    for (final build in ['web/maplibre-gl/maplibre-gl.mjs', 'assets/map/maplibre-gl.js']) {
+      final code = File(build).readAsStringSync();
+      expect(code, matches(RegExp(r'_fadeDuration\s*=\s*\w+\.fadeDuration')), reason: build);
+      expect(code, matches(RegExp(r'_idleTriggered\s*\?\s*this\._fadeDuration')), reason: build);
+    }
+  });
+
   test('the browser and the desktop run the same block', () {
     final blocks = [
       for (final page in _pages) _block.firstMatch(File(page).readAsStringSync())?.group(0),

@@ -654,19 +654,19 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   drawing between two moves of the camera while its labels fade
   (MapLibre Native and GL JS alike, measured), so the guidance's map
   places its labels without fading them (`setMapLabelFades` on Android,
-  the page's motion in a browser and on the desktop; the main map and
-  the preview keep their fades) and the cadence of the map's frames is
-  the engine's own limit: `domain/frame_cadence.dart`
-  aims at about a pixel and a half of motion a frame, from how fast the
-  picture moves (the road under the vehicle, a turn, a change of zoom or
-  tilt); full under a finger, on the way into following and during an
-  animation of the camera, then down over a second. On a phone the
-  engine is limited to 10 or 15 frames a second (`setMaximumFps`), a
-  whole number of the app's 30 samples a second so the steps stay close
-  to even, and draws freely above, parked and under a finger. The
-  browser's and the desktop's page sample at every frame of the screen
-  and let GL JS draw one in k of them (ROUTE MOTION). What a frame shows
-  is set by the clock, so fewer frames show the same path
+  the page's motion in a browser and on the desktop; iOS, the main map
+  and the preview keep their fades) and the cadence of the map's frames
+  is the engine's own limit: `domain/frame_cadence.dart` aims at about a
+  pixel and a half of motion a frame, from how fast the picture moves
+  (the road under the vehicle, a turn, a change of zoom or tilt); full
+  under a finger, on the way into following and during an animation of
+  the camera, then down over a second. On a phone the engine is limited
+  to 10 or 15 frames a second (`setMaximumFps`), a whole number of the
+  app's 30 samples a second so the steps stay close to even, and draws
+  freely above, parked and under a finger. The browser's and the
+  desktop's page sample at every frame of the screen and let GL JS draw
+  one in k of them (ROUTE MOTION). What a frame shows is set by the
+  clock, so fewer frames show the same path
   (`plan/research/124-cadence-carte-guidage.md`). Never a ticker: a
   ticker asks Flutter for a frame at every vsync (60 to 120 a second)
   while the map's own frames reach the screen without one. A frame that

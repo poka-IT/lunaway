@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import io.flutter.embedding.android.FlutterActivity
@@ -15,6 +16,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.TransitionOptions
 
 class MainActivity : FlutterActivity() {
@@ -63,19 +65,20 @@ class MainActivity : FlutterActivity() {
                 when {
                     call.method != "labelFades" -> result.notImplemented()
                     source == null || on == null -> result.error("args", "a source and on are needed", null)
-                    else -> {
-                        for (view in mapViews(window.decorView)) {
-                            view.getMapAsync { map ->
-                                map.getStyle { style ->
-                                    if (style.getSource(source) != null) {
-                                        val now = style.transition
-                                        style.transition = TransitionOptions(now.duration, now.delay, on)
-                                    }
+                    else ->
+                        // Compiled against the library maplibre_gl brings
+                        // (build.gradle.kts): a version of it without these
+                        // calls answers an error, and the map keeps its fades.
+                        try {
+                            for (view in mapViews(window.decorView)) {
+                                view.getMapAsync { map ->
+                                    map.getStyle { style -> fadeLabels(style, source, on) }
                                 }
                             }
+                            result.success(null)
+                        } catch (e: Throwable) {
+                            result.error("maplibre", e.toString(), null)
                         }
-                        result.success(null)
-                    }
                 }
             }
 
@@ -134,6 +137,18 @@ class MainActivity : FlutterActivity() {
         }
         networkCallback = null
         super.onDestroy()
+    }
+
+    /** The fades of the labels of [style] set to [on] when it holds [source]. */
+    private fun fadeLabels(style: Style, source: String, on: Boolean) {
+        try {
+            if (style.getSource(source) == null) return
+            val now = style.transition
+            style.transition = TransitionOptions(now.duration, now.delay, on)
+        } catch (e: Throwable) {
+            // Called later on the main thread, out of the channel's reach.
+            Log.w("lunaway", "label fades: $e")
+        }
     }
 
     /** The maps under [view]: maplibre_gl's views sit in the window's hierarchy. */
