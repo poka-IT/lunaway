@@ -86,9 +86,10 @@ abstract final class RoutePlaceLayers {
   /// pin's own symbol: written with its pin and never without it, given up
   /// where it finds no room while the pin stays (`text-optional`). A layer
   /// of its own let a price show where its pin had found no room, a figure
-  /// with nothing to say what it was (seen on the emulator, 2026-10-11). As
-  /// the main map writes it (`PoiMapStyle.fuelLayerId`): its font, its size,
-  /// its halo, a colour from the cheapest to the dearest of those shown.
+  /// with nothing to say what it was (seen on the emulator, 2026-10-11). It
+  /// takes only the room the pins below it leave ([poiLayout]). As the main
+  /// map writes it (`PoiMapStyle.fuelLayerId`): its font, its size, its
+  /// halo, a colour from the cheapest to the dearest of those shown.
   static Object priceText(List<FuelLabel> prices) => _byId(prices, (l) => l.text, '');
 
   static Object priceColor(List<FuelLabel> prices, {required bool dark}) =>
@@ -158,6 +159,11 @@ abstract final class RoutePlaceLayers {
   };
 
   /// The layout of the points' pins, a station's price under its tip.
+  /// MapLibre places the pins from the bottom of the screen up
+  /// (`viewport-y`): a pin is placed before the station above it, whose
+  /// price then gives way to it. In the order of the tiles, a price took the
+  /// room of the pin just under it, which went (seen on the emulator in
+  /// Valence, 2026-10-11).
   static Map<String, Object?> poiLayout(double scale, {List<FuelLabel> prices = const []}) => {
     'icon-image': PoiMapStyle.iconImage(),
     'icon-size': poiSize(scale),
@@ -165,6 +171,7 @@ abstract final class RoutePlaceLayers {
     'icon-allow-overlap': false,
     'icon-ignore-placement': false,
     'icon-padding': pinPadding,
+    'symbol-z-order': 'viewport-y',
     'text-field': priceText(prices),
     'text-font': PoiMapStyle.fuelFont,
     'text-size': PoiMapStyle.fuelTextSize,

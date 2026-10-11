@@ -7,6 +7,7 @@ import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
+import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 
@@ -82,5 +83,45 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
     }
     expect(updates(), hasLength(2));
+  });
+
+  // The phone's layer lists the layout's properties one by one: one left
+  // out there (the order of placement, under which a price took the room of
+  // the pin below it) is missing on Android and iOS alone.
+  testWidgets("a phone's stations' pins take the whole layout the desktop page gives them", (
+    tester,
+  ) async {
+    final engine = LayerStackEngine(_aube)..install(tester);
+    await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props(const []))));
+    await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
+    final layout = RoutePlaceLayers.poiLayout(1);
+    expect(layout['symbol-z-order'], 'viewport-y', reason: 'the pins placed from the bottom up');
+    for (final id in ['lw-route-poi-pins', 'lw-route-poi-pins-more']) {
+      final added = engine.calls.lastWhere(
+        (c) => c.method == 'symbolLayer#add' && (c.arguments as Map)['layerId'] == id,
+      );
+      final properties = (added.arguments as Map)['properties'] as Map;
+      for (final MapEntry(:key, :value) in layout.entries) {
+        // Sized to the pins the phone loads.
+        if (key == 'icon-size') continue;
+        expect(properties[key], value, reason: '$id $key');
+      }
+    }
+  });
+
+  test("the desktop page's pins write the prices known from its first frame", () {
+    const prices = [
+      FuelLabel(id: 'station-a', position: LatLng(44.94, 4.90), text: '1,789', rank: 0),
+    ];
+    final spec = routePageSpec(style: _aube, dark: true, places: _places, ratio: 2, prices: prices);
+    final pins = {
+      for (final l in (spec['layers']! as List).cast<Map<String, Object?>>())
+        if (l['id'] case 'lw-route-poi-pins' || 'lw-route-poi-pins-more') l['id']: l,
+    };
+    expect(pins, hasLength(2));
+    for (final l in pins.values) {
+      expect((l['layout']! as Map)['text-field'], RoutePlaceLayers.priceText(prices));
+      expect((l['paint']! as Map)['text-color'], RoutePlaceLayers.priceColor(prices, dark: true));
+    }
   });
 }

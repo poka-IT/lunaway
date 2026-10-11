@@ -542,6 +542,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
             iconAllowOverlap: false,
             iconIgnorePlacement: false,
             iconPadding: RoutePlaceLayers.pinPadding,
+            symbolZOrder: poi['symbol-z-order'],
             textField: poi['text-field'],
             textFont: poi['text-font'],
             textSize: poi['text-size'],
