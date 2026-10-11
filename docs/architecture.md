@@ -687,6 +687,29 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 
 Trust levels (from 0 to 4) unlock reviews, new places, edits and moderation.
 
+Another account on a device that holds one (Profile, "Use another
+account"): its recovery card opens it beside the device's account, with a
+new key kept in memory (`AccountService.importAccount`), and one sheet
+offers three ways (`account_import.dart`, `AccountSwitch`). Merging
+(`mergeAccount`) moves everything of the device's account into the one
+opened and deletes it, in one transaction, both keys signing
+`lunaway-merge:v1:<nonce>:<absorbed>:<into>` under a recent session
+(`lunaway_db::merge`); a review folded into the account kept takes the
+stricter moderation status, a granted level is not carried, and the level
+shows no more than the higher of the two until the next contribution
+(`accounts.level_ceiling`). The merge is journaled like a deletion, with
+the account kept, and a replay merges it again; the old keys' hashes
+point at the account kept for a year (`merged_keys`), so the merged
+account's other devices hear its name at sign-in (`mergedInto`). A
+merge's answer lost on the way leaves the device as it was, its key kept,
+and the merge asked again answers the same. Replacing without merging
+detaches this device's key from the account left (`signOut(forgetDevice:
+true)`, which deletes an account left with no key and no recovery code)
+and clears its lists, home and waiting contributions from the device.
+
+The home is one point per account (`favorite_homes`), kept on the device
+first and synced with the favourites, private to the account.
+
 Deleting an account (`deleteAccount`, the recovery-code page, or `lunaway
 accounts delete`) writes the account's id to a journal outside the
 database first (`lunaway_db::deletions`, one file per day on the data

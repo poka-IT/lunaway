@@ -260,6 +260,8 @@ Windows, send the browser's.
 | Problem report, content report | the user reports | `issue_reports` (deleted after 90 days), `content_reports` (deleted a year after the moderator's decision): kind or reason, optional note | 20261006005548; `retention.rs` (`ISSUE_REPORT_DAYS`, `RESOLVED_DAYS`) |
 | New place, new vending machine, place edit | the user submits | `place_submissions`: the payload, with the position the user sets (a long press, or the map centre, which after "Show my position", or a launch that opens the map on the user, is the device's own position), linked to the account and device key; a rejected or withdrawn one emptied 30 days after the decision; at the account's deletion, the unapplied ones emptied and the applied ones kept without account | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `add_vending.dart`, `backend/crates/lunaway-db/src/submissions.rs`, `accounts.rs`, `retention.rs` (`SUBMISSION_PAYLOAD_DAYS`) |
 | Favourite lists | as soon as an account exists (made by the sync or by the first contribution), then 3 s after each change, at launch and on resume | list names and place ids (`favorite_lists`, `favorite_items`); the points saved outside the places (an address, a town, a bare point, a shop): the name the user gave, an optional note, the postal address when known and the coordinates (`favorite_points`), private to the account and deleted with it | `app/lib/features/favorites/application/favorites_providers.dart`, `data/favorites_sync.dart` |
+| Home | the user sets a home (Favourites, the "…" menu of an address, a point or a place, the current position): kept on the device, and, as soon as an account exists, synced with it like the favourite lists | `favorite_homes`: the kind of point, its name, its postal address when known and its coordinates, private to the account and deleted with it | `backend/crates/lunaway-db/src/home.rs`, migration `20261011002000_home_and_account_merge.sql`, `app/lib/features/favorites/` |
+| Account merge | the user opens another of their accounts on a device with its recovery card (Profile, Use another account) and merges the device's account into it: both device keys sign, the session must be recent | the merged account's data moves to the account kept, and its published contributions show that account's pseudonym; the merged account is deleted; the deletion journal notes its id with the id of the account kept; the SHA-256 of its device keys stays 365 days with the account kept (`merged_keys`), so its other devices learn where it went. "Replace without merging" detaches this device's key from the account left, and deletes that account when it has neither a recovery code nor another device | `backend/crates/lunaway-db/src/merge.rs`, `deletions.rs`, `accounts.rs` (`forget_device`), `retention.rs` (`MERGED_KEY_DAYS`); `app/lib/features/account/application/account_switch.dart` |
 | Muted authors | the user mutes | `muted_authors` | 20261006005548 |
 | Idempotency keys | each contribution sent through the queue | key, operation, SHA-256 of the arguments (for a road report, kind and value only), result id; 30 days (14 for a road report), deleted with what they made and with the account | `app/lib/features/community/data/outbox_sender.dart`; migrations `20261006151001`, `20261006151002`; `backend/crates/lunaway-api/src/main.rs` |
 | Client address | every request | not stored: rate limits and quotas count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
@@ -325,6 +327,7 @@ favourites sync.
 | Location | Approximate location | yes | yes | yes | optional | App functionality |
 | Location | Precise location | yes | no | no | optional | App functionality, Fraud prevention, security, and compliance |
 | Personal info | Name | yes | no | no | optional | App functionality, Account management |
+| Personal info | Address | yes | no | no | optional | App functionality |
 | Personal info | User IDs | yes | no | no | optional | App functionality, Account management, Fraud prevention, security, and compliance |
 | Photos and videos | Photos | yes | no | no | optional | App functionality |
 | App activity | App interactions | yes | no | no | optional | App functionality, Fraud prevention, security, and compliance |
@@ -349,13 +352,17 @@ What each line covers:
   guidance, and the route line sent for "On the way", processed for the
   request only; the position of a new place or vending machine, which can
   be the device's own and is kept; the coordinates of the points saved
-  in the favourite lists (an address, a bare point, a shop), kept with
-  the account once there is one; the position and heading of a road
+  in the favourite lists (an address, a bare point, a shop) and of the
+  home, kept with the account once there is one; the position and heading of a road
   report, kept 14 days with the account. The form asks one answer per
   type: since part of it is kept, "Processed ephemerally" is no. Fraud
   prevention covers the road reports, which change the routes only once
   two accounts of level 1 or more agree.
 - Name: the pseudonym (generated, editable, public on contributions).
+- Address: the home the user sets (Google: "User's address, such as a
+  mailing or home address"): the point chosen, its name and its postal
+  address when known, kept with the account once there is one, private
+  to it, deleted with it; optional, nothing asks for it.
 - User IDs: the account id.
 - Photos: the photos the user adds to places.
 - App interactions: the number of days of use, the last active day, the
@@ -379,8 +386,7 @@ What each line covers:
 
 Not declared, with the reason:
 
-- Personal info, Email address, Phone number, Address, Other info: none
-  asked.
+- Personal info, Email address, Phone number, Other info: none asked.
 - Location through Play Services: the store flavor carries
   `play-services-location` through geolocator_android and maplibre_gl and
   runs none of it. The guidance, the last known position its first fix
@@ -447,7 +453,7 @@ transaction, after the deletion is written to the deletion journal
 (`backend/crates/lunaway-db/src/deletions.rs`):
 
 - deleted: the account, device keys, sessions, recovery code, favourite
-  lists, mutes in both directions, sponsorships (an API feature the app
+  lists, the home, mutes in both directions, sponsorships (an API feature the app
   has no action for), every photo and its files, ratings without text and
   unpublished reviews, problem reports, content reports filed, answers
   about shops and services, road reports, idempotency keys, the reports
@@ -475,8 +481,21 @@ Daily sweep (`lunaway retention`, 03:40 UTC,
 days, content reports and decided moderation entries a year after the
 decision, confirmations after two years (counts kept), the content of
 rejected or withdrawn submissions 30 days after the decision, a banned
-account's key hashes two years after its deletion, translations whose
+account's key hashes two years after its deletion, the key hashes of a
+merged account a year after the merge, translations whose
 original changed or went.
+
+Account merge (`backend/crates/lunaway-db/src/merge.rs`), in one
+transaction, after the merge is written to the deletion journal with the
+id of the account kept: the merged account's lists, home (when the
+account kept has none), mutes, endorsements, idempotency keys and
+contributions move to the account kept, its published contributions then
+showing that account's pseudonym; where both accounts hold the same (a
+list of one name, a review of one place, a home), the account kept's
+stays, a review folded into it keeping the stricter moderation status;
+then the merged account is deleted, its keys, sessions and recovery code
+with it. A replay after a restore merges it again
+(`lunaway accounts replay-deletions`).
 
 Backups (`infra/files/usr/local/sbin/lunaway-pgdump`,
 `infra/ops/mac/lunaway-ops.sh`): nightly database dumps, for 3 nights on
