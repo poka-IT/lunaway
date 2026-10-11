@@ -1069,9 +1069,58 @@ void main() {
       );
       expect(find.text('36'), findsOneWidget, reason: '10 m/s');
       expect(find.text('50'), findsOneWidget, reason: 'the limit sign');
+      expect(find.text('Rue des Vénitiens'), findsOneWidget, reason: 'the road under the vehicle');
+      expect(guidanceSaid('Sur Rue des Vénitiens'), findsOneWidget);
       final map = SchematicRouteMap.last!;
       expect(map.camera, isA<FollowCamera>());
       expect(map.vehicle, isNotNull);
+    });
+
+    testWidgets("a motorway exit shows its number on the banner, as on its sign", (tester) async {
+      final plan = routeFixture(
+        'limoges_drive',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+          final leg = (route['legs'] as List).first as Map<String, dynamic>;
+          // The off ramp after Boulevard Carnot, numbered.
+          ((leg['steps'] as List)[2] as Map)['exits'] = '17';
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      );
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      expect(find.text('Sortie 17'), findsNothing, reason: 'the left turn first');
+      await drive(tester, plan, toM: 200);
+      expect(find.text('Sortie 17'), findsOneWidget);
+    });
+
+    testWidgets('the bar opens its options at a tap or a swipe up; a choice closes them', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      Finder option(String label) => find.widgetWithText(ListTile, label);
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'folded at first');
+      await openGuidanceOptions(tester);
+      for (final label in [
+        'Sur le trajet',
+        'Lieux sur la carte',
+        'Signaler un problème sur la route',
+      ]) {
+        expect(option(label), findsOneWidget, reason: label);
+      }
+      await tester.tap(guidanceOptionsHandle);
+      await settleShort(tester);
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'the handle folds them');
+      await tester.fling(find.textContaining(RegExp(r'^\d+ min$')), const Offset(0, -120), 800);
+      await settleShort(tester);
+      expect(option('Lieux sur la carte'), findsOneWidget, reason: 'a swipe up opens them');
+      await tester.tap(option('Lieux sur la carte'));
+      await settleShort(tester);
+      expect(find.widgetWithText(ChoiceChip, 'Pour dormir'), findsOneWidget, reason: 'its sheet');
+      expect(option('Lieux sur la carte'), findsNothing, reason: 'closed by the choice');
     });
 
     testWidgets('outside the countries that take reports, the button says where they are taken', (
