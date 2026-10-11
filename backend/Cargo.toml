@@ -95,6 +95,9 @@ sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 thumbhash = "0.1.0"
+# The API's allocator and its counters (lunaway-api's main.rs).
+tikv-jemalloc-ctl = { version = "0.7.0", features = ["stats"] }
+tikv-jemallocator = "0.7.0"
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "signal", "time", "fs", "io-util", "sync"] }
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.7.1", features = ["trace", "cors", "compression-gzip"] }

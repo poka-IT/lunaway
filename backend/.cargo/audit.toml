@@ -1,4 +1,5 @@
 # cargo-audit keeps its own ignore list, separate from deny.toml. Keep the two
 # identical: an advisory ignored in one and not the other turns the CI red.
 [advisories]
-ignore = []
+# paste, unmaintained, a compile-time macro of tikv-jemalloc-ctl (deny.toml).
+ignore = ["RUSTSEC-2024-0436"]
