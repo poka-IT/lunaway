@@ -2,14 +2,16 @@
 //!
 //! A place keeps the clock of a zone the database gives its country in
 //! `data/zone.tab`, the database's own table of countries and zones: the
-//! only one for most countries; for a country with several, the zone whose
-//! principal location (the city the table places it at) is nearest. That
-//! tells the Canary Islands, the Azores and Madeira from their mainland,
-//! and picks between zones with the same clock in Germany (Busingen) and
-//! Spain (Ceuta). It is an approximation where zones with different clocks
-//! meet inside a country: in Russia, and in southern Ukraine, nearer
-//! Simferopol than Kyiv, which reads Crimea's clock (an hour ahead in
-//! winter). A country the table does not name (Kosovo, `XK`) has no zone.
+//! only one for most countries. For a country with several, the zone whose
+//! principal location (the city the table places it at) is nearest, in the
+//! countries where that is the right one ([`NEAREST_ZONE_COUNTRIES`]):
+//! their zones of another clock lie offshore (the Canary Islands, the
+//! Azores, Madeira), or all their zones keep one clock. Elsewhere zones of
+//! different clocks meet on land, and the nearest city misplaces a border
+//! area (Odesa nearer Simferopol than Kyiv, Dagestan nearer Astrakhan than
+//! Moscow): Russia and Ukraine have no zone here, nor a country the table
+//! does not name (Kosovo, `XK`), and a place without a zone gets no
+//! opening intervals rather than intervals on a wrong clock.
 //!
 //! The rules of every zone come from the database jiff bundles in the
 //! binary (`jiff-tzdb`), never from the host, and `zone.tab` from the same
@@ -20,6 +22,7 @@
 //! a new release: `cargo update -p jiff-tzdb`, then the generator on that
 //! release (`docs/architecture.md`, "Time zones").
 
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::LazyLock;
 
@@ -54,8 +57,24 @@ impl Centre {
     }
 }
 
+/// The countries with several zones where the nearest principal location
+/// gives a place its zone: Spain and Portugal, whose zones of another clock
+/// are islands, and Germany, Cyprus and Palestine, whose zones keep one
+/// clock (Busingen and Berlin, Famagusta and Nicosia, Gaza and Hebron).
+/// The app holds the same list (`PlaceZone`); a test checks both claims.
+pub const NEAREST_ZONE_COUNTRIES: &[&str] = &["CY", "DE", "ES", "PS", "PT"];
+
 static CENTRES: LazyLock<Vec<Centre>> =
     LazyLock::new(|| ZONE_TAB.lines().filter_map(centre).collect());
+
+/// [`CENTRES`] by country, upper case as the table writes it.
+static BY_COUNTRY: LazyLock<HashMap<&'static str, Vec<Centre>>> = LazyLock::new(|| {
+    let mut out: HashMap<&'static str, Vec<Centre>> = HashMap::new();
+    for c in CENTRES.iter() {
+        out.entry(c.country).or_default().push(*c);
+    }
+    out
+});
 
 static DATABASE: LazyLock<TimeZoneDatabase> = LazyLock::new(TimeZoneDatabase::bundled);
 
@@ -112,14 +131,19 @@ fn angle(text: &str, degree_digits: usize) -> Option<f64> {
 
 /// The name of the zone of a place in `country_code` (ISO 3166-1 alpha-2,
 /// any case) at `position`: see the module. `None` for a country the
-/// database does not name.
+/// database does not name, and for one whose zones the nearest principal
+/// location does not tell apart (Russia, Ukraine).
 #[must_use]
 pub fn zone_name_at(country_code: &str, position: Position) -> Option<&'static str> {
-    CENTRES
-        .iter()
-        .filter(|c| c.country.eq_ignore_ascii_case(country_code))
-        .min_by(|a, b| a.distance(position).total_cmp(&b.distance(position)))
-        .map(|c| c.zone)
+    let code = country_code.to_ascii_uppercase();
+    match BY_COUNTRY.get(code.as_str())?.as_slice() {
+        [only] => Some(only.zone),
+        several if NEAREST_ZONE_COUNTRIES.contains(&code.as_str()) => several
+            .iter()
+            .min_by(|a, b| a.distance(position).total_cmp(&b.distance(position)))
+            .map(|c| c.zone),
+        _ => None,
+    }
 }
 
 /// The zone of a place in `country_code` at `position` ([`zone_name_at`]).
@@ -195,7 +219,15 @@ impl TimeZone for PlaceTz {
 
     fn offset_from_local_datetime(&self, local: &NaiveDateTime) -> MappedLocalTime<PlaceOffset> {
         let Some(civil) = civil(local) else {
-            return MappedLocalTime::None;
+            // Past jiff's years (-9999 to 9999): the offset at its bound, as
+            // for an instant. `None` would make the evaluator retry a minute
+            // later, up to chrono's own end (`TzLocation::datetime`).
+            let bound = if local.year() < 0 {
+                jiff::Timestamp::MIN
+            } else {
+                jiff::Timestamp::MAX
+            };
+            return MappedLocalTime::Single(self.offset(self.0.to_offset(bound)));
         };
         match self.0.to_ambiguous_timestamp(civil).offset() {
             AmbiguousOffset::Unambiguous { offset } => MappedLocalTime::Single(self.offset(offset)),
@@ -333,6 +365,77 @@ mod tests {
         }
     }
 
+    /// Odesa lies nearer Simferopol (Crimea, +03 all year) than Kyiv, and
+    /// Makhachkala nearer Astrakhan (+04) than Moscow: the nearest city
+    /// would give them a wrong clock, so these countries get none.
+    #[test]
+    fn russia_and_ukraine_have_no_zone() {
+        for (country, lat, lon) in [
+            ("UA", 46.48, 30.73),
+            ("UA", 50.45, 30.52),
+            ("UA", 44.95, 34.10),
+            ("RU", 55.75, 37.62),
+            ("RU", 42.98, 47.50),
+        ] {
+            assert_eq!(
+                zone_name_at(country, at(lat, lon)),
+                None,
+                "{country} {lat} {lon}"
+            );
+        }
+    }
+
+    /// The claim of [`NEAREST_ZONE_COUNTRIES`]: each has several zones, and
+    /// those of Germany, Cyprus and Palestine keep one clock (Spain's and
+    /// Portugal's islands are above).
+    #[test]
+    fn the_countries_read_by_nearest_city_have_several_zones_of_one_clock_or_islands() {
+        for country in NEAREST_ZONE_COUNTRIES {
+            let zones = BY_COUNTRY.get(country).map_or(0, Vec::len);
+            assert!(zones > 1, "{country} has {zones} zone(s)");
+        }
+        for country in ["CY", "DE", "PS"] {
+            let zones: Vec<PlaceTz> = BY_COUNTRY[country]
+                .iter()
+                .map(|c| PlaceTz::named(c.zone).unwrap())
+                .collect();
+            let mut t = utc(2025, 1, 1, 0, 0);
+            while t < utc(2038, 1, 1, 0, 0) {
+                let first = offset_hours(&zones[0], t);
+                assert!(
+                    zones.iter().all(|z| offset_hours(z, t) == first),
+                    "{country}: its zones read different clocks at {t}"
+                );
+                t += chrono::Duration::hours(1);
+            }
+        }
+    }
+
+    /// opening-hours asks for a local time up to the year 10000 (its end of
+    /// dates) and retries a minute later while the zone has none: the
+    /// adapter answers past jiff's years, so a search for the next change
+    /// of a value that never changes ends.
+    #[test]
+    fn the_evaluator_reaches_its_end_of_dates() {
+        use opening_hours::{Context, OpeningHours, localization::TzLocation};
+        let paris = PlaceTz::paris();
+        let never: OpeningHours = "24/7".parse().unwrap();
+        let never =
+            never.with_context(Context::default().with_locale(TzLocation::new(paris.clone())));
+        let now = utc(2026, 10, 11, 12, 0).with_timezone(&paris);
+        let started = std::time::Instant::now();
+        let _ = never.next_change(now.clone());
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        let weekdays: OpeningHours = "Mo-Fr 09:00-18:00".parse().unwrap();
+        let weekdays =
+            weekdays.with_context(Context::default().with_locale(TzLocation::new(paris.clone())));
+        assert_eq!(
+            weekdays.next_change(now).map(|t| t.with_timezone(&Utc)),
+            Some(utc(2026, 10, 12, 7, 0)),
+            "Sunday noon in Paris: it opens on Monday at 09:00, 07:00 UTC"
+        );
+    }
+
     #[test]
     fn morocco_is_back_at_utc_since_september_2026() {
         // tzdata 2026c: Decree 2.26.530 ends +01 on 2026-09-20 at 02:00
@@ -408,7 +511,8 @@ mod tests {
 
     #[test]
     fn every_zone_of_the_table_is_in_the_bundled_database() {
-        assert!(CENTRES.len() > 400, "{} rows read", CENTRES.len());
+        let rows = ZONE_TAB.lines().filter(|l| !l.starts_with('#')).count();
+        assert_eq!(CENTRES.len(), rows, "every data row of zone.tab reads");
         let missing: Vec<&str> = CENTRES
             .iter()
             .filter(|c| PlaceTz::named(c.zone).is_none())
@@ -444,17 +548,46 @@ mod tests {
             jiff_tzdb::VERSION,
             "regenerate the app's zones from the release jiff-tzdb bundles (docs/architecture.md, \"Time zones\")"
         );
-        let rows: Vec<(&str, &str)> = app
+        // `('MA', 'Africa/Casablanca', 33.65, -7.583333333333333),`
+        let rows: Vec<(&str, &str, f64, f64)> = app
             .lines()
             .filter_map(|l| l.trim().strip_prefix("('"))
             .filter_map(|l| {
-                let mut fields = l.split('\'');
-                let country = fields.next()?;
-                let zone = fields.nth(1)?;
-                Some((country, zone))
+                let (country, rest) = l.split_once("', '")?;
+                let (zone, rest) = rest.split_once("', ")?;
+                let (lat, rest) = rest.split_once(", ")?;
+                let lon = rest.strip_suffix("),")?;
+                Some((country, zone, lat.parse().ok()?, lon.parse().ok()?))
             })
             .collect();
-        let server: Vec<(&str, &str)> = CENTRES.iter().map(|c| (c.country, c.zone)).collect();
-        assert_eq!(rows, server, "the app's table is not this zone.tab");
+        assert_eq!(
+            rows.len(),
+            CENTRES.len(),
+            "the app's table is not this zone.tab"
+        );
+        for (app_row, c) in rows.iter().zip(CENTRES.iter()) {
+            assert_eq!((app_row.0, app_row.1), (c.country, c.zone));
+            assert!(
+                (app_row.2 - c.lat).abs() < 1e-9 && (app_row.3 - c.lon).abs() < 1e-9,
+                "{} {}: the app places it elsewhere",
+                c.country,
+                c.zone
+            );
+        }
+        // `const _nearestZoneCountries = {'CY', 'DE', 'ES', 'PS', 'PT'};`
+        let dart = include_str!("../../../../app/lib/core/time/place_zone.dart");
+        let listed: Vec<&str> = dart
+            .lines()
+            .find_map(|l| {
+                l.trim()
+                    .strip_prefix("static const _nearestZoneCountries = {")
+            })
+            .and_then(|l| l.strip_suffix("};"))
+            .map(|l| l.split(", ").map(|c| c.trim_matches('\'')).collect())
+            .unwrap_or_default();
+        assert_eq!(
+            listed, NEAREST_ZONE_COUNTRIES,
+            "the app picks zones by another rule"
+        );
     }
 }

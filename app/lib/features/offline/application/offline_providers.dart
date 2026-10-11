@@ -749,7 +749,7 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// with Greece): their places kept show, and [placesAroundView]
 /// changes the words. False until the outlines are read, and under a pack
 /// on the device, one this build has no outline of included (read by its
 /// box).
@@ -771,13 +771,15 @@ bool viewOnlineOnly(Ref ref) {
 }
 
 /// Whether the device holds places in the area [viewOnlineOnly] reads
-/// while no offline map covers it: an island whose places sync with its
-/// country but which no outline holds (Åland with Finland, Svalbard with
-/// Norway, Kastellorizo with Greece). Offline its places show, only its map
-/// does not. False wherever an offline map does cover the view.
+/// around the view ([PackOutlines.nearArea]). Where no offline map covers
+/// the view, it tells an island whose places sync with its country but
+/// which no outline holds (Åland with Finland, Svalbard with Norway,
+/// Kastellorizo with Greece) from an area online only: offline its places
+/// show, only its map does not. Read offline, by the map's line and the
+/// list, at each move of the view; watched whatever the view, it keeps its
+/// last answer while it counts again, so their words do not flicker.
 @riverpod
-Future<bool> placesWithoutOfflineMap(Ref ref) async {
-  if (!ref.watch(viewOnlineOnlyProvider)) return false;
+Future<bool> placesAroundView(Ref ref) async {
   // Counted again when a sync writes.
   ref.watch(placeCountProvider);
   final view = ref.watch(viewportProvider) ?? initialViewport;

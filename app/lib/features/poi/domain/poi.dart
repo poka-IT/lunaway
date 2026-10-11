@@ -782,9 +782,11 @@ final class Poi {
 
   LatLng get position => LatLng(lat, lon);
 
-  /// The clock its hours read on: its country's zone at its position,
-  /// France's when its address names no country.
-  PlaceZone get zone => PlaceZone.of(address?.countryCode, position);
+  /// The clock its hours read on: its country's zone at its position, the
+  /// country of its address or else of its locality (the API sends no
+  /// address for a point without street, postcode or town); France's when
+  /// neither names one, as for the stations of the French fuel feed.
+  PlaceZone get zone => PlaceZone.of(address?.countryCode ?? locality?.countryCode, position);
 
   /// The point as a tile would show it, for the map's selection.
   PoiFeature get feature => PoiFeature(

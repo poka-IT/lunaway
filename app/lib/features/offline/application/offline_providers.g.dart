@@ -554,7 +554,7 @@ abstract class _$ActiveOfflinePack extends $Notifier<InstalledPack?> {
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// with Greece): their places kept show, and [placesAroundView]
 /// changes the words. False until the outlines are read, and under a pack
 /// on the device, one this build has no outline of included (read by its
 /// box).
@@ -569,7 +569,7 @@ final viewOnlineOnlyProvider = ViewOnlineOnlyProvider._();
 /// offline the app says the area is online only rather than offer a
 /// download. A few islands whose places sync with their country lie outside
 /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-/// with Greece): their places kept show, and [placesWithoutOfflineMap]
+/// with Greece): their places kept show, and [placesAroundView]
 /// changes the words. False until the outlines are read, and under a pack
 /// on the device, one this build has no outline of included (read by its
 /// box).
@@ -583,7 +583,7 @@ final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
   /// offline the app says the area is online only rather than offer a
   /// download. A few islands whose places sync with their country lie outside
   /// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
-  /// with Greece): their places kept show, and [placesWithoutOfflineMap]
+  /// with Greece): their places kept show, and [placesAroundView]
   /// changes the words. False until the outlines are read, and under a pack
   /// on the device, one this build has no outline of included (read by its
   /// box).
@@ -623,41 +623,50 @@ final class ViewOnlineOnlyProvider extends $FunctionalProvider<bool, bool, bool>
 String _$viewOnlineOnlyHash() => r'959232bbaf3892234fbc833132ec5f7ff2e400c7';
 
 /// Whether the device holds places in the area [viewOnlineOnly] reads
-/// while no offline map covers it: an island whose places sync with its
-/// country but which no outline holds (Åland with Finland, Svalbard with
-/// Norway, Kastellorizo with Greece). Offline its places show, only its map
-/// does not. False wherever an offline map does cover the view.
+/// around the view ([PackOutlines.nearArea]). Where no offline map covers
+/// the view, it tells an island whose places sync with its country but
+/// which no outline holds (Åland with Finland, Svalbard with Norway,
+/// Kastellorizo with Greece) from an area online only: offline its places
+/// show, only its map does not. Read offline, by the map's line and the
+/// list, at each move of the view; watched whatever the view, it keeps its
+/// last answer while it counts again, so their words do not flicker.
 
-@ProviderFor(placesWithoutOfflineMap)
-final placesWithoutOfflineMapProvider = PlacesWithoutOfflineMapProvider._();
+@ProviderFor(placesAroundView)
+final placesAroundViewProvider = PlacesAroundViewProvider._();
 
 /// Whether the device holds places in the area [viewOnlineOnly] reads
-/// while no offline map covers it: an island whose places sync with its
-/// country but which no outline holds (Åland with Finland, Svalbard with
-/// Norway, Kastellorizo with Greece). Offline its places show, only its map
-/// does not. False wherever an offline map does cover the view.
+/// around the view ([PackOutlines.nearArea]). Where no offline map covers
+/// the view, it tells an island whose places sync with its country but
+/// which no outline holds (Åland with Finland, Svalbard with Norway,
+/// Kastellorizo with Greece) from an area online only: offline its places
+/// show, only its map does not. Read offline, by the map's line and the
+/// list, at each move of the view; watched whatever the view, it keeps its
+/// last answer while it counts again, so their words do not flicker.
 
-final class PlacesWithoutOfflineMapProvider
+final class PlacesAroundViewProvider
     extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
     with $FutureModifier<bool>, $FutureProvider<bool> {
   /// Whether the device holds places in the area [viewOnlineOnly] reads
-  /// while no offline map covers it: an island whose places sync with its
-  /// country but which no outline holds (Åland with Finland, Svalbard with
-  /// Norway, Kastellorizo with Greece). Offline its places show, only its map
-  /// does not. False wherever an offline map does cover the view.
-  PlacesWithoutOfflineMapProvider._()
+  /// around the view ([PackOutlines.nearArea]). Where no offline map covers
+  /// the view, it tells an island whose places sync with its country but
+  /// which no outline holds (Åland with Finland, Svalbard with Norway,
+  /// Kastellorizo with Greece) from an area online only: offline its places
+  /// show, only its map does not. Read offline, by the map's line and the
+  /// list, at each move of the view; watched whatever the view, it keeps its
+  /// last answer while it counts again, so their words do not flicker.
+  PlacesAroundViewProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'placesWithoutOfflineMapProvider',
+        name: r'placesAroundViewProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$placesWithoutOfflineMapHash();
+  String debugGetCreateSourceHash() => _$placesAroundViewHash();
 
   @$internal
   @override
@@ -666,12 +675,11 @@ final class PlacesWithoutOfflineMapProvider
 
   @override
   FutureOr<bool> create(Ref ref) {
-    return placesWithoutOfflineMap(ref);
+    return placesAroundView(ref);
   }
 }
 
-String _$placesWithoutOfflineMapHash() =>
-    r'd6d54e95f75f7b4c1e9deff5f5561bb8b55a734e';
+String _$placesAroundViewHash() => r'beceadb098e68f6f79d12d77d6e57860ed76368a';
 
 /// The places and the saved points of the favourites, for the packs to
 /// suggest.

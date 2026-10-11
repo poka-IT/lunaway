@@ -132,8 +132,9 @@ PoiLayerState poiLayerState(Ref ref) {
 }
 
 /// Whether it is night now, when what is open around the clock comes first,
-/// on the clock of the country at the centre of the view (its region's:
-/// `MA`, `FR-BRE`); France's at sea or where no region is kept.
+/// on the clock of the country of the sync region at the centre of the view
+/// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+/// overseas departments).
 @riverpod
 bool poiNight(Ref ref) {
   final view = ref.watch(viewportProvider) ?? initialViewport;

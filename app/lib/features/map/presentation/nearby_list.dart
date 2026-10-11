@@ -203,7 +203,8 @@ bool offlineHere(WidgetRef ref) {
     return false;
   }
   if (ref.watch(viewRegionProvider)?.held ?? false) return false;
-  return !(ref.watch(placesWithoutOfflineMapProvider).value ?? false);
+  final placesAround = ref.watch(placesAroundViewProvider).value ?? false;
+  return !(ref.watch(viewOnlineOnlyProvider) && placesAround);
 }
 
 /// The list offline where the device holds nothing of the view: under its

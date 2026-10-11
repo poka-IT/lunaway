@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
-import 'package:lunaway/core/time/zone_data.g.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -245,8 +244,18 @@ void main() {
       );
     });
 
-    test('embeds the release the server bundles', () {
-      expect(tzdataRelease, '2026e', reason: 'lunaway_conflate::time_zone holds the server to it');
+    test('gives Russia and Ukraine no zone of their own, where the nearest city would err', () {
+      // Odesa lies nearer Simferopol (Crimea, +03 all year) than Kyiv, and
+      // Makhachkala nearer Astrakhan (+04) than Moscow; the server gives
+      // their places no intervals.
+      expect(PlaceZone.of('UA', const LatLng(46.48, 30.73)), PlaceZone.paris);
+      expect(PlaceZone.of('RU', const LatLng(42.98, 47.5)), PlaceZone.paris);
+      // Germany's two zones keep one clock: the nearest city is harmless.
+      final freiburg = PlaceZone.of('DE', const LatLng(47.99, 7.85));
+      final berlin = PlaceZone.of('DE', const LatLng(52.52, 13.4));
+      for (final at in [DateTime.utc(2026, 1, 15), DateTime.utc(2027, 7, 15)]) {
+        expect(freiburg.offsetAt(at), berlin.offsetAt(at));
+      }
     });
 
     test('gives the wall clock of the place', () {

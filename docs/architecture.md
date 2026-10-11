@@ -552,14 +552,20 @@ the device's zone. Both take the zone from the IANA time zone database,
 one release on both sides:
 
 - **The zone of a place.** The database's table of countries and zones,
-  `zone.tab`: the only zone of the place's country for most, and for a
-  country with several, the zone whose principal location (the city the
-  table places it at) is nearest the place. That tells the Canary Islands,
-  the Azores and Madeira from their mainland. Where zones with different
-  clocks meet inside a country it is an approximation: in Russia, and in
-  southern Ukraine, where places nearer Simferopol than Kyiv (80 of 555 on
-  2026-10-11, all online only) read Crimea's clock, an hour ahead in winter.
-  Kosovo (`XK`) has no row: no zone on the server, France's in the app.
+  `zone.tab`: the only zone of the place's country for most. For a country
+  with several, the zone whose principal location (the city the table
+  places it at) is nearest the place, in the countries where that is right:
+  Spain and Portugal, whose zones of another clock are islands (the Canary
+  Islands, the Azores, Madeira), and Germany, Cyprus and Palestine, whose
+  zones keep one clock (`NEAREST_ZONE_COUNTRIES`, the same list in the
+  app). Elsewhere zones of different clocks meet on land and the nearest
+  city misplaces a border area: on 2026-10-11, 80 Ukrainian places outside
+  Crimea lay nearer Simferopol (+03 all year) than Kyiv, and the cities of
+  Dagestan, Chechnya and North Ossetia nearer Astrakhan (+04) than Moscow
+  (+03). Russia and Ukraine therefore have no zone, nor Kosovo (`XK`,
+  without a row): no intervals on the server, France's clock in the app,
+  which only matters for the day a season is read on. A country with
+  several zones that joins the data has none until it joins the list.
   Server: `lunaway_conflate::time_zone`; app: `PlaceZone`
   (`app/lib/core/time/place_zone.dart`), the same rule and the same
   distance.

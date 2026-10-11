@@ -27,10 +27,10 @@ device that keeps a region offline has its places, its map and its routes
 there. A test of `lunaway_domain::region` holds the rule. Morocco joined on
 2026-10-11 (decision of the product owner); Western Sahara goes with it
 because the offline map of Morocco and the graph's cut of Morocco both
-hold it, and the region and its offline map are named "Maroc et Sahara
-occidental" in every language (`areas.ma`, the server's names, the pack
-outline's; decision of the product owner, 2026-10-11), the code staying
-`MA`. The places of every other country (40 on 2026-10-11, Turkey,
+hold it. The region and its offline map are named after both in each
+language ("Maroc et Sahara occidental", `areas.ma`), and so are the
+server's names and the pack outline's (decision of the product owner,
+2026-10-11); the code stays `MA`. The places of every other country (40 on 2026-10-11, Turkey,
 Romania and Hungary the largest; `plan/research/132-hors-ligne-pays.md`)
 are served online only: no pack is built for them, `changes(region:)`
 refuses their codes, and the app says, offline over one of them, that the
@@ -244,9 +244,10 @@ or the open sea; a bay of the coast stays its region's) says the area is
 online only, over the map and in the list, with no way to a download
 (`viewOnlineOnly`). An island whose places sync with its country but which
 no outline holds (Åland, Svalbard, Kastellorizo) is far from them too:
-when the device holds places in that area (`placesWithoutOfflineMap`), the
-line over the map says its places are on the device and only its map is
-online, and the list reads as anywhere the places are kept. The regions downloaded update on an unmetered network (Android's
+when the device holds places in that area (`placesAroundView`), the line
+over the map says its places are on the device and only its map is
+online, and the list reads as anywhere the places are kept. The regions
+downloaded update on an unmetered network (Android's
 `isActiveNetworkMetered`, iOS's `isExpensive` or `isConstrained`) unless
 the user allows mobile data (`region_updates_mobile`) or asks for the
 update; a first download, or one cut short, goes over any network. Each

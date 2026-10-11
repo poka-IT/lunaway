@@ -8,7 +8,8 @@
 //! [`OPENING_WINDOW_DAYS`] days, in the time zone of where it is:
 //! [`place_zone`] gives it from the IANA database (`crate::time_zone`),
 //! the Canary Islands, the Azores and Madeira theirs; a country the
-//! database does not name (Kosovo) yields no intervals rather than
+//! database does not name (Kosovo), and Russia and Ukraine, whose zones
+//! the nearest city does not tell apart, yield no intervals rather than
 //! intervals in the wrong zone. The window moves at the next local
 //! midnight (`refresh_at`), so a place in Lisbon and one in Helsinki each
 //! start their day at their own midnight. Public holidays

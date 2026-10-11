@@ -7,11 +7,14 @@
 /// (`zone_data.g.dart`, from `tool/time_zones/generate.dart`) and read by
 /// the timezone package: a zone the database gives the country in its
 /// table of countries and zones (zone.tab), the only one for most
-/// countries, and for a country with several the one whose principal
-/// location is nearest (the Canary Islands, the Azores and Madeira keep
-/// their own clock). The server picks the zone the same way from the same
-/// release (`lunaway_conflate::time_zone`): the opening intervals it
-/// computes and the times written here agree.
+/// countries. For a country with several, the one whose principal location
+/// is nearest where that is the right one (`_nearestZoneCountries`: the
+/// Canary Islands, the Azores and Madeira keep their own clock); Russia
+/// and Ukraine, whose zones of different clocks meet on land, read
+/// France's, as does a country the table does not name (Kosovo), and the
+/// server gives their places no intervals. The server picks the zone the
+/// same way from the same release (`lunaway_conflate::time_zone`): the
+/// opening intervals it computes and the times written here agree.
 library;
 
 import 'dart:convert';
@@ -31,8 +34,10 @@ final class PlaceZone {
   /// at [position]; France's when the code is missing or the database does
   /// not name the country (Kosovo).
   factory of(String? countryCode, LatLng position) {
-    final centres = _byCountry[countryCode?.toUpperCase()];
+    final code = countryCode?.toUpperCase();
+    final centres = _byCountry[code];
     if (centres == null) return paris;
+    if (centres.length > 1 && !_nearestZoneCountries.contains(code)) return paris;
     var best = centres.first;
     var bestDistance = double.infinity;
     for (final centre in centres) {
@@ -88,6 +93,12 @@ final class PlaceZone {
 
   @override
   String toString() => 'PlaceZone($name)';
+
+  /// The countries with several zones whose nearest principal location
+  /// gives a place its zone: Spain and Portugal, whose zones of another
+  /// clock are islands, and Germany, Cyprus and Palestine, whose zones keep
+  /// one clock. The server holds the same list (`NEAREST_ZONE_COUNTRIES`).
+  static const _nearestZoneCountries = {'CY', 'DE', 'ES', 'PS', 'PT'};
 
   /// The rows of zone.tab by country.
   static final Map<String, List<(String, String, double, double)>> _byCountry = () {

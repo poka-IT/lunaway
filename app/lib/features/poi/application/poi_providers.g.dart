@@ -336,21 +336,24 @@ final class PoiLayerStateProvider
 String _$poiLayerStateHash() => r'adecd1df7daa7f4d875e3bb7690f80a384fd2e11';
 
 /// Whether it is night now, when what is open around the clock comes first,
-/// on the clock of the country at the centre of the view (its region's:
-/// `MA`, `FR-BRE`); France's at sea or where no region is kept.
+/// on the clock of the country of the sync region at the centre of the view
+/// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+/// overseas departments).
 
 @ProviderFor(poiNight)
 final poiNightProvider = PoiNightProvider._();
 
 /// Whether it is night now, when what is open around the clock comes first,
-/// on the clock of the country at the centre of the view (its region's:
-/// `MA`, `FR-BRE`); France's at sea or where no region is kept.
+/// on the clock of the country of the sync region at the centre of the view
+/// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+/// overseas departments).
 
 final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
   /// Whether it is night now, when what is open around the clock comes first,
-  /// on the clock of the country at the centre of the view (its region's:
-  /// `MA`, `FR-BRE`); France's at sea or where no region is kept.
+  /// on the clock of the country of the sync region at the centre of the view
+  /// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+  /// overseas departments).
   PoiNightProvider._()
     : super(
         from: null,

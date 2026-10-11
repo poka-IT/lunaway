@@ -215,12 +215,14 @@ The device cannot evaluate the OSM `opening_hours` syntax, so each place
 carries its open intervals for the 14 days from local midnight of the day of
 computation, in UTC (`openingIntervals`), computed with the `opening-hours`
 crate: the timezone comes from the IANA database, its country's zone in
-`zone.tab` (`FR` is `Europe/Paris`, `MA` `Africa/Casablanca`), the nearest
-of its country's zones where it has several, which gives the Canary
+`zone.tab` (`FR` is `Europe/Paris`, `MA` `Africa/Casablanca`), and in
+Spain and Portugal the nearest of their zones, which gives the Canary
 Islands, the Azores and Madeira their own time (`docs/architecture.md`,
-"Time zones"); a country without a row (Kosovo) gets no intervals; public holidays from
-the national calendar of that country, embedded in the crate (regional ones,
-as in Alsace-Moselle or a German Land, are not applied); sun events from the
+"Time zones"); a country without a row (Kosovo), and Russia and Ukraine,
+whose zones the nearest city does not tell apart, get no intervals rather
+than intervals on a wrong clock; public holidays from the national
+calendar of that country, embedded in the crate (regional ones, as in
+Alsace-Moselle or a German Land, are not applied); sun events from the
 place's position. Only `open` periods count. `openingIntervalsUntil` is
 the end of the window the intervals cover: before it a time in no interval is
 closed, after it nothing is known (a device that has not synced for two

@@ -35,7 +35,7 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock", "s
 # price, the named periods of road events). Its data stopped at tzdata 2025b:
 # the zone of a place comes from jiff below.
 chrono-tz = "0.10.4"
-clap ={ version = "4.6.7", features = ["derive", "env"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
 # Which country a point is in, from boundaries derived from OpenStreetMap
 # (ODbL, the licence of the places database itself), embedded in the binary:
 # the time zone and holidays of opening hours, and the region a place syncs
