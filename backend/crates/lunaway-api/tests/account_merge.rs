@@ -313,6 +313,11 @@ async fn a_merge_moves_everything_into_the_imported_account_and_deletes_the_othe
         "an app older than merges forgets the account as a deleted one"
     );
     assert_eq!(extensions["mergedInto"], pseudonym.as_str());
+    assert_eq!(
+        extensions["mergedIntoId"],
+        imported_id.to_string(),
+        "a pseudonym is not unique: the device knows the account by its id when it comes"
+    );
 
     // The level: the merged history would make level 2; the merge alone
     // never raises it, the next contribution does.

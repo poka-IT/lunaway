@@ -432,7 +432,7 @@ async fn open_session_for(
             // went, so it can offer that account's recovery card; not when
             // that account is banned, whose card opens nothing.
             return Err(match merged {
-                Some(m) if !m.banned => merged_key(&m.pseudonym),
+                Some(m) if !m.banned => merged_key(m.account, &m.pseudonym),
                 _ => unknown_key(),
             });
         }
