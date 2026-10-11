@@ -110,9 +110,12 @@ final class FakeEngine {
 
 /// An Android device with [installed] engines, the first one the default.
 final class FakeDevice extends PlatformVoice {
-  new(this.installed);
+  new(this.installed, {this.answers = true});
 
   final List<FakeEngine> installed;
+
+  /// False: the list of engines never comes.
+  final bool answers;
 
   /// What the app asked, in order.
   final List<String> calls = [];
@@ -132,6 +135,7 @@ final class FakeDevice extends PlatformVoice {
   @override
   Future<List<PlatformEngineInfo>> engines() async {
     calls.add('engines');
+    if (!answers) await Completer<void>().future;
     return [
       for (final (i, e) in installed.indexed)
         PlatformEngineInfo(name: e.name, label: e.label, isDefault: i == 0),
@@ -387,6 +391,38 @@ void main() {
       },
     );
 
+    test('an engine the app does not know speaks only as the default one', () async {
+      const unknown = 'com.example.cloudvoice';
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        ),
+        FakeEngine(
+          unknown,
+          voices: {
+            'fr': [voice('fr-cloud')],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+      expect(device.asked, [samsung], reason: 'not asked');
+      final chosen = FakeDevice([
+        FakeEngine(
+          unknown,
+          voices: {
+            'fr': [voice('fr-cloud')],
+          },
+        ),
+      ]);
+      final speaks = PlatformVoiceOutput(voice: chosen, chime: _wav);
+      expect(await speaks.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+      expect(chosen.used, unknown);
+    });
+
     test('an engine that does not start is passed over', () async {
       final device = FakeDevice([
         FakeEngine(samsung, starts: false),
@@ -400,6 +436,33 @@ void main() {
       final output = PlatformVoiceOutput(voice: device, chime: _wav);
       expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.ready);
       expect(device.used, google);
+    });
+
+    test('a list of engines that never comes ends the look after a while, without a voice', () {
+      fakeAsync((async) {
+        final device = FakeDevice([FakeEngine(google)], answers: false);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        VoiceReadiness? readiness;
+        unawaited(output.prepare(RouteLanguage.fr).then((r) => readiness = r));
+        async.elapse(PlatformVoiceOutput.engineWait + const Duration(seconds: 1));
+        expect(readiness, VoiceReadiness.none);
+      });
+    });
+
+    test('a fresh look asked while one runs is the same look', () async {
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      final first = output.prepare(RouteLanguage.fr, fresh: true);
+      final second = output.prepare(RouteLanguage.fr, fresh: true);
+      await (first, second).wait;
+      expect(device.calls.where((c) => c == 'refresh'), hasLength(1));
     });
 
     test('so is one that never answers, after a while', () {
@@ -443,6 +506,7 @@ void main() {
         expect(device.calls, [
           'engines',
           'voices $samsung',
+          'use $samsung',
           'refresh',
           'engines',
           'voices $samsung',

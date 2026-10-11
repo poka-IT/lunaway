@@ -444,6 +444,10 @@ const positionLostAfter = Duration(seconds: 15);
 /// device's own timeout puts it out.
 const arrivalScreenOn = Duration(minutes: 2);
 
+/// A return to the app this soon after the last look for a missing voice
+/// asks nothing, unless the user comes back from its installer.
+const voiceLookGap = Duration(seconds: 30);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
@@ -721,6 +725,7 @@ class GuidanceController extends _$GuidanceController {
     }
     timelineMark('lunaway-guidance-voice');
     if (!ref.mounted || generation != _generation || state == null) return;
+    _lastVoiceLook = ref.read(clockProvider)();
     _speech?.settle(ready: readiness == VoiceReadiness.ready);
     state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
     _changeStartup((s) => s.copyWith(voice: true));
@@ -738,17 +743,34 @@ class GuidanceController extends _$GuidanceController {
       // Not before the first look has answered: it is the one the start
       // waits for.
       if (!(s.startup?.voice ?? true)) return;
+      // Each look binds the engines anew, seconds for one whose process
+      // sleeps: a return soon after the last (the notification shade
+      // pulled down) asks nothing, unless the user comes back from the
+      // installer the notice opened.
+      final last = _lastVoiceLook;
+      if (!_installerOpened &&
+          last != null &&
+          ref.read(clockProvider)().difference(last) < voiceLookGap) {
+        return;
+      }
       unawaited(_lookForVoiceAgain(generation));
     });
   }
 
   StreamSubscription<void>? _returns;
 
+  /// When the voice was last looked for, and whether its installer was
+  /// opened since.
+  DateTime? _lastVoiceLook;
+  bool _installerOpened = false;
+
   /// Asks the device anew for the voice of the route's language.
   Future<void> _lookForVoiceAgain(int generation) async {
     final voice = _voice;
     final s = state;
     if (voice == null || s == null) return;
+    _lastVoiceLook = ref.read(clockProvider)();
+    _installerOpened = false;
     VoiceReadiness readiness;
     try {
       readiness = await voice.prepare(s.plan.applied.language, fresh: true);
@@ -969,10 +991,12 @@ class GuidanceController extends _$GuidanceController {
 
   /// Opens the installer of the engine whose voice is missing; the voice is
   /// looked for again once the user comes back to the app
-  /// ([_listenReturns]). Looked for as the installer opened, it was still
-  /// missing, and the notice stayed for the whole trip.
+  /// ([_listenReturns]), not as the installer opens: nothing is installed
+  /// yet then.
   Future<void> installVoices() async {
-    await _voice?.installVoices();
+    final voice = _voice;
+    if (voice == null) return;
+    _installerOpened = await voice.installVoices();
   }
 
   void _release() {
@@ -981,6 +1005,8 @@ class GuidanceController extends _$GuidanceController {
     _fixes = null;
     unawaited(_returns?.cancel());
     _returns = null;
+    _lastVoiceLook = null;
+    _installerOpened = false;
     _arrivalWake?.cancel();
     _arrivalWake = null;
     _fixRetry?.cancel();

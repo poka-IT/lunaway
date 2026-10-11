@@ -20,6 +20,7 @@ import java.io.IOException
 import java.util.Locale
 import java.util.MissingResourceException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -58,6 +59,18 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         /** Null while the engine starts, then its status. */
         var status: Int? = null
         val waiting = mutableListOf<(TextToSpeech?) -> Unit>()
+
+        /** The voices listed, by name, written off the main thread. */
+        val known = ConcurrentHashMap<String, Voice>()
+
+        /**
+         * Where its voices and languages are asked, away from the main
+         * thread, which also draws the app: the engine runs in another
+         * process, and Google's lists hundreds of voices, a binder call
+         * that holds its caller as long as it takes. One thread per
+         * engine: one that does not answer holds none of the others.
+         */
+        val lists: ExecutorService = Executors.newSingleThreadExecutor()
     }
 
     /** The device's default engine, bound without naming it. */
@@ -72,14 +85,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     /** The engine the app speaks with; null for the default one. */
     private var speaker: String? = null
     private val main = Handler(Looper.getMainLooper())
-
-    /**
-     * Where the voices and the languages are asked of an engine, away
-     * from the main thread, which also draws the app: the engine runs in
-     * another process, and Google's lists hundreds of voices, a binder call
-     * that holds its caller as long as it takes.
-     */
-    private var lists: ExecutorService? = null
+    private var attached = false
     private var focus: AudioFocusRequest? = null
 
     /** The chime, written to the app's files once the app hands it over. */
@@ -119,18 +125,17 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
-        lists = Executors.newSingleThreadExecutor()
+        attached = true
         channel = MethodChannel(binding.binaryMessenger, "lunaway_nav/voice")
         channel.setMethodCallHandler(this)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        attached = false
         stops++
         cutChime()
         unbindAll()
-        lists?.shutdown()
-        lists = null
         finishAll()
         releaseFocus()
         context = null
@@ -138,17 +143,31 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "engines" -> withEngine(defaultSlot, result) { engine -> result.success(enginesOf(engine)) }
+            // Android's list of engines and its default one, read without
+            // waiting for the default engine to answer: one that never
+            // does would hold the look for a voice in the others.
+            "engines" -> {
+                if (defaultSlot.tts == null) start(defaultSlot)
+                val engine = defaultSlot.tts
+                val listed = engine?.let { enginesOf(it) }.orEmpty()
+                if (listed.isEmpty()) {
+                    result.error("unavailable", "no speech engine on this device", null)
+                } else {
+                    result.success(listed)
+                }
+            }
             "voices" -> {
                 val language = call.argument<String>("language") ?: ""
-                withEngine(slot(call.argument<String>("engine")), result) { engine ->
-                    offMain(result) { voicesFor(engine, language) }
+                val slot = slot(call.argument<String>("engine"))
+                withEngine(slot, result) { engine ->
+                    offMain(slot, result) { voicesFor(slot, engine, language) }
                 }
             }
             "languageStatus" -> {
                 val language = call.argument<String>("language") ?: ""
-                withEngine(slot(call.argument<String>("engine")), result) { engine ->
-                    offMain(result) { statusOf(engine, Locale.forLanguageTag(language)) }
+                val slot = slot(call.argument<String>("engine"))
+                withEngine(slot, result) { engine ->
+                    offMain(slot, result) { statusOf(engine, Locale.forLanguageTag(language)) }
                 }
             }
             "useEngine" -> {
@@ -156,9 +175,13 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(null)
             }
             "refresh" -> {
-                // Called while nothing is said with an engine (the voice
-                // was missing): what was installed or chosen meanwhile is
-                // seen by engines bound anew.
+                // What was installed or chosen meanwhile is seen by engines
+                // bound anew. A sentence still said is cut and answered:
+                // an engine let go of reports no end.
+                stops++
+                defaultSlot.tts?.stop()
+                others.values.forEach { it.tts?.stop() }
+                pending.keys.filter { it != chimeFor }.forEach { finish(it, false) }
                 unbindAll()
                 result.success(null)
             }
@@ -175,14 +198,15 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     text.isEmpty() -> result.success(false)
                     else -> {
                         val asked = stops
-                        withEngine(slot(speaker), result) { engine ->
+                        val slot = slot(speaker)
+                        withEngine(slot, result) { engine ->
                             if (asked != stops) {
                                 result.success(false)
                             } else {
                                 val language = call.argument<String>("language") ?: ""
                                 val voiceId = call.argument<String>("voiceId")
                                 val rate = call.argument<Double>("rate") ?: 1.0
-                                speak(engine, text, language, voiceId, rate.toFloat(), chime, result)
+                                speak(slot, engine, text, language, voiceId, rate.toFloat(), chime, result)
                             }
                         }
                     }
@@ -256,6 +280,9 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         engine.tts?.shutdown()
         engine.tts = null
         engine.status = null
+        // A question stuck in the engine ends with its binder; the thread
+        // goes with it.
+        engine.lists.shutdown()
         val waiting = engine.waiting.toList()
         engine.waiting.clear()
         waiting.forEach { it(null) }
@@ -284,24 +311,32 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
     }
 
-    /** Runs [read] on [lists] and answers its value, or its failure, on the main thread. */
+    /**
+     * Runs [read] on [slot]'s own thread and answers its value, or its
+     * failure, on the main thread.
+     */
     private fun offMain(
+        slot: Engine,
         result: MethodChannel.Result,
         read: () -> Any?,
     ) {
-        val pool = lists
-        if (pool == null) {
+        if (!attached) {
             result.error("unavailable", "the plugin is detached", null)
             return
         }
-        pool.execute {
-            val value = runCatching(read)
-            main.post {
-                value.fold(
-                    onSuccess = { result.success(it) },
-                    onFailure = { result.error("unavailable", it.message, null) },
-                )
+        try {
+            slot.lists.execute {
+                val value = runCatching(read)
+                main.post {
+                    value.fold(
+                        onSuccess = { result.success(it) },
+                        onFailure = { result.error("unavailable", it.message, null) },
+                    )
+                }
             }
+        } catch (e: java.util.concurrent.RejectedExecutionException) {
+            // The engine was let go of meanwhile.
+            result.error("unavailable", "the engine was let go of", null)
         }
     }
 
@@ -437,18 +472,19 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
      * letters where it has them: an engine may name French `fra`, and the
      * app compares tags.
      */
-    private fun voicesFor(engine: TextToSpeech, language: String): List<Map<String, Any?>> {
+    private fun voicesFor(slot: Engine, engine: TextToSpeech, language: String): List<Map<String, Any?>> {
         val wanted = Locale.forLanguageTag(language)
         val voices: Set<Voice> = engine.voices ?: emptySet()
         return voices
             .filter { sameLanguage(it.locale, wanted) }
             .map { voice ->
+                slot.known[voice.name] = voice
+                val features = voice.features.orEmpty()
                 mapOf(
                     "id" to voice.name,
                     "locale" to tagOf(voice.locale),
-                    "networkRequired" to voice.isNetworkConnectionRequired,
-                    "notInstalled" to
-                        voice.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED),
+                    "networkRequired" to (voice.isNetworkConnectionRequired || networkOnly(features)),
+                    "notInstalled" to (TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED in features),
                     "quality" to voice.quality,
                 )
             }
@@ -457,7 +493,10 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     /**
      * Whether [engine] speaks [locale] now, for an engine that lists no
      * voice of it: available, through its vendor's server only, once its
-     * data is downloaded, or not at all.
+     * data is downloaded, or not at all. Available only when the engine
+     * says it speaks the language on the device: one that says nothing,
+     * as Android's default answers, might send the words to a server, and
+     * is reported as a voice to download, a voice the app can check.
      */
     @Suppress("DEPRECATION")
     private fun statusOf(engine: TextToSpeech, locale: Locale): String =
@@ -465,21 +504,35 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             TextToSpeech.LANG_MISSING_DATA -> "missingData"
             TextToSpeech.LANG_NOT_SUPPORTED -> "notSupported"
             else -> {
-                val features = engine.getFeatures(locale).orEmpty()
+                val features = engine.getFeatures(locale)
                 when {
+                    features == null -> "missingData"
                     TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED in features -> "missingData"
-                    TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS in features &&
-                        TextToSpeech.Engine.KEY_FEATURE_EMBEDDED_SYNTHESIS !in features -> "network"
-                    else -> "available"
+                    networkOnly(features) -> "network"
+                    TextToSpeech.Engine.KEY_FEATURE_EMBEDDED_SYNTHESIS in features -> "available"
+                    else -> "missingData"
                 }
             }
         }
+
+    /** Whether [voice] speaks on the device, its data there. */
+    private fun onDevice(voice: Voice): Boolean {
+        val features = voice.features.orEmpty()
+        return !voice.isNetworkConnectionRequired &&
+            !networkOnly(features) &&
+            TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in features
+    }
+
+    private fun networkOnly(features: Set<String>): Boolean =
+        TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS in features &&
+            TextToSpeech.Engine.KEY_FEATURE_EMBEDDED_SYNTHESIS !in features
 
     /**
      * Plays the chime, when asked and known, then queues [text], never
      * empty, and answers [result] when the sentence ends.
      */
     private fun speak(
+        slot: Engine,
         engine: TextToSpeech,
         text: String,
         language: String,
@@ -488,11 +541,26 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         chime: Boolean,
         result: MethodChannel.Result,
     ) {
-        val voice = voiceId?.let { id -> engine.voices?.firstOrNull { it.name == id } }
-        if (voice != null) {
-            engine.voice = voice
-        } else {
-            engine.language = Locale.forLanguageTag(language)
+        val wanted = Locale.forLanguageTag(language)
+        // The voice listed when it was picked, without another binder call
+        // on the thread that draws the app; else asked of the engine.
+        val listed = voiceId?.let { id -> slot.known[id] ?: engine.voices?.firstOrNull { it.name == id } }
+        val voice =
+            if (listed != null && engine.setVoice(listed) == TextToSpeech.SUCCESS) {
+                listed
+            } else {
+                engine.setLanguage(wanted)
+                engine.voice
+            }
+        // The voice the engine will speak with, checked: never one that
+        // sends the words to a server, one not downloaded, or one of
+        // another language (setLanguage keeps the last voice when it
+        // fails).
+        if (voice == null || !onDevice(voice) || !sameLanguage(voice.locale, wanted)) {
+            // An alert keeps its chime.
+            val chimeFile = this.chimeFile
+            if (chime && chimeFile != null) chimeAlone(chimeFile, result) else result.success(false)
+            return
         }
         engine.setSpeechRate(rate)
         val id = UUID.randomUUID().toString()

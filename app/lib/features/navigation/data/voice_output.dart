@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
@@ -84,6 +86,19 @@ final class PlatformVoiceOutput implements VoiceOutput {
   /// voice for the whole trip.
   static const engineWait = Duration(seconds: 20);
 
+  /// The engines the app speaks with when the device's default one has no
+  /// voice of the language: engines that synthesise on the device, whose
+  /// voices that need the vendor's server say so (Google's lists both
+  /// kinds, each marked). Another engine, which might wrap an online
+  /// service and say nothing of it, speaks only as the user's choice.
+  static const onDeviceEngines = {
+    'com.google.android.tts',
+    'com.samsung.SMT',
+    'com.reecedunn.espeak',
+    'com.github.olga_yakovleva.rhvoice.android',
+    'com.svox.pico',
+  };
+
   @override
   bool get chimes => _chimes;
 
@@ -95,11 +110,14 @@ final class PlatformVoiceOutput implements VoiceOutput {
   /// voices.
   Future<VoiceReadiness>? _picking;
   RouteLanguage? _pickingFor;
+  bool _pickingFresh = false;
 
   @override
   Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) {
     final running = _picking;
-    if (running != null && _pickingFor == language && !fresh) return running;
+    // One look at a time: the same one serves whoever asks meanwhile, a
+    // fresh one too when the one running is.
+    if (running != null && _pickingFor == language && (!fresh || _pickingFresh)) return running;
     // A fresh look waits for the one running, whose engines it lets go of.
     final picking = running == null
         ? _pick(language, fresh: fresh)
@@ -109,6 +127,7 @@ final class PlatformVoiceOutput implements VoiceOutput {
           );
     _picking = picking;
     _pickingFor = language;
+    _pickingFresh = fresh;
     picking.whenComplete(() {
       if (identical(_picking, picking)) _picking = null;
     }).ignore();
@@ -119,9 +138,21 @@ final class PlatformVoiceOutput implements VoiceOutput {
     await _prepareChime();
     try {
       if (fresh) await _refresh();
-      final engines = await _engines();
+      final List<nav.PlatformEngineInfo>? engines;
+      try {
+        engines = await _engines().timeout(engineWait);
+      } on TimeoutException {
+        _log.info('the speech engines did not answer');
+        return VoiceReadiness.none;
+      }
       final toDownload = <nav.PlatformEngineInfo?>[];
       for (final engine in engines ?? const <nav.PlatformEngineInfo?>[null]) {
+        // The user chose the default engine; another one the app picks
+        // itself only when it is known to speak on the device with what
+        // it says of its voices.
+        if (engine != null && !engine.isDefault && !onDeviceEngines.contains(engine.name)) {
+          continue;
+        }
         final offer = await _offer(
           engine?.name,
           language,
@@ -140,6 +171,8 @@ final class PlatformVoiceOutput implements VoiceOutput {
       _voiceId = null;
       // The default engine comes first: its download when it has one.
       _install = toDownload.firstOrNull;
+      // The others asked are let go of until the next look.
+      if (engines != null && engines.isNotEmpty) await _voice.useEngine(engines.first.name);
       _log.fine('voice ${language.name}: none on the device, to download in ${_install?.name}');
       return toDownload.isEmpty ? VoiceReadiness.none : VoiceReadiness.missingData;
     } on PlatformException catch (e) {
@@ -169,10 +202,10 @@ final class PlatformVoiceOutput implements VoiceOutput {
   }
 
   /// What [engine] offers for [language]: a voice it lists on the device
-  /// first. An engine that lists none of the language is taken at its
-  /// word, unless it speaks the language through its vendor's server only
-  /// (Android's network synthesis feature), which would send the road
-  /// names there.
+  /// first. An engine that lists none of the language speaks it only when
+  /// it says it does so on the device (Android's embedded synthesis
+  /// feature, `LunawayNavPlugin.statusOf`); one that says nothing might
+  /// send the road names to a server, and counts as a voice to download.
   Future<_Offer> _offer(String? engine, RouteLanguage language) async {
     final List<nav.PlatformVoiceInfo> voices;
     try {

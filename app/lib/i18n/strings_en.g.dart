@@ -4916,8 +4916,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'The $language voice is not downloaded yet.'
 	String missingVoice({required Object language}) => 'The ${language} voice is not downloaded yet.';
 
-	/// en: 'The $language voice is not downloaded yet in “$engine”.'
-	String missingVoiceIn({required Object language, required Object engine}) => 'The ${language} voice is not downloaded yet in “${engine}”.';
+	/// en: 'The $language voice is not yet downloaded in “$engine”.'
+	String missingVoiceIn({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.';
 
 	/// en: 'Install'
 	String get installVoice => 'Install';
@@ -8123,7 +8123,7 @@ extension on Translations {
 			'navigation.guidance.limit' => 'Limit',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'No ${language} voice on this device: instructions on screen only.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'The ${language} voice is not downloaded yet.',
-			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'The ${language} voice is not downloaded yet in “${engine}”.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.',
 			'navigation.guidance.installVoice' => 'Install',
 			'navigation.guidance.voiceSettingsIos' => 'Settings, Accessibility, Spoken Content, Voices',
 			'navigation.guidance.notificationTitle' => 'Lunaway is guiding you',

@@ -665,10 +665,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   one, the notice names the engine whose voice is to download, the
   default one when it knows the language, and "Installer" opens that
   engine's own page; the voice is looked for again each time the user
-  comes back to the app (`AppForeground.returns`). An engine that lists
-  no voice of the language but speaks it is taken at its word, unless
-  it declares network synthesis only. Three modes, kept with the route
-  settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's
+  comes back to the app (`AppForeground.returns`). Besides the default
+  engine (the user's choice), only engines known to synthesise on the
+  device speak (`PlatformVoiceOutput.onDeviceEngines`); an engine that
+  lists no voice of the language speaks it only when it declares
+  embedded synthesis, and the voice an engine is about to use is checked
+  before each sentence (on the device, of the language). Three modes,
+  kept with the route settings (`VoiceMode`,
+  `domain/route_settings.dart`): full (the engine's
   instructions, the alerts, and the reminder of the limit when asked for),
   alerts only (a speed camera or a danger zone, a closure, works, a lane
   closed or a size limit coming, a restriction of the route, a

@@ -105,6 +105,7 @@ void main() {
     EnforcementFeed? enforcement,
     AppForeground? foreground,
     RecordingVoice? withVoice,
+    DateTime Function()? clock,
   }) async {
     routes = FakeRouteService(answers.isEmpty ? [p] : answers);
     feed = FakeLocationFeed();
@@ -127,7 +128,7 @@ void main() {
           // The driving aids' settings by default, kept in memory.
           drivingAids: DrivingAidsStore(() async => null, (_) async {}),
         ),
-        clockProvider.overrideWithValue(() => t0),
+        clockProvider.overrideWithValue(clock ?? () => t0),
       ],
     );
     // The settings the guidance starts with, loaded as the app has them.
@@ -187,11 +188,40 @@ void main() {
     test('a voice installed from the system settings is found at the return too', () async {
       final back = ReturningApp();
       final missing = RecordingVoice(readiness: VoiceReadiness.none);
-      await start(routeFixture('limoges_drive'), foreground: back, withVoice: missing);
+      var now = t0;
+      await start(
+        routeFixture('limoges_drive'),
+        foreground: back,
+        withVoice: missing,
+        clock: () => now,
+      );
       missing.readiness = VoiceReadiness.ready;
+      now = now.add(voiceLookGap);
       back.comeBack();
       await settle();
       expect(session().voice, VoiceReadiness.ready);
+    });
+
+    test('a return soon after the last look asks the engines nothing', () async {
+      final back = ReturningApp();
+      final missing = RecordingVoice(readiness: VoiceReadiness.none);
+      var now = t0;
+      await start(
+        routeFixture('limoges_drive'),
+        foreground: back,
+        withVoice: missing,
+        clock: () => now,
+      );
+      final looks = missing.prepares;
+      // The notification shade pulled down and up again.
+      now = now.add(const Duration(seconds: 5));
+      back.comeBack();
+      await settle();
+      expect(missing.prepares, looks);
+      now = now.add(voiceLookGap);
+      back.comeBack();
+      await settle();
+      expect(missing.prepares, looks + 1);
     });
 
     test('with the voice ready, a return asks the device nothing', () async {
