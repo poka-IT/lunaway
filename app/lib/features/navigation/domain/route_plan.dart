@@ -724,7 +724,7 @@ final class RoutePlan {
   }
 
   /// Whether [route] came after the best route: the camera framed the
-  /// routes without it, and does not move for it.
+  /// routes without it, and moves for it only once the user chooses it.
   bool cameLater(RouteOption route) => switch (later) {
     final l? => route.index >= l.from,
     null => false,

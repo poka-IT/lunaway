@@ -450,6 +450,45 @@ void main() {
       expect(SchematicRouteMap.last!.camera, camera, reason: 'the legend open, the camera stays');
     });
 
+    for (final (name, size) in [('a phone', tallPhone), ('a desktop', desktop)]) {
+      testWidgets('on $name, an alternative that came after, chosen on its card or on the map, '
+          'brings the camera out to take it in', (tester) async {
+        final (best, later) = bestFirst('utrillo_motorhome');
+        final held = Completer<LaterRoutes>();
+        await openPreview(
+          tester,
+          size: size,
+          answers: [best],
+          engine: LineEngine([best]),
+          later: {'token-1': held},
+        );
+        held.complete(later);
+        await settleShort(tester);
+        FitCamera camera() => SchematicRouteMap.last!.camera as FitCamera;
+        List<LatLng> line(int index) =>
+            SchematicRouteMap.last!.lines.singleWhere((l) => l.index == index).points;
+        final framed = camera();
+        expect(line(1).every(framed.bounds.contains), isFalse, reason: 'out of the view');
+
+        await tester.tap(find.text('Variante 1'));
+        await settleShort(tester);
+        final chosen = camera();
+        expect(line(1).every(chosen.bounds.contains), isTrue, reason: 'the camera took it in');
+        expect(line(0).every(chosen.bounds.contains), isTrue, reason: 'the best route too');
+
+        // The best route chosen on the map: the view it framed alone.
+        SchematicRouteMap.last!.onLineTap!(0);
+        await settleShort(tester);
+        expect(camera().bounds, framed.bounds);
+
+        // The alternative chosen on the map.
+        SchematicRouteMap.last!.onLineTap!(1);
+        await settleShort(tester);
+        expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, 1);
+        expect(camera().bounds, chosen.bounds);
+      });
+    }
+
     for (final scale in [1.0, 2.0]) {
       testWidgets('what lies under the routes stays where it is when the alternatives join, '
           'text at $scale', (tester) async {
