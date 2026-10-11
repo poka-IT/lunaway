@@ -4916,6 +4916,9 @@ class Translations$navigation$guidance$en {
 	/// en: 'The $language voice is not downloaded yet.'
 	String missingVoice({required Object language}) => 'The ${language} voice is not downloaded yet.';
 
+	/// en: 'The $language voice is not yet downloaded in “$engine”.'
+	String missingVoiceIn({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.';
+
 	/// en: 'Install'
 	String get installVoice => 'Install';
 
@@ -8117,6 +8120,7 @@ extension on Translations {
 			'navigation.guidance.limit' => 'Limit',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'No ${language} voice on this device: instructions on screen only.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'The ${language} voice is not downloaded yet.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'The ${language} voice is not yet downloaded in “${engine}”.',
 			'navigation.guidance.installVoice' => 'Install',
 			'navigation.guidance.voiceSettingsIos' => 'Settings, Accessibility, Spoken Content, Voices',
 			'navigation.guidance.notificationTitle' => 'Lunaway is guiding you',
@@ -8426,9 +8430,9 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
-			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
 			'translation.busy' => 'The translation service is busy. Try again later.',
@@ -8940,9 +8944,9 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
-			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
 			'poi.kind.secondHand' => 'Second-hand and antiques',

@@ -625,6 +625,21 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   ask the engine for the places in view only when the camera moved
   enough (`tilePlacesStillHold`): each such query waits for the renderer
   on the thread that draws the app (`plan/research/112-perf-android.md`).
+- **The guidance map's frames on a phone** (`GlRouteMap`): the vehicle
+  glides from fix to fix, one map frame per 33 ms at most, set by a
+  timer once the last frame's calls are answered, never by a ticker: a
+  ticker asks Flutter for a frame at every vsync (60 to 120 a second)
+  while the map's own frames reach the screen without one. A frame that
+  would send what the last one sent sends nothing, and the frames stop
+  once the vehicle, the zoom and the way into following rest. Below
+  1 m/s a fix within 12 m of the drawn vehicle moves nothing
+  (`VehicleMotion.parkedWanderM`): parked, the map draws no frame, no
+  pass of the rich marks runs, and the basemap's host is not probed.
+  Anything new that moves the camera or redraws the map at each fix
+  keeps these: no frame when nothing on screen changes. Measured on
+  the emulator, parked: 126 % of a core down to 5 %, 59 frames a second
+  down to 1.4 (`plan/research/117-voix-energie-android.md`). The screen
+  kept on goes out `arrivalScreenOn` (2 min) after the arrival.
 - **A tap on the map** (`features/map/domain/map_taps.dart`): what the
   user chose (a place, a shop, an address, a town, a saved point) stays
   chosen, and a phone lowers its sheet to its header; a free point "Ici"
@@ -641,9 +656,24 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   and sends its word with each click (`lunawayTapGuard` in
   `assets/map/lunaway_map.js`): the app's hit test may see none of the
   pointers over its web view.
-- **The voice of the guidance**: the device's own speech engine, with
-  voices installed on the device only. Three modes, kept with the route
-  settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's
+- **The voice of the guidance**: the device's own speech engines, with
+  voices installed on the device only. On Android the default engine
+  (the system's setting) speaks when it has a voice of the route's
+  language; else the first other engine that has one (Google's,
+  eSpeak NG, RHVoice, a maker's), a language matched on its two or three
+  letter code (`PlatformVoiceOutput`, `LunawayNavPlugin.kt`). Without
+  one, the notice names the engine whose voice is to download, the
+  default one when it knows the language, and "Installer" opens that
+  engine's own page; the voice is looked for again each time the user
+  comes back to the app (`AppForeground.returns`). Besides the default
+  engine (the user's choice), only engines known to synthesise on the
+  device speak (`PlatformVoiceOutput.onDeviceEngines`: Google's,
+  Samsung's and Pico only as part of the system image, eSpeak NG and
+  RHVoice by name); an engine that lists no voice of the language has
+  none to speak with, and the voice an engine is about to use is checked
+  before each sentence (on the device, of the language). Three modes,
+  kept with the route settings (`VoiceMode`,
+  `domain/route_settings.dart`): full (the engine's
   instructions, the alerts, and the reminder of the limit when asked for),
   alerts only (a speed camera or a danger zone, a closure, works, a lane
   closed or a size limit coming, a restriction of the route, a

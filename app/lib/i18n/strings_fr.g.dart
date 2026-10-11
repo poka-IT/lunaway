@@ -2255,6 +2255,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get limit => 'Limite';
 	@override String noVoice({required Object language}) => 'Aucune voix en ${language} sur cet appareil : instructions à l\'écran seulement.';
 	@override String missingVoice({required Object language}) => 'La voix en ${language} n\'est pas encore téléchargée.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'La voix en ${language} n\'est pas encore téléchargée dans « ${engine} ».';
 	@override String get installVoice => 'Installer';
 	@override String get voiceSettingsIos => 'Réglages, Accessibilité, Contenu énoncé, Voix';
 	@override String get notificationTitle => 'Lunaway vous guide';
@@ -4138,6 +4139,7 @@ extension on TranslationsFr {
 			'navigation.guidance.limit' => 'Limite',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Aucune voix en ${language} sur cet appareil : instructions à l\'écran seulement.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'La voix en ${language} n\'est pas encore téléchargée.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'La voix en ${language} n\'est pas encore téléchargée dans « ${engine} ».',
 			'navigation.guidance.installVoice' => 'Installer',
 			'navigation.guidance.voiceSettingsIos' => 'Réglages, Accessibilité, Contenu énoncé, Voix',
 			'navigation.guidance.notificationTitle' => 'Lunaway vous guide',
@@ -4447,9 +4449,9 @@ extension on TranslationsFr {
 			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
 			'translation.from.it' => 'Traduit automatiquement de l\'italien',
 			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
-			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			'translation.offline' => 'La traduction a besoin du réseau.',
 			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
 			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
@@ -4961,9 +4963,9 @@ extension on TranslationsFr {
 			'poi.kind.hardware' => 'Bricolage, quincaillerie',
 			'poi.kind.home' => 'Maison, décoration',
 			'poi.kind.electronics' => 'Électronique, téléphonie',
-			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			'poi.kind.departmentStore' => 'Grand magasin, centre commercial',
 			'poi.kind.varietyStore' => 'Bazar, discount',
 			'poi.kind.secondHand' => 'Occasion, brocante',

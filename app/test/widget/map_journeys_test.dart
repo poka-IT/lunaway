@@ -74,8 +74,11 @@ const _layouts = [
 /// the guidance's start.
 final class _BrokenVoice implements VoiceOutput {
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async =>
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async =>
       throw StateError('no speech synthesis');
+
+  @override
+  String? get installEngine => null;
 
   @override
   bool get chimes => false;

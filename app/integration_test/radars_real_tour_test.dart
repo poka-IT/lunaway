@@ -376,11 +376,14 @@ final class _RecordingVoice implements VoiceOutput {
   bool get speaking => _speaking != null;
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
-    final readiness = await _inner.prepare(language);
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async {
+    final readiness = await _inner.prepare(language, fresh: fresh);
     debugPrint('VOICE ${language.speechTag} $readiness chime ${_inner.chimes}');
     return readiness;
   }
+
+  @override
+  String? get installEngine => _inner.installEngine;
 
   @override
   bool get chimes => _inner.chimes;

@@ -46,15 +46,22 @@ final class FakePlatformVoice extends PlatformVoice {
   /// How many times the voices were listed.
   int listings = 0;
 
+  /// A single engine, unnamed, as on iOS and macOS.
   @override
-  Future<List<PlatformVoiceInfo>> voices(String language) async {
+  Future<List<PlatformEngineInfo>> engines() async => throw MissingPluginException('engines');
+
+  @override
+  Future<void> refresh() async => throw MissingPluginException('refresh');
+
+  @override
+  Future<List<PlatformVoiceInfo>> voices(String language, {String? engine}) async {
     listings++;
-    return engine ? list : throw _noEngine;
+    return this.engine ? list : throw _noEngine;
   }
 
   @override
-  Future<PlatformLanguageStatus> languageStatus(String language) async =>
-      engine ? status : throw _noEngine;
+  Future<PlatformLanguageStatus> languageStatus(String language, {String? engine}) async =>
+      this.engine ? status : throw _noEngine;
 
   @override
   Future<bool> setChime(Uint8List wav) async {
@@ -73,6 +80,114 @@ final class FakePlatformVoice extends PlatformVoice {
   }) async {
     if (!engine && text.isNotEmpty) throw _noEngine;
     spoken.add((text: text, chime: chime));
+    return true;
+  }
+}
+
+/// An engine of a [FakeDevice]: its voices and its word on each language,
+/// by language code (`fr`) and by tag (`fr-FR`).
+final class FakeEngine {
+  new(
+    this.name, {
+    String? label,
+    this.voices = const {},
+    this.status = const {},
+    this.starts = true,
+    this.answers = true,
+    this.system = true,
+  }) : label = label ?? name;
+
+  final String name;
+  final String label;
+  Map<String, List<PlatformVoiceInfo>> voices;
+  final Map<String, PlatformLanguageStatus> status;
+
+  /// False: binding it fails, as Android answers for a broken engine.
+  final bool starts;
+
+  /// False: it never answers.
+  final bool answers;
+
+  /// False: installed by the user, not part of the system image.
+  final bool system;
+}
+
+/// An Android device with [installed] engines, the first one the default.
+final class FakeDevice extends PlatformVoice {
+  new(this.installed, {this.answers = true});
+
+  final List<FakeEngine> installed;
+
+  /// False: the list of engines never comes.
+  final bool answers;
+
+  /// What the app asked, in order.
+  final List<String> calls = [];
+
+  /// The engines whose voices were listed.
+  final List<String> asked = [];
+
+  /// The engine the app speaks with.
+  String? used;
+  final List<String?> installedFrom = [];
+  final List<String?> spokenWith = [];
+  final List<String> spokenIn = [];
+
+  FakeEngine _engine(String? name) =>
+      installed.firstWhere((e) => e.name == (name ?? installed.first.name));
+
+  @override
+  Future<List<PlatformEngineInfo>> engines() async {
+    calls.add('engines');
+    if (!answers) await Completer<void>().future;
+    return [
+      for (final (i, e) in installed.indexed)
+        PlatformEngineInfo(name: e.name, label: e.label, isDefault: i == 0, system: e.system),
+    ];
+  }
+
+  @override
+  Future<List<PlatformVoiceInfo>> voices(String language, {String? engine}) async {
+    final e = _engine(engine);
+    calls.add('voices ${e.name}');
+    asked.add(e.name);
+    if (!e.answers) await Completer<void>().future;
+    if (!e.starts) throw PlatformException(code: 'unavailable', message: 'no speech engine');
+    return e.voices[language] ?? const [];
+  }
+
+  @override
+  Future<PlatformLanguageStatus> languageStatus(String language, {String? engine}) async =>
+      _engine(engine).status[language] ?? PlatformLanguageStatus.notSupported;
+
+  @override
+  Future<void> useEngine(String? engine) async {
+    calls.add('use $engine');
+    used = engine;
+  }
+
+  @override
+  Future<void> refresh() async => calls.add('refresh');
+
+  @override
+  Future<bool> setChime(Uint8List wav) async => true;
+
+  @override
+  Future<bool> speak(
+    String text, {
+    required String language,
+    String? voiceId,
+    double rate = 1,
+    bool chime = false,
+  }) async {
+    spokenWith.add(voiceId);
+    spokenIn.add(language);
+    return true;
+  }
+
+  @override
+  Future<bool> installVoiceData({String? engine}) async {
+    installedFrom.add(engine);
     return true;
   }
 }
@@ -133,6 +248,21 @@ void main() {
       expect(pickVoice([voice('cloud', network: true)], preferred: 'fr-FR'), isNull);
     });
 
+    test("of the language's own country, then of the language alone, before another's", () {
+      final picked = pickVoice([
+        voice('es-419', locale: 'es-MX', quality: 400),
+        voice('es', locale: 'es'),
+      ], preferred: 'es-ES');
+      expect(picked?.id, 'es', reason: "eSpeak NG's voices of Spanish");
+      expect(
+        pickVoice([
+          voice('es', locale: 'es'),
+          voice('es-es', locale: 'es-ES'),
+        ], preferred: 'es-ES')?.id,
+        'es-es',
+      );
+    });
+
     test('of the exact language first, then the best one, installed only', () {
       final picked = pickVoice([
         voice('quebec', locale: 'fr-CA', quality: 500),
@@ -151,12 +281,291 @@ void main() {
     expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
   });
 
-  test('an engine that lists no voice is not trusted to speak on the device', () async {
+  test(
+    'an engine that lists no voice of the language has none to speak with, whatever it says',
+    () async {
+      final output = PlatformVoiceOutput(
+        voice: FakePlatformVoice(const [], PlatformLanguageStatus.available),
+        chime: _wav,
+      );
+      expect(await output.prepare(RouteLanguage.en), VoiceReadiness.none);
+    },
+  );
+
+  test("one that speaks it through its vendor's server only means a voice to download", () async {
     final output = PlatformVoiceOutput(
-      voice: FakePlatformVoice(const [], PlatformLanguageStatus.available),
+      voice: FakePlatformVoice(const [], PlatformLanguageStatus.network),
       chime: _wav,
     );
     expect(await output.prepare(RouteLanguage.en), VoiceReadiness.missingData);
+  });
+
+  group('a device with several engines', () {
+    const samsung = 'com.samsung.SMT';
+    const google = 'com.google.android.tts';
+
+    test('a voice installed in another engine than the default is found, and speaks', () async {
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        ),
+        FakeEngine(
+          google,
+          voices: {
+            'fr': [voice('fr-fr-x-frc-local'), voice('fr-fr-x-frc-network', network: true)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+      expect(device.used, google);
+      await output.say('Tournez à droite.');
+      expect(device.spokenWith, ['fr-fr-x-frc-local']);
+    });
+
+    test('the default engine speaks when it has the voice, and no other is asked', () async {
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00')],
+          },
+        ),
+        FakeEngine(
+          google,
+          voices: {
+            'fr': [voice('fr-fr-x-frc-local', quality: 500)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+      expect(device.used, samsung);
+      expect(device.asked, [samsung]);
+    });
+
+    test("with no voice anywhere, the download offered is the default engine's, and its own "
+        'installer opens', () async {
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          label: 'Moteur Samsung',
+          status: {'fr-FR': PlatformLanguageStatus.missingData},
+        ),
+        FakeEngine(
+          google,
+          voices: {
+            'fr': [voice('fr-fr-x-frc-local', installed: false)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+      expect(output.installEngine, 'Moteur Samsung');
+      expect(await output.installVoices(), isTrue);
+      expect(device.installedFrom, [samsung]);
+    });
+
+    test('a default engine without the language leaves the download to one that has it', () async {
+      final device = FakeDevice([
+        FakeEngine('com.github.olga_yakovleva.rhvoice.android', label: 'RHVoice'),
+        FakeEngine(
+          google,
+          label: 'Google',
+          voices: {
+            'fr': [voice('fr-fr-x-frc-local', installed: false)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+      expect(output.installEngine, 'Google');
+      await output.installVoices();
+      expect(device.installedFrom, [google]);
+    });
+
+    test(
+      "no engine with the language: no voice, and the installer is the system's choice",
+      () async {
+        final device = FakeDevice([FakeEngine('com.github.olga_yakovleva.rhvoice.android')]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.none);
+        expect(output.installEngine, isNull);
+      },
+    );
+
+    test('an engine the app does not know speaks only as the default one', () async {
+      const unknown = 'com.example.cloudvoice';
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        ),
+        FakeEngine(
+          unknown,
+          voices: {
+            'fr': [voice('fr-cloud')],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+      expect(device.asked, [samsung], reason: 'not asked');
+      final chosen = FakeDevice([
+        FakeEngine(
+          unknown,
+          voices: {
+            'fr': [voice('fr-cloud')],
+          },
+        ),
+      ]);
+      final speaks = PlatformVoiceOutput(voice: chosen, chime: _wav);
+      expect(await speaks.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+      expect(chosen.used, unknown);
+    });
+
+    test(
+      'an app under the name of a system engine, not part of the system, is passed over',
+      () async {
+        final device = FakeDevice([
+          FakeEngine(
+            samsung,
+            voices: {
+              'fr': [voice('fr-FR-SMTf00', installed: false)],
+            },
+          ),
+          FakeEngine(
+            google,
+            system: false,
+            voices: {
+              'fr': [voice('fr-fr-x-frc-local')],
+            },
+          ),
+        ]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+        expect(device.asked, [samsung]);
+      },
+    );
+
+    test('an engine that does not start is passed over', () async {
+      final device = FakeDevice([
+        FakeEngine(samsung, starts: false),
+        FakeEngine(
+          google,
+          voices: {
+            'fr': [voice('fr-fr-x-frc-local')],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+      expect(device.used, google);
+    });
+
+    test('a list of engines that never comes ends the look after a while, without a voice', () {
+      fakeAsync((async) {
+        final device = FakeDevice([FakeEngine(google)], answers: false);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        VoiceReadiness? readiness;
+        unawaited(output.prepare(RouteLanguage.fr).then((r) => readiness = r));
+        async.elapse(PlatformVoiceOutput.engineWait + const Duration(seconds: 1));
+        expect(readiness, VoiceReadiness.none);
+      });
+    });
+
+    test('a fresh look asked while one runs is the same look', () async {
+      final device = FakeDevice([
+        FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        ),
+      ]);
+      final output = PlatformVoiceOutput(voice: device, chime: _wav);
+      final first = output.prepare(RouteLanguage.fr, fresh: true);
+      final second = output.prepare(RouteLanguage.fr, fresh: true);
+      await (first, second).wait;
+      expect(device.calls.where((c) => c == 'refresh'), hasLength(1));
+    });
+
+    test('so is one that never answers, after a while', () {
+      fakeAsync((async) {
+        final device = FakeDevice([
+          FakeEngine(samsung, answers: false),
+          FakeEngine(
+            google,
+            voices: {
+              'fr': [voice('fr-fr-x-frc-local')],
+            },
+          ),
+        ]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        VoiceReadiness? readiness;
+        unawaited(output.prepare(RouteLanguage.fr).then((r) => readiness = r));
+        async.elapse(PlatformVoiceOutput.engineWait - const Duration(milliseconds: 100));
+        expect(readiness, isNull);
+        async.elapse(const Duration(milliseconds: 200));
+        expect(readiness, VoiceReadiness.ready);
+        expect(device.used, google);
+      });
+    });
+
+    test(
+      'a fresh look lets go of the engines first, and sees what was installed meanwhile',
+      () async {
+        final samsungEngine = FakeEngine(
+          samsung,
+          voices: {
+            'fr': [voice('fr-FR-SMTf00', installed: false)],
+          },
+        );
+        final device = FakeDevice([samsungEngine]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
+        samsungEngine.voices = {
+          'fr': [voice('fr-FR-SMTf00')],
+        };
+        expect(await output.prepare(RouteLanguage.fr, fresh: true), VoiceReadiness.ready);
+        expect(device.calls, [
+          'engines',
+          'voices $samsung',
+          'use $samsung',
+          'refresh',
+          'engines',
+          'voices $samsung',
+          'use $samsung',
+        ]);
+      },
+    );
+
+    test('each of the six languages finds its voice in the engine that has it', () async {
+      for (final language in RouteLanguage.values) {
+        final code = language.name;
+        final device = FakeDevice([
+          FakeEngine(samsung),
+          // eSpeak NG names some voices by language alone.
+          FakeEngine(
+            'com.reecedunn.espeak',
+            voices: {
+              code: [voice('espeak-$code', locale: code)],
+            },
+          ),
+        ]);
+        final output = PlatformVoiceOutput(voice: device, chime: _wav);
+        expect(await output.prepare(language), VoiceReadiness.ready, reason: code);
+        expect(device.used, 'com.reecedunn.espeak', reason: code);
+        await output.say('Bonjour.');
+        expect(device.spokenWith, ['espeak-$code'], reason: code);
+        expect(device.spokenIn, [code], reason: 'its own tag');
+      }
+    });
   });
 
   test("the preview's warm-up and the start share one listing of the voices", () async {

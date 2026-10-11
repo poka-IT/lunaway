@@ -2255,6 +2255,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get limit => 'Limiet';
 	@override String noVoice({required Object language}) => 'Geen stem in het ${language} op dit apparaat: instructies alleen op het scherm.';
 	@override String missingVoice({required Object language}) => 'De stem in het ${language} is nog niet gedownload.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'De stem in het ${language} is nog niet gedownload in “${engine}”.';
 	@override String get installVoice => 'Installeren';
 	@override String get voiceSettingsIos => 'Instellingen, Toegankelijkheid, Gesproken materiaal, Stemmen';
 	@override String get notificationTitle => 'Lunaway wijst je de weg';
@@ -4138,6 +4139,7 @@ extension on TranslationsNl {
 			'navigation.guidance.limit' => 'Limiet',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Geen stem in het ${language} op dit apparaat: instructies alleen op het scherm.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'De stem in het ${language} is nog niet gedownload.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'De stem in het ${language} is nog niet gedownload in “${engine}”.',
 			'navigation.guidance.installVoice' => 'Installeren',
 			'navigation.guidance.voiceSettingsIos' => 'Instellingen, Toegankelijkheid, Gesproken materiaal, Stemmen',
 			'navigation.guidance.notificationTitle' => 'Lunaway wijst je de weg',
@@ -4447,9 +4449,9 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
-			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
 			'translation.busy' => 'De vertaaldienst is overbelast. Probeer het later opnieuw.',
@@ -4961,9 +4963,9 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
-			'poi.kind.cosmetics' => 'Drogisterij',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',
 			'poi.kind.secondHand' => 'Tweedehands, antiek',
