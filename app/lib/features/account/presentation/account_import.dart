@@ -65,9 +65,8 @@ Future<void> chooseForImported(
   final outboxRunner = ref.read(outboxRunnerProvider.notifier);
   // Kept across the sheet's openings: the card's detour closes it.
   final progress = ImportProgress();
-  Future<void> giveUp() => favorites.holding(
-    () => outboxRunner.holding(() => _giveUp(controller, switcher, imported, progress)),
-  );
+  Future<void> giveUp() =>
+      favorites.holding(() => outboxRunner.holding(() => _giveUp(controller, switcher, imported)));
   final start = ref.read(accountControllerProvider);
   if (start is! SignedIn) {
     await controller.cancelImport(imported);
@@ -144,7 +143,6 @@ Future<void> _giveUp(
   AccountController controller,
   AccountSwitch switcher,
   ImportedAccount imported,
-  ImportProgress progress,
 ) async {
   // What a choice still under way leaves decides.
   await switcher.quiet();
@@ -156,7 +154,7 @@ Future<void> _giveUp(
       await controller.replace(imported);
       return;
     }
-    if ((progress.uncertain || committed()) && await controller.settleImport(imported)) return;
+    if (switcher.mayHaveMerged(imported) && await controller.settleImport(imported)) return;
   } on Object catch (e) {
     _log.info('the import did not end: ${e.runtimeType}');
     if (committed()) return;
@@ -444,7 +442,16 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       // closes only with an outcome.
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
-        if (!popped && !_busy && !left) unawaited(_cancel());
+        if (popped || _busy || left) return;
+        // At the replacement's step, back to the choice, as "Retour".
+        if (_replacing) {
+          setState(() {
+            _replacing = false;
+            _failure = null;
+          });
+          return;
+        }
+        unawaited(_cancel());
       },
       child: SafeArea(
         top: false,

@@ -436,6 +436,17 @@ void main() {
     expect(signedIn(app, tester), _current);
   });
 
+  testWidgets('at the replacement, the system back returns to the choice', (tester) async {
+    final api = FakeApi();
+    await openImport(tester, api);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    await tester.binding.handlePopRoute();
+    await settleShort(tester);
+    expect(find.text(t.accountImport.choiceTitle), findsOneWidget, reason: 'as "Retour" does');
+    expect(api.forgotten, isEmpty);
+  });
+
   testWidgets('a merge the device could not keep loses nothing, and "Réessayer" ends it', (
     tester,
   ) async {
@@ -456,9 +467,10 @@ void main() {
     await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
     expect(find.text(t.accountImport.deviceFailed), findsOneWidget);
     await settleShort(tester, const Duration(seconds: 2));
+    final moved = await store.byId(waiting!.id);
     expect(
-      (await store.byId(waiting!.id))?.state,
-      isNot(OutboxState.failed),
+      (moved?.accountId, moved?.state),
+      (FakeApi.otherId, OutboxState.pending),
       reason: 'moved to the account kept, it waits for the device to hold it',
     );
 
@@ -468,6 +480,11 @@ void main() {
     expect(signedIn(app, tester), _imported);
     await settleShort(tester, const Duration(seconds: 2));
     expect(await store.byId(waiting.id), isNull, reason: 'sent under the account kept');
+    expect(
+      api.calls.lastWhere((c) => c.operation == 'Confirm').token,
+      startsWith('other-'),
+      reason: 'with the session of the account kept',
+    );
   });
 
   testWidgets('a replacement cut after the account was left offers only to end it', (tester) async {

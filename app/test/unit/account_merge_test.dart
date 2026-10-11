@@ -12,8 +12,11 @@ import 'package:lunaway/features/account/data/device_keys.dart';
 import 'package:lunaway/features/account/data/p256.dart';
 import 'package:lunaway/features/account/data/secret_store.dart';
 import 'package:lunaway/features/account/domain/account.dart';
+import 'package:lunaway/features/community/data/community_api.dart';
 import 'package:lunaway/features/community/data/outbox.dart';
+import 'package:lunaway/features/community/data/outbox_sender.dart';
 import 'package:lunaway/features/community/data/pending_files.dart';
+import 'package:lunaway/features/community/data/photo_upload.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -162,6 +165,51 @@ void main() {
       expect((await device.restore())!.account.id, FakeApi.otherId);
     },
   );
+
+  test('what moved to the account kept waits for it through a restart of the app', () async {
+    final store = _Breakable(secrets)..refused.add('session');
+    final (_, switcher) = over(store);
+    final oldId = await currentId();
+    final waiting = await outbox.add(
+      ContributionKind.confirm,
+      placeId: lakeArea.id,
+      payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      accountId: oldId,
+    );
+    final imported = await switcher.import(FakeApi.otherRecoveryCode);
+    await expectLater(
+      switcher.merge(imported, currentId: oldId),
+      throwsA(isA<MergeUnsettledException>()),
+    );
+    expect((await outbox.byId(waiting!.id))!.accountId, FakeApi.otherId);
+
+    // The app ends there; the next launch sends before any sign-in.
+    store.refused.clear();
+    final (restarted, _) = over(store);
+    final sender = OutboxSender(
+      outbox: outbox,
+      api: GraphQLCommunityApi(
+        account: restarted,
+        uploader: PhotoUploader(
+          client: MockClient((_) async => http.Response('', 404)),
+          endpoint: Uri.parse('$testApiBase/upload'),
+          userAgent: 'test',
+        ),
+      ),
+      accountId: () async => (await restarted.restore())?.account.id,
+      waiting: () async {
+        final merged = await restarted.mergedFrom();
+        return {?merged?.from, ?merged?.intoId};
+      },
+      clock: () => testNow,
+    );
+    await sender.sendDue();
+    expect(
+      (await outbox.byId(waiting.id))!.state,
+      isNot(OutboxState.failed),
+      reason: 'it belongs to the account kept, which comes at the next sign-in',
+    );
+  });
 
   test('a request whose session was read while the device switched is not sent', () async {
     final imported = await accounts.import(FakeApi.otherRecoveryCode);

@@ -72,7 +72,15 @@ final class AccountSwitch {
 
   Future<MergeResult> _merge(ImportedAccount imported, String currentId) async {
     if (!identical(_landed?.imported, imported)) {
-      final (target, result) = await service.mergeOnServer(imported);
+      final MergeResult result;
+      final ImportedAccount target;
+      try {
+        (target, result) = await service.mergeOnServer(imported);
+      } on MergeUnsettledException {
+        _unanswered = imported;
+        rethrow;
+      }
+      _unanswered = null;
       _landed = _Landed(imported: imported, target: target, result: result);
     }
     return await _finish(currentId);
@@ -81,6 +89,15 @@ final class AccountSwitch {
   /// A merge the server made that the device has not finished.
   _Landed? _landed;
 
+  /// The import whose merge was sent without an answer.
+  ImportedAccount? _unanswered;
+
+  /// Whether the server may have merged the device's account into
+  /// [imported], or did and the device has not finished: giving the import
+  /// up then waits for the server's word ([settle]).
+  bool mayHaveMerged(ImportedAccount imported) =>
+      identical(_unanswered, imported) || identical(_landed?.imported, imported);
+
   /// Finishes on the device the merge the server made ([_landed]): what
   /// waits moves to the account kept, which the device then holds. Its
   /// failure (the device's storage refused) leaves the merge to finish at
@@ -88,9 +105,14 @@ final class AccountSwitch {
   /// the device may have half switched.
   Future<MergeResult> _finish(String currentId) async {
     final landed = _landed!;
+    final kept = landed.result.account;
     try {
-      await outbox.reassign(from: currentId, to: landed.result.account.id);
-      await service.adopt(landed.target, landed.result.account);
+      // Noted first: should the app end before the device holds the account
+      // kept, what moved to it waits for it at the next launch, and the
+      // account kept claims it when it comes ([claimMerged]).
+      await service.noteMerged(from: currentId, into: kept);
+      await outbox.reassign(from: currentId, to: kept.id);
+      await service.adopt(landed.target, kept);
     } on Object catch (e) {
       throw MergeUnsettledException(e, onDevice: true);
     }
@@ -105,7 +127,11 @@ final class AccountSwitch {
   Future<bool> settle(ImportedAccount imported, {required String currentId}) async {
     await _waitForMerge();
     if (!identical(_landed?.imported, imported)) {
-      if (!await service.mergeLanded(imported)) return false;
+      if (!await service.mergeLanded(imported)) {
+        if (identical(_unanswered, imported)) _unanswered = null;
+        return false;
+      }
+      _unanswered = null;
       _landed = _Landed(
         imported: imported,
         target: imported,
@@ -150,7 +176,10 @@ final class AccountSwitch {
   /// stays.
   Future<void> cancel(ImportedAccount imported) async {
     await quiet();
-    if (identical(_landed?.imported, imported)) _landed = null;
+    // Made on the server: the import is the account the device can still
+    // open, and stays to be finished ([settle]).
+    if (identical(_landed?.imported, imported)) return;
+    if (identical(_unanswered, imported)) _unanswered = null;
     await service.cancelImport(imported);
   }
 
@@ -191,7 +220,9 @@ final class AccountSwitch {
   /// contributions were handed over.
   Future<bool> claimMerged(Account account) async {
     final merged = await service.mergedFrom();
-    if (merged == null) return false;
+    // The account merged itself, read again at launch before the device
+    // learns where it went: what waits keeps waiting.
+    if (merged == null || merged.from == account.id) return false;
     final claimed = merged.intoId == account.id;
     if (claimed) await outbox.reassign(from: merged.from, to: account.id);
     await service.forgetMergedFrom();

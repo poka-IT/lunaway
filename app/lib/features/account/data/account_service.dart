@@ -226,6 +226,15 @@ final class AccountService {
   /// never leave.
   Future<void> forgetMergedFrom() => secrets.delete(_mergedSlot);
 
+  /// Notes that the account [from] went into [into], before the device
+  /// moves anything to it: the waiting contributions wait for [into] to
+  /// come, through a restart of the app included.
+  Future<void> noteMerged({required String from, required Account into}) =>
+      _noteMerged(from: from, into: into.pseudonym, intoId: into.id);
+
+  Future<void> _noteMerged({required String from, required String into, String? intoId}) =>
+      secrets.write(_mergedSlot, jsonEncode({'from': from, 'into': into, 'intoId': ?intoId}));
+
   final _events = StreamController<AccountEvent>.broadcast();
   Session? _session;
   bool _loaded = false;
@@ -405,10 +414,7 @@ final class AccountService {
       if (mergedInto != null) {
         // Its waiting contributions now belong to that account: they wait
         // for it to come to this device (`mergedFrom`).
-        await secrets.write(
-          _mergedSlot,
-          jsonEncode({'from': previous.id, 'into': mergedInto, 'intoId': ?mergedIntoId}),
-        );
+        await _noteMerged(from: previous.id, into: mergedInto, intoId: mergedIntoId);
       }
       await _forget(lost: true, mergedInto: mergedInto);
       throw AccountLostException(mergedInto: mergedInto);

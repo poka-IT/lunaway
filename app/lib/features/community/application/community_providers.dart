@@ -79,13 +79,14 @@ CommunityApi communityApi(Ref ref) => GraphQLCommunityApi(
 @Riverpod(keepAlive: true)
 OutboxSender outboxSender(Ref ref) {
   final account = ref.watch(accountServiceProvider);
+  final switcher = ref.watch(accountSwitchProvider);
   final sender = OutboxSender(
     outbox: ref.watch(outboxStoreProvider),
     api: ref.watch(communityApiProvider),
     accountId: () async => (await account.restore())?.account.id,
     waiting: () async {
       final merged = await account.mergedFrom();
-      return {?merged?.from, ?merged?.intoId, ?ref.read(accountSwitchProvider).landing};
+      return {?merged?.from, ?merged?.intoId, ?switcher.landing};
     },
     clock: ref.watch(clockProvider),
   );
