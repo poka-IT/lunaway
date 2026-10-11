@@ -817,6 +817,62 @@ async fn an_answer_too_large_is_asked_again_with_one_alternative_less(pool: PgPo
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_answer_too_large_without_alternatives_is_unavailable(pool: PgPool) {
+    seed(&pool).await;
+    let heavy = json!({"code": "Ok", "routes": [], "padding": "x".repeat(17 * 1024 * 1024)});
+    let (url, asked) = engine(vec![(200, heavy)], Duration::ZERO).await;
+    let mut c = config(&url);
+    c.routing.timeout = Duration::from_secs(5);
+    c.quotas.route = Quota {
+        count: 1,
+        period: Duration::from_secs(600),
+    };
+    let app = lunaway_api::router(ApiState::new(pool.clone(), c));
+    let mut variables = input(3.3);
+    variables["input"]["alternatives"] = 2.into();
+    let (_, body) = gql(&app, ROUTE_QUERY, variables.clone()).await;
+    assert_eq!(code(&body), "UNAVAILABLE", "{body}");
+    let (_, body) = gql(&app, ROUTE_QUERY, variables.clone()).await;
+    assert_eq!(
+        code(&body),
+        "RATE_LIMITED",
+        "the engine computed the routes three times: the request is not given back"
+    );
+    let alternates: Vec<Option<u64>> = asked
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|b| b.get("alternates").and_then(Value::as_u64))
+        .collect();
+    assert_eq!(
+        alternates,
+        [Some(2), Some(1), None],
+        "down to the best route alone, then no further"
+    );
+
+    // Through a waypoint the engine computes no alternative: one call.
+    let (url, asked) = engine(
+        vec![(
+            200,
+            json!({"code": "Ok", "routes": [], "padding": "x".repeat(17 * 1024 * 1024)}),
+        )],
+        Duration::ZERO,
+    )
+    .await;
+    let mut c = config(&url);
+    c.routing.timeout = Duration::from_secs(5);
+    let app = lunaway_api::router(ApiState::new(pool, c));
+    variables["input"]["waypoints"] = json!([{"lat": 45.8462, "lon": 1.2855}]);
+    let (_, body) = gql(&app, ROUTE_QUERY, variables).await;
+    assert_eq!(code(&body), "UNAVAILABLE", "{body}");
+    assert_eq!(
+        asked.lock().unwrap().len(),
+        1,
+        "the same body is never sent again"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_failure_of_the_server_does_not_cost_the_client_a_route(pool: PgPool) {
     seed(&pool).await;
     let (url, _) = engine(

@@ -28,12 +28,13 @@ const NO_ALTERNATE_ABOVE_M: f64 = 3_000_000.0;
 /// of 430 to 2 250 km, Europe graph, 2026-10-11,
 /// `plan/research/129-paquets-routage-suites.md`), against 2.3 kB at most
 /// on motorways: more shape points and instructions to the kilometre.
-/// Beyond this, three of the lightest weigh more than the API passes to the
-/// app (`MAX_OSRM_BYTES`, 11 MiB): the third would be dropped unread.
+/// Beyond this, three routes as light as the lightest measured weigh more
+/// than the API passes to the app (`MAX_OSRM_BYTES`, 11 MiB): the third
+/// would be dropped unread.
 const ONE_ALTERNATE_OFF_MOTORWAYS_ABOVE_M: f64 = 1_400_000.0;
 /// Straight-line length above which no alternative is asked when motorways
-/// are avoided, metres: two such routes weigh more than the API passes to
-/// the app.
+/// are avoided, metres: two routes as light as the lightest measured weigh
+/// more than the API passes to the app.
 const NO_ALTERNATE_OFF_MOTORWAYS_ABOVE_M: f64 = 2_100_000.0;
 /// How far, in metres, the engine may look for a road around a point: a
 /// point farther from any road is not a place a motorhome can be routed to,
@@ -121,8 +122,9 @@ pub(crate) struct Avoid {
 /// straight line from stop to stop, when `wanted` are: fewer on long trips,
 /// so that the answer stays within [`MAX_ANSWER_BYTES`]. Off motorways a
 /// route weighs up to three times as much; there, only the alternatives
-/// that could never reach the app are left out, and an answer that still
-/// exceeds the limit is asked again with one alternative less.
+/// that the lightest routes measured would not bring to the app are left
+/// out, and an answer that still exceeds the limit is asked again with one
+/// alternative less.
 pub(crate) fn alternates_for(wanted: u8, trip_m: f64, avoid: Avoid) -> u8 {
     let (one_above, none_above) = if avoid.motorways {
         (
@@ -765,7 +767,7 @@ mod tests {
         assert!(worst(3.0, ONE_ALTERNATE_ABOVE_M) < max);
         assert!(worst(2.0, NO_ALTERNATE_ABOVE_M) < max);
         assert!(worst(1.0, crate::routing_query::MAX_TRIP_M) < max);
-        // Off motorways, what is left out could never reach the app: the
+        // Off motorways, what is left out would not reach the app: the
         // lightest route measured, 2.82 kB per kilometre of straight line,
         // times the routes, exceeds what the API passes on.
         let off = Avoid {

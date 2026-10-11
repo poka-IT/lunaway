@@ -327,7 +327,9 @@ impl RouteLine {
     /// `max_m`, if any: where the route passes through a node of the ways
     /// it follows, its shape being made of those nodes. A node the line
     /// only passes near (a barrier under a bridge the route crosses, a
-    /// portal on a parallel aisle) is no point of the shape.
+    /// portal on a parallel aisle) is no point of the shape. `max_m` stays
+    /// well under a cell of the index (about 70 m of longitude at the North
+    /// Cape): the query reads the cells around `p` only.
     #[must_use]
     pub fn vertex_near(&self, p: Position, max_m: f64) -> Option<f64> {
         let (r, c) = cell(p);
@@ -486,7 +488,7 @@ pub fn match_route(route: &RouteLine, geometry: &[Position], tolerance_m: f64) -
 /// them, so the engine already keeps a route off such a node; counted, it
 /// sent the route to the engine again for nothing (six of 119 long trips,
 /// `plan/research/127-routage-serveur.md`). A barrier drawn beside the
-/// road, joined to no way the route drives, no longer counts.
+/// road, joined to no way the route drives, does not count.
 #[must_use]
 pub fn match_restriction(
     route: &RouteLine,
@@ -1052,9 +1054,9 @@ mod tests {
             match_restriction(&route, &under, RestrictionSource::Osm).is_empty(),
             "a 3 m bar on the cycle path under the bridge is no node of the route"
         );
-        // A portal on the aisle beside the road, 0.62 m off the line in plan
-        // (the Italian car park of report 127).
-        let beside = [at(limoges(), 260.0, 0.62)];
+        // A portal on the aisle beside the road, 0.62 m off a point of the
+        // shape (the Italian car park of report 127).
+        let beside = [at(limoges(), 300.0, 0.62)];
         assert!(
             match_restriction(&route, &beside, RestrictionSource::Osm).is_empty(),
             "a node beside the line is on another way"

@@ -1207,8 +1207,10 @@ impl Routing {
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
-        // Asked afterwards, the alternatives make no part of this call.
-        let mut alternates = if request.later {
+        // Asked afterwards, the alternatives make no part of this call; the
+        // engine computes none through waypoints (`route_body`), so none is
+        // counted on for an answer too large.
+        let mut alternates = if request.later || request.stops.len() != 2 {
             0
         } else {
             valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid)
@@ -1253,6 +1255,9 @@ impl Routing {
                 // `alternates_for` keeps this rare; it is not a
                 // recalculation.
                 Err(EngineError::TooLarge) if alternates > 0 => {
+                    // The engine computed the routes: the call is the
+                    // client's, as any answer is.
+                    work.answered = true;
                     alternates -= 1;
                     tracing::info!(
                         alternates,
