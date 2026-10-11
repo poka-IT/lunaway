@@ -208,8 +208,9 @@ class GuidanceCamera extends _$GuidanceCamera {
 /// The arrow the guidance map draws on the route at the next maneuver
 /// ([arrowForManeuver]); none off the route, while a new one is sought or
 /// at the arrival. Worked out once per maneuver: where it lies along the
-/// route (the distance driven plus the distance to it, read to 5 m) holds
-/// while the vehicle drives toward it.
+/// route (the distance driven plus the distance to it) is read when the
+/// maneuver comes up and holds while the vehicle drives toward it, so a
+/// fix that wanders, parked, neither moves it nor redraws the map.
 @riverpod
 ManeuverArrow? guidanceArrow(Ref ref) {
   final ahead = ref.watch(
@@ -228,10 +229,9 @@ ManeuverArrow? guidanceArrow(Ref ref) {
       final type = snap.banner?.maneuverType ?? next?.maneuverType;
       // A roundabout entered at the maneuver: its ring is the next step.
       final ring = type == 'roundabout' || type == 'rotary' ? next?.distanceM ?? 0.0 : 0.0;
-      final atM = ((snap.distanceAlongM + snap.distanceToManeuverM) / 5).round() * 5.0;
       return (
         line: s.route.line,
-        atM: atM,
+        step: i,
         type: type,
         modifier: snap.banner?.modifier ?? next?.modifier,
         ringM: ring,
@@ -239,9 +239,11 @@ ManeuverArrow? guidanceArrow(Ref ref) {
     }),
   );
   if (ahead == null) return null;
+  final snap = ref.read(guidanceControllerProvider)?.snapshot;
+  if (snap == null) return null;
   return arrowForManeuver(
     ahead.line,
-    atM: ahead.atM,
+    atM: snap.distanceAlongM + snap.distanceToManeuverM,
     type: ahead.type,
     modifier: ahead.modifier,
     ringM: ahead.ringM,
@@ -257,6 +259,12 @@ ManeuverArrow? guidanceArrow(Ref ref) {
 @riverpod
 class GuidanceAim extends _$GuidanceAim {
   final _speed = SpeedHold();
+
+  /// The aim last worked out while the vehicle moved: parked, it holds,
+  /// as the drawn vehicle does ([AutoZoom.holdBelowMps]); a fix that
+  /// wanders by a few metres moves neither the zoom nor the tilt, and the
+  /// map draws no frame.
+  CameraAim? _moving;
 
   @override
   CameraAim build() {
@@ -277,7 +285,15 @@ class GuidanceAim extends _$GuidanceAim {
   }
 
   CameraAim _aimOf(GuidanceSession? session) {
-    final kmh = _speed.update(session?.lastFix?.speedMps);
+    final speed = session?.lastFix?.speedMps;
+    final kmh = _speed.update(speed);
+    if (_moving case final held? when speed != null && speed < AutoZoom.holdBelowMps) {
+      return held;
+    }
+    return _moving = _aimMoving(session, kmh);
+  }
+
+  CameraAim _aimMoving(GuidanceSession? session, double kmh) {
     final snap = session?.snapshot;
     // Off the route the maneuver is that of a road the vehicle left.
     if (session == null || snap == null || snap.offRoute) {

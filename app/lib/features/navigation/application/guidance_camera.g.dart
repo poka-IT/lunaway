@@ -97,8 +97,9 @@ abstract class _$GuidanceCamera extends $Notifier<GuidanceView> {
 /// The arrow the guidance map draws on the route at the next maneuver
 /// ([arrowForManeuver]); none off the route, while a new one is sought or
 /// at the arrival. Worked out once per maneuver: where it lies along the
-/// route (the distance driven plus the distance to it, read to 5 m) holds
-/// while the vehicle drives toward it.
+/// route (the distance driven plus the distance to it) is read when the
+/// maneuver comes up and holds while the vehicle drives toward it, so a
+/// fix that wanders, parked, neither moves it nor redraws the map.
 
 @ProviderFor(guidanceArrow)
 final guidanceArrowProvider = GuidanceArrowProvider._();
@@ -106,8 +107,9 @@ final guidanceArrowProvider = GuidanceArrowProvider._();
 /// The arrow the guidance map draws on the route at the next maneuver
 /// ([arrowForManeuver]); none off the route, while a new one is sought or
 /// at the arrival. Worked out once per maneuver: where it lies along the
-/// route (the distance driven plus the distance to it, read to 5 m) holds
-/// while the vehicle drives toward it.
+/// route (the distance driven plus the distance to it) is read when the
+/// maneuver comes up and holds while the vehicle drives toward it, so a
+/// fix that wanders, parked, neither moves it nor redraws the map.
 
 final class GuidanceArrowProvider
     extends $FunctionalProvider<ManeuverArrow?, ManeuverArrow?, ManeuverArrow?>
@@ -115,8 +117,9 @@ final class GuidanceArrowProvider
   /// The arrow the guidance map draws on the route at the next maneuver
   /// ([arrowForManeuver]); none off the route, while a new one is sought or
   /// at the arrival. Worked out once per maneuver: where it lies along the
-  /// route (the distance driven plus the distance to it, read to 5 m) holds
-  /// while the vehicle drives toward it.
+  /// route (the distance driven plus the distance to it) is read when the
+  /// maneuver comes up and holds while the vehicle drives toward it, so a
+  /// fix that wanders, parked, neither moves it nor redraws the map.
   GuidanceArrowProvider._()
     : super(
         from: null,
@@ -150,7 +153,7 @@ final class GuidanceArrowProvider
   }
 }
 
-String _$guidanceArrowHash() => r'6c35c80d08241f841c0126aeaf63f1d7e352edb7';
+String _$guidanceArrowHash() => r'f69348d74cd0d72acd5d2aad401d45057ce5a262';
 
 /// The zoom and the tilt the guidance map aims at while it follows
 /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
@@ -203,7 +206,7 @@ final class GuidanceAimProvider
   }
 }
 
-String _$guidanceAimHash() => r'09a51d3e5e6b52202ddd5e1636afa93ad6214fd7';
+String _$guidanceAimHash() => r'3d7bfe2c1c77ef64f6c6ba777ed9ebbbd1204afc';
 
 /// The zoom and the tilt the guidance map aims at while it follows
 /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that

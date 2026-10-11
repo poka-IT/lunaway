@@ -65,6 +65,10 @@ abstract final class AutoZoom {
   /// and the view must not breathe with it.
   static const speedHysteresisKmh = 6.0;
 
+  /// Below this speed, metres per second, the vehicle is parked and the
+  /// aim holds, as the drawn vehicle holds (`VehicleMotion.parkedMps`).
+  static const holdBelowMps = 1.0;
+
   /// The zooms the camera never leaves while following.
   static const minZoom = 13.5;
   static const maxZoom = 18.0;

@@ -1160,10 +1160,13 @@ class _GuidanceMap extends ConsumerWidget {
         // driving: zones in France, nothing in Germany or Switzerland.
         zones: session.aids.zones,
         // The drawn vehicle reaches each fix as the next one comes: the grey
-        // stops a second's drive behind it, under the arrow.
-        traveledM: alongOnRoute == null
-            ? null
-            : math.max(0, alongOnRoute - (session.lastFix?.speedMps ?? 0)).toDouble(),
+        // stops a second's drive behind it, under the arrow. Parked, it
+        // holds: a fix that wanders does not redraw the route.
+        traveledM: switch ((alongOnRoute, session.lastFix?.speedMps)) {
+          (final along?, final speed?) when speed >= VehicleMotion.parkedMps =>
+            math.max(0, along - speed).toDouble(),
+          _ => null,
+        },
         arrow: ref.watch(guidanceArrowProvider),
         places: tiles,
         rich: RouteMapRich(

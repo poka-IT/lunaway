@@ -321,6 +321,47 @@ void main() {
       expect(await at(62), lessThan(steady), reason: 'faster: a wider closest');
     });
 
+    testWidgets('parked, a fix that wanders moves neither the aim, the arrow nor the grey', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final camera = map().camera as FollowCamera;
+      final arrow = map().arrow;
+      expect(arrow, isNotNull);
+      expect(map().traveledM, closeTo(90, 15));
+      final along = driveFixes(plan.routes.first, toM: 140);
+      var second = 100;
+      Future<void> fix(int index, double speedMps) async {
+        final f = along[index];
+        feed.send(
+          Fix(
+            position: f.position,
+            accuracyM: 12,
+            at: f.at.add(Duration(seconds: ++second)),
+            courseDeg: f.courseDeg,
+            speedMps: speedMps,
+          ),
+        );
+        await settleShort(tester);
+      }
+
+      // A parked receiver: under a walk, its place 10 to 40 m apart on the
+      // road, which would bring the turn closer and move the grey.
+      for (final i in [9, 13, 11, 14]) {
+        await fix(i, 0.4);
+        final now = map().camera as FollowCamera;
+        expect((now.zoom, now.tilt), (camera.zoom, camera.tilt));
+        expect(map().arrow, same(arrow));
+        expect(map().traveledM, isNull, reason: 'the grey drawn holds');
+      }
+      // Driving off: the turn 52 m ahead, the camera closes in.
+      await fix(14, 8);
+      expect((map().camera as FollowCamera).zoom, greaterThan(camera.zoom));
+      expect(map().traveledM, closeTo(132, 15));
+    });
+
     testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (
       tester,
     ) async {

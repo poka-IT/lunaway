@@ -499,8 +499,9 @@ final class RouteMapProps {
 
   /// Metres of the chosen route behind the vehicle, drawn grey
   /// ([RouteLook.traveled]); null keeps what the map drew for this route
-  /// (off the route, a distance along it means nothing), or none for a
-  /// route it has not drawn yet.
+  /// (off the route, a distance along it means nothing; parked, a fix
+  /// that wanders would move it for nothing), or none for a route it has
+  /// not drawn yet.
   final double? traveledM;
 
   /// The arrow of the next maneuver on the route; null draws none.
