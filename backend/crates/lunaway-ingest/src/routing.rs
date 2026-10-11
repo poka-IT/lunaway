@@ -107,9 +107,11 @@ pub struct PrepareReport {
     /// Relations rewritten to name the pieces of a cut way.
     pub node_limit_relations: usize,
     /// Ways through such a node left whole, the limit left to the check: a
-    /// ring closed at the node, a turn its pieces could not follow.
+    /// ring closed at the node, a turn its pieces could not follow, a
+    /// relation not read whole.
     pub node_limit_ways_left_whole: usize,
-    /// Ways the change file rewrites.
+    /// Ways the change file rewrites for their tags, before the cuts around
+    /// the limits of nodes ([`Self::node_limit_ways`]).
     pub fixed_ways: usize,
     /// Nodes the change file rewrites.
     pub fixed_nodes: usize,
@@ -185,6 +187,12 @@ pub struct Prepared {
     rewrites: Vec<Rewrite>,
     /// What was done.
     pub report: PrepareReport,
+    /// The ways cut in pieces around a node's limit, in order: a route on
+    /// one of their later pieces names the piece's new id, never the way's,
+    /// so a route test that names one of them proves nothing
+    /// (`cut-ways.txt`, which `infra/routing/build-graph.sh` checks the
+    /// test cases against).
+    pub cut_ways: Vec<i64>,
 }
 
 fn tag_map<'a>(tags: impl Iterator<Item = (&'a str, &'a str)>) -> BTreeMap<String, String> {
@@ -851,7 +859,7 @@ pub fn prepare(
         observed,
     ));
     report.fixed_ways = rewrites.len() - report.fixed_nodes;
-    carry_node_limits(
+    let cut_ways = carry_node_limits(
         path,
         &blocks.relations,
         &ways.kept,
@@ -937,6 +945,7 @@ pub fn prepare(
         records,
         rewrites,
         report,
+        cut_ways,
     })
 }
 
@@ -1104,16 +1113,23 @@ fn read_relations(
                     {
                         continue;
                     }
+                    let mut complete = true;
                     let members = r
                         .members()
                         .map(|m| node_limits::Member {
                             kind: match m.member_type {
-                                RelMemberType::Node => "node",
-                                RelMemberType::Way => "way",
-                                RelMemberType::Relation => "relation",
+                                RelMemberType::Node => node_limits::MemberKind::Node,
+                                RelMemberType::Way => node_limits::MemberKind::Way,
+                                RelMemberType::Relation => node_limits::MemberKind::Relation,
                             },
                             id: m.member_id,
-                            role: m.role().unwrap_or_default().to_owned(),
+                            role: m.role().map_or_else(
+                                |_| {
+                                    complete = false;
+                                    String::new()
+                                },
+                                str::to_owned,
+                            ),
                         })
                         .collect();
                     out.push(node_limits::Relation {
@@ -1122,6 +1138,7 @@ fn read_relations(
                         timestamp: timestamp_of(r.info().milli_timestamp()),
                         tags: tag_map(r.tags()),
                         members,
+                        complete,
                     });
                 }
             }
@@ -1143,7 +1160,8 @@ fn read_relations(
 /// `next_ids`, nodes then ways), and each relation that names a cut way
 /// rewritten to name its pieces. The pieces start from the way's tags as
 /// the change file already rewrites them. A way shorter than the stretch
-/// takes the limit whole, and keeps its nodes.
+/// takes the limit whole, and keeps its nodes. Returns the ways cut in
+/// pieces.
 #[allow(
     clippy::too_many_arguments,
     reason = "the state of prepare it completes, passed as it stands"
@@ -1157,7 +1175,7 @@ fn carry_node_limits(
     next_ids: (i64, i64),
     rewrites: &mut Vec<Rewrite>,
     report: &mut PrepareReport,
-) -> Result<(), IngestError> {
+) -> Result<Vec<i64>, IngestError> {
     let (mut next_node, next_way) = next_ids;
     let mut whole: BTreeMap<i64, Vec<node_limits::Piece>> = BTreeMap::new();
     let mut splits: BTreeMap<i64, Vec<node_limits::Piece>> = BTreeMap::new();
@@ -1181,7 +1199,7 @@ fn carry_node_limits(
         let ids: HashSet<i64> = splits.keys().copied().collect();
         read_relations(path, relation_blocks, &ids)?
     };
-    report.node_limit_ways_left_whole += node_limits::keep_turns_whole(&mut splits, &relations);
+    report.node_limit_ways_left_whole += node_limits::keep_whole(&mut splits, &relations);
     let piece_ids = node_limits::piece_ids(&splits, next_way);
 
     let kept_index: HashMap<i64, &KeptWay> = kept.iter().map(|w| (w.id, w)).collect();
@@ -1285,7 +1303,7 @@ fn carry_node_limits(
         left_whole = report.node_limit_ways_left_whole,
         "node limits carried by the ways through them"
     );
-    Ok(())
+    Ok(splits.into_keys().collect())
 }
 
 /// Whether an IGN section's limit of `kind` at `value` spares local access.
@@ -1415,7 +1433,7 @@ fn osc(rewrites: &[Rewrite]) -> String {
                         let _ = writeln!(
                             out,
                             "<member type=\"{}\" ref=\"{}\" role=\"{}\"/>",
-                            m.kind,
+                            m.kind.name(),
                             m.id,
                             xml_escape(&m.role)
                         );
@@ -1456,14 +1474,22 @@ fn write_gz(path: &Path, bytes: &[u8]) -> Result<(), IngestError> {
     gz.finish().map_err(io)?.flush().map_err(io)
 }
 
-/// Writes `fixes.osc.gz`, `restrictions.ndjson.gz` and `prepare.json` into
-/// `dir`, which must exist.
+/// Writes `fixes.osc.gz`, `restrictions.ndjson.gz`, `prepare.json` and
+/// `cut-ways.txt` (one way id a line, [`Prepared::cut_ways`]) into `dir`,
+/// which must exist.
 ///
 /// # Errors
 ///
 /// [`IngestError::Cache`] when a file cannot be written,
 /// [`IngestError::Json`] when a record does not serialise.
 pub fn write(prepared: &Prepared, dir: &Path) -> Result<(), IngestError> {
+    use std::fmt::Write as _;
+    let mut cut = String::with_capacity(prepared.cut_ways.len() * 11);
+    for id in &prepared.cut_ways {
+        let _ = writeln!(cut, "{id}");
+    }
+    let path = dir.join("cut-ways.txt");
+    std::fs::write(&path, cut).map_err(|source| IngestError::Cache { path, source })?;
     write_gz(
         &dir.join("fixes.osc.gz"),
         osc(&prepared.rewrites).as_bytes(),
@@ -1629,7 +1655,7 @@ mod tests {
             timestamp: at,
             create: false,
             shape: RewriteShape::Relation(vec![node_limits::Member {
-                kind: "way",
+                kind: node_limits::MemberKind::Way,
                 id: 900,
                 role: "a \"b\"".to_owned(),
             }]),

@@ -31,8 +31,12 @@ use serde_json::{Value, json};
 use crate::IngestError;
 
 /// How close a route's shape passes a point it goes through, metres: the
-/// shape holds the position of every node it follows.
-const ON_POINT_M: f64 = 1.5;
+/// shape holds the position of every node it follows (0.0 to 0.02 m on the
+/// production engine, 2026-10-11). Below the 1.5 m between a bar and the
+/// nearest end of the stretch that carries its limit (2 m, a cut made up
+/// to 0.5 m nearer at a node), so a route that stops at that end is not
+/// taken for one through the bar.
+const ON_POINT_M: f64 = 1.0;
 
 /// A vehicle, as the router's `auto` costing takes it.
 #[derive(Debug, Clone, Copy, Deserialize)]

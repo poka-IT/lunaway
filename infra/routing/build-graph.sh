@@ -112,6 +112,17 @@ docker run --rm \
 rm -f "$out/prepared.osm.pbf"
 
 log "5. route tests"
+# A case that names a way the preparation cut around a node's limit would
+# read the way's later pieces under new ids and prove nothing: such a case
+# names the bar's position instead (avoid_points, use_points).
+if [ -s "$out/cut-ways.txt" ]; then
+  named=$(grep -oE '"(use|avoid)_ways": *\[[0-9, ]*\]' infra/routing/test-routes.json | grep -oE '[0-9]+' | sort -u)
+  clash=$(printf '%s\n' "$named" | grep -Fxf "$out/cut-ways.txt" || true)
+  if [ -n "$clash" ]; then
+    log "route tests name ways the preparation cut around a node's limit: $(echo "$clash" | tr '\n' ' ')"
+    exit 1
+  fi
+fi
 # The bundle's configuration listens on the server's loopback; inside a
 # container, the check listens on all of the container's addresses and is
 # published on this machine's loopback only.

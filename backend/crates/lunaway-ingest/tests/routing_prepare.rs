@@ -490,8 +490,18 @@ fn a_bar_on_a_node_closes_a_stretch_of_each_way_through_it_and_the_relations_fol
         !records_of(&prepared, "node/3").is_empty(),
         "the check keeps the bar: a vehicle the engine lets through is still warned"
     );
+    assert_eq!(
+        prepared.cut_ways,
+        vec![100, 200],
+        "the short way keeps its id whole, the ways left whole are not cut"
+    );
 
     routing::write(&prepared, dir.path()).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("cut-ways.txt")).unwrap(),
+        "100\n200\n",
+        "the build checks the route tests against this list"
+    );
     let mut osc = String::new();
     flate2::read::GzDecoder::new(std::fs::File::open(dir.path().join("fixes.osc.gz")).unwrap())
         .read_to_string(&mut osc)

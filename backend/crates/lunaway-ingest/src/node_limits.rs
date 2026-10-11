@@ -242,11 +242,33 @@ pub(crate) fn cut(
     Some(pieces)
 }
 
+/// What a relation member is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemberKind {
+    /// A node.
+    Node,
+    /// A way.
+    Way,
+    /// A relation.
+    Relation,
+}
+
+impl MemberKind {
+    /// The name the change file writes.
+    pub(crate) const fn name(self) -> &'static str {
+        match self {
+            Self::Node => "node",
+            Self::Way => "way",
+            Self::Relation => "relation",
+        }
+    }
+}
+
 /// A relation member, as the change file writes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Member {
-    /// `node`, `way` or `relation`.
-    pub kind: &'static str,
+    /// What it is.
+    pub kind: MemberKind,
     /// The member's id.
     pub id: i64,
     /// Its role.
@@ -266,6 +288,10 @@ pub(crate) struct Relation {
     pub tags: BTreeMap<String, String>,
     /// Its members, in order.
     pub members: Vec<Member>,
+    /// Whether every member's role was read: one that was not would be
+    /// written back without it, so the relation is left as it is, and the
+    /// ways it names whole.
+    pub complete: bool,
 }
 
 /// Whether a relation names one way before and one after a point
@@ -290,33 +316,35 @@ fn piece_at(pieces: &[Piece], via: i64) -> Option<usize> {
     found.next().is_none().then_some(first)
 }
 
-/// Removes from `splits` the ways a turn relation cannot follow once cut:
-/// one of its `via` (a turn through several ways: the chain would have to be
-/// rebuilt), or a `from` or `to` whose node `via` is not on exactly one of
-/// its pieces. Those ways stay whole; the check after each route keeps
-/// their node's limit. Returns how many ways were left whole.
-pub(crate) fn keep_turns_whole(
-    splits: &mut BTreeMap<i64, Vec<Piece>>,
-    relations: &[Relation],
-) -> usize {
+/// Removes from `splits` the ways a relation cannot follow once cut, and
+/// returns how many: in a turn, one of its `via` (a turn through several
+/// ways: the chain would have to be rebuilt), or a `from` or `to` whose
+/// node `via` is not on exactly one of its pieces; any way of a relation
+/// not read whole. Those ways stay whole; the check after each route keeps
+/// their node's limit.
+pub(crate) fn keep_whole(splits: &mut BTreeMap<i64, Vec<Piece>>, relations: &[Relation]) -> usize {
     let mut whole: HashSet<i64> = HashSet::new();
-    for r in relations.iter().filter(|r| is_turn(r)) {
+    for r in relations.iter().filter(|r| !r.complete || is_turn(r)) {
         let via_nodes: Vec<i64> = r
             .members
             .iter()
-            .filter(|m| m.role == "via" && m.kind == "node")
+            .filter(|m| m.role == "via" && m.kind == MemberKind::Node)
             .map(|m| m.id)
             .collect();
-        let via_way = r.members.iter().any(|m| m.role == "via" && m.kind == "way");
-        for m in r.members.iter().filter(|m| m.kind == "way") {
+        let via_way = r
+            .members
+            .iter()
+            .any(|m| m.role == "via" && m.kind == MemberKind::Way);
+        for m in r.members.iter().filter(|m| m.kind == MemberKind::Way) {
             let Some(pieces) = splits.get(&m.id) else {
                 continue;
             };
-            let keep = match (via_way, via_nodes.as_slice()) {
-                (false, [via]) if m.role == "from" || m.role == "to" => {
+            let keep = match (r.complete, via_way, via_nodes.as_slice()) {
+                (false, _, _) => true,
+                (true, false, [via]) if m.role == "from" || m.role == "to" => {
                     piece_at(pieces, *via).is_none()
                 }
-                (false, _) if m.role != "from" && m.role != "to" && m.role != "via" => false,
+                (true, false, _) if m.role != "from" && m.role != "to" && m.role != "via" => false,
                 _ => true,
             };
             if keep {
@@ -357,10 +385,11 @@ pub(crate) fn remap(
     splits: &BTreeMap<i64, Vec<Piece>>,
     ids: &BTreeMap<i64, Vec<i64>>,
 ) -> Option<Vec<Member>> {
-    if !r
-        .members
-        .iter()
-        .any(|m| m.kind == "way" && splits.contains_key(&m.id))
+    if !r.complete
+        || !r
+            .members
+            .iter()
+            .any(|m| m.kind == MemberKind::Way && splits.contains_key(&m.id))
     {
         return None;
     }
@@ -368,11 +397,12 @@ pub(crate) fn remap(
     let via = r
         .members
         .iter()
-        .find(|m| m.role == "via" && m.kind == "node")
+        .find(|m| m.role == "via" && m.kind == MemberKind::Node)
         .map(|m| m.id);
     let mut out = Vec::with_capacity(r.members.len() + 2);
     for m in &r.members {
-        let (Some(pieces), Some(piece_ids), "way") = (splits.get(&m.id), ids.get(&m.id), m.kind)
+        let (Some(pieces), Some(piece_ids), MemberKind::Way) =
+            (splits.get(&m.id), ids.get(&m.id), m.kind)
         else {
             out.push(m.clone());
             continue;
@@ -382,12 +412,12 @@ pub(crate) fn remap(
             .flatten();
         match one {
             Some(i) => out.push(Member {
-                kind: "way",
+                kind: MemberKind::Way,
                 id: piece_ids[i],
                 role: m.role.clone(),
             }),
             None => out.extend(piece_ids.iter().map(|id| Member {
-                kind: "way",
+                kind: MemberKind::Way,
                 id: *id,
                 role: m.role.clone(),
             })),
@@ -398,8 +428,11 @@ pub(crate) fn remap(
 
 /// The tags of a piece: the way's, with each of `limits` lowered to the
 /// piece's figure under the key the engine reads. A plate for local access
-/// on that key goes when the node's figure is the lower: the node's own
-/// limit carries none.
+/// on that key goes when the node's figure is the lower or the same: the
+/// node's own limit carries none, and the check blocks a vehicle above it
+/// whatever its destination. When the way's figure under a plate is the
+/// lower, the stretch keeps it and its plate: one key holds one figure, and
+/// the check after each route still blocks the node's.
 pub(crate) fn piece_tags(
     way: &BTreeMap<String, String>,
     limits: &Limits,
@@ -409,7 +442,7 @@ pub(crate) fn piece_tags(
         let current = tags::read_limit(way, *kind).limit();
         let value = current.map_or(*figure, |c| c.min(*figure));
         out.insert(kind.graph_key().to_owned(), tags::canonical(value));
-        if current.is_none_or(|c| *figure < c) {
+        if current.is_none_or(|c| *figure <= c) {
             for key in kind.conditional_keys() {
                 out.remove(*key);
             }
@@ -617,7 +650,7 @@ mod tests {
         );
     }
 
-    fn relation(id: i64, kind: &str, members: &[(&'static str, i64, &str)]) -> Relation {
+    fn relation(id: i64, kind: &str, members: &[(&str, i64, &str)]) -> Relation {
         Relation {
             id,
             version: 3,
@@ -626,11 +659,16 @@ mod tests {
             members: members
                 .iter()
                 .map(|(k, id, role)| Member {
-                    kind: k,
+                    kind: match *k {
+                        "node" => MemberKind::Node,
+                        "way" => MemberKind::Way,
+                        _ => MemberKind::Relation,
+                    },
                     id: *id,
                     role: (*role).to_owned(),
                 })
                 .collect(),
+            complete: true,
         }
     }
 
@@ -654,10 +692,7 @@ mod tests {
                 ("way", 200, "to"),
             ],
         );
-        assert_eq!(
-            keep_turns_whole(&mut splits, &[turn.clone(), route.clone()]),
-            0
-        );
+        assert_eq!(keep_whole(&mut splits, &[turn.clone(), route.clone()]), 0);
         let ids = piece_ids(&splits, 1_000);
         assert_eq!(ids[&100], vec![100, 1_000, 1_001]);
         let members = remap(&turn, &splits, &ids).unwrap();
@@ -678,7 +713,7 @@ mod tests {
         );
         assert!(remap(&relation(10, "route", &[("way", 60, "")]), &splits, &ids).is_none());
         assert_eq!(
-            keep_turns_whole(&mut splits, &[through]),
+            keep_whole(&mut splits, &[through]),
             1,
             "a turn through the way keeps it whole"
         );
@@ -699,7 +734,57 @@ mod tests {
                 ("way", 200, "to"),
             ],
         );
-        assert_eq!(keep_turns_whole(&mut splits, &[turn]), 1);
+        assert_eq!(keep_whole(&mut splits, &[turn]), 1);
+    }
+
+    #[test]
+    fn a_turn_at_a_cut_made_on_a_node_of_the_way_keeps_the_way_whole() {
+        // The bar at 10 m, a node at 8.2 m where the cut is made: that node
+        // ends one piece and starts the next, so a turn through it cannot
+        // name one piece as its `from`.
+        let step = 1.0 / 111_195.0;
+        let refs = vec![1, 2, 3, 4];
+        let coords = HashMap::from([
+            (1, Position::new(0.0, 0.0).unwrap()),
+            (2, Position::new(0.0, step * 8.2).unwrap()),
+            (3, Position::new(0.0, step * 10.0).unwrap()),
+            (4, Position::new(0.0, step * 30.0).unwrap()),
+        ]);
+        let pieces = cut(&refs, &coords, &HashMap::from([(3, height(2.5))])).unwrap();
+        let mut splits = BTreeMap::from([(100, pieces)]);
+        let turn = relation(
+            7,
+            "restriction",
+            &[("way", 100, "from"), ("node", 2, "via"), ("way", 200, "to")],
+        );
+        assert_eq!(keep_whole(&mut splits, &[turn]), 1);
+        assert!(splits.is_empty());
+    }
+
+    #[test]
+    fn a_relation_not_read_whole_keeps_its_ways_whole() {
+        let (refs, coords) = straight(5);
+        let pieces = cut(&refs, &coords, &HashMap::from([(3, height(2.1))])).unwrap();
+        let mut splits = BTreeMap::from([(100, pieces)]);
+        let mut route = relation(8, "route", &[("way", 100, "")]);
+        route.complete = false;
+        assert!(remap(&route, &splits, &piece_ids(&splits, 1_000)).is_none());
+        assert_eq!(keep_whole(&mut splits, &[route]), 1);
+    }
+
+    #[test]
+    fn a_plate_goes_when_the_node_figure_equals_the_way_figure() {
+        // The node's 3.5 t has no plate: a vehicle above it is blocked by
+        // the check whatever its destination, so the engine must not let
+        // one bound for a place behind it through.
+        let way = tags(&[
+            ("highway", "residential"),
+            ("maxweight", "3.5"),
+            ("maxweight:conditional", "none @ destination"),
+        ]);
+        let piece = piece_tags(&way, &Limits::from([(RestrictionKind::MaxWeight, 3.5)]));
+        assert_eq!(piece.get("maxweight").map(String::as_str), Some("3.5"));
+        assert!(!piece.contains_key("maxweight:conditional"), "{piece:?}");
     }
 
     #[test]
