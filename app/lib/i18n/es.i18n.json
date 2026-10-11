@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, según tu vehículo",
       "otherFuel": "Otro combustible",
       "keepFuel": "Guardar como mi combustible",
+      "keepFuelHint": "Guarda tu combustible para ver su precio en el mapa, junto a las gasolineras.",
       "fuelKept": "$fuel guardado para tu vehículo.",
       "keepFuelFailed": "No se ha podido guardar el combustible.",
       "loading": "Buscando a lo largo de la ruta",
@@ -822,7 +823,6 @@
       "showInList": "Ver en la lista",
       "showAll": "Mostrar todo",
       "onMap": "mostrar en el mapa",
-      "price": "$price €",
       "kindCamera": "Radar",
       "cameras(param=n)": {
         "one": "$n radar",
@@ -907,7 +907,6 @@
       "limitEstimated": "Límite estimado",
       "overLimit": "por encima del límite",
       "enforcementSource": "$source, lista del $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Trayecto simulado: demostración sin GPS",
       "places": {
         "button": "Lugares en el mapa",

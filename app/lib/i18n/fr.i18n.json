@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, d'après votre véhicule",
       "otherFuel": "Autre carburant",
       "keepFuel": "Retenir comme mon carburant",
+      "keepFuelHint": "Retenez votre carburant pour voir son prix sur la carte, à côté des stations.",
       "fuelKept": "$fuel retenu pour votre véhicule.",
       "keepFuelFailed": "Le carburant n'a pas pu être retenu.",
       "loading": "Recherche le long du trajet",
@@ -822,7 +823,6 @@
       "showInList": "Voir dans la liste",
       "showAll": "Tout afficher",
       "onMap": "montrer sur la carte",
-      "price": "$price €",
       "kindCamera": "Radar",
       "cameras(param=n)": {
         "one": "$n radar",
@@ -907,7 +907,6 @@
       "limitEstimated": "Limite estimée",
       "overLimit": "au-dessus de la limite",
       "enforcementSource": "$source, liste du $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Trajet simulé : démonstration sans GPS",
       "places": {
         "button": "Lieux sur la carte",

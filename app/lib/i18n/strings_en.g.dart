@@ -4426,6 +4426,9 @@ class Translations$navigation$onTheWay$en {
 	/// en: 'Keep as my fuel'
 	String get keepFuel => 'Keep as my fuel';
 
+	/// en: 'Keep your fuel to see its price on the map, beside the stations.'
+	String get keepFuelHint => 'Keep your fuel to see its price on the map, beside the stations.';
+
 	/// en: '$fuel kept for your vehicle.'
 	String fuelKept({required Object fuel}) => '${fuel} kept for your vehicle.';
 
@@ -4982,9 +4985,6 @@ class Translations$navigation$marks$en {
 	/// en: 'show on the map'
 	String get onMap => 'show on the map';
 
-	/// en: '$price €'
-	String price({required Object price}) => '${price} €';
-
 	/// en: 'Speed camera'
 	String get kindCamera => 'Speed camera';
 
@@ -5151,9 +5151,6 @@ class Translations$navigation$guidance$en {
 
 	/// en: '$source, list of $date'
 	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
-
-	/// en: '$source…'
-	String enforcementSourceUndated({required Object source}) => '${source}…';
 
 	/// en: 'Simulated drive: a demonstration without GPS'
 	String get demoDrive => 'Simulated drive: a demonstration without GPS';
@@ -8079,6 +8076,7 @@ extension on Translations {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, from your vehicle',
 			'navigation.onTheWay.otherFuel' => 'Another fuel',
 			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
+			'navigation.onTheWay.keepFuelHint' => 'Keep your fuel to see its price on the map, beside the stations.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} kept for your vehicle.',
 			'navigation.onTheWay.keepFuelFailed' => 'The fuel could not be kept.',
 			'navigation.onTheWay.loading' => 'Searching along the route',
@@ -8115,9 +8113,9 @@ extension on Translations {
 			'navigation.states.originTitle' => 'Where are you?',
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
-			'navigation.states.offlineTitle' => 'No connection',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'No connection',
 			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
@@ -8273,7 +8271,6 @@ extension on Translations {
 			'navigation.marks.showInList' => 'See it in the list',
 			'navigation.marks.showAll' => 'Show all',
 			'navigation.marks.onMap' => 'show on the map',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Speed camera',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} speed camera', other: '${n} speed cameras', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Speed cameras: ${source}, list of ${date}',
@@ -8344,7 +8341,6 @@ extension on Translations {
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
@@ -8630,9 +8626,9 @@ extension on Translations {
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
 			'profile.attributionTranslation' => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.',
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
+			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
 			_ => null,
 		} ?? switch (path) {
-			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.',
@@ -9144,9 +9140,9 @@ extension on Translations {
 			'poi.kind.podiatrist' => 'Podiatrist',
 			'poi.kind.psychologist' => 'Psychologist',
 			'poi.kind.speechTherapist' => 'Speech therapist',
+			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
 			'poi.kind.optician' => 'Optician',
 			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',

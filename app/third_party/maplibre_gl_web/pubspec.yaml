@@ -23,6 +23,11 @@
 # and are not passed to Dart (lib/src/maplibre_web_gl_platform.dart,
 # _onCameraMoveStarted, _onCameraMove and _onCameraIdle): while following,
 # the app does no work at each frame.
+# And setLayerProperties (lib/src/maplibre_web_gl_platform.dart) sends a
+# layout property to setLayoutProperty, by its name: given first to
+# setPaintProperty, which reports a validation error rather than throw, it
+# was never set (the price under a station's pin of the guidance, the sort
+# key of the main map's pins).
 # Also: `resolution: workspace` and the dev_dependencies of the upstream
 # repository are dropped, as is analysis_options.yaml, which included a file
 # of that repository. Drop this copy and the override once a release carries

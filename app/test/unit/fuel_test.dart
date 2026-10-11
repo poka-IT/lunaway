@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -125,11 +126,17 @@ void main() {
   });
 
   group('the fuel shown', () {
-    ProviderContainer container(VehicleFuel vehicle, List<Poi> stations) {
+    ProviderContainer container(
+      VehicleFuel vehicle,
+      List<Poi> stations, {
+      // A few days after the prices of the stations were given.
+      DateTime? now,
+    }) {
       final c = ProviderContainer.test(
         overrides: [
           vehicleFuelProvider.overrideWithValue(vehicle),
           fuelStationsInViewProvider.overrideWith((ref) async => stations),
+          clockProvider.overrideWithValue(() => now ?? DateTime.utc(2026, 10, 9, 12)),
         ],
       );
       c.read(viewportProvider.notifier).update(_view);
@@ -175,6 +182,20 @@ void main() {
         ]);
       },
     );
+
+    test('a price older than the server offers none past is written on no station', () async {
+      // The prices of the stations were given on 2026-10-06 at 06:00.
+      final given = DateTime.utc(2026, 10, 6, 6);
+      ProviderContainer at(DateTime now) => container(const VehicleFuel(fuel: FuelType.e10), [
+        _station('a', {'E10': 1.759}),
+      ], now: now);
+      final fresh = at(given.add(maxPriceAge - const Duration(hours: 1)));
+      await fresh.read(fuelStationsInViewProvider.future);
+      expect(fresh.read(fuelLabelsProvider('fr')).map((l) => l.text), ['1,759']);
+      final stale = at(given.add(maxPriceAge + const Duration(hours: 1)));
+      await stale.read(fuelStationsInViewProvider.future);
+      expect(stale.read(fuelLabelsProvider('fr')), isEmpty, reason: 'none rather than a wrong one');
+    });
   });
 
   test('every price colour reads on the halo of its map and on its list', () {

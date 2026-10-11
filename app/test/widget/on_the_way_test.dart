@@ -170,6 +170,9 @@ void main() {
       await open(tester);
       expect(chosen(tester, 'Gazole'), isTrue);
       expect(find.textContaining("d'après votre véhicule"), findsNothing);
+      // One sentence says what keeping it does: its price on the map.
+      const hint = 'Retenez votre carburant pour voir son prix sur la carte, à côté des stations.';
+      expect(find.text(hint), findsOneWidget);
       await tapChip(tester, 'SP98');
       await settleShort(tester);
       await tester.tap(find.text('Retenir comme mon carburant'));

@@ -2051,6 +2051,7 @@ class _Translations$navigation$onTheWay$it extends Translations$navigation$onThe
 	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, secondo il tuo veicolo';
 	@override String get otherFuel => 'Altro carburante';
 	@override String get keepFuel => 'Salva come mio carburante';
+	@override String get keepFuelHint => 'Salva il tuo carburante per vederne il prezzo sulla mappa, accanto ai distributori.';
 	@override String fuelKept({required Object fuel}) => '${fuel} salvato per il tuo veicolo.';
 	@override String get keepFuelFailed => 'Non è stato possibile salvare il carburante.';
 	@override String get loading => 'Ricerca lungo il percorso';
@@ -2282,7 +2283,6 @@ class _Translations$navigation$marks$it extends Translations$navigation$marks$en
 	@override String get showInList => 'Vedi nell\'elenco';
 	@override String get showAll => 'Mostra tutto';
 	@override String get onMap => 'mostra sulla mappa';
-	@override String price({required Object price}) => '${price} €';
 	@override String get kindCamera => 'Autovelox';
 	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
 		one: '${n} autovelox',
@@ -2350,7 +2350,6 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get limitEstimated => 'Limite stimato';
 	@override String get overLimit => 'oltre il limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, elenco del ${date}';
-	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Viaggio simulato: dimostrazione senza GPS';
 	@override late final _Translations$navigation$guidance$places$it places = _Translations$navigation$guidance$places$it._(_root);
 }
@@ -3980,6 +3979,7 @@ extension on TranslationsIt {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, secondo il tuo veicolo',
 			'navigation.onTheWay.otherFuel' => 'Altro carburante',
 			'navigation.onTheWay.keepFuel' => 'Salva come mio carburante',
+			'navigation.onTheWay.keepFuelHint' => 'Salva il tuo carburante per vederne il prezzo sulla mappa, accanto ai distributori.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} salvato per il tuo veicolo.',
 			'navigation.onTheWay.keepFuelFailed' => 'Non è stato possibile salvare il carburante.',
 			'navigation.onTheWay.loading' => 'Ricerca lungo il percorso',
@@ -4016,9 +4016,9 @@ extension on TranslationsIt {
 			'navigation.states.originTitle' => 'Dove sei?',
 			'navigation.states.originHint' => 'Lunaway ha bisogno della tua posizione per calcolare il percorso.',
 			'navigation.states.locate' => 'Localizzami',
-			'navigation.states.offlineTitle' => 'Nessuna connessione',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'Nessuna connessione',
 			'navigation.states.offlineHint' => 'I percorsi vengono calcolati sul server di Lunaway. Senza rete, «Apri con…» passa il viaggio a un\'app di navigazione che conserva le sue mappe.',
 			'navigation.states.rateLimitedTitle' => 'Troppe richieste di percorso',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Riprova tra ${seconds} s.',
@@ -4174,7 +4174,6 @@ extension on TranslationsIt {
 			'navigation.marks.showInList' => 'Vedi nell\'elenco',
 			'navigation.marks.showAll' => 'Mostra tutto',
 			'navigation.marks.onMap' => 'mostra sulla mappa',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Autovelox',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} autovelox', other: '${n} autovelox', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Autovelox: ${source}, elenco del ${date}',
@@ -4245,7 +4244,6 @@ extension on TranslationsIt {
 			'navigation.guidance.limitEstimated' => 'Limite stimato',
 			'navigation.guidance.overLimit' => 'oltre il limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, elenco del ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Viaggio simulato: dimostrazione senza GPS',
 			'navigation.guidance.places.button' => 'Luoghi sulla mappa',
 			'navigation.guidance.places.buttonHidden' => 'Luoghi sulla mappa: nascosti',
@@ -4531,9 +4529,9 @@ extension on TranslationsIt {
 			'profile.attributionMangrove' => 'Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.',
 			'profile.attributionTranslation' => 'Traduzioni automatiche: modelli OPUS-MT dell\'Università di Helsinki, con licenza CC BY 4.0, eseguiti sui server di Lunaway.',
 			'profile.attributionRoadEvents' => 'Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), con Licence Ouverte 2.0; Bordeaux Métropole e dipartimento delle Côtes-d\'Armor, con Licence Ouverte; Ville de Paris, Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.',
+			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
 			_ => null,
 		} ?? switch (path) {
-			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}',
 			'profile.attributionOverture' => 'Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0.',
@@ -5045,9 +5043,9 @@ extension on TranslationsIt {
 			'poi.kind.podiatrist' => 'Podologo',
 			'poi.kind.psychologist' => 'Psicologo',
 			'poi.kind.speechTherapist' => 'Logopedista',
+			'poi.kind.alternativeMedicine' => 'Osteopata, medicina alternativa',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.alternativeMedicine' => 'Osteopata, medicina alternativa',
 			'poi.kind.optician' => 'Ottico',
 			'poi.kind.hearingAids' => 'Apparecchi acustici',
 			'poi.kind.medicalSupply' => 'Sanitaria',

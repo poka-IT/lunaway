@@ -351,7 +351,18 @@ changes them: on 2026-10-06, 44 % of the diesel prices dated from the last
 24 hours, 99 % from the last 30 days, and 9 of 9 006 from more than 90 days;
 LPG prices change less often (183 of 1 513 older than 90 days). A price
 older than 90 days is not offered by `fuelNearby` and `fuelAlongRoute`
-(`lunaway_domain::fuel::MAX_PRICE_AGE_DAYS`).
+(`lunaway_domain::fuel::MAX_PRICE_AGE_DAYS`), nor written on any map of
+the app (`maxPriceAge`, `priceIsCurrent` in
+`app/lib/features/poi/domain/poi.dart`): the main map's labels, and on the
+maps of a route the price of the vehicle's fuel beside the stations of the
+fuel list and under the stations' pins of the guidance (`routePrices`,
+`app/lib/features/navigation/domain/route_fuel_prices.dart`). Those pins
+read their prices as the main map does (`pois` with `fuel`), for the cell
+of 0.05 degree the vehicle is in, grown by 0.02 degree
+(`guidanceStations`), while the pins show stations, the vehicle's fuel is
+known and the vehicle is in France or its country unknown. The price is
+the pin's own text (`RoutePlaceLayers.priceText`): written with its pin,
+never without it.
 
 History: each poll writes, per station and fuel, the day's lowest and
 highest price (`fuel_price_days`, the day in Paris time, 30 days kept),

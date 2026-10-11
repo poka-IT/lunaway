@@ -2051,6 +2051,7 @@ class _Translations$navigation$onTheWay$nl extends Translations$navigation$onThe
 	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, volgens je voertuig';
 	@override String get otherFuel => 'Andere brandstof';
 	@override String get keepFuel => 'Bewaren als mijn brandstof';
+	@override String get keepFuelHint => 'Bewaar je brandstof om de prijs ervan op de kaart te zien, naast de tankstations.';
 	@override String fuelKept({required Object fuel}) => '${fuel} bewaard voor je voertuig.';
 	@override String get keepFuelFailed => 'De brandstof kon niet worden bewaard.';
 	@override String get loading => 'Zoeken langs de route';
@@ -2282,7 +2283,6 @@ class _Translations$navigation$marks$nl extends Translations$navigation$marks$en
 	@override String get showInList => 'In de lijst bekijken';
 	@override String get showAll => 'Alles tonen';
 	@override String get onMap => 'op de kaart tonen';
-	@override String price({required Object price}) => '€ ${price}';
 	@override String get kindCamera => 'Flitser';
 	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: '${n} flitser',
@@ -2350,7 +2350,6 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get limitEstimated => 'Geschatte limiet';
 	@override String get overLimit => 'boven de limiet';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, lijst van ${date}';
-	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Gesimuleerde rit: demonstratie zonder gps';
 	@override late final _Translations$navigation$guidance$places$nl places = _Translations$navigation$guidance$places$nl._(_root);
 }
@@ -3980,6 +3979,7 @@ extension on TranslationsNl {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, volgens je voertuig',
 			'navigation.onTheWay.otherFuel' => 'Andere brandstof',
 			'navigation.onTheWay.keepFuel' => 'Bewaren als mijn brandstof',
+			'navigation.onTheWay.keepFuelHint' => 'Bewaar je brandstof om de prijs ervan op de kaart te zien, naast de tankstations.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} bewaard voor je voertuig.',
 			'navigation.onTheWay.keepFuelFailed' => 'De brandstof kon niet worden bewaard.',
 			'navigation.onTheWay.loading' => 'Zoeken langs de route',
@@ -4016,9 +4016,9 @@ extension on TranslationsNl {
 			'navigation.states.originTitle' => 'Waar ben je?',
 			'navigation.states.originHint' => 'Lunaway heeft je positie nodig om de route te berekenen.',
 			'navigation.states.locate' => 'Mijn positie bepalen',
-			'navigation.states.offlineTitle' => 'Geen verbinding',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'Geen verbinding',
 			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			'navigation.states.rateLimitedTitle' => 'Te veel routeaanvragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.',
@@ -4174,7 +4174,6 @@ extension on TranslationsNl {
 			'navigation.marks.showInList' => 'In de lijst bekijken',
 			'navigation.marks.showAll' => 'Alles tonen',
 			'navigation.marks.onMap' => 'op de kaart tonen',
-			'navigation.marks.price' => ({required Object price}) => '€ ${price}',
 			'navigation.marks.kindCamera' => 'Flitser',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} flitser', other: '${n} flitsers', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Flitsers: ${source}, lijst van ${date}',
@@ -4245,7 +4244,6 @@ extension on TranslationsNl {
 			'navigation.guidance.limitEstimated' => 'Geschatte limiet',
 			'navigation.guidance.overLimit' => 'boven de limiet',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, lijst van ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Gesimuleerde rit: demonstratie zonder gps',
 			'navigation.guidance.places.button' => 'Plekken op de kaart',
 			'navigation.guidance.places.buttonHidden' => 'Plekken op de kaart: verborgen',
@@ -4531,9 +4529,9 @@ extension on TranslationsNl {
 			'profile.attributionMangrove' => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.',
 			'profile.attributionTranslation' => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.',
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
+			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
 			_ => null,
 		} ?? switch (path) {
-			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
@@ -5045,9 +5043,9 @@ extension on TranslationsNl {
 			'poi.kind.podiatrist' => 'Podotherapeut',
 			'poi.kind.psychologist' => 'Psycholoog',
 			'poi.kind.speechTherapist' => 'Logopedist',
+			'poi.kind.alternativeMedicine' => 'Osteopaat, alternatieve geneeskunde',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.alternativeMedicine' => 'Osteopaat, alternatieve geneeskunde',
 			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audicien',
 			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',

@@ -24,6 +24,7 @@ import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
@@ -36,6 +37,7 @@ import 'package:lunaway/features/navigation/data/web_voice.dart'
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -45,6 +47,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/poi/domain/poi.dart' show FuelLabel;
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -77,6 +80,32 @@ const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr'
 const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
 const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'fr-540x960-light');
 const _scenarioName = String.fromEnvironment('LUNAWAY_RADARS_SCENARIO', defaultValue: 'a7');
+
+/// The vehicle's fuel (`DIESEL`, `E10`...), none by default: with one, the
+/// maps of the route write its price by the stations.
+const _fuel = String.fromEnvironment('LUNAWAY_TOUR_FUEL');
+
+/// The guidance's places: `fill` ("Pour le plein", the stations' pins with
+/// their prices), the app's default otherwise.
+const _places = String.fromEnvironment('LUNAWAY_TOUR_PLACES');
+
+/// Stops the drive once this many alerts were met (0: the whole route),
+/// for the captures of the pill and the frames of a few minutes.
+const _stopAlerts = int.fromEnvironment('LUNAWAY_TOUR_STOP_ALERTS');
+
+/// `1`: the stations of "Sur le trajet" for the vehicle's fuel are read
+/// from the API as the guidance starts and shown on its map, their price
+/// beside their pump, as after the list was opened.
+const _list = String.fromEnvironment('LUNAWAY_TOUR_LIST');
+
+/// A capture every this many seconds of the drive, three at most (0: none):
+/// the same moments of two drives, the prices written or not.
+const _shotEvery = int.fromEnvironment('LUNAWAY_TOUR_SHOT_EVERY');
+
+/// Drives this many minutes at real speed, one fix a second, then stops
+/// (0: the tour's own pace): two runs of the same drive compare their
+/// frames, the prices written or not.
+const _realMinutes = int.fromEnvironment('LUNAWAY_TOUR_REAL_MINUTES');
 
 const _vehicle = Vehicle(
   type: VehicleType.integrated,
@@ -154,6 +183,22 @@ const _scenarios = {
   ),
   // France into Italy by Menton and Ventimiglia, to Sanremo.
   'menton': _Scenario(from: LatLng(43.7800, 7.5050), to: LatLng(43.8170, 7.7760), label: 'Sanremo'),
+  // Valence's south to Montélimar by the N7, motorways avoided: the
+  // stations of the towns it crosses, for their prices on the map.
+  'prix': _Scenario(
+    from: LatLng(44.9180, 4.9010),
+    to: LatLng(44.5581, 4.7508),
+    label: 'Montélimar',
+    avoid: AvoidOptions(motorways: true),
+  ),
+  // The N7 from Livron-sur-Drôme to Montélimar: the stations of its towns
+  // within a few minutes, for the frames of a drive at real speed.
+  'prix-n7': _Scenario(
+    from: LatLng(44.7726, 4.8417),
+    to: LatLng(44.5581, 4.7508),
+    label: 'Montélimar',
+    avoid: AvoidOptions(motorways: true),
+  ),
   // Switzerland, the A1 from Geneva to Lausanne: nothing at all.
   'ch': _Scenario(
     from: LatLng(46.2100, 6.1420),
@@ -490,7 +535,12 @@ void main() {
   testWidgets('a real route with the real speed cameras, driven and heard', (tester) async {
     // Whether the window draws: a hidden one leaves the captures stale.
     var frames = 0;
-    void count(List<FrameTiming> timings) => frames += timings.length;
+    final timings = <FrameTiming>[];
+    void count(List<FrameTiming> list) {
+      frames += list.length;
+      timings.addAll(list);
+    }
+
     WidgetsBinding.instance.addTimingsCallback(count);
     addTearDown(() => WidgetsBinding.instance.removeTimingsCallback(count));
     final lifecycle = AppLifecycleListener(
@@ -599,7 +649,9 @@ void main() {
           notificationAccessProvider.overrideWithValue(const _NoNotifications()),
           routeServiceProvider.overrideWithValue(_Once(plan)),
           locationFeedProvider.overrideWithValue(drive),
-          vehicleProvider.overrideWith((ref) => Stream.value(_vehicle)),
+          vehicleProvider.overrideWith(
+            (ref) => Stream.value(_vehicle.copyWith(fuel: () => FuelType.fromWire(_fuel))),
+          ),
           voiceOutputProvider.overrideWithValue(recorder),
           routeSettingsStoreProvider.overrideWithValue(
             _Settings(
@@ -607,6 +659,9 @@ void main() {
                 avoid: scenario.avoid,
                 voiceMode: scenario.voice,
                 legendSeen: true,
+                guidancePlaces: _places == 'fill'
+                    ? GuidancePlaces(selection: GuidancePreset.fill.selection)
+                    : const GuidancePlaces(),
               ),
             ),
           ),
@@ -674,6 +729,14 @@ void main() {
         );
     unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
     await until(() => session()?.snapshot != null, what: 'the first fix');
+    final listFuel = _list == '1' ? FuelType.fromWire(_fuel) : null;
+    if (listFuel case final fuel?) {
+      final offers = await container.read(
+        fuelOffersProvider(FuelQuery(line: route.line, fromM: 0, fuel: fuel)).future,
+      );
+      container.read(shownFuelOffersProvider(route.line).notifier).show(offers);
+      debugPrint('LIST ${offers.length} stations of the fuel list on the map');
+    }
 
     // Where the route crosses a border, by the library the guidance reads.
     final locator = await container.read(countryLocatorProvider.future);
@@ -698,8 +761,51 @@ void main() {
       if (drive.overKmh > 0 && a?.limitKmh != null) v = a!.limitKmh! + drive.overKmh;
       return v;
     };
+    // A station whose price the map writes, within this of the vehicle:
+    // driven at real speed, and captured once.
+    // The stations whose price the map writes: those of the fuel list
+    // (their pump), with the list; under the stations' pins otherwise.
+    List<LatLng> priced() => _list == '1'
+        ? [
+            for (final m in _map()?.marks ?? const <RouteMapMark>[])
+              if (m.kind == RouteMarkKind.fuel && m.side != null) m.position,
+          ]
+        : [for (final p in _map()?.fuelPrices ?? const <FuelLabel>[]) p.position];
+
+    bool nearPrice() {
+      final at = session()?.snapshot?.position;
+      if (at == null) return false;
+      return priced().any((p) => p.distanceTo(at) < 700);
+    }
+
+    // A station whose price the map writes, 120 to 400 m ahead of the
+    // vehicle, within 50 degrees of its course: on the screen.
+    bool priceAhead() {
+      final snap = session()?.snapshot;
+      final at = snap?.position;
+      if (at == null) return false;
+      final course = snap?.courseDeg;
+      return priced().any((p) {
+        final d = p.distanceTo(at);
+        if (d < 120 || d > 400) return false;
+        if (course == null) return true;
+        final dy = p.lat - at.lat;
+        final dx = (p.lon - at.lon) * math.cos(at.lat * math.pi / 180);
+        final bearing = (math.atan2(dx, dy) * 180 / math.pi + 360) % 360;
+        final off = ((bearing - course) % 360 + 360) % 360;
+        return math.min(off, 360 - off) < 50;
+      });
+    }
+
+    var priceShots = 0;
+    var lastPriceShot = DateTime(2000);
+    var timedShots = 0;
+    final driveStart = DateTime.now();
+
     drive.pace = () {
+      if (_realMinutes > 0) return _real;
       if (forceReal || recorder.speaking || drive.overKmh > 0) return _real;
+      if (_fuel.isNotEmpty && _places == 'fill' && nearPrice()) return _real;
       final s = session();
       if (s == null) return _fast;
       final aids = s.aids;
@@ -727,6 +833,9 @@ void main() {
     var alerts = 0;
     final kinds = <String>{};
     final deadline = DateTime.now().add(const Duration(minutes: 40));
+    final realEnd = DateTime.now().add(const Duration(minutes: 1) * _realMinutes);
+    // The frames of the drive alone, the preview's left out.
+    timings.clear();
     var beat = DateTime.now();
     while (true) {
       await settle(const Duration(milliseconds: 100));
@@ -820,6 +929,28 @@ void main() {
         }
       }
       if (aids.exit case final e?) await shot(e.section ? 'sortie-troncon' : 'sortie-zone');
+      if (_shotEvery > 0 && timedShots < 3) {
+        final due = driveStart.add(Duration(seconds: _shotEvery * (timedShots + 1)));
+        if (DateTime.now().isAfter(due)) {
+          timedShots++;
+          await shot('temps-$timedShots');
+        }
+      }
+      // A priced station ahead, close enough for its pin to show: a few
+      // captures, apart; none in a drive timed for its frames, which two
+      // runs compare.
+      if (_fuel.isNotEmpty &&
+          _realMinutes == 0 &&
+          priceShots < 3 &&
+          DateTime.now().difference(lastPriceShot) > const Duration(seconds: 20) &&
+          priceAhead()) {
+        priceShots++;
+        lastPriceShot = DateTime.now();
+        await shot('prix-$priceShots');
+        if (_list == '1' && priceShots == 3) break;
+      }
+      if (_stopAlerts > 0 && alerts >= _stopAlerts && a == null && aids.exit == null) break;
+      if (_realMinutes > 0 && DateTime.now().isAfter(realEnd)) break;
       if (aids.ruleChange case final r?) await shot('frontiere-${r.country.toLowerCase()}');
       if (scenario.nothing && along > drive.lengthM * 0.4) await shot('sans-radar');
     }
@@ -843,6 +974,22 @@ void main() {
       }
     }
 
+    // The frames drawn during the drive, as the engine timed them: how many
+    // took longer than a frame of 60 Hz to build or to raster.
+    final slow = [for (final f in timings) f];
+    int over(Duration Function(FrameTiming f) of, int ms) =>
+        slow.where((f) => of(f).inMilliseconds > ms).length;
+    Duration worst(Duration Function(FrameTiming f) of) =>
+        slow.isEmpty ? Duration.zero : slow.map(of).reduce((a, b) => a > b ? a : b);
+    debugPrint(
+      'FRAMES $_scenarioName fuel ${_fuel.isEmpty ? '-' : _fuel} places ${_places.isEmpty ? '-' : _places} '
+      'frames ${slow.length}, build > 16 ms ${over((f) => f.buildDuration, 16)}, '
+      'raster > 16 ms ${over((f) => f.rasterDuration, 16)}, '
+      'total > 33 ms ${over((f) => f.totalSpan, 33)}, '
+      'worst build ${worst((f) => f.buildDuration).inMilliseconds} ms, '
+      'worst raster ${worst((f) => f.rasterDuration).inMilliseconds} ms, '
+      'prices seen ${_map()?.fuelPrices.length ?? 0}',
+    );
     final s = session();
     debugPrint(
       'SUMMARY $_scenarioName along ${_km(s?.snapshot?.distanceAlongM ?? drive.along)} km, '

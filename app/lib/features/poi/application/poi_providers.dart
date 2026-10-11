@@ -260,13 +260,15 @@ List<FuelLabel> fuelLabels(Ref ref, String language) {
   final view = ref.watch(viewportProvider)?.bounds;
   if (stations.isEmpty || view == null) return const [];
   final fuel = ref.watch(chosenFuelProvider).wire;
+  final now = ref.watch(clockProvider)();
   final priced = [
     for (final s in stations)
       if (view.contains(s.position))
         if (s.fuel?.prices.where((p) => p.fuel == fuel).firstOrNull case final price?)
-          // Out of it for now, its last price would mislead: the list says
-          // so in words, the map shows none.
-          if (s.fuel!.shortageOf(fuel) == null) (s, price.priceEur),
+          // Out of it for now, or its price too old, the last price would
+          // mislead: the list says so in words, the map shows none.
+          if (s.fuel!.shortageOf(fuel) == null && priceIsCurrent(price.updatedAt, now))
+            (s, price.priceEur),
   ];
   final prices = [for (final (_, p) in priced) p];
   final format = NumberFormat('0.000', language);

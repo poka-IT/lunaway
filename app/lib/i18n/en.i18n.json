@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, from your vehicle",
       "otherFuel": "Another fuel",
       "keepFuel": "Keep as my fuel",
+      "keepFuelHint": "Keep your fuel to see its price on the map, beside the stations.",
       "fuelKept": "$fuel kept for your vehicle.",
       "keepFuelFailed": "The fuel could not be kept.",
       "loading": "Searching along the route",
@@ -822,7 +823,6 @@
       "showInList": "See it in the list",
       "showAll": "Show all",
       "onMap": "show on the map",
-      "price": "$price €",
       "kindCamera": "Speed camera",
       "cameras(param=n)": {
         "one": "$n speed camera",
@@ -907,7 +907,6 @@
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
       "enforcementSource": "$source, list of $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Simulated drive: a demonstration without GPS",
       "places": {
         "button": "Places on the map",
