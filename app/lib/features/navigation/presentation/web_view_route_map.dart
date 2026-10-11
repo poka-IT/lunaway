@@ -188,6 +188,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           dark: _props.dark,
           places: _props.places,
           ratio: ratio,
+          traveledShare: _traveled.share,
         ),
         'reducedMotion': reduced,
       },
@@ -314,6 +315,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           dark: _props.dark,
           places: _props.places,
           ratio: MediaQuery.devicePixelRatioOf(context),
+          // A new style keeps the grey drawn behind the vehicle.
+          traveledShare: _traveled.share,
         ),
       }),
     );
