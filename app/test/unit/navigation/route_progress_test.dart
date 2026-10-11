@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_progress.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 
 void main() {
@@ -37,6 +38,18 @@ void main() {
         expect(s, greaterThanOrEqualTo(last));
         last = s;
       }
+    });
+
+    test('cuts a stretch of the line as the slow walk along it does', () {
+      for (final (from, to) in [(0.0, 50.0), (1234.5, 4321.0), (88000.0, 99999.0)]) {
+        final fast = progress.between(from, to);
+        final slow = lineAlong(line, RouteSpan(from, to));
+        expect(fast.length, slow.length, reason: '$from to $to');
+        for (var i = 0; i < fast.length; i++) {
+          expect(fast[i].distanceTo(slow[i]), lessThan(0.01), reason: '$from to $to, point $i');
+        }
+      }
+      expect(progress.between(500, 400), isEmpty);
     });
 
     test('measures back from a share to the metres', () {

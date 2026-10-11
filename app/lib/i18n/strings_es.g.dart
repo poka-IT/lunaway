@@ -2225,7 +2225,7 @@ class _Translations$navigation$guidance$es extends Translations$navigation$guida
 	@override String currentRoad({required Object road}) => 'Por ${road}';
 	@override String tollAhead({required Object distance}) => 'Peaje a ${distance}';
 	@override String borderAhead({required Object country, required Object distance}) => 'Frontera: ${country} a ${distance}';
-	@override String get options => 'Opciones de la navegación';
+	@override String get options => 'Opciones de navegación';
 	@override String arrival({required Object time}) => 'Llegada ${time}';
 	@override String get offRoute => 'Fuera de la ruta';
 	@override String get rerouting => 'Buscando una ruta nueva';
@@ -4109,7 +4109,7 @@ extension on TranslationsEs {
 			'navigation.guidance.currentRoad' => ({required Object road}) => 'Por ${road}',
 			'navigation.guidance.tollAhead' => ({required Object distance}) => 'Peaje a ${distance}',
 			'navigation.guidance.borderAhead' => ({required Object country, required Object distance}) => 'Frontera: ${country} a ${distance}',
-			'navigation.guidance.options' => 'Opciones de la navegación',
+			'navigation.guidance.options' => 'Opciones de navegación',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Llegada ${time}',
 			'navigation.guidance.offRoute' => 'Fuera de la ruta',
 			'navigation.guidance.rerouting' => 'Buscando una ruta nueva',

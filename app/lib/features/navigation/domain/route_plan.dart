@@ -429,7 +429,7 @@ final class RouteStep {
   /// Chamonix`), as the map gives them.
   final String? signs;
 
-  /// This step's road is a motorway, somewhere along it.
+  /// The road this step takes at its maneuver is a motorway.
   final bool motorway;
 
   /// The maneuver as its pictogram draws it.

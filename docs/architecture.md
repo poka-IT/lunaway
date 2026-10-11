@@ -647,8 +647,8 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   (`AutoZoom.close`, 17.0 at 30 km/h, 16.1 at 130), the speed held through 6 km/h of hysteresis (`SpeedHold`); a road
   that only changes its name counts as far as the maneuver after it, and
   a fork or a ramp taken at 70 km/h or more does not draw the camera. The
-  tilt is 52° cruising, 60° down a straight shown at its widest, 30° over
-  a junction and 26° over a roundabout within 120 m. The map turns to the
+  tilt is 52° cruising, 60° down a straight shown at its widest, 26° over
+  a junction and 24° over a roundabout within 120 m. The map turns to the
   course with a 400 ms ease, and the vehicle stands 76 px over the foot of
   the free map. Each engine animates only while the vehicle glides or the
   camera has not reached its aim; a vehicle parked draws no frame.
@@ -656,7 +656,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   (`RouteLook.lineStops`, 11.5 px at 17 inside a 2 px rim), a saturated
   teal by day; greyed behind the vehicle by a `line-gradient` on
   `line-progress`, the share measured in Web Mercator as MapLibre does
-  (`RouteProgress`), sent at most once a fix; the arrow of the next
+  (`RouteProgress`) and set on a colour of the 256 MapLibre Native gives a
+  gradient, a short grey line over the route from there to a second's
+  drive behind the vehicle (`TraveledLine`), sent at most once a fix; the
+  arrow of the next
   maneuver drawn on it (`ManeuverArrow`, 30 m either side, 60 at a ramp,
   through a roundabout's ring). The preview draws the same line.
 - **A tap on the map** (`features/map/domain/map_taps.dart`): what the

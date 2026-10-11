@@ -81,8 +81,8 @@ abstract final class AutoTilt {
 
   /// Over a roundabout, and over another junction, close to it: flatter,
   /// so its branches read from above.
-  static const roundabout = 26.0;
-  static const junction = 30.0;
+  static const roundabout = 24.0;
+  static const junction = 26.0;
 
   /// The camera starts flattening this far from the junction, metres, and
   /// is flat enough within [flatM].

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -267,6 +268,28 @@ void main() {
       final near = camera();
       expect(near.zoom, closeTo(closeZoom(36), 0.01), reason: '43 m off: the closest');
       expect(near.tilt, AutoTilt.junction, reason: 'the junction seen from above');
+    });
+
+    testWidgets('on a motorway, wider at 36 km/h than a street', (tester) async {
+      final plan = routeFixture(
+        'limoges_drive',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+          final leg = (route['legs'] as List).first as Map<String, dynamic>;
+          // Avenue des Bénédictins taken for a motorway.
+          final avenue = (leg['steps'] as List)[4] as Map;
+          ((avenue['intersections'] as List).first as Map)['classes'] = ['motorway'];
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      );
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 500);
+      // The slight left 800 m off framed, wider than a street at 36 km/h
+      // goes (15.95): a motorway goes down to AutoZoom.motorwayWide.
+      final camera = map().camera as FollowCamera;
+      expect(camera.zoom, closeTo(seeZoom(803), 0.1));
+      expect(camera.zoom, lessThan(wideZoom(36) - 0.5));
     });
 
     testWidgets('keeps its aim while the speed wavers by a few km/h, moves it past that', (
@@ -781,10 +804,9 @@ void main() {
               : find.text('Recentrer'),
         );
         await settleShort(tester);
-        final road = find.byType(RoadNamePill);
-        if (road.evaluate().isNotEmpty && !tester.getRect(road).isEmpty) {
-          expect(credit().overlaps(tester.getRect(road)), isFalse, reason: "the road's name");
-        }
+        final road = tester.getRect(find.byType(RoadNamePill));
+        expect(road.isEmpty, isFalse, reason: 'Rue des Vénitiens under the vehicle');
+        expect(credit().overlaps(road), isFalse, reason: "the road's name");
         // A caption: a touch while driving opens nothing.
         expect(tester.widget<MapCredit>(find.byType(MapCredit)).caption, isTrue);
         expect(

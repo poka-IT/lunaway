@@ -839,7 +839,7 @@
       "currentRoad": "Auf $road",
       "tollAhead": "Mautstelle in $distance",
       "borderAhead": "Grenze: $country in $distance",
-      "options": "Optionen der Navigation",
+      "options": "Navigationsoptionen",
       "arrival": "Ankunft $time",
       "offRoute": "Abseits der Route",
       "rerouting": "Neue Route wird gesucht",

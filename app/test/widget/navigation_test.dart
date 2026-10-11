@@ -1133,6 +1133,32 @@ void main() {
       expect(option('Lieux sur la carte'), findsNothing, reason: 'closed by the choice');
     });
 
+    testWidgets(
+      'a screen reader opens the options from the middle of the bar, told folded or not',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan);
+        await drive(tester, plan, toM: 100);
+        final middle = find.semantics.byHint('Options du guidage');
+        expect(middle, findsOne);
+        expect(
+          tester.getSemantics(guidanceOptionsHandle),
+          isSemantics(
+            isButton: true,
+            hasExpandedState: true,
+            isExpanded: false,
+            hasTapAction: true,
+          ),
+        );
+        tester.semantics.tap(middle);
+        await settleShort(tester);
+        expect(find.widgetWithText(ListTile, 'Lieux sur la carte'), findsOneWidget);
+        expect(tester.getSemantics(guidanceOptionsHandle), isSemantics(isExpanded: true));
+        semantics.dispose();
+      },
+    );
+
     testWidgets('outside the countries that take reports, the button says where they are taken', (
       tester,
     ) async {

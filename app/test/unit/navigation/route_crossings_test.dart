@@ -20,13 +20,14 @@ String _answer() {
     List<Map<String, Object?>> intersections = const [],
     Map<String, Object?> extra = const {},
     int admin = 0,
+    List<String>? classes,
   }) => {
     'distance': (to - from) * metre,
     'duration': (to - from) * 4.0,
     'name': '',
     'maneuver': {'type': type, 'modifier': ?modifier, 'location': at(from)},
     'intersections': [
-      {'location': at(from), 'admin_index': admin},
+      {'location': at(from), 'admin_index': admin, 'classes': ?classes},
       ...intersections,
     ],
     ...extra,
@@ -46,6 +47,7 @@ String _answer() {
                 0,
                 10,
                 type: 'depart',
+                classes: ['motorway'],
                 extra: {'ref': 'A 41; E 712'},
                 intersections: [
                   {

@@ -52,6 +52,46 @@ final class RouteProgress {
     return (_plane[low] + (_plane[high] - _plane[low]) * t) / _plane.last;
   }
 
+  /// The points of the line from [fromM] to [toM] metres along it, cut
+  /// inside the segments where they fall: a binary search, then the points
+  /// between, whatever the length of the line.
+  List<LatLng> between(double fromM, double toM) {
+    if (line.length < 2 || toM <= fromM) return const [];
+    LatLng at(double m) {
+      final i = _segmentAt(m);
+      final span = _metres[i + 1] - _metres[i];
+      final t = span <= 0 ? 0.0 : ((m - _metres[i]) / span).clamp(0.0, 1.0);
+      final a = line[i];
+      final b = line[i + 1];
+      return LatLng(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t);
+    }
+
+    final from = fromM.clamp(0.0, _metres.last);
+    final to = toM.clamp(0.0, _metres.last);
+    if (to <= from) return const [];
+    return [
+      at(from),
+      for (var i = _segmentAt(from) + 1; i < line.length && _metres[i] < to; i++) line[i],
+      at(to),
+    ];
+  }
+
+  /// The segment holding [m] metres along the line: the index of its first
+  /// point.
+  int _segmentAt(double m) {
+    var low = 0;
+    var high = _metres.length - 1;
+    while (high - low > 1) {
+      final mid = (low + high) ~/ 2;
+      if (_metres[mid] <= m) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    return low;
+  }
+
   /// The metres from the start of the line at [share] of it as the map
   /// measures it, the inverse of [shareAt].
   double alongAt(double share) {

@@ -1154,7 +1154,11 @@ class _GuidanceMap extends ConsumerWidget {
         // Only what the rule of the country the vehicle is in allows while
         // driving: zones in France, nothing in Germany or Switzerland.
         zones: session.aids.zones,
-        traveledM: alongOnRoute,
+        // The drawn vehicle reaches each fix as the next one comes: the grey
+        // stops a second's drive behind it, under the arrow.
+        traveledM: alongOnRoute == null
+            ? null
+            : math.max(0, alongOnRoute - (session.lastFix?.speedMps ?? 0)).toDouble(),
         arrow: ref.watch(guidanceArrowProvider),
         places: tiles,
         rich: RouteMapRich(
@@ -1727,8 +1731,10 @@ class _BottomBarState extends ConsumerState<_BottomBar> {
       elevation: 6,
       child: SafeArea(
         top: false,
-        // A swipe up opens the options, a swipe down closes them.
+        // A swipe up opens the options, a swipe down closes them; a screen
+        // reader opens them by the middle of the bar.
         child: GestureDetector(
+          excludeFromSemantics: true,
           onVerticalDragEnd: (details) {
             final speed = details.primaryVelocity ?? 0;
             if (speed < -150) _show(open: true);
@@ -1770,15 +1776,15 @@ class _BottomBarState extends ConsumerState<_BottomBar> {
                     ),
                     const SizedBox(width: Space.s),
                     Expanded(
-                      child: InkWell(
-                        onTap: toggle,
-                        mouseCursor: WidgetStateMouseCursor.clickable,
-                        borderRadius: BorderRadius.circular(LunaTokens.radiusM),
-                        child: Semantics(
-                          container: true,
-                          button: true,
-                          expanded: _open,
-                          hint: t.navigation.guidance.options,
+                      child: Semantics(
+                        container: true,
+                        button: true,
+                        expanded: _open,
+                        hint: t.navigation.guidance.options,
+                        child: InkWell(
+                          onTap: toggle,
+                          mouseCursor: WidgetStateMouseCursor.clickable,
+                          borderRadius: BorderRadius.circular(LunaTokens.radiusM),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: Space.xxs),
                             child: Column(

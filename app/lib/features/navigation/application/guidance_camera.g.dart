@@ -203,7 +203,7 @@ final class GuidanceAimProvider
   }
 }
 
-String _$guidanceAimHash() => r'a279e11e9f154c8e2a75e4379b83519ae7e66513';
+String _$guidanceAimHash() => r'09a51d3e5e6b52202ddd5e1636afa93ad6214fd7';
 
 /// The zoom and the tilt the guidance map aims at while it follows
 /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that

@@ -878,9 +878,13 @@ final class TraveledLine {
     final line = lines.firstWhereOrNull((l) => l.selected)?.points;
     if (!identical(line, _line)) {
       _line = line;
-      _progress = line == null || line.length < 2 ? null : RouteProgress(line);
+      _progress = null;
       _sentM = null;
       _lastM = null;
+    }
+    // Measured once the route is driven: the preview's never is.
+    if (traveledM != null && _progress == null && line != null && line.length >= 2) {
+      _progress = RouteProgress(line);
     }
     final progress = _progress;
     final sent = _sentM;
@@ -901,7 +905,7 @@ final class TraveledLine {
     final steps = (progress.shareAt(m) * gradientRamp).floor() - 1;
     share = steps <= 0 ? 0 : steps / gradientRamp;
     final from = math.max(0, progress.alongAt((steps - 0.5) / gradientRamp));
-    tail = lineAlong(progress.line, RouteSpan(from.toDouble(), m));
+    tail = progress.between(from.toDouble(), m);
     return true;
   }
 }

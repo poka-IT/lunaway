@@ -228,10 +228,11 @@ RouteStep _step(
     roadRef: _text(s['ref']),
     exitRef: _text(s['exits']),
     signs: _text(s['destinations']),
-    motorway: [
-      for (final i in (s['intersections'] as List?) ?? const [])
-        if (i is Map<String, dynamic>) ...?(i['classes'] as List?),
-    ].contains('motorway'),
+    motorway: switch (s['intersections']) {
+      [final Map<String, dynamic> first, ...] =>
+        (first['classes'] as List?)?.contains('motorway') ?? false,
+      _ => false,
+    },
   );
 }
 
