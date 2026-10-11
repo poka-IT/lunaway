@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -27,24 +30,43 @@ PopupMenuItem<T> startHereEntry<T>(BuildContext context, T value) => PopupMenuIt
 );
 
 /// The menu of other actions of a card that has no other: "…" in its
-/// header, beside the close, as a place's card has it (`PlaceMoreMenu`).
+/// header, beside the close, as a place's card has it (`PlaceMoreMenu`):
+/// "Partir d'ici", and "Définir comme domicile" when the card says what
+/// the point would be as a home ([home]).
 class StartHereMenu extends ConsumerWidget {
-  const new({required this.position, this.label, super.key});
+  const new({required this.position, this.label, this.home, super.key});
 
   final LatLng position;
 
   /// The start's name in the preview; none for a point of the map.
   final String? label;
 
+  /// The point as the home would keep it; none where no home is offered.
+  final SavedPoint Function()? home;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    return PopupMenuButton<LatLng>(
+    final home = this.home;
+    // The draft is made when the menu opens: it reads what the card holds
+    // then, never during a build.
+    final homeId = home == null ? null : ref.watch(userHomeProvider).value?.id;
+    return PopupMenuButton<String>(
       tooltip: context.t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),
       style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
-      onSelected: (at) => startFrom(context, ref, at, label: label),
-      itemBuilder: (context) => [startHereEntry(context, position)],
+      onSelected: (action) async {
+        switch (action) {
+          case 'start':
+            startFrom(context, ref, position, label: label);
+          case 'home' when home != null:
+            await toggleHome(context, ref, home());
+        }
+      },
+      itemBuilder: (context) => [
+        startHereEntry(context, 'start'),
+        if (home != null) homeEntry(context, 'home', isHome: homeId != null && homeId == home().id),
+      ],
     );
   }
 }

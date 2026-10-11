@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE reviews k SET status = CASE\n            WHEN (CASE a.status WHEN 'removed' THEN 3 WHEN 'hidden' THEN 2\n                                WHEN 'pending' THEN 1 ELSE 0 END)\n               > (CASE k.status WHEN 'removed' THEN 3 WHEN 'hidden' THEN 2\n                                WHEN 'pending' THEN 1 ELSE 0 END)\n            THEN a.status ELSE k.status END\n        FROM reviews a WHERE k.id = $2 AND a.id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "970c05045c7fc8062a44fdab95648f6a1cafff89a7169fc41a1a5d9041e99e72"
+}

@@ -178,44 +178,12 @@ async fn own_row_in_family(
     }
     if !extra.is_empty() {
         // Their reports and queue entries follow to the kept row, so a
-        // moderator can still act on what they were about.
-        sqlx::query!(
-            r#"
-            INSERT INTO content_reports
-                (id, target_type, target_id, reporter_id, reason, note, created_at, dismissed_at)
-            SELECT id, target_type, $2, reporter_id, reason, note, created_at, dismissed_at
-            FROM content_reports WHERE target_id = ANY($1)
-            ON CONFLICT DO NOTHING
-            "#,
-            &extra,
-            keep.id,
-        )
-        .execute(&mut *conn)
-        .await?;
-        sqlx::query!(
-            r#"
-            UPDATE moderation_queue q SET target_id = $2
-            WHERE q.target_id = ANY($1) AND NOT (q.status = 'open' AND EXISTS (
-                SELECT 1 FROM moderation_queue o
-                WHERE o.target_id = $2 AND o.kind = q.kind AND o.status = 'open'))
-            "#,
-            &extra,
-            keep.id,
-        )
-        .execute(&mut *conn)
-        .await?;
-        sqlx::query!(
-            "DELETE FROM content_reports WHERE target_id = ANY($1)",
-            &extra
-        )
-        .execute(&mut *conn)
-        .await?;
-        sqlx::query!(
-            "DELETE FROM moderation_queue WHERE target_id = ANY($1)",
-            &extra
-        )
-        .execute(&mut *conn)
-        .await?;
+        // moderator can still act on what they were about, and the same
+        // reporters cannot report it again. Moved in place: a copy of a
+        // report keeps its id, which the row it copies still holds.
+        for &id in &extra {
+            crate::merge::move_moderation(&mut *conn, id, keep.id).await?;
+        }
         sqlx::query!("DELETE FROM reviews WHERE id = ANY($1)", &extra)
             .execute(&mut *conn)
             .await?;

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO merged_keys (key_hash, into_account)\n        SELECT sha256(public_key), $2 FROM device_keys WHERE account_id = $1\n        ON CONFLICT (key_hash) DO UPDATE SET into_account = EXCLUDED.into_account,\n                                             merged_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c4d07ed4fccb6cc79bf0d46d905230e380f7bf76d4ec3d78b06f367fc9c0686"
+}

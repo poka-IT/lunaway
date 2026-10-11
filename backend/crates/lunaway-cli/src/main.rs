@@ -1760,13 +1760,14 @@ async fn run() -> anyhow::Result<()> {
             println!(
                 "retention: {} issue reports, {} content reports, {} moderation entries, \
                  {} confirmations deleted; {} submissions emptied; {} banned key hashes, \
-                 {} stale translations deleted",
+                 {} merged key hashes, {} stale translations deleted",
                 s.issue_reports,
                 s.content_reports,
                 s.moderation_entries,
                 s.confirmations,
                 s.submission_payloads,
                 s.banned_keys,
+                s.merged_keys,
                 s.translations
             );
         }
@@ -2823,21 +2824,32 @@ async fn accounts(
             if dry_run {
                 println!(
                     "journal {}: {} accounts, {} of them still in this database \
-                     (nothing deleted: dry run), {} unreadable lines",
+                     (nothing deleted: dry run; {} would be merged again), {} unreadable lines",
                     journal.dir().display(),
                     r.accounts,
                     r.deleted,
+                    r.merged,
                     r.unreadable
                 );
             } else {
                 println!(
-                    "journal {}: {} accounts, {} deleted again, {} unreadable lines",
+                    "journal {}: {} accounts, {} deleted again ({} of them merged again \
+                     into the account they had gone into), {} unreadable lines",
                     journal.dir().display(),
                     r.accounts,
                     r.deleted,
+                    r.merged,
                     r.unreadable
                 );
                 remove_files(media, &r.orphan_files).await?;
+            }
+            // Merged accounts whose target this database lacks or bans: the
+            // journal never asked to erase them, an operator decides.
+            for id in &r.kept {
+                println!("kept, its target missing or banned: {id}");
+            }
+            for id in &r.failed {
+                println!("merge refused by the database (see the log), left as it is: {id}");
             }
         }
     }

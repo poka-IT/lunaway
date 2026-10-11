@@ -188,6 +188,7 @@ the profile's segmented choice takes the short form.
 | carte de secours | recovery card | Sicherungskarte | tarjeta de recuperación | scheda di recupero | herstelkaart |
 | code de secours | recovery code | Sicherungscode | código de recuperación | codice di recupero | herstelcode |
 | favoris, Mes favoris | favourites, My favourites | Favoriten, Meine Favoriten | favoritos, Mis favoritos | preferiti, I miei preferiti | favorieten, Mijn favorieten |
+| domicile, itinéraire vers le domicile | home, route home | Zuhause, Route nach Hause | casa, ruta a casa | casa, percorso verso casa | thuis, route naar huis |
 | hors ligne, cartes hors ligne | offline, offline maps | offline, Offline-Karten | sin conexión, mapas sin conexión | offline, mappe offline | offline, offline kaarten |
 | votre position | your position | Ihr Standort | tu ubicación | la tua posizione | je positie |
 | pas de réseau | no network | keine Verbindung | sin conexión | nessuna rete | geen verbinding (zonder internet) |

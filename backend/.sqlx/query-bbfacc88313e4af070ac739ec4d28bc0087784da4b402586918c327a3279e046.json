@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO banned_keys (key_hash, banned_at)\n            SELECT key_hash, $2 FROM merged_keys WHERE into_account = $1\n            ON CONFLICT (key_hash) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bbfacc88313e4af070ac739ec4d28bc0087784da4b402586918c327a3279e046"
+}

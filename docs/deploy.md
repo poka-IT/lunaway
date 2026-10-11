@@ -2201,7 +2201,13 @@ Mac.
   it cannot journal (`UNAVAILABLE`), and refuses to start when it cannot
   write the journal's directory. After a restore, `lunaway accounts
   replay-deletions` deletes again, exactly as `deleteAccount` did, every
-  account the journal names that the restored database holds. The journal
+  account the journal names that the restored database holds. An account
+  merged into another (`mergeAccount`) has its line with the account it
+  went into: the replay merges it again into that account, or, when the
+  restored database lacks it, into the next one down the chain of later
+  merges (it deletes it when that chain ends in a deletion), and lists as
+  `kept` a merged account none of whose targets the restored database
+  holds unbanned, for the operator to decide. The journal
   on the data volume covers every restore that keeps the volume (a bad
   migration, a corrupted database); when the volume itself is lost, the
   Mac's copy holds the deletions up to its last pull (04:30 local, later

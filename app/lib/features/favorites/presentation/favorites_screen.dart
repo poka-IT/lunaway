@@ -8,6 +8,7 @@ import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
@@ -36,6 +37,9 @@ class FavoritesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final lists = ref.watch(favoriteListsProvider);
+    // The home heads the lists: both read before either shows.
+    final home = ref.watch(userHomeProvider);
+    final homeRead = home.hasValue || home.hasError;
     final selectedId = ref.watch(selectedFavoriteListProvider);
     return Scaffold(
       body: SafeArea(
@@ -43,7 +47,7 @@ class FavoritesScreen extends ConsumerWidget {
         child: ScrollsToTopOnReselect(
           tab: AppTabs.favorites,
           child: switch (lists) {
-            AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
+            AsyncValue(value: final lists?) when lists.isNotEmpty && homeRead => _Loaded(
               lists: lists,
               selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
             ),
@@ -128,6 +132,16 @@ class _Loaded extends ConsumerWidget {
       for (final list in lists)
         _ListCard(list: list, selected: list.id == selected.id, onTap: () => select.show(list.id)),
     ];
+    // The home heads the favourites, above the lists, in every layout.
+    final home = Padding(
+      padding: EdgeInsets.fromLTRB(
+        size == .compact ? Space.xl : Space.xxl,
+        0,
+        size == .expanded ? Space.l : (size == .compact ? Space.xl : Space.xxl),
+        Space.m,
+      ),
+      child: const HomeCard(),
+    );
     if (size == .expanded) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,6 +151,7 @@ class _Loaded extends ConsumerWidget {
             child: ListView(
               children: [
                 header,
+                home,
                 for (final c in cards)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.l, Space.s),
@@ -158,6 +173,7 @@ class _Loaded extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
+        home,
         SizedBox(
           height: 64 + 52 * scale,
           child: ListView.separated(

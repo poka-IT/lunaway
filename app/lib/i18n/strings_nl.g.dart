@@ -61,6 +61,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$nl directions = _Translations$directions$nl._(_root);
 	@override late final _Translations$navigation$nl navigation = _Translations$navigation$nl._(_root);
 	@override late final _Translations$list$nl list = _Translations$list$nl._(_root);
+	@override late final _Translations$home$nl home = _Translations$home$nl._(_root);
 	@override late final _Translations$favorites$nl favorites = _Translations$favorites$nl._(_root);
 	@override late final _Translations$vehicle$nl vehicle = _Translations$vehicle$nl._(_root);
 	@override late final _Translations$vehicleHeight$nl vehicleHeight = _Translations$vehicleHeight$nl._(_root);
@@ -72,6 +73,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$account$nl account = _Translations$account$nl._(_root);
 	@override late final _Translations$recovery$nl recovery = _Translations$recovery$nl._(_root);
 	@override late final _Translations$recover$nl recover = _Translations$recover$nl._(_root);
+	@override late final _Translations$accountImport$nl accountImport = _Translations$accountImport$nl._(_root);
 	@override late final _Translations$deletion$nl deletion = _Translations$deletion$nl._(_root);
 	@override late final _Translations$devices$nl devices = _Translations$devices$nl._(_root);
 	@override late final _Translations$muted$nl muted = _Translations$muted$nl._(_root);
@@ -714,6 +716,36 @@ class _Translations$list$nl extends Translations$list$en {
 	@override String get offlineNotHere => 'Niets van dit gebied op dit apparaat.';
 }
 
+// Path: home
+class _Translations$home$nl extends Translations$home$en {
+	_Translations$home$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Thuis';
+	@override String get setTitle => 'Mijn thuis instellen';
+	@override String get error => 'Je thuis kon niet worden geladen.';
+	@override String get privacy => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.';
+	@override String get directionsHome => 'Route naar huis';
+	@override String get actions => 'Acties voor thuis';
+	@override String get change => 'Thuis wijzigen';
+	@override String get remove => 'Thuis verwijderen';
+	@override String get removed => 'Thuis verwijderd';
+	@override String get saved => 'Thuis opgeslagen';
+	@override String get changed => 'Thuis gewijzigd';
+	@override String get setHere => 'Instellen als thuis';
+	@override String get removeHere => 'Niet meer mijn thuis';
+	@override String get sheetTitle => 'Waar is je thuis?';
+	@override String get searchHint => 'Een adres of een gemeente';
+	@override String get myPosition => 'Mijn huidige positie';
+	@override String get onMap => 'Kiezen op de kaart';
+	@override String get onMapNotice => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.';
+	@override String get onMapNoticeClick => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.';
+	@override String get here => 'Mijn thuis is hier';
+	@override String get goHome => 'Naar huis';
+}
+
 // Path: favorites
 class _Translations$favorites$nl extends Translations$favorites$en {
 	_Translations$favorites$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -1006,6 +1038,12 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String welcomeBody({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.';
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
 	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
+	@override String get useAnother => 'Een ander account gebruiken';
+	@override String merged({required Object name}) => 'Dit account is samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.';
+	@override String get mergedAction => 'Openen';
+	@override String mergedTitle({required Object name}) => 'Account samengevoegd met “${name}”';
+	@override String mergedBody({required Object name}) => 'Dit account is samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.';
+	@override String mergedOpen({required Object name}) => '“${name}” hier openen';
 }
 
 // Path: recovery
@@ -1070,6 +1108,49 @@ class _Translations$recover$nl extends Translations$recover$en {
 	@override String get tooMany => 'Te veel pogingen. Probeer het over een uur opnieuw.';
 	@override String done({required Object name}) => 'Account hersteld: ${name}';
 	@override String get required => 'Typ de code van je herstelkaart';
+}
+
+// Path: accountImport
+class _Translations$accountImport$nl extends Translations$accountImport$en {
+	_Translations$accountImport$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Een ander account gebruiken';
+	@override String intro({required Object current}) => 'Open hier een ander account van je met de herstelkaart ervan: typ de code of lees die van een foto. Daarna kies je wat er met “${current}” gebeurt.';
+	@override String get submit => 'Dit account openen';
+	@override String same({required Object current}) => 'Deze kaart hoort bij “${current}”, het account van dit apparaat.';
+	@override String get choiceTitle => 'Twee accounts op dit apparaat';
+	@override String choiceBody({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.';
+	@override String merge({required Object imported}) => 'Samenvoegen met “${imported}”';
+	@override String mergeMoves({required Object current, required Object imported}) => 'De favorietenlijsten, het thuis, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.';
+	@override String mergePublic({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.';
+	@override String mergeHomeKept({required Object imported}) => 'Beide accounts hebben een thuis: dat van “${imported}” blijft.';
+	@override String mergeDuplicates({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.';
+	@override String mergeDeletes({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.';
+	@override String get replace => 'Vervangen zonder samenvoegen';
+	@override String replaceTitle({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”';
+	@override String replaceKeeps({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.';
+	@override String replaceNoCard({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.';
+	@override String replaceLocal({required Object imported}) => 'De favorietenlijsten en het thuis verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.';
+	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'De wachtende bijdrage wordt niet verstuurd.',
+		other: 'De ${n} wachtende bijdragen worden niet verstuurd.',
+	);
+	@override String card({required Object current}) => 'Herstelkaart van “${current}”';
+	@override String get replaceConfirm => 'Vervangen';
+	@override String get back => 'Terug';
+	@override String get failed => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.';
+	@override String get refused => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.';
+	@override String get replaceFailed => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.';
+	@override String replaceUnfinished({required Object current}) => '“${current}” heeft dit apparaat al verlaten, maar het vervangen is nog niet klaar. Probeer het opnieuw.';
+	@override String get unsettled => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.';
+	@override String get deviceFailed => 'Het samenvoegen is op de server gedaan, maar dit apparaat kon het niet opslaan. Probeer het opnieuw.';
+	@override String get tooMany => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.';
+	@override String merged({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.';
+	@override String replaced({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.';
+	@override String cancelled({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.';
 }
 
 // Path: deletion
@@ -4291,6 +4372,27 @@ extension on TranslationsNl {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen',
 			'list.offlineTitle' => 'Geen verbinding',
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
+			'home.title' => 'Thuis',
+			'home.setTitle' => 'Mijn thuis instellen',
+			'home.error' => 'Je thuis kon niet worden geladen.',
+			'home.privacy' => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.',
+			'home.directionsHome' => 'Route naar huis',
+			'home.actions' => 'Acties voor thuis',
+			'home.change' => 'Thuis wijzigen',
+			'home.remove' => 'Thuis verwijderen',
+			'home.removed' => 'Thuis verwijderd',
+			'home.saved' => 'Thuis opgeslagen',
+			'home.changed' => 'Thuis gewijzigd',
+			'home.setHere' => 'Instellen als thuis',
+			'home.removeHere' => 'Niet meer mijn thuis',
+			'home.sheetTitle' => 'Waar is je thuis?',
+			'home.searchHint' => 'Een adres of een gemeente',
+			'home.myPosition' => 'Mijn huidige positie',
+			'home.onMap' => 'Kiezen op de kaart',
+			'home.onMapNotice' => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.',
+			'home.onMapNoticeClick' => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.',
+			'home.here' => 'Mijn thuis is hier',
+			'home.goHome' => 'Naar huis',
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
@@ -4428,6 +4530,8 @@ extension on TranslationsNl {
 			'profile.attributionTranslation' => 'Automatische vertalingen: OPUS-MT-modellen van de Universiteit van Helsinki, onder CC BY 4.0, uitgevoerd op de servers van Lunaway.',
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
@@ -4449,8 +4553,6 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
@@ -4517,6 +4619,12 @@ extension on TranslationsNl {
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
+			'account.useAnother' => 'Een ander account gebruiken',
+			'account.merged' => ({required Object name}) => 'Dit account is samengevoegd met “${name}”. Open “${name}” hier met de herstelkaart ervan.',
+			'account.mergedAction' => 'Openen',
+			'account.mergedTitle' => ({required Object name}) => 'Account samengevoegd met “${name}”',
+			'account.mergedBody' => ({required Object name}) => 'Dit account is samengevoegd met “${name}”. Je favorieten blijven hier en gaan naar “${name}” zodra je het opent met de herstelkaart ervan.',
+			'account.mergedOpen' => ({required Object name}) => '“${name}” hier openen',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
@@ -4560,6 +4668,37 @@ extension on TranslationsNl {
 			'recover.tooMany' => 'Te veel pogingen. Probeer het over een uur opnieuw.',
 			'recover.done' => ({required Object name}) => 'Account hersteld: ${name}',
 			'recover.required' => 'Typ de code van je herstelkaart',
+			'accountImport.title' => 'Een ander account gebruiken',
+			'accountImport.intro' => ({required Object current}) => 'Open hier een ander account van je met de herstelkaart ervan: typ de code of lees die van een foto. Daarna kies je wat er met “${current}” gebeurt.',
+			'accountImport.submit' => 'Dit account openen',
+			'accountImport.same' => ({required Object current}) => 'Deze kaart hoort bij “${current}”, het account van dit apparaat.',
+			'accountImport.choiceTitle' => 'Twee accounts op dit apparaat',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.',
+			'accountImport.merge' => ({required Object imported}) => 'Samenvoegen met “${imported}”',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'De favorietenlijsten, het thuis, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.',
+			'accountImport.mergePublic' => ({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Beide accounts hebben een thuis: dat van “${imported}” blijft.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.',
+			'accountImport.mergeDeletes' => ({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.',
+			'accountImport.replace' => 'Vervangen zonder samenvoegen',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”',
+			'accountImport.replaceKeeps' => ({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.',
+			'accountImport.replaceNoCard' => ({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'De favorietenlijsten en het thuis verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'De wachtende bijdrage wordt niet verstuurd.', other: 'De ${n} wachtende bijdragen worden niet verstuurd.', ), 
+			'accountImport.card' => ({required Object current}) => 'Herstelkaart van “${current}”',
+			'accountImport.replaceConfirm' => 'Vervangen',
+			'accountImport.back' => 'Terug',
+			'accountImport.failed' => 'Het samenvoegen is niet afgerond. Je gegevens blijven op dit apparaat. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.refused' => 'De server weigert dit samenvoegen. Beide accounts blijven zoals ze zijn.',
+			'accountImport.replaceFailed' => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '“${current}” heeft dit apparaat al verlaten, maar het vervangen is nog niet klaar. Probeer het opnieuw.',
+			'accountImport.unsettled' => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.deviceFailed' => 'Het samenvoegen is op de server gedaan, maar dit apparaat kon het niet opslaan. Probeer het opnieuw.',
+			'accountImport.tooMany' => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.',
+			'accountImport.merged' => ({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.',
+			'accountImport.replaced' => ({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.',
+			'accountImport.cancelled' => ({required Object name}) => 'Er is niets veranderd: dit apparaat gebruikt nog steeds “${name}”.',
 			'deletion.title' => 'Mijn account verwijderen',
 			'deletion.intro' => 'Het verwijderen gebeurt direct en is definitief.',
 			'deletion.goneTitle' => 'Wat er verdwijnt',
@@ -4905,6 +5044,8 @@ extension on TranslationsNl {
 			'poi.kind.psychologist' => 'Psycholoog',
 			'poi.kind.speechTherapist' => 'Logopedist',
 			'poi.kind.alternativeMedicine' => 'Osteopaat, alternatieve geneeskunde',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audicien',
 			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',
@@ -4963,8 +5104,6 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',

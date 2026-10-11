@@ -49,14 +49,14 @@ impl Device {
         Self(SigningKey::from_slice(&d).unwrap())
     }
 
-    fn jwk(&self) -> String {
+    pub(crate) fn jwk(&self) -> String {
         let point = self.0.verifying_key().to_sec1_point(false);
         let bytes = point.as_bytes();
         json!({"kty": "EC", "crv": "P-256", "x": b64(&bytes[1..33]), "y": b64(&bytes[33..65])})
             .to_string()
     }
 
-    fn sign(&self, message: &str) -> String {
+    pub(crate) fn sign(&self, message: &str) -> String {
         let signature: p256::ecdsa::Signature = self.0.sign(message.as_bytes());
         b64(&signature.to_bytes())
     }
@@ -137,7 +137,7 @@ mutation($jwk: String!, $nonce: String!, $sig: String!) {
   }
 }"#;
 
-async fn challenge(app: &axum::Router) -> (String, String) {
+pub(crate) async fn challenge(app: &axum::Router) -> (String, String) {
     let body = gql(
         app,
         None,
@@ -443,7 +443,7 @@ query($id: UUID!) {
   }
 }";
 
-const REVIEW: &str = r#"
+pub(crate) const REVIEW: &str = r#"
 mutation($id: UUID!, $text: String!) {
   review(placeId: $id, stars: 4, text: $text, visitedOn: "2026-09-20", vehicle: CAMPERVAN, lang: "fr") {
     id status rating
@@ -3166,4 +3166,69 @@ async fn a_banned_account_may_delete_itself_and_its_key_opens_nothing_after(pool
     )
     .await;
     assert_eq!(code(&joined), "FORBIDDEN");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_reports_of_a_review_follow_it_when_its_place_merges(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let kept_place = place_named(&pool, "Camping municipal du Port").await;
+    let merged_place = place_named(&pool, "Aire Val-du-Layon").await;
+    let (author, author_id) = sign_in(&app, &Device::new(1)).await;
+    let (reporter, reporter_id) = sign_in(&app, &Device::new(2)).await;
+    let written = gql(
+        &app,
+        Some(&author),
+        REVIEW,
+        json!({"id": merged_place, "text": "Bruyant la nuit, à éviter."}),
+    )
+    .await;
+    let reported = ok(&written)["review"]["id"].as_str().unwrap().to_owned();
+    gql(
+        &app,
+        Some(&author),
+        "mutation($id: UUID!) { rate(placeId: $id, stars: 4) { id } }",
+        json!({"id": kept_place}),
+    )
+    .await;
+    ok(&gql(
+        &app,
+        Some(&reporter),
+        "mutation($id: UUID!) { reportContent(target: REVIEW, id: $id, reason: OFFENSIVE) }",
+        json!({"id": reported}),
+    )
+    .await);
+    // The worker merges the two places: the author now has two rows in
+    // one family, which its next rating makes one.
+    sqlx::query!(
+        "UPDATE places SET deleted_at = now(), merged_into = $2 WHERE id = $1",
+        merged_place,
+        kept_place
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    gql(
+        &app,
+        Some(&author),
+        "mutation($id: UUID!) { rate(placeId: $id, stars: 3) { id } }",
+        json!({"id": kept_place}),
+    )
+    .await;
+    let reports = sqlx::query!(
+        r#"
+        SELECT c.reporter_id FROM content_reports c JOIN reviews r ON r.id = c.target_id
+        WHERE r.account_id = $1
+        "#,
+        author_id
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        reports.iter().map(|r| r.reporter_id).collect::<Vec<_>>(),
+        [reporter_id],
+        "the report follows the row kept: neither lost nor filed again"
+    );
 }

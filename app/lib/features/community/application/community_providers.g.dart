@@ -377,7 +377,7 @@ final class OutboxSenderProvider
   }
 }
 
-String _$outboxSenderHash() => r'92a12bc655631037f8f5879e0e0ec37ace2837b8';
+String _$outboxSenderHash() => r'a0026d3103659cad7c237659523dde377b71e34a';
 
 /// Every contribution waiting, oldest first.
 
@@ -811,7 +811,7 @@ final class OutboxRunnerProvider extends $NotifierProvider<OutboxRunner, bool> {
   }
 }
 
-String _$outboxRunnerHash() => r'2d35d553498af9e295d9ec22e6fccdd10f9bf6d1';
+String _$outboxRunnerHash() => r'217741aa1557b950d3b00eac6a4d595415c70731';
 
 /// Runs the outbox: sends at launch, when a contribution is queued, when
 /// the app comes back to the foreground, when a sync shows the network is

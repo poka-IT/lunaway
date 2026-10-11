@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT a.id AS absorbed, b.id AS kept\n        FROM poi_reviews a JOIN poi_reviews b ON b.poi_id = a.poi_id AND b.account_id = $2\n        WHERE a.account_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "absorbed",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kept",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "34159797bf7a275c5e5d2646cc5e627fefff677af2416e7cd0a808b89c3c1eac"
+}

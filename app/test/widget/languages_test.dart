@@ -8,6 +8,10 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/account/data/account_service.dart';
+import 'package:lunaway/features/account/data/device_keys.dart';
+import 'package:lunaway/features/account/domain/account.dart';
+import 'package:lunaway/features/account/presentation/account_import.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
@@ -29,6 +33,7 @@ import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/fonts.dart';
@@ -245,7 +250,35 @@ final _contributorScenes = <String, void Function(BuildContext, ProviderContaine
       unawaited(container.read(routerProvider).push(AppRoutes.contributions)),
   '24-delete-account': (_, container) =>
       unawaited(container.read(routerProvider).push(AppRoutes.deleteAccount)),
+  '25-use-another-account': (_, container) =>
+      unawaited(container.read(routerProvider).push(AppRoutes.useAnotherAccount)),
+  '26-import-choice': (context, _) => unawaited(_showImportChoice(context, replacing: false)),
+  '27-import-replace': (context, _) => unawaited(_showImportChoice(context, replacing: true)),
 };
+
+/// The sheet of an account opened beside the device's, at its first step
+/// or at the replacement's, with every line it can show.
+Future<void> _showImportChoice(BuildContext context, {required bool replacing}) {
+  final api = FakeApi();
+  final imported = ImportedAccount(
+    key: SoftwareDeviceKey(BigInt.from(77)),
+    session: Session(token: 't', expiresAt: testNow, openedAt: testNow),
+    account: Account.fromJson(api.otherAccount())!,
+  );
+  return showSheet<void>(
+    context,
+    isScrollControlled: true,
+    dismissible: false,
+    builder: (_) => ImportChoice(
+      current: Account.fromJson(api.account())!,
+      imported: imported,
+      homeWins: true,
+      waiting: 3,
+      hasCard: false,
+      replacing: replacing,
+    ),
+  );
+}
 
 void main() {
   setUpAll(loadRealFonts);

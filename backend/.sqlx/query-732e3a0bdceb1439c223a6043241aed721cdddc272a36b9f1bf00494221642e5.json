@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM muted_authors WHERE account_id = $1 OR muted_id = $1)\n              + (SELECT count(*) FROM account_endorsements\n                 WHERE account_id = $1 OR by_account_id = $1) AS \"n!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "732e3a0bdceb1439c223a6043241aed721cdddc272a36b9f1bf00494221642e5"
+}

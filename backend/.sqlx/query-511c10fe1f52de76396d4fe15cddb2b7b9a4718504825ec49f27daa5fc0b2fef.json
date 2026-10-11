@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE poi_confirmations SET account_id = $2 WHERE account_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "511c10fe1f52de76396d4fe15cddb2b7b9a4718504825ec49f27daa5fc0b2fef"
+}

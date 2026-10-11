@@ -64,6 +64,10 @@ pub(crate) enum Action {
     PlaceDigests,
     /// A text the translation server translated for a client.
     Translate,
+    /// An account merged into this one (`mergeAccount`), counted per account.
+    Merge,
+    /// An account merge, counted per client.
+    MergeClient,
 }
 
 /// Who is counted.
@@ -132,6 +136,8 @@ impl QuotaLimiter {
             Action::ExternalPhoto => q.external_photo,
             Action::PlaceDigests => q.place_digests,
             Action::Translate => q.translate,
+            Action::Merge => q.merge,
+            Action::MergeClient => q.merge_client,
         }
     }
 

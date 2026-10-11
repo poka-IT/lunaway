@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/application/account_switch.dart';
 import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/community/data/community_api.dart';
 import 'package:lunaway/features/community/data/community_operations.dart';
@@ -78,10 +79,15 @@ CommunityApi communityApi(Ref ref) => GraphQLCommunityApi(
 @Riverpod(keepAlive: true)
 OutboxSender outboxSender(Ref ref) {
   final account = ref.watch(accountServiceProvider);
+  final switcher = ref.watch(accountSwitchProvider);
   final sender = OutboxSender(
     outbox: ref.watch(outboxStoreProvider),
     api: ref.watch(communityApiProvider),
     accountId: () async => (await account.restore())?.account.id,
+    waiting: () async {
+      final merged = await account.mergedFrom();
+      return {?merged?.from, ?merged?.intoId, ?switcher.landing};
+    },
     clock: ref.watch(clockProvider),
   );
   ref.onDispose(sender.dispose);
@@ -180,7 +186,46 @@ class OutboxRunner extends _$OutboxRunner {
     ref.listen(syncControllerProvider, (previous, next) {
       if (next is SyncDone && previous is! SyncDone) unawaited(kick());
     });
+    ref.listen(accountControllerProvider, (previous, next) {
+      if (next is! SignedIn) return;
+      if (previous is SignedIn && previous.account.id == next.account.id) return;
+      // Another account on the device: when it is the one the device's went
+      // into from elsewhere, what waited for it leaves now.
+      unawaited(_claim(next.account));
+    });
     return false;
+  }
+
+  Future<void> _claim(Account account) async {
+    final switcher = ref.read(accountSwitchProvider);
+    try {
+      // Held: a pass that read an entry before it changed hands would fail
+      // it as another account's. The hold's end sends what is due.
+      await holding(() => switcher.claimMerged(account));
+    } on Object catch (e) {
+      // The entries keep waiting; the next account change claims them.
+      _log.warning('outbox: the merged account not claimed: ${e.runtimeType}');
+    }
+  }
+
+  /// Held while the device changes accounts: no pass starts meanwhile, so
+  /// no entry goes under the account left or the one taken by mistake.
+  int _holds = 0;
+
+  /// Runs [action] once the pass under way, if any, has ended, with no
+  /// pass starting until it ends; then sends what is due.
+  Future<T> holding<T>(Future<T> Function() action) async {
+    _holds++;
+    _timer?.cancel();
+    try {
+      for (var running = _running; running != null; running = _running) {
+        await running;
+      }
+      return await action();
+    } finally {
+      _holds--;
+      if (_holds == 0 && ref.mounted) unawaited(kick());
+    }
   }
 
   /// Starts the automatic passes; later calls do nothing.
@@ -232,7 +277,7 @@ class OutboxRunner extends _$OutboxRunner {
   /// queued just before is settled by then.
   Future<void> kick({bool now = false}) {
     _now = _now || now;
-    if (_running != null) return (_waiting ??= Completer<void>()).future;
+    if (_running != null || _holds > 0) return (_waiting ??= Completer<void>()).future;
     return _running = _loop();
   }
 
@@ -245,13 +290,16 @@ class OutboxRunner extends _$OutboxRunner {
         _now = false;
         await _pass(now: now);
         waiting?.complete();
-        if (_waiting == null) break;
+        if (_waiting == null || _holds > 0) break;
       }
     } finally {
       _running = null;
-      final left = _waiting;
-      _waiting = null;
-      left?.complete();
+      // Held: the callers that asked meanwhile wait for the pass after.
+      if (_holds == 0) {
+        final left = _waiting;
+        _waiting = null;
+        left?.complete();
+      }
     }
   }
 

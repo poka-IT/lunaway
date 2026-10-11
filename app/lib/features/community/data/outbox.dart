@@ -251,6 +251,14 @@ final class OutboxStore {
     _db.outbox,
   )..where((o) => o.accountId.isNull())).write(OutboxCompanion(accountId: Value(accountId)));
 
+  /// Gives the entries of the account [from], merged into the account [to],
+  /// and those made before any account, to [to]: they leave under the
+  /// account that now holds the contributions of [from].
+  Future<void> reassign({required String from, required String to}) =>
+      (_db.update(_db.outbox)..where((o) => o.accountId.equals(from) | o.accountId.isNull())).write(
+        OutboxCompanion(accountId: Value(to)),
+      );
+
   /// The mark of a rating or review the user deleted while it was being
   /// sent: once the server has it, the sender deletes it there. Kept in the
   /// payload, never sent (keys starting with `_` stay on the device).

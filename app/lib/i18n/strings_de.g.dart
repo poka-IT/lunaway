@@ -61,6 +61,7 @@ class TranslationsDe extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$de directions = _Translations$directions$de._(_root);
 	@override late final _Translations$navigation$de navigation = _Translations$navigation$de._(_root);
 	@override late final _Translations$list$de list = _Translations$list$de._(_root);
+	@override late final _Translations$home$de home = _Translations$home$de._(_root);
 	@override late final _Translations$favorites$de favorites = _Translations$favorites$de._(_root);
 	@override late final _Translations$vehicle$de vehicle = _Translations$vehicle$de._(_root);
 	@override late final _Translations$vehicleHeight$de vehicleHeight = _Translations$vehicleHeight$de._(_root);
@@ -72,6 +73,7 @@ class TranslationsDe extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$account$de account = _Translations$account$de._(_root);
 	@override late final _Translations$recovery$de recovery = _Translations$recovery$de._(_root);
 	@override late final _Translations$recover$de recover = _Translations$recover$de._(_root);
+	@override late final _Translations$accountImport$de accountImport = _Translations$accountImport$de._(_root);
 	@override late final _Translations$deletion$de deletion = _Translations$deletion$de._(_root);
 	@override late final _Translations$devices$de devices = _Translations$devices$de._(_root);
 	@override late final _Translations$muted$de muted = _Translations$muted$de._(_root);
@@ -714,6 +716,36 @@ class _Translations$list$de extends Translations$list$en {
 	@override String get offlineNotHere => 'Nichts aus diesem Gebiet auf diesem Gerät.';
 }
 
+// Path: home
+class _Translations$home$de extends Translations$home$en {
+	_Translations$home$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Zuhause';
+	@override String get setTitle => 'Mein Zuhause festlegen';
+	@override String get error => 'Ihr Zuhause konnte nicht geladen werden.';
+	@override String get privacy => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.';
+	@override String get directionsHome => 'Route nach Hause';
+	@override String get actions => 'Aktionen für Ihr Zuhause';
+	@override String get change => 'Zuhause ändern';
+	@override String get remove => 'Zuhause entfernen';
+	@override String get removed => 'Zuhause entfernt';
+	@override String get saved => 'Zuhause gespeichert';
+	@override String get changed => 'Zuhause geändert';
+	@override String get setHere => 'Als Zuhause festlegen';
+	@override String get removeHere => 'Nicht mehr mein Zuhause';
+	@override String get sheetTitle => 'Wo ist Ihr Zuhause?';
+	@override String get searchHint => 'Eine Adresse oder eine Gemeinde';
+	@override String get myPosition => 'Mein aktueller Standort';
+	@override String get onMap => 'Auf der Karte wählen';
+	@override String get onMapNotice => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.';
+	@override String get onMapNoticeClick => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.';
+	@override String get here => 'Mein Zuhause ist hier';
+	@override String get goHome => 'Nach Hause fahren';
+}
+
 // Path: favorites
 class _Translations$favorites$de extends Translations$favorites$en {
 	_Translations$favorites$de._(TranslationsDe root) : this._root = root, super.internal(root);
@@ -1006,6 +1038,12 @@ class _Translations$account$de extends Translations$account$en {
 	@override String welcomeBody({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.';
 	@override String get welcomeCard => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.';
 	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.';
+	@override String get useAnother => 'Anderes Konto verwenden';
+	@override String merged({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.';
+	@override String get mergedAction => 'Öffnen';
+	@override String mergedTitle({required Object name}) => 'Konto mit „${name}“ zusammengeführt';
+	@override String mergedBody({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.';
+	@override String mergedOpen({required Object name}) => '„${name}“ hier öffnen';
 }
 
 // Path: recovery
@@ -1070,6 +1108,49 @@ class _Translations$recover$de extends Translations$recover$en {
 	@override String get tooMany => 'Vorerst zu viele Versuche. Versuchen Sie es in einer Stunde erneut.';
 	@override String done({required Object name}) => 'Konto wiederhergestellt: ${name}';
 	@override String get required => 'Geben Sie den Code Ihrer Sicherungskarte ein';
+}
+
+// Path: accountImport
+class _Translations$accountImport$de extends Translations$accountImport$en {
+	_Translations$accountImport$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Anderes Konto verwenden';
+	@override String intro({required Object current}) => 'Öffnen Sie hier ein anderes Ihrer Konten mit seiner Sicherungskarte: Geben Sie den Code ein oder lesen Sie ihn von einem Foto ab. Danach entscheiden Sie, was aus „${current}“ wird.';
+	@override String get submit => 'Dieses Konto öffnen';
+	@override String same({required Object current}) => 'Diese Karte gehört zu „${current}“, dem Konto dieses Geräts.';
+	@override String get choiceTitle => 'Zwei Konten auf diesem Gerät';
+	@override String choiceBody({required Object current, required Object imported}) => 'Dieses Gerät verwendet „${current}“. Sie haben gerade „${imported}“ geöffnet.';
+	@override String merge({required Object imported}) => 'Mit „${imported}“ zusammenführen';
+	@override String mergeMoves({required Object current, required Object imported}) => 'Die Favoritenlisten, das Zuhause, die ausgeblendeten Autoren und die wartenden Beiträge von „${current}“ gehen zu „${imported}“.';
+	@override String mergePublic({required Object imported}) => 'Seine veröffentlichten Rezensionen, Fotos, Plätze und Änderungen erscheinen dann unter „${imported}“.';
+	@override String mergeHomeKept({required Object imported}) => 'Beide Konten haben ein Zuhause: Das von „${imported}“ bleibt.';
+	@override String mergeDuplicates({required Object imported}) => 'Ein Platz, den beide Konten bewertet haben, behält die Bewertung von „${imported}“.';
+	@override String mergeDeletes({required Object current}) => '„${current}“ wird danach von diesem Gerät und vom Server gelöscht.';
+	@override String get replace => 'Ersetzen ohne Zusammenführen';
+	@override String replaceTitle({required Object current, required Object imported}) => '„${current}“ durch „${imported}“ ersetzen';
+	@override String replaceKeeps({required Object current}) => '„${current}“ bleibt auf dem Server. Nur seine Sicherungskarte bringt es zurück.';
+	@override String replaceNoCard({required Object current}) => 'Für „${current}“ ist keine Sicherungskarte bekannt. Ist es auf keinem anderen Gerät geöffnet, wird es vom Server gelöscht, da es sich nicht mehr öffnen ließe.';
+	@override String replaceLocal({required Object imported}) => 'Seine Favoritenlisten und sein Zuhause verlassen dieses Gerät; die von „${imported}“ treten an ihre Stelle.';
+	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: 'Sein wartender Beitrag wird nicht gesendet.',
+		other: 'Seine ${n} wartenden Beiträge werden nicht gesendet.',
+	);
+	@override String card({required Object current}) => 'Sicherungskarte von „${current}“';
+	@override String get replaceConfirm => 'Ersetzen';
+	@override String get back => 'Zurück';
+	@override String get failed => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String get refused => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.';
+	@override String get replaceFailed => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String replaceUnfinished({required Object current}) => '„${current}“ hat dieses Gerät bereits verlassen, aber das Ersetzen ist nicht abgeschlossen. Versuchen Sie es erneut.';
+	@override String get unsettled => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String get deviceFailed => 'Die Zusammenführung ist auf dem Server erfolgt, aber dieses Gerät konnte sie nicht speichern. Versuchen Sie es erneut.';
+	@override String get tooMany => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.';
+	@override String merged({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.';
+	@override String replaced({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.';
+	@override String cancelled({required Object name}) => 'Nichts geändert: Dieses Gerät verwendet weiterhin „${name}“.';
 }
 
 // Path: deletion
@@ -4291,6 +4372,27 @@ extension on TranslationsDe {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Sortiert innerhalb der ${n} Plätze, die der Kartenmitte am nächsten liegen',
 			'list.offlineTitle' => 'Keine Verbindung',
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
+			'home.title' => 'Zuhause',
+			'home.setTitle' => 'Mein Zuhause festlegen',
+			'home.error' => 'Ihr Zuhause konnte nicht geladen werden.',
+			'home.privacy' => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.',
+			'home.directionsHome' => 'Route nach Hause',
+			'home.actions' => 'Aktionen für Ihr Zuhause',
+			'home.change' => 'Zuhause ändern',
+			'home.remove' => 'Zuhause entfernen',
+			'home.removed' => 'Zuhause entfernt',
+			'home.saved' => 'Zuhause gespeichert',
+			'home.changed' => 'Zuhause geändert',
+			'home.setHere' => 'Als Zuhause festlegen',
+			'home.removeHere' => 'Nicht mehr mein Zuhause',
+			'home.sheetTitle' => 'Wo ist Ihr Zuhause?',
+			'home.searchHint' => 'Eine Adresse oder eine Gemeinde',
+			'home.myPosition' => 'Mein aktueller Standort',
+			'home.onMap' => 'Auf der Karte wählen',
+			'home.onMapNotice' => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.',
+			'home.onMapNoticeClick' => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.',
+			'home.here' => 'Mein Zuhause ist hier',
+			'home.goHome' => 'Nach Hause fahren',
 			'favorites.title' => 'Favoriten',
 			'favorites.defaultList' => 'Meine Favoriten',
 			'favorites.empty' => 'Hier ist noch nichts gespeichert',
@@ -4428,6 +4530,8 @@ extension on TranslationsDe {
 			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
@@ -4449,8 +4553,6 @@ extension on TranslationsDe {
 			'translation.from.es' => 'Automatisch aus dem Spanischen übersetzt',
 			'translation.from.it' => 'Automatisch aus dem Italienischen übersetzt',
 			'translation.from.nl' => 'Automatisch aus dem Niederländischen übersetzt',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch übersetzt (Originalsprache: ${language})',
 			'translation.offline' => 'Für die Übersetzung ist eine Internetverbindung nötig.',
 			'translation.failedOffline' => 'Keine Internetverbindung: Der Text konnte nicht übersetzt werden.',
@@ -4517,6 +4619,12 @@ extension on TranslationsDe {
 			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.',
+			'account.useAnother' => 'Anderes Konto verwenden',
+			'account.merged' => ({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Öffnen Sie „${name}“ hier mit seiner Sicherungskarte.',
+			'account.mergedAction' => 'Öffnen',
+			'account.mergedTitle' => ({required Object name}) => 'Konto mit „${name}“ zusammengeführt',
+			'account.mergedBody' => ({required Object name}) => 'Dieses Konto wurde mit „${name}“ zusammengeführt. Ihre Favoriten bleiben hier und kommen zu „${name}“, sobald Sie es mit seiner Sicherungskarte öffnen.',
+			'account.mergedOpen' => ({required Object name}) => '„${name}“ hier öffnen',
 			'recovery.title' => 'Sicherungskarte',
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
 			'recovery.replaces' => 'Eine neue Karte ersetzt die vorherige: Der alte Code funktioniert dann nicht mehr.',
@@ -4560,6 +4668,37 @@ extension on TranslationsDe {
 			'recover.tooMany' => 'Vorerst zu viele Versuche. Versuchen Sie es in einer Stunde erneut.',
 			'recover.done' => ({required Object name}) => 'Konto wiederhergestellt: ${name}',
 			'recover.required' => 'Geben Sie den Code Ihrer Sicherungskarte ein',
+			'accountImport.title' => 'Anderes Konto verwenden',
+			'accountImport.intro' => ({required Object current}) => 'Öffnen Sie hier ein anderes Ihrer Konten mit seiner Sicherungskarte: Geben Sie den Code ein oder lesen Sie ihn von einem Foto ab. Danach entscheiden Sie, was aus „${current}“ wird.',
+			'accountImport.submit' => 'Dieses Konto öffnen',
+			'accountImport.same' => ({required Object current}) => 'Diese Karte gehört zu „${current}“, dem Konto dieses Geräts.',
+			'accountImport.choiceTitle' => 'Zwei Konten auf diesem Gerät',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Dieses Gerät verwendet „${current}“. Sie haben gerade „${imported}“ geöffnet.',
+			'accountImport.merge' => ({required Object imported}) => 'Mit „${imported}“ zusammenführen',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Die Favoritenlisten, das Zuhause, die ausgeblendeten Autoren und die wartenden Beiträge von „${current}“ gehen zu „${imported}“.',
+			'accountImport.mergePublic' => ({required Object imported}) => 'Seine veröffentlichten Rezensionen, Fotos, Plätze und Änderungen erscheinen dann unter „${imported}“.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Beide Konten haben ein Zuhause: Das von „${imported}“ bleibt.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Ein Platz, den beide Konten bewertet haben, behält die Bewertung von „${imported}“.',
+			'accountImport.mergeDeletes' => ({required Object current}) => '„${current}“ wird danach von diesem Gerät und vom Server gelöscht.',
+			'accountImport.replace' => 'Ersetzen ohne Zusammenführen',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => '„${current}“ durch „${imported}“ ersetzen',
+			'accountImport.replaceKeeps' => ({required Object current}) => '„${current}“ bleibt auf dem Server. Nur seine Sicherungskarte bringt es zurück.',
+			'accountImport.replaceNoCard' => ({required Object current}) => 'Für „${current}“ ist keine Sicherungskarte bekannt. Ist es auf keinem anderen Gerät geöffnet, wird es vom Server gelöscht, da es sich nicht mehr öffnen ließe.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Seine Favoritenlisten und sein Zuhause verlassen dieses Gerät; die von „${imported}“ treten an ihre Stelle.',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Sein wartender Beitrag wird nicht gesendet.', other: 'Seine ${n} wartenden Beiträge werden nicht gesendet.', ), 
+			'accountImport.card' => ({required Object current}) => 'Sicherungskarte von „${current}“',
+			'accountImport.replaceConfirm' => 'Ersetzen',
+			'accountImport.back' => 'Zurück',
+			'accountImport.failed' => 'Die Zusammenführung wurde nicht abgeschlossen. Ihre Daten bleiben auf diesem Gerät. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.refused' => 'Der Server lehnt diese Zusammenführung ab. Beide Konten bleiben, wie sie sind.',
+			'accountImport.replaceFailed' => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '„${current}“ hat dieses Gerät bereits verlassen, aber das Ersetzen ist nicht abgeschlossen. Versuchen Sie es erneut.',
+			'accountImport.unsettled' => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.deviceFailed' => 'Die Zusammenführung ist auf dem Server erfolgt, aber dieses Gerät konnte sie nicht speichern. Versuchen Sie es erneut.',
+			'accountImport.tooMany' => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.',
+			'accountImport.merged' => ({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.',
+			'accountImport.replaced' => ({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.',
+			'accountImport.cancelled' => ({required Object name}) => 'Nichts geändert: Dieses Gerät verwendet weiterhin „${name}“.',
 			'deletion.title' => 'Mein Konto löschen',
 			'deletion.intro' => 'Die Löschung erfolgt sofort und endgültig.',
 			'deletion.goneTitle' => 'Was gelöscht wird',
@@ -4905,6 +5044,8 @@ extension on TranslationsDe {
 			'poi.kind.psychologist' => 'Psychotherapie',
 			'poi.kind.speechTherapist' => 'Logopädie',
 			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.optician' => 'Optiker',
 			'poi.kind.hearingAids' => 'Hörakustik',
 			'poi.kind.medicalSupply' => 'Sanitätshaus',
@@ -4963,8 +5104,6 @@ extension on TranslationsDe {
 			'poi.kind.hardware' => 'Baumarkt',
 			'poi.kind.home' => 'Einrichtung, Möbel',
 			'poi.kind.electronics' => 'Elektronik, Handys',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Drogerie, Parfümerie',
 			'poi.kind.departmentStore' => 'Kaufhaus, Einkaufszentrum',
 			'poi.kind.varietyStore' => 'Sonderpostenmarkt',

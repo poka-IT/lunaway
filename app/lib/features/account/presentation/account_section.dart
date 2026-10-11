@@ -50,7 +50,7 @@ class AccountSection extends ConsumerWidget {
         ),
         switch (state) {
           AccountLoading() => const SizedBox(height: 120),
-          NoAccount() => const _NoAccount(),
+          NoAccount(:final mergedInto) => _NoAccount(mergedInto: mergedInto),
           SignedIn() => _SignedIn(state: state),
         },
       ],
@@ -64,29 +64,36 @@ BoxDecoration _card(BuildContext context) => BoxDecoration(
 );
 
 class _NoAccount extends StatelessWidget {
-  const new();
+  const new({this.mergedInto});
+
+  /// The account this device's went into, merged from another device.
+  final String? mergedInto;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
+    final merged = mergedInto;
     return Container(
       padding: const EdgeInsets.all(Space.l),
       decoration: _card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(t.account.noneTitle, style: theme.textTheme.titleMedium),
+          Text(
+            merged == null ? t.account.noneTitle : t.account.mergedTitle(name: merged),
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: Space.xs),
           Text(
-            t.account.noneBody,
+            merged == null ? t.account.noneBody : t.account.mergedBody(name: merged),
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: Space.m),
           OutlinedButton.icon(
             onPressed: () => context.go(AppRoutes.recover),
             icon: const Icon(AppIcons.recoveryCard),
-            label: Text(t.account.recover),
+            label: Text(merged == null ? t.account.recover : t.account.mergedOpen(name: merged)),
           ),
         ],
       ),
@@ -196,6 +203,7 @@ class _SignedIn extends ConsumerWidget {
               trailing: muted == 0 ? null : t.number(muted),
             ),
             link(AppIcons.device, t.account.devices, AppRoutes.devices),
+            link(AppIcons.mergeAccounts, t.account.useAnother, AppRoutes.useAnotherAccount),
             ListTile(
               leading: const Icon(AppIcons.signOut),
               title: Text(t.account.signOut),

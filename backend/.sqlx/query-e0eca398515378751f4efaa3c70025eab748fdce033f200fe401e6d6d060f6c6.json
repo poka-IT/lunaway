@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE moderation_queue q SET target_id = $2\n        WHERE q.target_id = $1 AND NOT (q.status = 'open' AND EXISTS (\n            SELECT 1 FROM moderation_queue o\n            WHERE o.target_id = $2 AND o.kind = q.kind AND o.status = 'open'))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0eca398515378751f4efaa3c70025eab748fdce033f200fe401e6d6d060f6c6"
+}

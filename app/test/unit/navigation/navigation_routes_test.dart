@@ -29,6 +29,23 @@ void main() {
     expect(NavigationRoutes.exactOf('extra', linked), same(linked));
   });
 
+  test("the route home's link names the home without its point", () {
+    const home = RouteTarget(destination: LatLng(45.9, 6.12), label: 'Domicile', home: true);
+    final link = Uri.parse(NavigationRoutes.previewOf(home));
+    expect(
+      link.toString(),
+      '/route?to=home',
+      reason: "a browser's history keeps the link: the home's point stays out of it",
+    );
+    expect(NavigationRoutes.homeOf(link), isTrue);
+    expect(
+      NavigationRoutes.homeOf(
+        Uri.parse(NavigationRoutes.previewOf(const RouteTarget(destination: LatLng(45.9, 6.12)))),
+      ),
+      isFalse,
+    );
+  });
+
   test('a link without a valid point gives none', () {
     for (final query in ['lat=NaN&lon=1', 'lat=45&lon=Infinity', 'lat=91&lon=1', 'lat=45']) {
       expect(NavigationRoutes.targetOf(Uri.parse('/route?$query')), isNull, reason: query);

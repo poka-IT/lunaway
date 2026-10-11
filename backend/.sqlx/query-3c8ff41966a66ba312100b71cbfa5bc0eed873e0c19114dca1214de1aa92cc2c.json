@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT reporter_id FROM content_reports WHERE target_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reporter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_reports",
+            "name": "reporter_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3c8ff41966a66ba312100b71cbfa5bc0eed873e0c19114dca1214de1aa92cc2c"
+}

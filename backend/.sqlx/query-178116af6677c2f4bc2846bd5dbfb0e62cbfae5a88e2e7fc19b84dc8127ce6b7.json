@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE accounts t SET\n            created_at = least(t.created_at, a.created_at),\n            active_days = greatest(t.active_days, a.active_days),\n            last_active_on = greatest(t.last_active_on, a.last_active_on),\n            moderation_removals = t.moderation_removals + a.moderation_removals,\n            archived_confirmations = t.archived_confirmations + a.archived_confirmations,\n            level_ceiling = greatest(t.trust_level, a.trust_level)\n        FROM accounts a\n        WHERE t.id = $2 AND a.id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "178116af6677c2f4bc2846bd5dbfb0e62cbfae5a88e2e7fc19b84dc8127ce6b7"
+}

@@ -66,6 +66,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$directions$en directions = Translations$directions$en.internal(_root);
 	late final Translations$navigation$en navigation = Translations$navigation$en.internal(_root);
 	late final Translations$list$en list = Translations$list$en.internal(_root);
+	late final Translations$home$en home = Translations$home$en.internal(_root);
 	late final Translations$favorites$en favorites = Translations$favorites$en.internal(_root);
 	late final Translations$vehicle$en vehicle = Translations$vehicle$en.internal(_root);
 	late final Translations$vehicleHeight$en vehicleHeight = Translations$vehicleHeight$en.internal(_root);
@@ -77,6 +78,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$account$en account = Translations$account$en.internal(_root);
 	late final Translations$recovery$en recovery = Translations$recovery$en.internal(_root);
 	late final Translations$recover$en recover = Translations$recover$en.internal(_root);
+	late final Translations$accountImport$en accountImport = Translations$accountImport$en.internal(_root);
 	late final Translations$deletion$en deletion = Translations$deletion$en.internal(_root);
 	late final Translations$devices$en devices = Translations$devices$en.internal(_root);
 	late final Translations$muted$en muted = Translations$muted$en.internal(_root);
@@ -1425,6 +1427,78 @@ class Translations$list$en {
 	String get offlineNotHere => 'Nothing of this area on this device.';
 }
 
+// Path: home
+class Translations$home$en {
+	Translations$home$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Home'
+	String get title => 'Home';
+
+	/// en: 'Set my home'
+	String get setTitle => 'Set my home';
+
+	/// en: 'Your home could not be loaded.'
+	String get error => 'Your home could not be loaded.';
+
+	/// en: 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.'
+	String get privacy => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.';
+
+	/// en: 'Route home'
+	String get directionsHome => 'Route home';
+
+	/// en: 'Home actions'
+	String get actions => 'Home actions';
+
+	/// en: 'Change home'
+	String get change => 'Change home';
+
+	/// en: 'Remove home'
+	String get remove => 'Remove home';
+
+	/// en: 'Home removed'
+	String get removed => 'Home removed';
+
+	/// en: 'Home saved'
+	String get saved => 'Home saved';
+
+	/// en: 'Home changed'
+	String get changed => 'Home changed';
+
+	/// en: 'Set as home'
+	String get setHere => 'Set as home';
+
+	/// en: 'No longer my home'
+	String get removeHere => 'No longer my home';
+
+	/// en: 'Where is your home?'
+	String get sheetTitle => 'Where is your home?';
+
+	/// en: 'An address or a town'
+	String get searchHint => 'An address or a town';
+
+	/// en: 'My current position'
+	String get myPosition => 'My current position';
+
+	/// en: 'Choose on the map'
+	String get onMap => 'Choose on the map';
+
+	/// en: 'Long press on the map where your home is, then tap "My home is here".'
+	String get onMapNotice => 'Long press on the map where your home is, then tap "My home is here".';
+
+	/// en: 'Right-click the map where your home is, then click "My home is here".'
+	String get onMapNoticeClick => 'Right-click the map where your home is, then click "My home is here".';
+
+	/// en: 'My home is here'
+	String get here => 'My home is here';
+
+	/// en: 'Go home'
+	String get goHome => 'Go home';
+}
+
 // Path: favorites
 class Translations$favorites$en {
 	Translations$favorites$en.internal(this._root);
@@ -2105,6 +2179,24 @@ class Translations$account$en {
 
 	/// en: 'Your favourite lists, addresses and notes included, are now kept with your account.'
 	String get welcomeFavorites => 'Your favourite lists, addresses and notes included, are now kept with your account.';
+
+	/// en: 'Use another account'
+	String get useAnother => 'Use another account';
+
+	/// en: 'This account was merged into “$name”. Open “$name” here with its recovery card.'
+	String merged({required Object name}) => 'This account was merged into “${name}”. Open “${name}” here with its recovery card.';
+
+	/// en: 'Open'
+	String get mergedAction => 'Open';
+
+	/// en: 'Account merged into “$name”'
+	String mergedTitle({required Object name}) => 'Account merged into “${name}”';
+
+	/// en: 'This account was merged into “$name”. Your favourites stay here and join “$name” when you open it with its recovery card.'
+	String mergedBody({required Object name}) => 'This account was merged into “${name}”. Your favourites stay here and join “${name}” when you open it with its recovery card.';
+
+	/// en: 'Open “$name” here'
+	String mergedOpen({required Object name}) => 'Open “${name}” here';
 }
 
 // Path: recovery
@@ -2255,6 +2347,111 @@ class Translations$recover$en {
 
 	/// en: 'Type the code on your recovery card'
 	String get required => 'Type the code on your recovery card';
+}
+
+// Path: accountImport
+class Translations$accountImport$en {
+	Translations$accountImport$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Use another account'
+	String get title => 'Use another account';
+
+	/// en: 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “$current”.'
+	String intro({required Object current}) => 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “${current}”.';
+
+	/// en: 'Open this account'
+	String get submit => 'Open this account';
+
+	/// en: 'This card is the one of “$current”, the account of this device.'
+	String same({required Object current}) => 'This card is the one of “${current}”, the account of this device.';
+
+	/// en: 'Two accounts on this device'
+	String get choiceTitle => 'Two accounts on this device';
+
+	/// en: 'This device uses “$current”. You have just opened “$imported”.'
+	String choiceBody({required Object current, required Object imported}) => 'This device uses “${current}”. You have just opened “${imported}”.';
+
+	/// en: 'Merge into “$imported”'
+	String merge({required Object imported}) => 'Merge into “${imported}”';
+
+	/// en: 'The favourite lists, the home, the hidden authors and the waiting contributions of “$current” move to “$imported”.'
+	String mergeMoves({required Object current, required Object imported}) => 'The favourite lists, the home, the hidden authors and the waiting contributions of “${current}” move to “${imported}”.';
+
+	/// en: 'Its published reviews, photos, places and edits move to the name of “$imported”.'
+	String mergePublic({required Object imported}) => 'Its published reviews, photos, places and edits move to the name of “${imported}”.';
+
+	/// en: 'Both accounts have a home: the one of “$imported” is kept.'
+	String mergeHomeKept({required Object imported}) => 'Both accounts have a home: the one of “${imported}” is kept.';
+
+	/// en: 'A place rated by both accounts keeps the rating of “$imported”.'
+	String mergeDuplicates({required Object imported}) => 'A place rated by both accounts keeps the rating of “${imported}”.';
+
+	/// en: '“$current” is then erased from this device and from the server.'
+	String mergeDeletes({required Object current}) => '“${current}” is then erased from this device and from the server.';
+
+	/// en: 'Replace without merging'
+	String get replace => 'Replace without merging';
+
+	/// en: 'Replace “$current” with “$imported”'
+	String replaceTitle({required Object current, required Object imported}) => 'Replace “${current}” with “${imported}”';
+
+	/// en: '“$current” stays on the server. Only its recovery card brings it back.'
+	String replaceKeeps({required Object current}) => '“${current}” stays on the server. Only its recovery card brings it back.';
+
+	/// en: '“$current” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.'
+	String replaceNoCard({required Object current}) => '“${current}” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.';
+
+	/// en: 'Its favourite lists and its home leave this device, replaced by those of “$imported”.'
+	String replaceLocal({required Object imported}) => 'Its favourite lists and its home leave this device, replaced by those of “${imported}”.';
+
+	/// en: '(one) {Its waiting contribution will not be sent.} (other) {Its $n waiting contributions will not be sent.}'
+	String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Its waiting contribution will not be sent.',
+		other: 'Its ${n} waiting contributions will not be sent.',
+	);
+
+	/// en: 'Recovery card of “$current”'
+	String card({required Object current}) => 'Recovery card of “${current}”';
+
+	/// en: 'Replace'
+	String get replaceConfirm => 'Replace';
+
+	/// en: 'Back'
+	String get back => 'Back';
+
+	/// en: 'The merge could not finish. Your data stays on this device. Try again once the network answers.'
+	String get failed => 'The merge could not finish. Your data stays on this device. Try again once the network answers.';
+
+	/// en: 'The server refuses this merge. Both accounts stay as they are.'
+	String get refused => 'The server refuses this merge. Both accounts stay as they are.';
+
+	/// en: 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.'
+	String get replaceFailed => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.';
+
+	/// en: '“$current” has already left this device, but the replacement is not finished. Try again.'
+	String replaceUnfinished({required Object current}) => '“${current}” has already left this device, but the replacement is not finished. Try again.';
+
+	/// en: 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.'
+	String get unsettled => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.';
+
+	/// en: 'The merge is done on the server, but this device could not save it. Try again.'
+	String get deviceFailed => 'The merge is done on the server, but this device could not save it. Try again.';
+
+	/// en: 'Too many merges for now. Try again later.'
+	String get tooMany => 'Too many merges for now. Try again later.';
+
+	/// en: 'Accounts merged: you are using “$name”.'
+	String merged({required Object name}) => 'Accounts merged: you are using “${name}”.';
+
+	/// en: 'This device now uses “$name”.'
+	String replaced({required Object name}) => 'This device now uses “${name}”.';
+
+	/// en: 'Nothing changed: this device still uses “$name”.'
+	String cancelled({required Object name}) => 'Nothing changed: this device still uses “${name}”.';
 }
 
 // Path: deletion
@@ -8272,6 +8469,27 @@ extension on Translations {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'list.offlineTitle' => 'No connection',
 			'list.offlineNotHere' => 'Nothing of this area on this device.',
+			'home.title' => 'Home',
+			'home.setTitle' => 'Set my home',
+			'home.error' => 'Your home could not be loaded.',
+			'home.privacy' => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.',
+			'home.directionsHome' => 'Route home',
+			'home.actions' => 'Home actions',
+			'home.change' => 'Change home',
+			'home.remove' => 'Remove home',
+			'home.removed' => 'Home removed',
+			'home.saved' => 'Home saved',
+			'home.changed' => 'Home changed',
+			'home.setHere' => 'Set as home',
+			'home.removeHere' => 'No longer my home',
+			'home.sheetTitle' => 'Where is your home?',
+			'home.searchHint' => 'An address or a town',
+			'home.myPosition' => 'My current position',
+			'home.onMap' => 'Choose on the map',
+			'home.onMapNotice' => 'Long press on the map where your home is, then tap "My home is here".',
+			'home.onMapNoticeClick' => 'Right-click the map where your home is, then click "My home is here".',
+			'home.here' => 'My home is here',
+			'home.goHome' => 'Go home',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -8409,6 +8627,8 @@ extension on Translations {
 			'profile.attributionTranslation' => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.',
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.',
@@ -8430,8 +8650,6 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
@@ -8498,6 +8716,12 @@ extension on Translations {
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists, addresses and notes included, are now kept with your account.',
+			'account.useAnother' => 'Use another account',
+			'account.merged' => ({required Object name}) => 'This account was merged into “${name}”. Open “${name}” here with its recovery card.',
+			'account.mergedAction' => 'Open',
+			'account.mergedTitle' => ({required Object name}) => 'Account merged into “${name}”',
+			'account.mergedBody' => ({required Object name}) => 'This account was merged into “${name}”. Your favourites stay here and join “${name}” when you open it with its recovery card.',
+			'account.mergedOpen' => ({required Object name}) => 'Open “${name}” here',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
@@ -8541,6 +8765,37 @@ extension on Translations {
 			'recover.tooMany' => 'Too many attempts for now. Try again in an hour.',
 			'recover.done' => ({required Object name}) => 'Account recovered: ${name}',
 			'recover.required' => 'Type the code on your recovery card',
+			'accountImport.title' => 'Use another account',
+			'accountImport.intro' => ({required Object current}) => 'Open another of your accounts here with its recovery card: type its code or read it from a photo. You then choose what becomes of “${current}”.',
+			'accountImport.submit' => 'Open this account',
+			'accountImport.same' => ({required Object current}) => 'This card is the one of “${current}”, the account of this device.',
+			'accountImport.choiceTitle' => 'Two accounts on this device',
+			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'This device uses “${current}”. You have just opened “${imported}”.',
+			'accountImport.merge' => ({required Object imported}) => 'Merge into “${imported}”',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'The favourite lists, the home, the hidden authors and the waiting contributions of “${current}” move to “${imported}”.',
+			'accountImport.mergePublic' => ({required Object imported}) => 'Its published reviews, photos, places and edits move to the name of “${imported}”.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Both accounts have a home: the one of “${imported}” is kept.',
+			'accountImport.mergeDuplicates' => ({required Object imported}) => 'A place rated by both accounts keeps the rating of “${imported}”.',
+			'accountImport.mergeDeletes' => ({required Object current}) => '“${current}” is then erased from this device and from the server.',
+			'accountImport.replace' => 'Replace without merging',
+			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Replace “${current}” with “${imported}”',
+			'accountImport.replaceKeeps' => ({required Object current}) => '“${current}” stays on the server. Only its recovery card brings it back.',
+			'accountImport.replaceNoCard' => ({required Object current}) => '“${current}” has no known recovery card. If no other device has it open, it is erased from the server, as nothing could open it again.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Its favourite lists and its home leave this device, replaced by those of “${imported}”.',
+			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Its waiting contribution will not be sent.', other: 'Its ${n} waiting contributions will not be sent.', ), 
+			'accountImport.card' => ({required Object current}) => 'Recovery card of “${current}”',
+			'accountImport.replaceConfirm' => 'Replace',
+			'accountImport.back' => 'Back',
+			'accountImport.failed' => 'The merge could not finish. Your data stays on this device. Try again once the network answers.',
+			'accountImport.refused' => 'The server refuses this merge. Both accounts stay as they are.',
+			'accountImport.replaceFailed' => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.',
+			'accountImport.replaceUnfinished' => ({required Object current}) => '“${current}” has already left this device, but the replacement is not finished. Try again.',
+			'accountImport.unsettled' => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.',
+			'accountImport.deviceFailed' => 'The merge is done on the server, but this device could not save it. Try again.',
+			'accountImport.tooMany' => 'Too many merges for now. Try again later.',
+			'accountImport.merged' => ({required Object name}) => 'Accounts merged: you are using “${name}”.',
+			'accountImport.replaced' => ({required Object name}) => 'This device now uses “${name}”.',
+			'accountImport.cancelled' => ({required Object name}) => 'Nothing changed: this device still uses “${name}”.',
 			'deletion.title' => 'Delete my account',
 			'deletion.intro' => 'Deletion is immediate and final.',
 			'deletion.goneTitle' => 'What is deleted',
@@ -8886,6 +9141,8 @@ extension on Translations {
 			'poi.kind.psychologist' => 'Psychologist',
 			'poi.kind.speechTherapist' => 'Speech therapist',
 			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.optician' => 'Optician',
 			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',
@@ -8944,8 +9201,6 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',

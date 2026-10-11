@@ -16,7 +16,7 @@ use uuid::Uuid;
 use crate::{
     address_types::SearchAnswer,
     auth::{self, Challenges},
-    community_types::{Account, FavoriteList},
+    community_types::{Account, FavoriteHome, FavoriteList},
     config::ApiConfig,
     enforcement_types::EnforcementDelta,
     error::{internal, invalid_input, resync},
@@ -1215,6 +1215,17 @@ impl QueryRoot {
             .into_iter()
             .map(Into::into)
             .collect())
+    }
+
+    /// The signed-in account's home; null when it has none.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn my_home(&self, ctx: &Context<'_>) -> Result<Option<FavoriteHome>> {
+        let viewer = auth::require(ctx).await?;
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::home::home(pool, viewer.id())
+            .await
+            .map_err(|e| internal(&e))?
+            .map(Into::into))
     }
 }
 

@@ -8,7 +8,7 @@
 //! | `RESYNC` | drops its cursor and syncs again from scratch (`since: null`) |
 //! | `UNAUTHENTICATED` | signs in again (`authChallenge`, `signIn`): no session, or an expired or unknown one, on a field that needs an account; with `extensions.reason` `FRESH_SIGN_IN`, the action needs a session opened in the last ten minutes, so the device signs in again and retries |
 //! | `FORBIDDEN` | does not offer the action: the account's level is below `extensions.requiredLevel` (its level is `extensions.level`), or the account is banned |
-//! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's; with `extensions.reason` `UNKNOWN_KEY` (`signIn` with `createIfUnknown: false`), no account holds the device key: the account was deleted, or the key detached from another device |
+//! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's; with `extensions.reason` `UNKNOWN_KEY` (`signIn` with `createIfUnknown: false`), no account holds the device key: the account was deleted, or the key detached from another device; with `extensions.mergedInto` and `mergedIntoId` as well, the account was merged into the account of that pseudonym and id, which its recovery card brings to this device |
 //! | `UNAVAILABLE` | tries again later: a service behind the API (the routing engine, or its data) is down or not installed; the request itself was fine |
 //! | `PERSISTED_QUERY_NOT_FOUND` | sends the request again with the document beside its hash (`crate::persisted`): the server does not know that hash, or forgot it |
 //! | `INTERNAL` | tries again later; the server logged the cause |
@@ -16,6 +16,7 @@
 use std::time::Duration;
 
 use async_graphql::{Error, ErrorExtensions, ServerError};
+use uuid::Uuid;
 
 /// The request is malformed or asks too much.
 pub(crate) const INVALID_INPUT: &str = "INVALID_INPUT";
@@ -87,6 +88,32 @@ pub(crate) fn unknown_key() -> Error {
     Error::new("no account for this device key").extend_with(|_, e| {
         e.set("code", NOT_FOUND);
         e.set("reason", "UNKNOWN_KEY");
+    })
+}
+
+/// A signature of an account merge that does not verify: no sign-in again
+/// mends it, so not `UNAUTHENTICATED`.
+pub(crate) fn bad_proof() -> Error {
+    Error::new("the merge's signatures do not verify").extend_with(|_, e| {
+        e.set("code", INVALID_INPUT);
+        e.set("reason", "BAD_PROOF");
+    })
+}
+
+/// [`unknown_key`] for a key whose account was merged into the account
+/// `account`, named `pseudonym`: the same code and reason, so an app that
+/// predates merges forgets the account as it would a deleted one, and
+/// `mergedInto` and `mergedIntoId` for one that can say where it went and
+/// know that account when it comes (pseudonyms are not unique; the id is
+/// public, as an author's).
+pub(crate) fn merged_key(account: Uuid, pseudonym: &str) -> Error {
+    let into = pseudonym.to_owned();
+    let id = account.to_string();
+    Error::new("the account of this device key was merged into another").extend_with(move |_, e| {
+        e.set("code", NOT_FOUND);
+        e.set("reason", "UNKNOWN_KEY");
+        e.set("mergedInto", into.clone());
+        e.set("mergedIntoId", id.clone());
     })
 }
 

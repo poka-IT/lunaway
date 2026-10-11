@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE up (review_id, account_id, place_id, depth) AS (\n            SELECT id, account_id, place_id, 0 FROM reviews WHERE account_id = ANY($1)\n            UNION ALL\n            SELECT u.review_id, u.account_id, p.merged_into, u.depth + 1\n            FROM up u JOIN places p ON p.id = u.place_id\n            WHERE p.merged_into IS NOT NULL AND u.depth < 64\n        ), live AS (\n            SELECT DISTINCT ON (review_id) review_id, account_id, place_id\n            FROM up ORDER BY review_id, depth DESC\n        )\n        SELECT DISTINCT ON (a.review_id) a.review_id AS \"absorbed!\", b.review_id AS \"kept!\"\n        FROM live a JOIN live b ON b.place_id = a.place_id AND b.account_id = $3\n        WHERE a.account_id = $2\n        ORDER BY a.review_id, b.review_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "absorbed!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kept!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "69bf3989c809c0e04624955e1f204534fc4e2453b81b265da4e6f2f45093364c"
+}

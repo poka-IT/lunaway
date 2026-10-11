@@ -101,42 +101,69 @@ impl TryFrom<PointDb> for PointRow {
     type Error = DbError;
 
     fn try_from(r: PointDb) -> Result<Self, DbError> {
-        let kind: FavoritePointKind = r
-            .kind
-            .parse()
-            .map_err(|e| DbError::decode("saved point kind", e))?;
-        // The table's checks keep the id and the kind together.
-        let (kind, poi) = match (r.poi_id, r.poi_kind) {
-            (Some(id), Some(code)) => match code.parse::<PoiKind>() {
-                Ok(poi_kind) => (kind, Some(SavedPoi { id, kind: poi_kind })),
-                // A kind of point retired since the point was saved: the
-                // point stays as a bare point rather than fail every list
-                // of the account.
-                Err(_) => {
-                    tracing::warn!(%code, "a saved point names an unknown poi kind; read as a bare point");
-                    (FavoritePointKind::Point, None)
-                }
-            },
-            _ => (kind, None),
-        };
-        // The cause is left out: it holds the coordinates, which no log
-        // line may carry. The table's checks keep this unreachable.
-        let position = Position::new(r.lat, r.lon)
-            .map_err(|_| DbError::decode("saved point position", PositionOutOfRange))?;
         Ok(Self {
             id: r.id,
-            point: SavedPoint {
-                kind,
+            point: saved_point(StoredPoint {
+                kind: r.kind,
                 name: r.name,
                 note: r.note,
                 address: r.address,
-                position,
-                poi,
-            },
+                lat: r.lat,
+                lon: r.lon,
+                poi_id: r.poi_id,
+                poi_kind: r.poi_kind,
+            })?,
             added_at: r.added_at,
             updated_at: r.updated_at,
         })
     }
+}
+
+/// The columns a saved point is stored in, in `favorite_points` and in
+/// `favorite_homes`.
+pub(crate) struct StoredPoint {
+    pub(crate) kind: String,
+    pub(crate) name: String,
+    pub(crate) note: Option<String>,
+    pub(crate) address: Option<String>,
+    pub(crate) lat: f64,
+    pub(crate) lon: f64,
+    pub(crate) poi_id: Option<Uuid>,
+    pub(crate) poi_kind: Option<String>,
+}
+
+/// The saved point stored in `r`.
+pub(crate) fn saved_point(r: StoredPoint) -> Result<SavedPoint<Uuid>, DbError> {
+    let kind: FavoritePointKind = r
+        .kind
+        .parse()
+        .map_err(|e| DbError::decode("saved point kind", e))?;
+    // The table's checks keep the id and the kind together.
+    let (kind, poi) = match (r.poi_id, r.poi_kind) {
+        (Some(id), Some(code)) => match code.parse::<PoiKind>() {
+            Ok(poi_kind) => (kind, Some(SavedPoi { id, kind: poi_kind })),
+            // A kind of point retired since the point was saved: the
+            // point stays as a bare point rather than fail every list
+            // of the account.
+            Err(_) => {
+                tracing::warn!(%code, "a saved point names an unknown poi kind; read as a bare point");
+                (FavoritePointKind::Point, None)
+            }
+        },
+        _ => (kind, None),
+    };
+    // The cause is left out: it holds the coordinates, which no log
+    // line may carry. The table's checks keep this unreachable.
+    let position = Position::new(r.lat, r.lon)
+        .map_err(|_| DbError::decode("saved point position", PositionOutOfRange))?;
+    Ok(SavedPoint {
+        kind,
+        name: r.name,
+        note: r.note,
+        address: r.address,
+        position,
+        poi,
+    })
 }
 
 /// Why a list change was refused.

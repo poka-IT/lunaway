@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO account_endorsements (account_id, kind, by_account_id, created_at)\n        SELECT $2, kind, by_account_id, created_at FROM account_endorsements\n        WHERE account_id = $1 AND by_account_id <> $2\n        UNION ALL\n        SELECT account_id, kind, $2, created_at FROM account_endorsements\n        WHERE by_account_id = $1 AND account_id <> $2\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8de93bea274387212dc26405790c48bb3625158fe878cd74c4df6a0bcc79ba4d"
+}

@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   /// The account's pages, under the profile.
   static const recoveryCard = '/profile/recovery-card';
   static const recover = '/profile/recover';
+  static const useAnotherAccount = '/profile/use-another-account';
   static const contributions = '/profile/contributions';
   static const muted = '/profile/muted';
   static const devices = '/profile/devices';
