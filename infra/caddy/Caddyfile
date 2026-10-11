@@ -34,6 +34,11 @@
 		# timeouts handler has no effect: this server-level writer, on by
 		# default, arms the connection's deadline again on each write
 		# (measured on 2026-10-07).
+		#
+		# idle stays above the 100 s the app keeps an idle connection
+		# (connectionIdle, app/lib/core/http/app_http_client_io.dart), so the
+		# app closes it first; app/test/unit/app_http_client_test.dart reads
+		# it here.
 		timeouts {
 			read_header 10s
 			read_body 3m

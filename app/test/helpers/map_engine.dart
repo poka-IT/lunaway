@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show Factory;
@@ -35,6 +36,10 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
   final List<MethodCall> calls = [];
 
   bool _created = false;
+
+  /// Set: an animated camera move answers when it completes, as the engine
+  /// answers once the move has ended.
+  Completer<void>? cameraMoves;
 
   /// Takes the place of the platform's engine for the test, until its end.
   void install(WidgetTester tester) {
@@ -83,6 +88,9 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
         }
       case 'style#removeLayer':
         layers.remove(args['layerId']);
+      case 'camera#animate':
+        await cameraMoves?.future;
+        return true;
     }
     return null;
   }

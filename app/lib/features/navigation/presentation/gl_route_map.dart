@@ -27,7 +27,6 @@ import 'package:lunaway/features/navigation/presentation/map_gesture_watch.dart'
 import 'package:lunaway/features/navigation/presentation/page_route_motion.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/presentation/page_route_motion_web.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
-import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -238,6 +237,13 @@ class _GlRouteMapState extends State<GlRouteMap> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Drawn while the style loads; the style's setup waits for them.
+    routeMapImages(_ratio).ignore();
+  }
+
+  @override
   void dispose() {
     _stopHover?.call();
     _richPasses.dispose();
@@ -304,51 +310,38 @@ class _GlRouteMapState extends State<GlRouteMap> {
     timelineMark('lunaway-route-map-style');
     bool current() => mounted && load == _styleLoads;
     _ready = false;
-    const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
     try {
-      final ratio = MediaQuery.devicePixelRatioOf(context);
-      final arrow = await vehicleArrowPng(ratio);
-      final head = await arrowHeadPng(ratio);
-      final badges = await routeBadgePngs(ratio);
+      final images = await routeMapImages(_ratio);
       if (!current()) return;
-      await c.addImage(RouteLayers.vehicleImage, arrow);
-      await c.addImage(RouteLayers.arrowHeadImage, head);
-      for (final MapEntry(:key, :value) in badges.entries) {
-        await c.addImage(key, value);
-      }
+      // Sent together: the engine takes them in order, without a turn of
+      // the app's event loop between two.
+      await Future.wait([
+        c.addImage(RouteLayers.vehicleImage, images.arrow),
+        c.addImage(RouteLayers.arrowHeadImage, images.head),
+        for (final MapEntry(:key, :value) in images.badges.entries) c.addImage(key, value),
+      ]);
       _drawn.clear();
-      for (final id in RouteLayerOrder.layers.reversed) {
-        await _quietly(() => c.removeLayer(id));
-      }
-      for (final id in [
-        RouteLayers.alternativesSource,
-        RouteLayers.zonesSource,
-        RouteLayers.routeSource,
-        RouteLayers.traveledSource,
-        RouteLayers.arrowSource,
-        RouteLayers.arrowHeadSource,
-        ...RouteLayers.markSources,
-        RichLayers.source,
-        RouteLayers.vehicleSource,
-        _tag,
-      ]) {
-        if (!current()) return;
-        await _quietly(() => c.removeSource(id));
-        final options = RouteMarkStyle.sourceOptions(id);
-        await c.addSource(
-          id,
-          gl.GeojsonSourceProperties(
-            data: empty,
-            cluster: options['cluster'] as bool?,
-            clusterRadius: options['clusterRadius'] as double?,
-            clusterMaxZoom: options['clusterMaxZoom'] as double?,
-            clusterProperties: options['clusterProperties'],
-            // The chosen route measures its length, for the grey behind
-            // the vehicle (`line-progress`).
-            lineMetrics: id == RouteLayers.routeSource,
-          ),
-        );
-      }
+      // Each batch sent at once, in order: the engine answers the calls in
+      // turn, with no turn of the app's event loop between two, which
+      // the opening of the preview keeps busy.
+      await Future.wait([
+        for (final id in RouteLayerOrder.layers.reversed) _quietly(() => c.removeLayer(id)),
+      ]);
+      if (!current()) return;
+      await Future.wait([
+        for (final id in [
+          RouteLayers.alternativesSource,
+          RouteLayers.zonesSource,
+          RouteLayers.routeSource,
+          RouteLayers.traveledSource,
+          RouteLayers.arrowSource,
+          RouteLayers.arrowHeadSource,
+          ...RouteLayers.markSources,
+          RichLayers.source,
+          RouteLayers.vehicleSource,
+          _tag,
+        ]) ...[_quietly(() => c.removeSource(id)), c.addSource(id, _emptySource(id))],
+      ]);
       if (!current()) return;
       _placeLayers = false;
       _sentPlaces = null;
@@ -398,6 +391,21 @@ class _GlRouteMapState extends State<GlRouteMap> {
     } on Object catch (e, st) {
       _log.warning('could not set up the route layers', e, st);
     }
+  }
+
+  /// The source [id] of the route map, empty, with what its layers need.
+  static gl.GeojsonSourceProperties _emptySource(String id) {
+    final options = RouteMarkStyle.sourceOptions(id);
+    return gl.GeojsonSourceProperties(
+      data: const {'type': 'FeatureCollection', 'features': <Object>[]},
+      cluster: options['cluster'] as bool?,
+      clusterRadius: options['clusterRadius'] as double?,
+      clusterMaxZoom: options['clusterMaxZoom'] as double?,
+      clusterProperties: options['clusterProperties'],
+      // The chosen route measures its length, for the grey behind the
+      // vehicle (`line-progress`).
+      lineMetrics: id == RouteLayers.routeSource,
+    );
   }
 
   /// The route's own layers the style holds, for [RouteLayerOrder.below].
@@ -1354,13 +1362,17 @@ class _GlRouteMapState extends State<GlRouteMap> {
     );
   }
 
+  /// Moves the camera onto [camera]'s bounds without waiting for the move
+  /// to end: the routes that come during it (the preview fits the start
+  /// and the arrival while the route is asked for) are drawn at once, not
+  /// 700 ms later. The marks are read again when the camera rests.
   Future<void> _moveCamera(gl.MapLibreMapController c, RouteCamera camera) async {
     if (!mounted || camera is! FitCamera) return;
     final pad = _props.padding + camera.room;
     final bounds = camera.bounds;
     final duration = Motion.of(context, Motion.camera);
     _fullFor(duration);
-    await c.animateCamera(
+    final moved = c.animateCamera(
       gl.CameraUpdate.newLatLngBounds(
         gl.LatLngBounds(
           southwest: gl.LatLng(bounds.south, bounds.west),
@@ -1373,6 +1385,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
       ),
       duration: duration,
     );
+    unawaited(moved.then<void>((_) {}, onError: (Object e) => _log.fine('camera move: $e')));
   }
 
   /// A gesture of the user (a phone's pointers, or the page's report):

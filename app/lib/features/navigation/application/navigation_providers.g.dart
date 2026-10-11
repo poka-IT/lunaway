@@ -949,6 +949,15 @@ abstract class _$ChosenDeparture extends $Notifier<RouteDeparture?> {
 /// Where the device is, for the preview: its position now, else the one the
 /// map located this run. The rule of the danger zones is read here, where
 /// the device is, whatever start the routes have (docs/speed-cameras.md).
+///
+/// A recent and precise position the device already knows answers at once
+/// ([LocationFeed.lastKnown]), as a browser answers from its cache: while
+/// no other request keeps the platform's provider busy, a fresh fix took
+/// 4 s on the emulator, and the request gives up only after 15 s
+/// (`plan/research/125-calcul-itineraire.md`). The fresh fix is still
+/// asked for at once; it replaces the known position when it lands
+/// farther than [previewMovedM] and than its own accuracy, and the routes
+/// follow it.
 
 @ProviderFor(PreviewDevicePosition)
 final previewDevicePositionProvider = PreviewDevicePositionProvider._();
@@ -956,11 +965,29 @@ final previewDevicePositionProvider = PreviewDevicePositionProvider._();
 /// Where the device is, for the preview: its position now, else the one the
 /// map located this run. The rule of the danger zones is read here, where
 /// the device is, whatever start the routes have (docs/speed-cameras.md).
+///
+/// A recent and precise position the device already knows answers at once
+/// ([LocationFeed.lastKnown]), as a browser answers from its cache: while
+/// no other request keeps the platform's provider busy, a fresh fix took
+/// 4 s on the emulator, and the request gives up only after 15 s
+/// (`plan/research/125-calcul-itineraire.md`). The fresh fix is still
+/// asked for at once; it replaces the known position when it lands
+/// farther than [previewMovedM] and than its own accuracy, and the routes
+/// follow it.
 final class PreviewDevicePositionProvider
     extends $AsyncNotifierProvider<PreviewDevicePosition, LatLng?> {
   /// Where the device is, for the preview: its position now, else the one the
   /// map located this run. The rule of the danger zones is read here, where
   /// the device is, whatever start the routes have (docs/speed-cameras.md).
+  ///
+  /// A recent and precise position the device already knows answers at once
+  /// ([LocationFeed.lastKnown]), as a browser answers from its cache: while
+  /// no other request keeps the platform's provider busy, a fresh fix took
+  /// 4 s on the emulator, and the request gives up only after 15 s
+  /// (`plan/research/125-calcul-itineraire.md`). The fresh fix is still
+  /// asked for at once; it replaces the known position when it lands
+  /// farther than [previewMovedM] and than its own accuracy, and the routes
+  /// follow it.
   PreviewDevicePositionProvider._()
     : super(
         from: null,
@@ -981,11 +1008,20 @@ final class PreviewDevicePositionProvider
 }
 
 String _$previewDevicePositionHash() =>
-    r'798e54862af599903444248aadafa6382f1483cf';
+    r'c594888b14be5ae6e73344a511b5096447538755';
 
 /// Where the device is, for the preview: its position now, else the one the
 /// map located this run. The rule of the danger zones is read here, where
 /// the device is, whatever start the routes have (docs/speed-cameras.md).
+///
+/// A recent and precise position the device already knows answers at once
+/// ([LocationFeed.lastKnown]), as a browser answers from its cache: while
+/// no other request keeps the platform's provider busy, a fresh fix took
+/// 4 s on the emulator, and the request gives up only after 15 s
+/// (`plan/research/125-calcul-itineraire.md`). The fresh fix is still
+/// asked for at once; it replaces the known position when it lands
+/// farther than [previewMovedM] and than its own accuracy, and the routes
+/// follow it.
 
 abstract class _$PreviewDevicePosition extends $AsyncNotifier<LatLng?> {
   FutureOr<LatLng?> build();
