@@ -251,8 +251,9 @@ String? _text(Object? value) {
 /// `junction:ref`, which some links carry with a road's number: the lanes
 /// of the Thônex-Vallard customs, at the end of the A 411, say `A 411`.
 /// The graph's preparation leaves those out too (`exit_number_fixes` in
-/// the backend); this holds for a graph built before it. A value equal to
-/// the ramp's own `ref` stays: some links carry their exit's number there.
+/// the backend); this filter still covers a graph built before that. A
+/// value equal to the ramp's own `ref` stays: some links carry their
+/// exit's number there.
 String? _exitNumber(String type, Object? exits, {required Object? left}) {
   if (type != 'off ramp') return null;
   List<String> values(Object? text) => [

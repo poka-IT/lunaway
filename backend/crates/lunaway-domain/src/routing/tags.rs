@@ -236,7 +236,7 @@ pub type TagFixes = BTreeMap<String, Option<String>>;
 /// `6.1`, `31b`, `8-9`), and at most one space (or no-break space) before
 /// a last group of up to three letters (`6 b`, `17 bis`). A road's number
 /// starts with its network's letters (`A 411`, `N205`, `E 712`): every
-/// road's number mapped as a junction's reference in France does (7 584
+/// road's number mapped as a junction's reference in France does (7,584
 /// values read in the extract of 2026-10-06).
 #[must_use]
 pub fn reads_as_exit_number(value: &str) -> bool {
