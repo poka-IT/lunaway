@@ -18,7 +18,12 @@ List<Map<String, Object?>> styleLayers(String style) => [
 /// top), so a test reads the order the map draws, the basemap's layers
 /// included. Every other call answers nothing.
 final class LayerStackEngine extends gl.MapLibreMethodChannel {
-  new(String style) : layers = [for (final l in styleLayers(style)) l['id']! as String];
+  new(String style, {this.touchable = false})
+    : layers = [for (final l in styleLayers(style)) l['id']! as String];
+
+  /// Whether the view takes the pointers that land on it, as a platform
+  /// view does: what wraps the map then hears a finger on it.
+  final bool touchable;
 
   /// Bottom to top.
   final List<String> layers;
@@ -53,7 +58,9 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
       _created = true;
       onPlatformViewCreated(0);
     }
-    return const SizedBox.expand();
+    return touchable
+        ? const ColoredBox(color: Color(0x00000000), child: SizedBox.expand())
+        : const SizedBox.expand();
   }
 
   Future<Object?> _answer(MethodCall call) async {

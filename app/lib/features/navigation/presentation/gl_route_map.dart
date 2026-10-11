@@ -17,6 +17,8 @@ import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
+import 'package:lunaway/features/navigation/domain/frame_cadence.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
@@ -48,9 +50,10 @@ final _log = Logger('route_map');
 /// camera rides with it: tilted, turned to the course, the vehicle in the
 /// lower part of the free map so the road ahead shows. In the browser the
 /// page draws those frames ([PageRouteMotion]), so the app does nothing at
-/// each one; on a phone the app sends them, 30 a second. The user may move
-/// the map at any time: following stops at the first gesture, before the
-/// screen answers with a [FreeCamera].
+/// each one; on a phone the app sends them, 30 a second, and the engine
+/// draws them at the cadence of the picture's motion ([FramePace]). The
+/// user may move the map at any time: following stops at the first
+/// gesture, before the screen answers with a [FreeCamera].
 class GlRouteMap extends StatefulWidget {
   const new(this.props, {super.key});
 
@@ -122,6 +125,19 @@ class _GlRouteMapState extends State<GlRouteMap> {
   bool _frameBusy = false;
   Duration _lastFrame = Duration.zero;
 
+  /// The cadence of the map's frames: 10 a second down a motorway seen
+  /// wide, free through a town, a turn, a change of zoom or tilt, a
+  /// gesture ([FramePace]).
+  final _pace = FramePace();
+
+  /// The engine's limit of frames sent last ([renderCap]); null: none, as
+  /// the engine starts.
+  int? _sentCap;
+
+  /// An animation of the camera of the engine's own (a tap's flight, the
+  /// whole route) runs until then: the engine draws freely.
+  Duration _fullUntil = Duration.zero;
+
   /// What the last frame sent: a frame that would send the same is not
   /// sent, and the map draws nothing.
   _SentFrame? _sentFrame;
@@ -158,9 +174,10 @@ class _GlRouteMapState extends State<GlRouteMap> {
   bool _pressed = false;
   bool _cameraMoving = false;
 
-  /// Native maps take each frame over a platform channel: 30 a second keeps
-  /// the glide smooth without queueing calls.
-  static const Duration _frameGap = Duration(milliseconds: 33);
+  /// The app sends a frame of the glide this often while the vehicle or
+  /// the camera moves; the engine draws them at the cadence
+  /// ([_capFrames]).
+  static final Duration _frameGap = Duration(milliseconds: (1000 / FrameCadence.sampleFps).floor());
 
   /// A fix this far from the drawn vehicle is a jump (a new route from
   /// elsewhere), not a move to glide through.
@@ -234,7 +251,10 @@ class _GlRouteMapState extends State<GlRouteMap> {
       _sentPlaces = null;
       _sentFrame = null;
     }
-    if (old.props.guiding != _props.guiding) _page?.guiding(on: _props.guiding);
+    if (old.props.guiding != _props.guiding) {
+      _page?.guiding(on: _props.guiding);
+      _capFrames();
+    }
     if ((old.props.onGesture == null) != (_props.onGesture == null)) {
       _page?.watch(on: _props.onGesture != null);
     }
@@ -787,9 +807,11 @@ class _GlRouteMapState extends State<GlRouteMap> {
     if (!mounted) return;
     final zoom = math.max(shown?.zoom ?? 0, RouteMarkStyle.focusZoom);
     _sentFrame = null;
+    final duration = mounted ? Motion.of(context, Motion.camera) : Duration.zero;
+    _fullFor(duration);
     await c.animateCamera(
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(focus.position.lat, focus.position.lon), zoom),
-      duration: mounted ? Motion.of(context, Motion.camera) : Duration.zero,
+      duration: duration,
     );
     if (!mounted || Motion.reduced(context)) return;
     final keep = _props.highlighted;
@@ -1083,6 +1105,103 @@ class _GlRouteMapState extends State<GlRouteMap> {
     });
   }
 
+  /// Keeps the full cadence for [length], an animation of the camera run
+  /// by the engine.
+  void _fullFor(Duration length) {
+    final until = _clock.elapsed + length;
+    if (until > _fullUntil) _fullUntil = until;
+    _capFrames();
+  }
+
+  /// A finger on the map, the camera moved by the user or by an animation
+  /// of the engine's, the way into following: the full cadence. The
+  /// camera's own moves while it follows are no reason.
+  bool get _fullCadence {
+    final ownMoves = _props.camera is FollowCamera && !_heldByUser;
+    return _entryFrom != null ||
+        _pressed ||
+        (_cameraMoving && !ownMoves) ||
+        _clock.elapsed < _fullUntil;
+  }
+
+  /// Sets the engine's own limit of frames ([renderCap]) when it changed:
+  /// the cadence of the guidance's map while the vehicle drives, kept
+  /// between two fixes (a glide that ends before the next fix comes must
+  /// not free the engine for a moment each second); free under a finger,
+  /// during an animation, parked (nothing of the app's moves the map, and
+  /// what the engine draws by itself, tiles and labels, keeps its own
+  /// pace) and on the preview's map. Freed, the engine may still sleep out
+  /// the frame it was in: up to a tenth of a second at 10.
+  void _capFrames() {
+    final c = _controller;
+    if (c == null || _page != null || kIsWeb) return;
+    final parked = (_props.vehicle?.speedMps ?? 0) < VehicleMotion.parkedMps;
+    final cap = _props.guiding && !parked && !_fullCadence ? renderCap(_pace.fps) : null;
+    if (cap == _sentCap) return;
+    _sentCap = cap;
+    // A system trace of a profile build reads how long each limit held.
+    timelineMark('lunaway-route-map-frames-${cap ?? 'free'}');
+    unawaited(
+      c
+          .setMaximumFps(cap ?? _freeFps)
+          .catchError((Object e, StackTrace st) => _log.fine('could not limit the frames', e, st)),
+    );
+  }
+
+  /// The limit the engine draws freely under: none on iOS (its default,
+  /// `MLNMapViewPreferredFramesPerSecondDefault`); on Android, which takes
+  /// no "none", one frame a millisecond.
+  static int get _freeFps => defaultTargetPlatform == TargetPlatform.iOS ? -1 : 1000;
+
+  /// How fast the picture moves at [now] ([screenSpeed]), from the glide of
+  /// the vehicle and the eases of the camera toward its aim; unknown (no
+  /// fix, no size yet) is as fast as it gets.
+  double _screenPx(Duration now) {
+    final (position, course) = _motion.at(now);
+    if (position == null || _size.isEmpty) return double.infinity;
+    final camera = _props.camera;
+    final ground = _motion.speedAt(now);
+    if (camera is! FollowCamera || _heldByUser) {
+      // The camera stands where it is (tracked on a phone): only the
+      // vehicle moves across it.
+      final zoom = _controller?.cameraPosition?.zoom ?? AutoZoom.parkedZoom;
+      return screenSpeed(
+        size: _size,
+        covered: EdgeInsets.zero,
+        anchor: Offset.zero,
+        latitude: position.lat,
+        zoom: zoom,
+        tilt: 0,
+        groundMps: ground,
+        following: false,
+      );
+    }
+    final zoom = _shownZoom ?? camera.zoom;
+    final tilt = _shownTilt ?? camera.tilt;
+    final shownCourse = _shownCourse;
+    // The camera's course chases the vehicle's at the pace of easeCourse
+    // and, through a bend, turns as fast as the vehicle does.
+    final chase = course == null || shownCourse == null
+        ? 0.0
+        : angleDelta(shownCourse, course).abs() / (courseSettle.inMicroseconds / 1e6);
+    return screenSpeed(
+      size: _size,
+      covered: _props.padding,
+      anchor: followAnchor(_size, _props.padding),
+      latitude: position.lat,
+      zoom: zoom,
+      tilt: tilt,
+      groundMps: ground,
+      turnDegPerS: math.max(chase, _motion.turnAt(now)),
+      zoomPerS: (camera.zoom - zoom).abs() / _settleS,
+      tiltDegPerS: (camera.tilt - tilt).abs() / _settleS,
+    );
+  }
+
+  /// The time constant of the eases of the zoom and the tilt, seconds: each
+  /// moves by its gap to the aim divided by it, a second ([easeZoom]).
+  static final double _settleS = zoomSettle.inMicroseconds / 1e6;
+
   /// One frame of the glide on a phone: the vehicle where [VehicleMotion]
   /// draws it, and the camera on it while following. A frame waits for the
   /// previous one's calls, so a slow map drops frames instead of queueing
@@ -1186,7 +1305,12 @@ class _GlRouteMapState extends State<GlRouteMap> {
       view = null;
     }
     _sentFrame = (position: position, course: course, view: view);
+    // The cadence of the engine's frames, from how fast the picture moves
+    // now: what they show is set by the clock, so fewer frames show the
+    // same path.
+    _pace.next(now, pxPerS: _screenPx(now), full: _fullCadence);
     if (settled) _stopFrames();
+    _capFrames();
     if (calls.isEmpty) {
       _frameAgain();
       return;
@@ -1207,6 +1331,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
     if (!mounted || camera is! FitCamera) return;
     final pad = _props.padding + camera.room;
     final bounds = camera.bounds;
+    final duration = Motion.of(context, Motion.camera);
+    _fullFor(duration);
     await c.animateCamera(
       gl.CameraUpdate.newLatLngBounds(
         gl.LatLngBounds(
@@ -1218,7 +1344,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
         right: pad.right + 48,
         bottom: pad.bottom + 48,
       ),
-      duration: Motion.of(context, Motion.camera),
+      duration: duration,
     );
   }
 
@@ -1228,11 +1354,13 @@ class _GlRouteMapState extends State<GlRouteMap> {
     _heldByUser = true;
     _entryFrom = null;
     _gestured = true;
+    _capFrames();
     _props.onGesture?.call();
   }
 
   void _onNativeTouch(bool down) {
     _pressed = down;
+    _capFrames();
     _props.onTouch?.call(down);
     if (!down && _gestured && !_cameraMoving) unawaited(_reportRest());
   }
@@ -1497,6 +1625,8 @@ class _GlRouteMapState extends State<GlRouteMap> {
       onMapCreated: (c) {
         timelineMark('lunaway-route-map-created');
         _controller = c;
+        // A new engine starts without a limit of frames.
+        _sentCap = null;
       },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick:
@@ -1510,7 +1640,10 @@ class _GlRouteMapState extends State<GlRouteMap> {
           : _onTap,
       // Told once a move starts, not at each of its frames.
       onCameraMove: (_) {
+        final before = _cameraMoving;
         _cameraMoving = true;
+        // Moved by the user or by an animation: the engine draws freely.
+        if (!before) _capFrames();
         if (_moving) return;
         _moving = true;
         _props.onCameraMove?.call();
@@ -1519,6 +1652,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
         timelineMark('lunaway-route-map-idle');
         _moving = false;
         _cameraMoving = false;
+        _capFrames();
         _props.onCameraIdle?.call();
         if (!kIsWeb && _gestured && !_pressed) unawaited(_reportRest());
         _requestRich();
