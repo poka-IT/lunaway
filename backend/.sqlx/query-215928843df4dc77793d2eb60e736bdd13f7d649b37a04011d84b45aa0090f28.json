@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE content_reports c SET reporter_id = $2\n        WHERE c.reporter_id = $1 AND NOT EXISTS (\n            SELECT 1 FROM content_reports o\n            WHERE o.reporter_id = $2 AND o.target_type = c.target_type\n              AND o.target_id = c.target_id)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "215928843df4dc77793d2eb60e736bdd13f7d649b37a04011d84b45aa0090f28"
+}

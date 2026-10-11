@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            extract(day FROM now() - a.created_at)::int8 AS \"age_days!\",\n            a.active_days::int8 AS \"active_days!\",\n            a.granted_level,\n            a.level_ceiling,\n            (SELECT count(DISTINCT c.place_id) FROM confirmations c\n             WHERE c.account_id = a.id) + a.archived_confirmations AS \"confirmations!\",\n            (SELECT count(DISTINCT r.place_id) FROM reviews r\n             WHERE r.account_id = a.id AND r.status = 'published' AND r.withdrawn_at IS NULL)\n              + (SELECT count(DISTINCT p.place_id) FROM photos p\n                 WHERE p.account_id = a.id AND p.status = 'published'\n                   AND p.withdrawn_at IS NULL)\n              + (SELECT count(DISTINCT c.place_id) FROM confirmations c WHERE c.account_id = a.id)\n              + a.archived_confirmations\n              + (SELECT count(DISTINCT s.place_id) FROM place_submissions s\n                 WHERE s.account_id = a.id AND s.status = 'applied') AS \"contributions!\",\n            a.moderation_removals::int8 AS \"removals!\",\n            EXISTS (SELECT 1 FROM account_endorsements e\n                    WHERE e.account_id = a.id AND e.kind = 'sponsor') AS \"sponsored!\",\n            EXISTS (SELECT 1 FROM account_endorsements e\n                    WHERE e.account_id = a.id AND e.kind = 'nominate') AS \"nominated!\"\n        FROM accounts a WHERE a.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "age_days!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "active_days!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "granted_level",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "granted_level"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "level_ceiling",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "level_ceiling"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "confirmations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "contributions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "removals!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "sponsored!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "nominated!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7a4bcccae09eacd3830b82989642f77a9a081d6a3a8397107488e491a31d3028"
+}

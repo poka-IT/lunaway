@@ -1760,13 +1760,14 @@ async fn run() -> anyhow::Result<()> {
             println!(
                 "retention: {} issue reports, {} content reports, {} moderation entries, \
                  {} confirmations deleted; {} submissions emptied; {} banned key hashes, \
-                 {} stale translations deleted",
+                 {} merged key hashes, {} stale translations deleted",
                 s.issue_reports,
                 s.content_reports,
                 s.moderation_entries,
                 s.confirmations,
                 s.submission_payloads,
                 s.banned_keys,
+                s.merged_keys,
                 s.translations
             );
         }
@@ -2831,10 +2832,12 @@ async fn accounts(
                 );
             } else {
                 println!(
-                    "journal {}: {} accounts, {} deleted again, {} unreadable lines",
+                    "journal {}: {} accounts, {} deleted again ({} of them merged again \
+                     into the account they had gone into), {} unreadable lines",
                     journal.dir().display(),
                     r.accounts,
                     r.deleted,
+                    r.merged,
                     r.unreadable
                 );
                 remove_files(media, &r.orphan_files).await?;

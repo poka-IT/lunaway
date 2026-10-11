@@ -21,6 +21,19 @@ pub fn challenge_message(nonce: &str) -> String {
     format!("{CHALLENGE_PREFIX}{nonce}")
 }
 
+/// What the two keys of an account merge sign before the rest: another
+/// protocol than a sign-in, so neither signature can serve as the other.
+pub const MERGE_PREFIX: &str = "lunaway-merge:v1:";
+
+/// The exact text both device keys sign to merge the account of the key
+/// `absorbed` into the account of the key `into` (each named by its RFC
+/// 7638 thumbprint): one signature proves each account, and the text names
+/// both, so a signature made for one merge never serves another.
+#[must_use]
+pub fn merge_message(nonce: &str, absorbed: &str, into: &str) -> String {
+    format!("{MERGE_PREFIX}{nonce}:{absorbed}:{into}")
+}
+
 fn random_token() -> Result<String, AuthError> {
     let mut bytes = [0u8; 32];
     random(&mut bytes)?;
@@ -97,6 +110,21 @@ mod tests {
     #[test]
     fn the_message_is_the_prefix_and_the_nonce() {
         assert_eq!(challenge_message("abc"), "lunaway-auth:v1:abc");
+    }
+
+    #[test]
+    fn a_merge_message_names_the_nonce_then_both_keys() {
+        // The app builds the same text (`merge_proof_test.dart`): a change
+        // here is a change of protocol, made on both sides.
+        assert_eq!(
+            merge_message("n", "absorbed", "into"),
+            "lunaway-merge:v1:n:absorbed:into"
+        );
+        assert_ne!(
+            merge_message("n", "a", "b"),
+            merge_message("n", "b", "a"),
+            "the direction of a merge is part of what is signed"
+        );
     }
 
     #[test]

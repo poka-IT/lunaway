@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE poi_reviews SET account_id = NULL, body = NULL, lang = NULL, visited_on = NULL,\n               withdrawn_at = coalesce(withdrawn_at, now()), updated_at = now()\n        WHERE id = ANY($1)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dbc7722a1fe6b9aec67b8d2fd086dd90885a1853d8cdb25b59aa1ba34c2b01d2"
+}

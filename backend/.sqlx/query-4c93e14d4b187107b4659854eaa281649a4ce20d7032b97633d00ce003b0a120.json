@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE accounts SET level_ceiling = NULL WHERE id = $1 AND level_ceiling IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4c93e14d4b187107b4659854eaa281649a4ce20d7032b97633d00ce003b0a120"
+}

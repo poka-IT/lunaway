@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM merged_keys WHERE merged_at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "20259e2a2efbf2c9724f7f241cd10edbfcfccf386044ba4d57a6d4c0233e8db2"
+}

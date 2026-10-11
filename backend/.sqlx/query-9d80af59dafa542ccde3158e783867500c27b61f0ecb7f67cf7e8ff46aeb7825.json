@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE merged_keys SET into_account = $2 WHERE into_account = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d80af59dafa542ccde3158e783867500c27b61f0ecb7f67cf7e8ff46aeb7825"
+}

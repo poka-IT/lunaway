@@ -26,6 +26,18 @@ coded_enum! {
     }
 }
 
+/// The names the app gives its default list on an account, one per
+/// language of the app: a merge of two accounts joins two lists of these
+/// names as one, whatever language each was synced in.
+pub const DEFAULT_LIST_NAMES: [&str; 6] = [
+    "Mes favoris",
+    "My favourites",
+    "Meine Favoriten",
+    "Mis favoritos",
+    "I miei preferiti",
+    "Mijn favorieten",
+];
+
 /// Length of a saved point's name, in characters once its whitespace is
 /// folded.
 pub const NAME_CHARS: std::ops::RangeInclusive<usize> = 1..=120;

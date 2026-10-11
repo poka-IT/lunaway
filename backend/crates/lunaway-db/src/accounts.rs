@@ -468,6 +468,9 @@ pub struct TrustInputs {
     pub nominated: bool,
     /// Floor set by the administration.
     pub granted_level: i16,
+    /// The most a merge lets the account show until its next contribution
+    /// (`merge::merge_accounts`); `None` for an account no merge capped.
+    pub level_ceiling: Option<i16>,
 }
 
 /// Reads what the trust rules of `account` need, in one query.
@@ -485,6 +488,7 @@ pub async fn trust_inputs(pool: &PgPool, account: Uuid) -> Result<Option<TrustIn
             extract(day FROM now() - a.created_at)::int8 AS "age_days!",
             a.active_days::int8 AS "active_days!",
             a.granted_level,
+            a.level_ceiling,
             (SELECT count(DISTINCT c.place_id) FROM confirmations c
              WHERE c.account_id = a.id) + a.archived_confirmations AS "confirmations!",
             (SELECT count(DISTINCT r.place_id) FROM reviews r
@@ -516,7 +520,54 @@ pub async fn trust_inputs(pool: &PgPool, account: Uuid) -> Result<Option<TrustIn
         sponsored: r.sponsored,
         nominated: r.nominated,
         granted_level: r.granted_level,
+        level_ceiling: r.level_ceiling,
     }))
+}
+
+/// Lifts the ceiling a merge set on `account`'s level: from its next
+/// contribution on, the trust rules count the merged history as its own.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn lift_level_ceiling(pool: &PgPool, account: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        "UPDATE accounts SET level_ceiling = NULL WHERE id = $1 AND level_ceiling IS NOT NULL",
+        account
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// The public key (SEC1, uncompressed) of the device key `id`.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn device_public_key(pool: &PgPool, id: Uuid) -> Result<Option<Vec<u8>>, DbError> {
+    Ok(
+        sqlx::query_scalar!("SELECT public_key FROM device_keys WHERE id = $1", id)
+            .fetch_optional(pool)
+            .await?,
+    )
+}
+
+/// Detaches the device key `id` from `account`: the key and its sessions
+/// go (`signOut(forgetDevice: true)`). Returns whether it went.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn forget_device(pool: &PgPool, account: Uuid, id: Uuid) -> Result<bool, DbError> {
+    let done = sqlx::query!(
+        "DELETE FROM device_keys WHERE id = $1 AND account_id = $2",
+        id,
+        account
+    )
+    .execute(pool)
+    .await?;
+    Ok(done.rows_affected() > 0)
 }
 
 /// Stores the level the rules computed. A new level queues what counts the

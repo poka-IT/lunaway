@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO favorite_items (list_id, place_id, added_at)\n                    SELECT $2, place_id, added_at FROM favorite_items WHERE list_id = $1\n                    ON CONFLICT DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2c5d07e95a0474dc34e08af35465556508a40b08dd4b7396dab1703dde01be07"
+}

@@ -1256,6 +1256,46 @@ type ExternalReviewConnection {
 }
 
 """
+The account's home: one point, as a saved point is (an address, a town,
+a bare point of the map, a shop or a service), kept apart from the
+lists. Private to the account: only its owner reads it.
+"""
+type FavoriteHome {
+	"""
+	What it is.
+	"""
+	kind: FavoritePointKind!
+	"""
+	The name of the point it is (the address, the shop's name).
+	"""
+	name: String!
+	"""
+	Its postal address, on one line.
+	"""
+	address: String
+	"""
+	Latitude, degrees.
+	"""
+	lat: Float!
+	"""
+	Longitude, degrees.
+	"""
+	lon: Float!
+	"""
+	A shop or a service (`POI`): the point of interest.
+	"""
+	poiId: UUID
+	"""
+	Its kind.
+	"""
+	poiKind: PoiKind
+	"""
+	Last change.
+	"""
+	updatedAt: DateTime!
+}
+
+"""
 A place in a favourite list.
 """
 type FavoriteItem {
@@ -1926,6 +1966,40 @@ type FuelStop {
 }
 
 """
+The account's home to keep.
+"""
+input HomeInput {
+	"""
+	What it is.
+	"""
+	kind: FavoritePointKind!
+	"""
+	The name of the point it is, 1 to 120 characters.
+	"""
+	name: String!
+	"""
+	Its postal address, 200 characters at most; empty for none.
+	"""
+	address: String
+	"""
+	Latitude, degrees.
+	"""
+	lat: Float!
+	"""
+	Longitude, degrees.
+	"""
+	lon: Float!
+	"""
+	For a shop or a service (`POI`) only: the point of interest.
+	"""
+	poiId: UUID
+	"""
+	For a shop or a service (`POI`) only: its kind.
+	"""
+	poiKind: PoiKind
+}
+
+"""
 A problem met at a place.
 """
 enum IssueKind {
@@ -2095,6 +2169,38 @@ input LocalizedTextInput {
 }
 
 """
+What `mergeAccount` did.
+"""
+type MergeAccountResult {
+	"""
+	The account, holding what the merged one held.
+	"""
+	account: Account!
+	"""
+	Which home it keeps.
+	"""
+	home: MergedHome!
+}
+
+"""
+Which home the account keeps after a merge.
+"""
+enum MergedHome {
+	"""
+	Neither account had a home.
+	"""
+	NONE
+	"""
+	The account kept its own; the merged account's was dropped.
+	"""
+	KEPT
+	"""
+	The merged account's home became the account's.
+	"""
+	MOVED
+}
+
+"""
 A stop the vehicle cannot reach where it was put (the road it lies on
 is closed to the vehicle: a car park under a square, a street too
 narrow), which the routes start or end at instead: a road the vehicle
@@ -2148,9 +2254,13 @@ type Mutation {
 	"""
 	signOutElsewhere: Int!
 	"""
-	Ends the current session.
+	Ends the current session. With `forgetDevice`, the device key that
+	opened it is detached from the account as well, with all its
+	sessions: the device is leaving this account for good (another
+	account imported in its place, or an import cancelled), and the
+	account's list of devices no longer shows it.
 	"""
-	signOut: Boolean!
+	signOut(forgetDevice: Boolean! = false): Boolean!
 	"""
 	A new recovery code for the paper card; it replaces the earlier one.
 	The server keeps only its hash: this is the only time it is shown.
@@ -2388,6 +2498,37 @@ type Mutation {
 	the account.
 	"""
 	importFavorites(lists: [FavoriteListInput!]!): [FavoriteList!]!
+	"""
+	Sets the account's home, in place of any other: one point, checked
+	as a saved point is (`savePointToList`), private to the account.
+	"""
+	setHome(home: HomeInput!): FavoriteHome!
+	"""
+	Removes the account's home. True when there was one; removing a
+	home already gone is done.
+	"""
+	clearHome: Boolean!
+	"""
+	Merges another account of the caller into the signed-in one, then
+	deletes it: its favourite lists (joined by name), home (when this
+	account has none), mutes, contributions and their author all move
+	here, in one transaction. Where both hold the same (a list of one
+	name, a review of one place, a home), this account's stays.
+	
+	Proof that the caller holds both accounts: a session opened in the
+	last ten minutes (`FRESH_SIGN_IN` otherwise), and both device keys
+	signing `lunaway-merge:v1:<nonce>:<absorbed>:<into>` (`nonce` from
+	`authChallenge`, `absorbed` the RFC 7638 thumbprint of
+	`absorbedKeyJwk`, a key of the account merged, `into` the
+	thumbprint of this session's key): `absorbedSignature` by the
+	first, `signature` by the second. A banned account is never merged
+	(`FORBIDDEN`). The deletion is journaled with the account it went
+	into, so a restored backup merges it again (`UNAVAILABLE` when the
+	journal cannot be written; nothing changed). Asked again after it
+	succeeded, it answers the same. 3 a day per account, 5 an hour per
+	client.
+	"""
+	mergeAccount(absorbedKeyJwk: String!, nonce: String!, absorbedSignature: String!, signature: String!): MergeAccountResult!
 	"""
 	Detaches one of the caller's other device keys and ends its sessions
 	(a lost phone); `myAccount { devices }` lists them. The current
@@ -5001,6 +5142,10 @@ type Query {
 	and the points saved in them.
 	"""
 	myFavoriteLists: [FavoriteList!]!
+	"""
+	The signed-in account's home; null when it has none.
+	"""
+	myHome: FavoriteHome
 }
 
 """

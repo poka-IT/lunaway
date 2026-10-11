@@ -8,7 +8,9 @@
 //! (`docs/deploy.md`, "Backups and restore").
 //!
 //! One file per UTC day (`accounts-YYYYMMDD.jsonl`), one JSON line per
-//! deletion: the account's id and the time. A line is written and synced to
+//! deletion: the account's id and the time, and for an account merged into
+//! another (`mergeAccount`) the account it went into, which a replay merges
+//! it into again. A line is written and synced to
 //! disk before the deletion is committed ([`delete_recorded`]), so no
 //! deletion is ever in the database without its line. A file is never
 //! rewritten: [`DeletionJournal::prune`] removes whole days once they are
@@ -27,6 +29,7 @@ use crate::{
     DbError, PgPool,
     accounts::{self, DeletedAccount},
     day_files::{DayFiles, IoAt},
+    merge::{self, MergeRefusal},
 };
 
 /// The prefix of a day's file.
@@ -80,6 +83,12 @@ pub struct Entry {
     pub account: Uuid,
     /// When.
     pub deleted_at: DateTime<Utc>,
+    /// The account it was merged into (`mergeAccount`), for a deletion
+    /// that ended a merge: a replay merges it again rather than deleting
+    /// what the person kept. Absent from the lines of plain deletions, and
+    /// from every line written before merges existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merged_into: Option<Uuid>,
 }
 
 /// What reading the journal found.
@@ -150,12 +159,17 @@ impl DeletionJournal {
     ///
     /// [`JournalError`] when the line cannot be written and synced.
     pub fn record_blocking(&self, account: Uuid, at: DateTime<Utc>) -> Result<(), JournalError> {
-        let entry = serde_json::to_string(&Entry {
+        self.write_blocking(&Entry {
             account,
             deleted_at: at,
+            merged_into: None,
         })
-        .map_err(JournalError::Encode)?;
-        self.files().append(&entry, at).map_err(io)
+    }
+
+    /// Appends `entry` to the day of its deletion and syncs it to disk.
+    fn write_blocking(&self, entry: &Entry) -> Result<(), JournalError> {
+        let line = serde_json::to_string(entry).map_err(JournalError::Encode)?;
+        self.files().append(&line, entry.deleted_at).map_err(io)
     }
 
     /// [`Self::record_blocking`] on a blocking thread: the sync waits for
@@ -165,8 +179,38 @@ impl DeletionJournal {
     ///
     /// [`JournalError`] when the line cannot be written and synced.
     pub async fn record(&self, account: Uuid, at: DateTime<Utc>) -> Result<(), JournalError> {
+        self.write(Entry {
+            account,
+            deleted_at: at,
+            merged_into: None,
+        })
+        .await
+    }
+
+    /// Writes the deletion of `account` merged into `into` at `at`, on a
+    /// blocking thread, before the merge is committed: a restore then
+    /// merges it again instead of bringing it back.
+    ///
+    /// # Errors
+    ///
+    /// [`JournalError`] when the line cannot be written and synced.
+    pub async fn record_merge(
+        &self,
+        account: Uuid,
+        into: Uuid,
+        at: DateTime<Utc>,
+    ) -> Result<(), JournalError> {
+        self.write(Entry {
+            account,
+            deleted_at: at,
+            merged_into: Some(into),
+        })
+        .await
+    }
+
+    async fn write(&self, entry: Entry) -> Result<(), JournalError> {
         let journal = self.clone();
-        tokio::task::spawn_blocking(move || journal.record_blocking(account, at))
+        tokio::task::spawn_blocking(move || journal.write_blocking(&entry))
             .await
             .map_err(JournalError::Task)?
     }
@@ -187,7 +231,7 @@ impl DeletionJournal {
         for line in lines.lines().map(str::trim).filter(|l| !l.is_empty()) {
             match serde_json::from_str::<Entry>(line) {
                 Ok(e) => {
-                    self.record_blocking(e.account, e.deleted_at)?;
+                    self.write_blocking(&e)?;
                     out.written += 1;
                 }
                 Err(_) => out.unreadable += 1,
@@ -288,6 +332,9 @@ pub struct Replayed {
     pub accounts: usize,
     /// Of them, those found in the database and deleted again.
     pub deleted: usize,
+    /// Of the deleted, those merged again into the account they had gone
+    /// into.
+    pub merged: usize,
     /// Lines that did not read.
     pub unreadable: usize,
     /// Photo files no row refers to any more (the caller removes them).
@@ -295,11 +342,17 @@ pub struct Replayed {
 }
 
 /// Deletes again every account the journal names that the database still
-/// holds, as `deleteAccount` did. Run after a restore, before the API
-/// serves the restored database. With `dry_run`, counts them only. A
-/// journal that names no deletion is refused unless `allow_empty`: after
-/// the loss of the data volume, a journal not put back from its copy would
-/// bring every deletion since the dump back.
+/// holds, as `deleteAccount` did; an account that ended in a merge is
+/// merged again into the account it went into, so the person finds their
+/// lists, home and contributions there. The lines are replayed in the
+/// order written: an account merged into one that was merged further, or
+/// deleted, later, follows the same path again. A merge that cannot be
+/// made again (the target gone or banned) deletes the account, as the
+/// merge did. Run after a restore, before the API serves the restored
+/// database. With `dry_run`, counts them only. A journal that names no
+/// deletion is refused unless `allow_empty`: after the loss of the data
+/// volume, a journal not put back from its copy would bring every deletion
+/// since the dump back.
 ///
 /// # Errors
 ///
@@ -316,20 +369,37 @@ pub async fn replay(
     if read.entries.is_empty() && !allow_empty {
         return Err(JournalError::Empty(journal.dir().to_owned()).into());
     }
-    let ids: BTreeSet<Uuid> = read.entries.iter().map(|e| e.account).collect();
+    // Each account once, at its first line: a journal imported twice, or
+    // replayed after a partial run, names some twice.
+    let mut seen = BTreeSet::new();
+    let entries: Vec<Entry> = read
+        .entries
+        .into_iter()
+        .filter(|e| seen.insert(e.account))
+        .collect();
     let mut out = Replayed {
-        accounts: ids.len(),
+        accounts: entries.len(),
         unreadable: read.unreadable,
         ..Replayed::default()
     };
-    for id in ids {
+    for entry in entries {
         if dry_run {
-            if accounts::account(pool, id).await?.is_some() {
+            if accounts::account(pool, entry.account).await?.is_some() {
                 out.deleted += 1;
             }
             continue;
         }
-        if let Some(d) = accounts::delete_account(pool, id).await? {
+        if let Some(into) = entry.merged_into {
+            match merge::merge_accounts(pool, entry.account, into).await? {
+                Ok(_) => {
+                    out.deleted += 1;
+                    out.merged += 1;
+                    continue;
+                }
+                Err(MergeRefusal::Missing | MergeRefusal::Banned | MergeRefusal::Same) => {}
+            }
+        }
+        if let Some(d) = accounts::delete_account(pool, entry.account).await? {
             out.deleted += 1;
             out.orphan_files.extend(d.orphan_files);
         }
@@ -452,17 +522,19 @@ mod tests {
     fn an_off_site_copy_goes_back_into_its_days() {
         let dir = tempfile::tempdir().unwrap();
         let journal = DeletionJournal::new(dir.path());
-        let (a, b) = (Uuid::now_v7(), Uuid::now_v7());
+        let (a, b, c) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
         let copy = format!(
             "{}\n{{\"account\":\"cut\n{}\n",
             serde_json::to_string(&Entry {
                 account: a,
-                deleted_at: at(2, 9)
+                deleted_at: at(2, 9),
+                merged_into: None,
             })
             .unwrap(),
             serde_json::to_string(&Entry {
                 account: b,
-                deleted_at: at(4, 18)
+                deleted_at: at(4, 18),
+                merged_into: Some(c),
             })
             .unwrap(),
         );
@@ -491,9 +563,31 @@ mod tests {
                 .unwrap()
                 .entries
                 .iter()
-                .map(|e| e.account)
+                .map(|e| (e.account, e.merged_into))
                 .collect::<Vec<_>>(),
-            [a, b]
+            [(a, None), (b, Some(c))],
+            "a merge keeps the account it went into through the copy"
+        );
+    }
+
+    #[test]
+    fn a_plain_deletion_is_written_as_before_merges_existed() {
+        let dir = tempfile::tempdir().unwrap();
+        let journal = DeletionJournal::new(dir.path());
+        let a = Uuid::now_v7();
+        journal.record_blocking(a, at(6, 1)).unwrap();
+        let text = std::fs::read_to_string(dir.path().join("accounts-20261006.jsonl")).unwrap();
+        assert!(
+            !text.contains("mergedInto"),
+            "a line an older copy of the API reads as it always did: {text}"
+        );
+        let old: Entry = serde_json::from_str(&format!(
+            r#"{{"account":"{a}","deletedAt":"2026-10-06T01:00:00Z"}}"#
+        ))
+        .unwrap();
+        assert_eq!(
+            old.merged_into, None,
+            "a line written before merges is a deletion"
         );
     }
 

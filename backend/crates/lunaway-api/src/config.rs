@@ -693,6 +693,11 @@ pub struct Quotas {
     /// seconds. A translation already kept costs nothing: only what the
     /// server must translate counts.
     pub translate: Quota,
+    /// Accounts merged into one account (`MERGE`): 3 a day. A person has
+    /// a few accounts at most; more is a script gathering histories.
+    pub merge: Quota,
+    /// Account merges per client (`MERGE_CLIENT`): 5 an hour.
+    pub merge_client: Quota,
 }
 
 impl Default for Quotas {
@@ -720,6 +725,8 @@ impl Default for Quotas {
             external_photo: Quota::per(300, DAY),
             place_digests: Quota::per(300, HOUR),
             translate: Quota::per(300, 10 * MINUTE),
+            merge: Quota::per(3, DAY),
+            merge_client: Quota::per(5, HOUR),
         }
     }
 }
@@ -760,6 +767,8 @@ impl Quotas {
             external_photo: read("EXTERNAL_PHOTO", d.external_photo),
             place_digests: read("PLACE_DIGESTS", d.place_digests),
             translate: read("TRANSLATE", d.translate),
+            merge: read("MERGE", d.merge),
+            merge_client: read("MERGE_CLIENT", d.merge_client),
         }
     }
 }
