@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -324,16 +327,71 @@ class ChosenDeparture extends _$ChosenDeparture {
   void clear() => state = null;
 }
 
+/// A position the device already knows starts the preview's routes at once
+/// when it is this recent ([PreviewDevicePosition]).
+const previewKnownAge = Duration(minutes: 2);
+
+/// And when this precise, metres: a Wi-Fi fix, not a cell's.
+const previewKnownAccuracyM = 100.0;
+
+/// A fresh fix at least this far from the known one starts the routes
+/// again from it, metres (or farther than its own accuracy).
+const previewMovedM = 50.0;
+
+/// How long the device's last known position may take to read before the
+/// preview waits for a fresh fix instead.
+const _knownReadWait = Duration(milliseconds: 500);
+
 /// Where the device is, for the preview: its position now, else the one the
 /// map located this run. The rule of the danger zones is read here, where
 /// the device is, whatever start the routes have (docs/speed-cameras.md).
+///
+/// A recent and precise position the device already knows answers at once
+/// ([LocationFeed.lastKnown]), as a browser answers from its cache: a fresh
+/// fix took 4 s on the emulator, and up to its 15 s limit on a phone that
+/// has to wait for the satellites, while no other request keeps the
+/// platform's provider busy (`plan/research/125-calcul-itineraire.md`).
+/// The fresh fix is still asked for at once; it replaces the known
+/// position when it lands farther than [previewMovedM], and the routes
+/// follow it.
 @riverpod
 class PreviewDevicePosition extends _$PreviewDevicePosition {
   @override
   Future<LatLng?> build() async {
     final fallback = ref.watch(userLocationProvider);
-    final fix = await ref.read(locationFeedProvider).current();
+    final feed = ref.read(locationFeedProvider);
+    final fresh = feed.current();
+    final known = await _known(feed);
+    if (known != null) {
+      unawaited(_settle(ref, fresh, known));
+      return known.position;
+    }
+    final fix = await fresh;
     return fix?.position ?? fallback;
+  }
+
+  /// The last position the device knew, when recent and precise enough to
+  /// start from.
+  Future<Fix?> _known(LocationFeed feed) async {
+    final Fix? fix;
+    try {
+      fix = await feed.lastKnown().timeout(_knownReadWait, onTimeout: () => null);
+    } on Object catch (e) {
+      _log.fine('no last position: $e');
+      return null;
+    }
+    if (fix == null || fix.accuracyM > previewKnownAccuracyM) return null;
+    final age = ref.read(clockProvider)().difference(fix.at);
+    return age > previewKnownAge ? null : fix;
+  }
+
+  /// Takes the fresh fix in place of [known] when it lands elsewhere; the
+  /// build that started it must still be the current one.
+  Future<void> _settle(Ref build, Future<Fix?> fresh, Fix known) async {
+    final fix = await fresh;
+    if (fix == null || !build.mounted) return;
+    final moved = fix.position.distanceTo(known.position);
+    if (moved > math.max(previewMovedM, fix.accuracyM)) state = AsyncData(fix.position);
   }
 
   /// Asks the device again, after the user allowed the position.
