@@ -78,6 +78,35 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   bool _locationOn = false;
 
+  /// Whether the map is on screen. A page pushed over it (the route's
+  /// preview, the guidance) leaves it built underneath, its ticker mode
+  /// off: there it draws nothing and follows no position. Measured on the
+  /// emulator, its position shown before a guidance kept it drawing under
+  /// the guidance's own map, 86 % of a core while parked
+  /// (`plan/research/117-voix-energie-android.md`).
+  bool _onScreen = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final onScreen = TickerMode.valuesOf(context).enabled;
+    if (onScreen == _onScreen) return;
+    _onScreen = onScreen;
+    unawaited(_renderWhileOnScreen());
+  }
+
+  /// Stops the engine's drawing while the map is under a page, and starts
+  /// it again when the page goes.
+  Future<void> _renderWhileOnScreen() async {
+    final c = _controller;
+    if (c == null || kIsWeb) return;
+    try {
+      await (_onScreen ? c.resumeMap() : c.pauseMap());
+    } on Object catch (e) {
+      _log.fine('map pause: $e');
+    }
+  }
+
   /// The basemap's first layer of names, read once per style: under it go
   /// the places' glow and the dots of the country's view, and the quiet
   /// points of interest. Decoding the style takes the UI thread a moment.
@@ -998,7 +1027,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       // annotation manager would add unused layers on every style load, and
       // races a style switch (the theme turning at sunset).
       annotationOrder: const [],
-      myLocationEnabled: _locationOn,
+      // Under a page, no position asked for on a phone: the guidance has
+      // its own. A browser's position is the one the app's button handed
+      // over (showPosition), which turning the layer off would lose.
+      myLocationEnabled: _locationOn && (_onScreen || kIsWeb),
       // On the web the position comes from the app's own button, which asks
       // the browser during the click; the engine's source would add
       // MapLibre's geolocate button, a second one under ours.
@@ -1014,6 +1046,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       logoViewMargins: math.Point(inset.left + 44, inset.bottom + 8),
       onMapCreated: (c) {
         _controller = c;
+        if (!_onScreen) unawaited(_renderWhileOnScreen());
         props.onMapReady(this);
       },
       onStyleLoadedCallback: _onStyleLoaded,
