@@ -3010,6 +3010,10 @@ infra/ops/mac-routing/lunaway-routing-build.sh run --force --ref <branch>
                                           # change of the preparation tried on Europe before it merges;
                                           # it publishes like any build, so main must take the branch
                                           # before its own next build, or that build drops the change
+infra/ops/mac-routing/lunaway-routing-build.sh run --force --day 261008
+                                          # the dated extracts of that day, without waiting for every
+                                          # state.txt to agree (20 extracts at 2026-10-08 and 5 at
+                                          # 2026-10-09 on 2026-10-11); the build checks their timestamps
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --dry-run
                                           # what a run would do now: leftovers, the published graph's age,
                                           # the extracts' date; creates nothing, never waits, records nothing
