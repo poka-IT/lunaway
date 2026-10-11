@@ -27,6 +27,15 @@ import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('home');
 
+/// What says where the home is, under its title: its address, led by its
+/// name when the address does not begin with it ("Boulangerie du Lac ·
+/// 3 rue du Port, Annecy"; an address alone once).
+String homeLine(SavedPoint home) => switch (home.address) {
+  null => home.name,
+  final a when a.startsWith(home.name) => a,
+  final a => '${home.name} · $a',
+};
+
 /// The route home: the preview, then the guidance, as for any destination,
 /// named "Domicile".
 void routeHome(BuildContext context, SavedPoint home) =>
@@ -205,7 +214,7 @@ class HomeCard extends ConsumerWidget {
         ),
       );
     }
-    final line = [if (point.name != point.address) point.name, ?point.address].join(' · ');
+    final line = homeLine(point);
     return Material(
       color: scheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(LunaTokens.radiusXl),

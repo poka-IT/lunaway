@@ -82,7 +82,7 @@ void main() {
 
   test("at an account's first sync on the device, the account's home replaces this one", () async {
     await repo.set(_home(45.9, name: 'Ici'));
-    account.held = asHome(_home(44.0, name: 'Chez nous'));
+    account.held = asHome(_home(44, name: 'Chez nous'));
     await sync.sync();
     expect((await repo.read())?.name, 'Chez nous', reason: "the account's home wins");
     expect(account.sets, 0, reason: "the device's never overwrote it");
@@ -96,7 +96,7 @@ void main() {
     expect(account.held?.name, 'Nouvelle maison');
 
     // Another device changed it.
-    account.held = asHome(_home(43.0, name: 'Chalet'));
+    account.held = asHome(_home(43, name: 'Chalet'));
     await sync.sync();
     expect((await repo.read())?.name, 'Chalet');
     expect(account.sets, 2, reason: 'what came from the account is not sent back');
@@ -110,7 +110,7 @@ void main() {
     expect(account.held, isNull);
     expect(account.clears, 1);
 
-    await repo.set(_home(45.0));
+    await repo.set(_home(45));
     await sync.sync();
     account.held = null;
     await sync.sync();
@@ -155,7 +155,7 @@ void main() {
     expect(account.held?.name, 'Maison de A');
 
     // B, imported in place of A, has a home of its own.
-    account.held = asHome(_home(44.0, name: 'Maison de B'));
+    account.held = asHome(_home(44, name: 'Maison de B'));
     await lists.sync(accountId: 'B');
     expect((await repo.read())?.name, 'Maison de B', reason: 'the base of A was forgotten');
   });

@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -240,6 +242,42 @@ void main() {
         await app.favorites.addToDefault(lakeArea.summary);
         await go(tester, app, AppRoutes.favorites);
         await expectCursors(tester, atLeast: 5);
+      });
+    });
+
+    testWidgets('the favourites headed by the home, and its menu', (tester) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(tester, size: tallDesktop);
+        await app
+            .container(tester)
+            .read(homeRepositoryProvider)
+            .set(
+              SavedPoint(
+                id: savedPointIdAt(const LatLng(45.9, 6.12)),
+                kind: SavedPointKind.address,
+                name: '1 rue des Lilas',
+                position: const LatLng(45.9, 6.12),
+                address: '1 rue des Lilas, 74000 Annecy',
+              ),
+            );
+        await go(tester, app, AppRoutes.favorites);
+        expect(find.text(t.home.title), findsWidgets);
+        await expectCursors(tester, atLeast: 4);
+        await tester.tap(find.byTooltip(t.home.actions));
+        await settleShort(tester);
+        expect(find.text(t.home.change), findsOneWidget);
+        await expectCursors(tester, atLeast: 3);
+      });
+    });
+
+    testWidgets('the sheet that sets the home', (tester) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(tester, size: tallDesktop);
+        await go(tester, app, AppRoutes.favorites);
+        await tester.tap(find.text(t.home.setTitle));
+        await settleShort(tester);
+        expect(find.text(t.home.sheetTitle), findsOneWidget);
+        await expectCursors(tester, atLeast: 3);
       });
     });
 

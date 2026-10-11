@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
@@ -96,7 +97,7 @@ class HomeSearchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final line = [if (home.name != home.address) home.name, ?home.address].join(' · ');
+    final line = homeLine(home);
     return Semantics(
       button: true,
       label: t.home.directionsHome,
