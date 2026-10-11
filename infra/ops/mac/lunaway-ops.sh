@@ -209,7 +209,9 @@ fi
 # threshold, or by an operator who let a mass removal through
 # (LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL); it is set aside for 26 days, however
 # many there are, so that the operator's decision does not stop this job
-# every night (2026-10-11).
+# every night (2026-10-11). Past the same threshold the night still fails,
+# once (the next night those copies are no longer in media/photos): a mass
+# removal the server let through by mistake is seen within the 26 days.
 #
 # Reads dest and held_cutoff (YYYYMMDD); writes its lists in dest.
 set_aside_photos() {
@@ -243,7 +245,11 @@ set_aside_photos() {
 			mv "$dest/media/$rel" "$dest/media-deleted/$day/$rel"
 		fi
 	done < "$dest/.gone-days"
-	[ "$gone" = 0 ] || say "$gone photo copies deleted on the server: $((gone - drop)) set aside, $drop dropped"
+	aside=$((gone - drop))
+	[ "$gone" = 0 ] || say "$gone photo copies deleted on the server: $aside set aside, $drop dropped"
+	if [ "$aside" -gt 50 ] && [ $((aside * 100)) -gt $((local_count * 5)) ]; then
+		fail "$aside des $local_count photos copiées sur le Mac supprimées sur le serveur en une nuit, mises de côté 26 jours dans media-deleted : vérifier que la suppression était voulue"
+	fi
 }
 held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
 if [ "$pulled" = yes ] && [ -f "$dest/media/manifest" ]; then

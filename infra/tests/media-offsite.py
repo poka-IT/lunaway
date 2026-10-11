@@ -9,11 +9,12 @@ runs it on Ubuntu).
 
 The copy follows the photos (one copy for one photo, a deleted photo's copy
 removed and dated in media/deletions), refuses a mass removal unless
-LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1, and whatever way it ends, its list
+LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL names its count, and whatever way it ends, its list
 (media/manifest) names exactly the copies it holds: the Mac reads that list
 to tell a deleted photo from a new one, and a list left from the night
 before made it take the night's 202 new copies for deleted ones on
-2026-10-11.
+2026-10-11. The variable lets through exactly the count the refusal
+prints, so a value left behind lets no later removal through.
 """
 
 import datetime
@@ -154,14 +155,27 @@ class MediaOffsite(unittest.TestCase):
         self.assertEqual(self.offsite("last-success").read_text(), "20260101T000000Z\n")
         self.assertEqual(self.offsite("deletions").read_text(), "")
         self.assertIn("refused: 55 of 62 photo copies would go", done.stderr)
-        self.assertIn("LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1", done.stderr)
+        self.assertIn("LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=55 lets exactly this removal through", done.stderr)
+
+    def test_a_leave_for_another_count_lets_nothing_through(self):
+        # A value left in systemd's environment, or the former "1", is
+        # the count of no other removal.
+        self.photos(range(1, 61))
+        self.run_copy()
+        self.delete(range(1, 56))
+        for value in ("1", "54", "56", "yes"):
+            done = self.run_copy(LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=value)
+            self.assertEqual(done.returncode, 1, value)
+            self.assertEqual(len(self.copies()), 60, value)
+            self.assertEqual(self.offsite("deletions").read_text(), "", value)
 
     def test_the_operator_lets_a_mass_removal_through(self):
         self.photos(range(1, 61))
         self.run_copy()
         self.delete(range(1, 56))
-        done = self.run_copy(LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL="1")
+        done = self.run_copy(LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL="55")
         self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("photos: 0 encrypted, 55 removed, 5 in the copy", done.stdout)
         self.assertEqual(self.manifest(), [f"photos/{rel(i)}.age" for i in range(56, 61)])
         dated = self.offsite("deletions").read_text().splitlines()
         self.assertEqual(sorted(dated), sorted(f"{self.today} photos/{rel(i)}.age" for i in range(1, 56)))

@@ -17,7 +17,10 @@
 # A run that would remove more than 50 copies and more than 5% of them
 # refuses, removes nothing and fails (no success marker, so the status page
 # turns red): an emptied or unmounted photo directory must not empty the
-# backups. LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1 lets a deliberate one through.
+# backups. LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=<count> lets a deliberate one
+# through when it removes exactly that many copies, the count the refusal
+# prints: a value left behind in systemd's environment lets no other
+# removal through.
 set -euo pipefail
 umask 027
 src=/srv/data/media/photos
@@ -79,24 +82,29 @@ if [ "$copies" -gt 0 ] && [ ! -d "$src" ]; then
   exit 1
 fi
 if [ "${#gone[@]}" -gt 50 ] && [ $(( ${#gone[@]} * 100 )) -gt $(( copies * 5 )) ] \
-  && [ "${LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL:-0}" != 1 ]; then
+  && [ "${LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL:-}" != "${#gone[@]}" ]; then
   echo "refused: ${#gone[@]} of $copies photo copies would go (is /srv/data/media complete?); nothing removed;" \
-    "LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1 lets a deliberate removal through (docs/deploy.md, \"Backups and restore\")" >&2
+    "LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=${#gone[@]} lets exactly this removal through" \
+    "(docs/deploy.md, \"Backups and restore\")" >&2
   exit 1
 fi
-# The deletions of the last 30 days, then today's.
+# The deletions of the last 30 days, then today's, written before any copy
+# goes: a run stopped among the removals leaves every removed copy dated,
+# so the Mac sets it aside instead of dropping it.
 cutoff="$(date -u -d '30 days ago' +%Y%m%d)"
 {
   if [ -f "$deletions" ]; then
     awk -v cutoff="$cutoff" '$1 ~ /^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/ && $1 >= cutoff' "$deletions"
   fi
   for rel in "${gone[@]}"; do
-    rm -f "$dst/$rel"
-    removed=$((removed + 1))
     echo "$today photos/$rel"
   done
 } > "$deletions.new"
 mv -f "$deletions.new" "$deletions"
+for rel in "${gone[@]}"; do
+  rm -f "$dst/$rel"
+  removed=$((removed + 1))
+done
 find "$dst" -mindepth 1 -type d -empty -delete
 
 # The list of the photos the copy holds now, before the success marker. The

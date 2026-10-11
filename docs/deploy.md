@@ -1828,7 +1828,9 @@ a missed run happens at wake-up):
    them) drops none, sets none aside and fails. The copies the server dated
    are set aside however many there are: the server removed them past its
    own threshold, or its operator let a mass removal through ("Backups and
-   restore"), and they stay 26 days. Until 2026-10-11 the threshold counted
+   restore"), and they stay 26 days; past the same threshold the run fails
+   that night, once, so that a removal let through by mistake is seen
+   while the copies are still held. Until 2026-10-11 the threshold counted
    them too, so a removal let through on the server stopped the Mac every
    night. It decrypts the newest
    photo copy, which must be a WebP file (`RIFF`, four bytes of size,
@@ -2206,19 +2208,27 @@ Mac.
   dropped them). A deliberate mass removal (the purge of the external
   source's photos, "The external community feed", or a moderation of many
   photos) goes through once, in the unit's sandbox, with
-  `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1` in its environment:
+  `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL` set to the number of copies the
+  refusal named (`refused: <count> of ...`): the variable lets through a
+  removal of exactly that many copies, so a value left in systemd's
+  environment (a dropped session before the `unset`) lets no later removal
+  through. Until 2026-10-11 the value was `1`, which now matches nothing.
 
   ```bash
-  sudo systemctl set-environment LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1
+  sudo journalctl -u lunaway-media-offsite -n 3 --no-pager  # "refused: 592 of 794 ..."
+  sudo systemctl set-environment LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=592
   sudo systemctl start lunaway-media-offsite.service   # waits for the run
   sudo systemctl unset-environment LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL
-  journalctl -u lunaway-media-offsite -n 3 --no-pager  # "photos: N encrypted, M removed, ..."
+  sudo journalctl -u lunaway-media-offsite -n 3 --no-pager  # "photos: N encrypted, 592 removed, ..."
   ```
 
-  The copies removed are dated in `media/deletions`, so the Mac sets them
-  aside for 26 days at its next run, however many. The Mac pulls the copy at 04:30 local and sets
-  what disappeared aside in `~/Backups/lunaway/media-deleted/<deletion
-  date>/` (see "The nightly job on the Mac"). It drops a deleted photo's
+  When photos went or came back since the refusal, the run refuses again
+  with the new count. The copies removed are dated in `media/deletions`
+  before they go, so the Mac sets them aside for 26 days at its next run,
+  however many (and fails that night, once, to say so). The Mac pulls the copy
+  at 04:30 local and sets what disappeared aside in
+  `~/Backups/lunaway/media-deleted/<deletion date>/` (see "The nightly job
+  on the Mac"). It drops a deleted photo's
   copy 26 days after the backend's deletion date, however late it runs, and
   at once when the last 30 days of the list do not name it: a photo deleted
   on the server (an account deleted, a moderation) leaves every copy within

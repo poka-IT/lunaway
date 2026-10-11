@@ -10,7 +10,7 @@ at once when the server did not date it or dated it before the 26 days of
 the hold. Only the copies dropped at once count against the threshold (50
 copies and 5% of them): a mass removal the server dated, which its
 operator let through, is set aside however large, while a list that lost
-lines drops nothing.
+lines drops nothing. A mass removal set aside fails that night, once.
 """
 
 import pathlib
@@ -104,16 +104,20 @@ class SetAside(unittest.TestCase):
         self.assertFalse(self.on_mac(10))
         self.assertFalse((self.dest / "media-deleted").exists())
 
-    def test_a_mass_removal_the_server_dated_is_set_aside(self):
+    def test_a_mass_removal_the_server_dated_is_set_aside_and_reported_once(self):
         # An operator let 70 removals through on the server, which dated
-        # them: the Mac follows, and keeps them 26 days.
+        # them: the Mac follows and keeps them 26 days, and says so that
+        # night, in case the server let them through by mistake.
         self.copies(100)
         self.server(listed=range(1, 31), dated=range(31, 101))
         out = self.run_job()
-        self.assertIn("failures=\n", out)
         self.assertTrue(all(self.set_aside(i) and not self.on_mac(i) for i in range(31, 101)))
         self.assertTrue(all(self.on_mac(i) for i in range(1, 31)))
         self.assertIn("70 set aside, 0 dropped", out)
+        self.assertIn("fail: 70 des 100 photos copiées sur le Mac supprimées sur le serveur en une nuit, "
+                      "mises de côté 26 jours dans media-deleted : vérifier que la suppression était voulue", out)
+        # The next night nothing is left to set aside, and nothing fails.
+        self.assertEqual(self.run_job(), "failures=\n")
 
     def test_a_list_that_lost_many_lines_drops_nothing(self):
         # The night's new copies missing from a stale list look the same.
