@@ -227,20 +227,14 @@ def woff2(font, features):
 
 
 def build_fonts():
-    urls = {}
-    vf = TTFont(os.path.join(FONTS, "fraunces", "Fraunces-Variable.ttf"), recalcTimestamp=False)
-    static = instancer.instantiateVariableFont(vf, {"wght": 600, "opsz": 72}, static=True)
-    urls["fraunces"] = hashed("fonts", "fraunces-semibold", "woff2",
-                              woff2(static, ["kern", "liga", "clig", "calt"]))
-    for weight in ("Regular", "Bold"):
-        f = TTFont(os.path.join(FONTS, "atkinson-next-lunaway", f"AtkinsonNextLunaway-{weight}.ttf"),
-                   recalcTimestamp=False)
-        urls["atkinson-" + weight.lower()] = hashed(
-            "fonts", "atkinson-next-lunaway-" + weight.lower(), "woff2",
-            woff2(f, ["kern", "liga", "clig", "calt", "case", "tnum"]))
-    write("fonts/OFL-Fraunces.txt", read(os.path.join(FONTS, "fraunces", "OFL.txt")))
-    write("fonts/OFL-Atkinson-Hyperlegible-Next.txt",
-          read(os.path.join(FONTS, "atkinson-next-lunaway", "OFL.txt")))
+    # The app's face, one variable file for every weight the pages use (420
+    # for the text, 650 for the headings, 700 for what stands out), its axis
+    # cut to that range.
+    vf = TTFont(os.path.join(FONTS, "figtree-lunaway", "FigtreeLunaway-Variable.ttf"), recalcTimestamp=False)
+    vf = instancer.instantiateVariableFont(vf, {"wght": (400, 400, 700)})
+    urls = {"figtree": hashed("fonts", "figtree-lunaway", "woff2",
+                              woff2(vf, ["kern", "liga", "clig", "calt", "case", "tnum"]))}
+    write("fonts/OFL-Figtree.txt", read(os.path.join(FONTS, "figtree-lunaway", "OFL.txt")))
     return urls
 
 
@@ -396,8 +390,7 @@ def head(lang, key, path, fields, assets):
         f'<link rel="alternate" hreflang="x-default" href="{SITE}{url_of(DEFAULT, path)}">',
         '<meta name="color-scheme" content="light dark">',
         '<meta name="theme-color" content="#020b1b">',
-        f'<link rel="preload" href="{assets["fraunces"]}" as="font" type="font/woff2" crossorigin>',
-        f'<link rel="preload" href="{assets["atkinson-regular"]}" as="font" type="font/woff2" crossorigin>',
+        f'<link rel="preload" href="{assets["figtree"]}" as="font" type="font/woff2" crossorigin>',
         f'<link rel="stylesheet" href="{assets["css"]}">',
         '<link rel="icon" href="/favicon.png" sizes="32x32" type="image/png">',
         '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
@@ -565,9 +558,7 @@ def main():
     assets.update(build_fonts())
     assets.update(build_images())
     css = read(os.path.join(SRC, "style.css"))
-    css = (css.replace("__FONT_FRAUNCES__", assets["fraunces"])
-              .replace("__FONT_ATKINSON_REGULAR__", assets["atkinson-regular"])
-              .replace("__FONT_ATKINSON_BOLD__", assets["atkinson-bold"]))
+    css = css.replace("__FONT_FIGTREE__", assets["figtree"])
     assets["css"] = hashed("", "style", "css", css.encode())
     assets["js"] = hashed("js", "delete-account", "js", read(os.path.join(SRC, "delete-account.js")).encode())
     build_pages(assets, build_icons())

@@ -15,9 +15,8 @@
 <link rel="alternate" hreflang="x-default" href="https://lunaway.net/privacy">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#020b1b">
-<link rel="preload" href="/fonts/fraunces-semibold.14f03e86a5.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/atkinson-next-lunaway-regular.d26ebc00e1.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/style.6ed8f11846.css">
+<link rel="preload" href="/fonts/figtree-lunaway.ea5b212b7b.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.4d2699a0f9.css">
 <link rel="icon" href="/favicon.png" sizes="32x32" type="image/png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -46,7 +45,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="masthead">
 <div class="site-header">
-<a class="brand" href="/en/"><img src="/img/lunaway-lockup-dark.e3c304d5de.svg" width="140" height="40" alt="Lunaway, home page"></a>
+<a class="brand" href="/en/"><img src="/img/lunaway-lockup-dark.6a7785b989.svg" width="140" height="40" alt="Lunaway, home page"></a>
 <nav class="site-nav" aria-label="Main navigation">
 <ul>
 <li><a href="/app/">Web app</a></li>
@@ -129,10 +128,11 @@
 <li><strong>An approximate position</strong> and the centre of the map's last view, rounded to a tenth of a degree (about ten kilometres), so that the light or dark theme follows sunset, the map reopens where you left it, and to offer your region. The web app keeps this view, its theme and your filters in the browser's storage, to draw the map as soon as the page opens.</li>
 <li><strong>The danger zones and speed cameras</strong> of the countries your routes cross, with the list of those countries, so that guidance started without a network has them. If you turn off "Exact speed camera positions in France", the app at once erases the points it had received for that choice.</li>
 <li><strong>Your account's private key</strong>, if you have one, encrypted by the system's protected storage: a Keystore key on Android, the keychain on iPhone, iPad and Mac, Windows data protection on a PC; in the web app, a key the browser does not let anyone extract. It never leaves the device.</li>
+<li><strong>Your search history</strong>: up to 15 entries, the results you opened (places, towns, addresses, shops and services) and the texts searched without opening a result, shown when you touch the search field. It stays on the device: it is never sent nor synced, and the Android or iCloud backup does not carry it. A cross removes an entry, "Clear the history" empties it, and it goes with the app's data.</li>
 </ul>
-<p>The app keeps neither your routes, nor your destinations, nor your trips, nor your searches. A computed route stays in memory for two minutes, to show it again; translations stay in memory until the app closes. In the web app, the address of a route's page holds the destination, rounded to about ten metres: it goes into the browser's history.</p>
+<p>The app keeps neither your routes nor your trips. Of your searches it keeps only the history described above, where an address you opened, a destination for instance, stays with its position until you remove it. A computed route stays in memory for two minutes, to show it again; translations stay in memory until the app closes. In the web app, the address of a route's page holds the destination, rounded to about ten metres: it goes into the browser's history.</p>
 <p>To add a photo, or to read the code of your recovery card from an image, the app opens the camera or the photo library when you ask, and reads only the image you choose; the code is read on the device. The app does not use the microphone. If you save the image of your recovery card to your photos, it follows your photo library's settings, online backup included: keep it like a password.</p>
-<p>On Android, your device's backup, which goes to your Google account, may hold your favourites, your settings, your vehicle, your account's identifier and the contributions not yet sent, and nothing else from Lunaway: neither the account's key, nor the places, nor the photos waiting to be sent. The app allows it only when that backup is end-to-end encrypted, which Android offers from version&nbsp;9 when the screen is locked; Android&nbsp;7 and&nbsp;8 do not support this condition and follow their own backup settings. A transfer to a new phone carries the same data. On iPhone and iPad, the iCloud or computer backup holds the same data, without the photos waiting to be sent or the offline maps; the account's key, kept in the keychain for this device only, does not move to another device. On a computer, your backups may also hold the app's data, depending on their settings.</p>
+<p>On Android, your device's backup, which goes to your Google account, may hold your favourites, your settings, your vehicle, your account's identifier and the contributions not yet sent, and nothing else from Lunaway: neither the account's key, nor the places, nor the photos waiting to be sent. The app allows it only when that backup is end-to-end encrypted, which Android offers from version&nbsp;9 when the screen is locked; Android&nbsp;7 and&nbsp;8 do not support this condition and follow their own backup settings. A transfer to a new phone carries the same data. On iPhone and iPad, the iCloud or computer backup holds the same data, without the photos waiting to be sent or the offline maps; the account's key, kept in the keychain for this device only, does not move to another device. On a computer, your backups, and on Windows a company roaming profile, may also hold the app's data, search history included, depending on their settings.</p>
 <p>In the web app, this data is in the storage your browser keeps for lunaway.net. Uninstalling the app, or clearing the site's data in the browser, erases everything.</p>
 
 <h2 id="servers">What goes through our servers</h2>
