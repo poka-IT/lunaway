@@ -12,8 +12,9 @@ import 'package:lunaway/features/navigation/presentation/route_place_layers.dart
 /// `test/widget/route_layer_order_test.dart` reads what each engine draws.
 abstract final class RouteLayerOrder {
   /// The lines, bottom to top: the danger zones' band under every route, the
-  /// other routes under the chosen one, each casing under its line. Over the
-  /// basemap and its roads' names, under its names of places
+  /// other routes under the chosen one, each casing under its line, and on
+  /// the chosen route the arrow of the next maneuver, its head last. Over
+  /// the basemap and its roads' names, under its names of places
   /// ([placeNamesOf]): a town the route crosses keeps its name.
   static const List<String> lines = [
     RouteLayers.zones,
@@ -21,6 +22,9 @@ abstract final class RouteLayerOrder {
     RouteLayers.alternatives,
     RouteLayers.routeCasing,
     RouteLayers.route,
+    RouteLayers.arrowCasing,
+    RouteLayers.arrow,
+    RouteLayers.arrowHead,
   ];
 
   /// The pins of the points and of the places, a place over a shop as on

@@ -1,20 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 
 /// How far the guidance camera tilts, degrees from straight down: the road
 /// ahead reads as a driver sees it, and MapLibre still draws the horizon
 /// sharp (its limit is 60).
 const followTiltDeg = 55.0;
-
-/// The zoom of the guidance camera for a speed: close in town, where the
-/// next turn is near; further out on a fast road, where it is far.
-double followZoom(double? speedMps) {
-  final kmh = (speedMps ?? 0) * 3.6;
-  if (kmh <= 40) return 17;
-  if (kmh >= 110) return 15.2;
-  return 17 - (kmh - 40) / 70 * 1.8;
-}
 
 /// The angle from [a] to [b] the short way round, degrees in (-180, 180].
 double angleDelta(double a, double b) {
@@ -88,10 +80,27 @@ final class VehicleMotion {
   }
 }
 
-/// The zoom moving toward the one the speed asks for, a little each frame:
-/// the view widens as the vehicle speeds up without a visible step.
+/// The zoom moving toward the one the camera aims at ([autoZoom]), a
+/// little each frame: the view widens as the vehicle speeds up, and closes
+/// in before a turn, without a visible step.
 double easeZoom(double shown, double wanted, Duration frame) {
   const settle = Duration(seconds: 2);
   final k = math.min(1, frame.inMicroseconds / settle.inMicroseconds);
   return shown + (wanted - shown) * k;
 }
+
+/// How long the map takes to turn most of the way to a new course: the
+/// arrow turns with the road, the map follows a moment later, so a bend
+/// sweeps rather than snaps and a course that wavers does not shake it.
+const courseSettle = Duration(milliseconds: 400);
+
+/// The camera's course moving toward the vehicle's, the short way round,
+/// a little each frame ([courseSettle]).
+double easeCourse(double shown, double wanted, Duration frame) {
+  final k = math.min(1, frame.inMicroseconds / courseSettle.inMicroseconds);
+  return (shown + angleDelta(shown, wanted) * k) % 360;
+}
+
+/// A camera course this close to the vehicle's has arrived: the frames
+/// may stop.
+const courseSettledDeg = 0.3;

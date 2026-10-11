@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -199,5 +202,93 @@ class GuidanceCamera extends _$GuidanceCamera {
     _idle = Timer(FreeMap.idleReturn, () {
       if (ref.mounted && !_touching && _held == 0) recenter();
     });
+  }
+}
+
+/// The arrow the guidance map draws on the route at the next maneuver
+/// ([arrowForManeuver]); none off the route, while a new one is sought or
+/// at the arrival. Worked out once per maneuver: where it lies along the
+/// route (the distance driven plus the distance to it, read to 5 m) holds
+/// while the vehicle drives toward it.
+@riverpod
+ManeuverArrow? guidanceArrow(Ref ref) {
+  final ahead = ref.watch(
+    guidanceControllerProvider.select((s) {
+      final snap = s?.snapshot;
+      if (s == null ||
+          snap == null ||
+          snap.offRoute ||
+          s.phase != GuidancePhase.navigating ||
+          snap.status == GuidanceStatus.arrived) {
+        return null;
+      }
+      final steps = s.route.steps;
+      final i = snap.stepIndex;
+      final next = i + 1 < steps.length ? steps[i + 1] : null;
+      final type = snap.banner?.maneuverType ?? next?.maneuverType;
+      // A roundabout entered at the maneuver: its ring is the next step.
+      final ring = type == 'roundabout' || type == 'rotary' ? next?.distanceM ?? 0.0 : 0.0;
+      final atM = ((snap.distanceAlongM + snap.distanceToManeuverM) / 5).round() * 5.0;
+      return (
+        line: s.route.line,
+        atM: atM,
+        type: type,
+        modifier: snap.banner?.modifier ?? next?.modifier,
+        ringM: ring,
+      );
+    }),
+  );
+  if (ahead == null) return null;
+  return arrowForManeuver(
+    ahead.line,
+    atM: ahead.atM,
+    type: ahead.type,
+    modifier: ahead.modifier,
+    ringM: ahead.ringM,
+  );
+}
+
+/// The zoom the guidance map aims at while it follows ([autoZoom]): the
+/// speed held through [SpeedHold], so a GPS speed that wavers does not make
+/// the view breathe, and the next maneuver's distance and kind, so the
+/// camera closes in before a turn and widens down a long straight. The
+/// engines ease toward it at each frame of the glide.
+@riverpod
+class GuidanceZoom extends _$GuidanceZoom {
+  final _speed = SpeedHold();
+
+  @override
+  double build() {
+    // Listened rather than watched: the speed held lives in this notifier,
+    // which a rebuild at each fix would start over.
+    var building = true;
+    var first = AutoZoom.parkedZoom;
+    ref.listen(guidanceControllerProvider, (_, session) {
+      final zoom = _zoomOf(session);
+      if (building) {
+        first = zoom;
+      } else if (zoom != state) {
+        state = zoom;
+      }
+    }, fireImmediately: true);
+    building = false;
+    return first;
+  }
+
+  double _zoomOf(GuidanceSession? session) {
+    final kmh = _speed.update(session?.lastFix?.speedMps);
+    final snap = session?.snapshot;
+    // Off the route the maneuver is that of a road the vehicle left.
+    if (session == null || snap == null || snap.offRoute) {
+      return autoZoom(cruiseKmh: kmh, distanceToManeuverM: null);
+    }
+    final steps = session.route.steps;
+    final next = snap.stepIndex + 1 < steps.length ? steps[snap.stepIndex + 1] : null;
+    return autoZoom(
+      cruiseKmh: kmh,
+      distanceToManeuverM: snap.distanceToManeuverM,
+      maneuverType: snap.banner?.maneuverType ?? next?.maneuverType,
+      modifier: snap.banner?.modifier ?? next?.modifier,
+    );
   }
 }

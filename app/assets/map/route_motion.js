@@ -10,7 +10,7 @@
   // BEGIN ROUTE MOTION
   // The guidance's vehicle and camera, run by the page rather than by the
   // app at every frame: the app sends one call per fix and per change of
-  // view. The same rules as VehicleMotion and followZoom in
+  // view. The same rules as VehicleMotion, easeZoom and easeCourse in
   // lib/features/navigation/presentation/vehicle_motion.dart, and as FreeMap
   // in lib/features/navigation/domain/free_map.dart. This block is the same
   // in web/lunaway_maplibre.js and assets/map/route_motion.js
@@ -21,6 +21,11 @@
     // elsewhere), not a move to glide through, metres.
     var JUMP_M = 500;
     var TILT = 55;
+    // The map turns to the vehicle's course a moment after the arrow
+    // (courseSettle and easeCourse in vehicle_motion.dart): a bend sweeps
+    // rather than snaps.
+    var COURSE_MS = 400;
+    var COURSE_SETTLED = 0.3;
     // A finger held this long without sliding is a long press (the
     // browser's map has none of its own).
     var HOLD_MS = 600;
@@ -76,7 +81,8 @@
       var follow = null;
       var entry = null;
       var zoom = null;
-      var bearing = 0;
+      // The course the camera has turned to; null until following draws.
+      var bearing = null;
       var lastFrame = 0;
       var frame = null;
       var guiding = false;
@@ -129,11 +135,16 @@
         if (follow && pressedCount === 0) {
           zoom = zoom === null ? follow.zoom : zoom + (follow.zoom - zoom) * Math.min(1, dt / 2000);
           if (Math.abs(follow.zoom - zoom) > 0.01) settled = false;
-          if (shown.course !== null) bearing = shown.course;
+          if (shown.course !== null) {
+            bearing = bearing === null
+              ? shown.course
+              : (((bearing + delta(bearing, shown.course) * Math.min(1, dt / COURSE_MS)) % 360) + 360) % 360;
+            if (Math.abs(delta(bearing, shown.course)) > COURSE_SETTLED) settled = false;
+          }
           var camera = {
             center: [shown.lon, shown.lat],
             zoom: zoom,
-            bearing: bearing,
+            bearing: bearing === null ? map.getBearing() : bearing,
             pitch: TILT,
             padding: follow.padding
           };
@@ -149,7 +160,7 @@
               var p = follow.padding;
               camera.center = [lerp(f.lon, shown.lon, e), lerp(f.lat, shown.lat, e)];
               camera.zoom = lerp(f.zoom, zoom, e);
-              camera.bearing = (((f.bearing + delta(f.bearing, bearing) * e) % 360) + 360) % 360;
+              camera.bearing = (((f.bearing + delta(f.bearing, camera.bearing) * e) % 360) + 360) % 360;
               camera.pitch = lerp(f.pitch, TILT, e);
               camera.padding = {
                 top: lerp(f.padding.top, p.top, e),
@@ -176,6 +187,7 @@
         follow = null;
         entry = null;
         zoom = null;
+        bearing = null;
       }
 
       // The camera the user moved has come to rest and nothing presses on

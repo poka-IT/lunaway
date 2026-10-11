@@ -5,7 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_progress.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
@@ -209,14 +211,14 @@ final class FitCamera extends RouteCamera {
 }
 
 /// Behind the vehicle, the map turned to its course and tilted, as a
-/// driver sees the road; closer in town, further out on a fast road
-/// ([followZoom]). The map glides the vehicle from fix to fix
-/// ([VehicleMotion]).
+/// driver sees the road; closer in town and before a turn, further out on
+/// a fast road ([autoZoom]). The map glides the vehicle from fix to fix
+/// ([VehicleMotion]) and eases the camera toward [zoom] and the course.
 final class FollowCamera extends RouteCamera {
   const new({
     required this.position,
     this.course,
-    this.speedMps,
+    this.zoom = AutoZoom.parkedZoom,
     this.ease = FreeMap.recenterEase,
     this.request = 0,
   });
@@ -224,8 +226,8 @@ final class FollowCamera extends RouteCamera {
   final LatLng position;
   final double? course;
 
-  /// The speed of the vehicle, which sets how far the camera looks ahead.
-  final double? speedMps;
+  /// The zoom the camera eases toward ([autoZoom]).
+  final double zoom;
 
   /// How long the way in takes, from the view the map had.
   final Duration ease;
@@ -235,19 +237,17 @@ final class FollowCamera extends RouteCamera {
   /// the screen never showed the map free in between.
   final int request;
 
-  double get zoom => followZoom(speedMps);
-
   @override
   bool operator ==(Object other) =>
       other is FollowCamera &&
       other.position == position &&
       other.course == course &&
-      other.speedMps == speedMps &&
+      other.zoom == zoom &&
       other.ease == ease &&
       other.request == request;
 
   @override
-  int get hashCode => Object.hash(position, course, speedMps, ease, request);
+  int get hashCode => Object.hash(position, course, zoom, ease, request);
 }
 
 /// Where the user left it: the camera stays as the last gesture put it,
@@ -350,7 +350,7 @@ FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
     ),
     FreeCamera(:final view) => (
       target: view?.center ?? p.vehicle?.position ?? middle,
-      zoom: view?.zoom ?? followZoom(null),
+      zoom: view?.zoom ?? AutoZoom.parkedZoom,
       tilt: view?.tilt ?? followTiltDeg,
       bearing: view?.bearing ?? p.vehicle?.course ?? 0,
     ),
@@ -436,6 +436,8 @@ final class RouteMapProps {
     this.places,
     this.rich,
     this.zones = const [],
+    this.traveledM,
+    this.arrow,
     this.onLineTap,
     this.onMarkTap,
     this.onMarkHover,
@@ -484,6 +486,15 @@ final class RouteMapProps {
   /// nor its picture (docs/speed-cameras.md). The screen passes only what
   /// the rules of the countries allow.
   final List<RouteSpan> zones;
+
+  /// Metres of the chosen route behind the vehicle, drawn grey
+  /// ([RouteLook.traveled]); null keeps what the map drew for this route
+  /// (off the route, a distance along it means nothing), or none for a
+  /// route it has not drawn yet.
+  final double? traveledM;
+
+  /// The arrow of the next maneuver on the route; null draws none.
+  final ManeuverArrow? arrow;
 
   /// A tap on a route that is not the chosen one.
   final ValueChanged<int>? onLineTap;
@@ -546,30 +557,110 @@ Widget buildPlatformRouteMap(BuildContext context, RouteMapProps props) {
   };
 }
 
-/// How the route layers look, for both engines.
+/// How the route layers look, for every engine.
+///
+/// The chosen route stands above every road of the basemap, as a driver's
+/// app draws it: wider than the widest road at each zoom (a motorway of the
+/// basemap is 7.5 px at 15 and 21 px at 18), a saturated fill inside a dark
+/// rim on both themes, never a tone of the basemap's roads or water. Its
+/// width follows the zoom ([lineStops]); behind the vehicle it greys
+/// ([traveled]). The other routes are thin and neutral beside it.
 abstract final class RouteLook {
   static String _hex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
-  /// The chosen route: teal over a navy casing by day; a lighter teal over
-  /// the night basemap.
-  static String line({required bool dark}) => _hex(dark ? Palette.sarcelle300 : Palette.sarcelle);
+  /// The chosen route: the brand's teal inside a deep teal rim by day; a
+  /// light teal inside the night's darkest navy at night, lighter than the
+  /// night's motorways.
+  static String line({required bool dark}) =>
+      _hex(dark ? Palette.sarcelle300 : Palette.sarcelleVive);
   static String casing({required bool dark}) =>
-      _hex(dark ? Palette.minuit950 : Palette.sarcelleProfonde);
+      _hex(dark ? Palette.minuit950 : Palette.sarcelle900);
 
-  /// The other routes, quiet beside it.
+  /// The chosen route behind the vehicle: a quiet grey inside a grey rim,
+  /// the road already driven.
+  static String traveled({required bool dark}) =>
+      _hex(dark ? Palette.minuit500 : Palette.minuit200);
+  static String traveledCasing({required bool dark}) =>
+      _hex(dark ? Palette.minuit800 : Palette.minuit400);
+
+  /// The other routes, thin and neutral beside it.
   static String alternative({required bool dark}) =>
       _hex(dark ? Palette.minuit400 : Palette.minuit300);
   static String alternativeCasing({required bool dark}) =>
       _hex(dark ? Palette.minuit800 : Palette.minuit500);
 
-  static const double lineWidth = 6;
-  static const double casingWidth = 9.5;
-  static const double alternativeWidth = 5;
+  /// The arrow of the next maneuver drawn on the route: white in a navy
+  /// rim on both themes, as a road marking.
+  static String arrow({required bool dark}) => _hex(Palette.white);
+  static String arrowCasing({required bool dark}) => _hex(arrowRim);
+  static const Color arrowRim = Palette.minuit950;
+
+  /// The chosen route's fill by zoom, logical pixels: about twice a road's
+  /// width in town, a little wider than a motorway out of town.
+  static const List<(double, double)> lineStops = [
+    (8, 3),
+    (11, 4.5),
+    (13, 6),
+    (15, 8.5),
+    (17, 11.5),
+    (19, 16),
+    (21, 22),
+  ];
+
+  /// Its rim, each side, logical pixels.
+  static const double rim = 2;
+
+  /// The other routes, a little over half the chosen one.
+  static const double alternativeShare = 0.6;
+
+  /// The shaft of the maneuver's arrow, a share of the route's fill.
+  static const double arrowShare = 0.62;
+
+  /// [stops] as a MapLibre expression of the zoom, [plus] pixels wider and
+  /// [times] as wide; exponential like the basemap's roads.
+  static List<Object> byZoom(List<(double, double)> stops, {double times = 1, double plus = 0}) => [
+    'interpolate',
+    ['exponential', 1.5],
+    ['zoom'],
+    for (final (z, w) in stops) ...[z, w * times + plus],
+  ];
+
+  static final List<Object> lineWidthByZoom = byZoom(lineStops);
+  static final List<Object> casingWidthByZoom = byZoom(lineStops, plus: 2 * rim);
+  static final List<Object> alternativeWidthByZoom = byZoom(lineStops, times: alternativeShare);
+  static final List<Object> alternativeCasingWidthByZoom = byZoom(
+    lineStops,
+    times: alternativeShare,
+    plus: 3,
+  );
+  static final List<Object> arrowWidthByZoom = byZoom(lineStops, times: arrowShare);
+  static final List<Object> arrowCasingWidthByZoom = byZoom(
+    lineStops,
+    times: arrowShare,
+    plus: 2 * rim,
+  );
+
+  /// The route's colour along it ([fill]) with the part behind the vehicle,
+  /// up to [traveledShare] of its length as the map measures it
+  /// (`line-progress`, [RouteProgress]), in [behind].
+  static List<Object> progressGradient(String fill, String behind, double traveledShare) => [
+    'step',
+    ['line-progress'],
+    behind,
+    traveledShare.clamp(0, 1).toDouble(),
+    fill,
+  ];
+
+  /// The widths the legend's swatch draws, those of the map near zoom 14.
+  static const double lineWidth = 7;
+  static const double casingWidth = lineWidth + 2 * rim;
+  static const double alternativeWidth = lineWidth * alternativeShare;
 
   /// A danger zone: a soft coral band under the routes, wider than the chosen
   /// one's casing, as a highlighter would mark it on a paper map.
   static String zone = _hex(Palette.corail);
   static const double zoneWidth = 20;
+  static final List<Object> zoneWidthByZoom = byZoom(lineStops, plus: 2 * rim + 9);
   static const double zoneOpacity = 0.4;
 
   static String vehicleFill = _hex(Palette.lanterne);
@@ -622,6 +713,156 @@ Map<String, Object?> routeZonesCollection(List<RouteMapLine> lines, List<RouteSp
           },
     ],
   };
+}
+
+/// The paint of the route's line layer [id] ([RouteLayers.lineLayers]) in
+/// the style's terms, the same on every engine; the chosen route grey up
+/// to [traveledShare] of its length ([RouteProgress]). Every engine sends
+/// the whole of it when the share moves: maplibre_gl resets a property it
+/// is not given.
+Map<String, Object> routeLinePaint(String id, {required bool dark, double traveledShare = 0}) =>
+    switch (id) {
+      RouteLayers.zones => {
+        'line-color': RouteLook.zone,
+        'line-width': RouteLook.zoneWidthByZoom,
+        'line-opacity': RouteLook.zoneOpacity,
+      },
+      RouteLayers.alternativesCasing => {
+        'line-color': RouteLook.alternativeCasing(dark: dark),
+        'line-width': RouteLook.alternativeCasingWidthByZoom,
+      },
+      RouteLayers.alternatives => {
+        'line-color': RouteLook.alternative(dark: dark),
+        'line-width': RouteLook.alternativeWidthByZoom,
+      },
+      RouteLayers.routeCasing => {
+        'line-color': RouteLook.casing(dark: dark),
+        'line-width': RouteLook.casingWidthByZoom,
+        'line-gradient': RouteLook.progressGradient(
+          RouteLook.casing(dark: dark),
+          RouteLook.traveledCasing(dark: dark),
+          traveledShare,
+        ),
+      },
+      RouteLayers.route => {
+        'line-color': RouteLook.line(dark: dark),
+        'line-width': RouteLook.lineWidthByZoom,
+        'line-gradient': RouteLook.progressGradient(
+          RouteLook.line(dark: dark),
+          RouteLook.traveled(dark: dark),
+          traveledShare,
+        ),
+      },
+      RouteLayers.arrowCasing => {
+        'line-color': RouteLook.arrowCasing(dark: dark),
+        'line-width': RouteLook.arrowCasingWidthByZoom,
+      },
+      RouteLayers.arrow => {
+        'line-color': RouteLook.arrow(dark: dark),
+        'line-width': RouteLook.arrowWidthByZoom,
+      },
+      _ => throw ArgumentError.value(id, 'id', 'no line of the route map'),
+    };
+
+/// The source of the route's line layer [id].
+String routeLineSource(String id) => switch (id) {
+  RouteLayers.zones => RouteLayers.zonesSource,
+  RouteLayers.alternativesCasing || RouteLayers.alternatives => RouteLayers.alternativesSource,
+  RouteLayers.routeCasing || RouteLayers.route => RouteLayers.routeSource,
+  RouteLayers.arrowCasing || RouteLayers.arrow => RouteLayers.arrowSource,
+  _ => throw ArgumentError.value(id, 'id', 'no line of the route map'),
+};
+
+/// The layout of the maneuver arrow's head, in the style's terms; [scale]
+/// as for the vehicle's arrow (an image pixel is a physical pixel on a
+/// phone, a CSS pixel in a browser).
+Map<String, Object> routeArrowHeadLayout(double scale) => {
+  'icon-image': RouteLayers.arrowHeadImage,
+  // As wide as [arrowHeadShare] shafts at every zoom.
+  'icon-size': RouteLook.byZoom(
+    RouteLook.lineStops,
+    times: RouteLook.arrowShare * arrowHeadShare / arrowHeadExtent * scale,
+  ),
+  'icon-rotate': const ['get', 'course'],
+  'icon-rotation-alignment': 'map',
+  'icon-pitch-alignment': 'map',
+  'icon-allow-overlap': true,
+  'icon-ignore-placement': true,
+};
+
+/// The head of the maneuver's arrow, this many shafts wide.
+const arrowHeadShare = 2.6;
+
+/// The head's image, logical pixels across.
+const arrowHeadExtent = 40.0;
+
+/// The GeoJSON of the maneuver arrow's shaft.
+Map<String, Object?> routeArrowCollection(ManeuverArrow? arrow) => {
+  'type': 'FeatureCollection',
+  'features': [
+    if (arrow != null)
+      {
+        'type': 'Feature',
+        'properties': <String, Object?>{},
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': [
+            for (final p in arrow.shaft) [p.lon, p.lat],
+          ],
+        },
+      },
+  ],
+};
+
+/// The GeoJSON of the maneuver arrow's head, at its tip.
+Map<String, Object?> routeArrowHeadCollection(ManeuverArrow? arrow) => {
+  'type': 'FeatureCollection',
+  'features': [
+    if (arrow != null)
+      {
+        'type': 'Feature',
+        'properties': {'course': arrow.headCourse},
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [arrow.tip.lon, arrow.tip.lat],
+        },
+      },
+  ],
+};
+
+/// What an engine draws of the part of the chosen route behind the vehicle:
+/// the share of the line ([RouteProgress.shareAt]) to send when it moved by
+/// a few metres, the one drawn kept off the route, none on a new route.
+final class TraveledLine {
+  List<LatLng>? _line;
+  RouteProgress? _progress;
+  double? _sentM;
+
+  /// The share drawn, or 0 before any.
+  double share = 0;
+
+  /// The route drawn again from scratch (a new style): the next share is
+  /// sent whatever it is.
+  void forget() => _sentM = null;
+
+  /// The share to send for [lines] with [traveledM] behind the vehicle;
+  /// null when the drawn one holds.
+  double? next(List<RouteMapLine> lines, double? traveledM) {
+    final line = lines.firstWhereOrNull((l) => l.selected)?.points;
+    if (!identical(line, _line)) {
+      _line = line;
+      _progress = line == null || line.length < 2 ? null : RouteProgress(line);
+      _sentM = null;
+    }
+    final progress = _progress;
+    final sent = _sentM;
+    final m = traveledM ?? (sent == null ? 0.0 : null);
+    // Within a few metres the grey would move by a pixel or two at a
+    // town's zoom: no call for it.
+    if (m == null || (sent != null && (m - sent).abs() < 3)) return null;
+    _sentM = m;
+    return share = progress == null ? 0 : progress.shareAt(m);
+  }
 }
 
 Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
@@ -700,6 +941,26 @@ abstract final class RouteLayers {
   static const vehicle = 'lw-route-vehicle';
   static const vehicleImage = 'lw-vehicle-arrow';
 
+  /// The arrow of the next maneuver on the route: its shaft, a stretch of
+  /// the route, and its head.
+  static const arrowSource = 'lw-route-arrow';
+  static const arrowHeadSource = 'lw-route-arrow-tip';
+  static const arrowCasing = 'lw-route-arrow-casing';
+  static const arrow = 'lw-route-arrow-line';
+  static const arrowHead = 'lw-route-arrow-head';
+  static const arrowHeadImage = 'lw-route-arrow-head';
+
+  /// The route's line layers, drawn by [routeLinePaint].
+  static const List<String> lineLayers = [
+    zones,
+    alternativesCasing,
+    alternatives,
+    routeCasing,
+    route,
+    arrowCasing,
+    arrow,
+  ];
+
   static String haloOf(String source) => '$source-halo';
   static String badgesOf(String source) => '$source-badges';
   static String sideOf(String source) => '$source-side';
@@ -735,6 +996,34 @@ Future<Uint8List> vehicleArrowPng(double ratio) async {
         ..strokeJoin = StrokeJoin.round,
     )
     ..drawPath(path, Paint()..color = Palette.lanterne);
+  final image = await recorder.endRecording().toImage(size.ceil(), size.ceil());
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return bytes!.buffer.asUint8List();
+}
+
+/// The head of the maneuver's arrow, drawn once per screen density: a
+/// white triangle in the arrow's rim, pointing north (the layer turns it),
+/// [arrowHeadExtent] across.
+Future<Uint8List> arrowHeadPng(double ratio) async {
+  final size = arrowHeadExtent * ratio;
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final path = Path()
+    ..moveTo(size / 2, size * 0.1)
+    ..lineTo(size * 0.9, size * 0.8)
+    ..lineTo(size * 0.1, size * 0.8)
+    ..close();
+  canvas
+    ..drawPath(
+      path,
+      Paint()
+        ..color = RouteLook.arrowRim
+        // The shaft's rim, at the scale the head is drawn.
+        ..strokeWidth = 4.5 * ratio
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round,
+    )
+    ..drawPath(path, Paint()..color = Palette.white);
   final image = await recorder.endRecording().toImage(size.ceil(), size.ceil());
   final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
   return bytes!.buffer.asUint8List();

@@ -993,6 +993,7 @@ class _GuidanceMap extends ConsumerWidget {
     final whole =
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
+    final followZoom = ref.watch(guidanceZoomProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
     // clear of the column of buttons on the right (the arrival under the
@@ -1018,7 +1019,7 @@ class _GuidanceMap extends ConsumerWidget {
       GuidanceCameraMode.follow => FollowCamera(
         position: vehicle!.position,
         course: vehicle.course,
-        speedMps: session.lastFix?.speedMps,
+        zoom: followZoom,
         ease: view.ease,
         request: view.follows,
       ),
@@ -1104,6 +1105,8 @@ class _GuidanceMap extends ConsumerWidget {
         // Only what the rule of the country the vehicle is in allows while
         // driving: zones in France, nothing in Germany or Switzerland.
         zones: session.aids.zones,
+        traveledM: alongOnRoute,
+        arrow: ref.watch(guidanceArrowProvider),
         places: tiles,
         rich: RouteMapRich(
           style: _richStyle(context, ref, credited: photosCredited),
@@ -1175,11 +1178,10 @@ class _GuidanceMap extends ConsumerWidget {
         onRest: (rest) {
           if (ref.read(guidanceCameraProvider).mode != GuidanceCameraMode.free) return;
           cameraModes.rested(rest);
-          final now = ref.read(guidanceControllerProvider);
           if (magnetHolds(
             rest,
             padding: padding,
-            followZoom: followZoom(now?.lastFix?.speedMps),
+            followZoom: ref.read(guidanceZoomProvider),
             course: vehicle?.course,
             followTilt: followTiltDeg,
           )) {

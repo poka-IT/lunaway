@@ -67,19 +67,25 @@ void main() {
     });
   });
 
-  test('the camera looks further ahead the faster the vehicle goes', () {
-    expect(followZoom(null), 17);
-    expect(followZoom(8), 17, reason: '29 km/h in town');
-    expect(followZoom(130 / 3.6), 15.2);
-    final mid = followZoom(75 / 3.6);
-    expect(mid, lessThan(17));
-    expect(mid, greaterThan(15.2));
-  });
-
   test('the zoom eases toward the one asked for, a little each frame', () {
     final z = easeZoom(17, 15, const Duration(milliseconds: 100));
     expect(z, closeTo(16.9, 1e-9));
     expect(easeZoom(17, 15, const Duration(seconds: 5)), 15);
+  });
+
+  test('the map turns toward the course a moment after the arrow, the short way round', () {
+    final first = easeCourse(350, 20, const Duration(milliseconds: 80));
+    expect(first, closeTo(356, 1e-9), reason: 'a fifth of the 30° in 80 ms, through north');
+    var shown = 350.0;
+    for (var i = 0; i < 30; i++) {
+      shown = easeCourse(shown, 20, const Duration(milliseconds: 33));
+    }
+    expect(angleDelta(shown, 20).abs(), inInclusiveRange(1, 3), reason: 'nearly there in a second');
+    for (var i = 0; i < 30; i++) {
+      shown = easeCourse(shown, 20, const Duration(milliseconds: 33));
+    }
+    expect(angleDelta(shown, 20).abs(), lessThan(courseSettledDeg), reason: 'settled in two');
+    expect(easeCourse(90, 180, const Duration(seconds: 2)), 180, reason: 'a long frame lands');
   });
 
   group('a browser fix without speed or course', () {

@@ -157,12 +157,14 @@ void main() {
       await guide(tester, plan);
       await drive(tester, plan, toM: 100);
       final course = map().vehicle!.course!;
+      // The zoom the camera aimed at while it followed.
+      final followed = (map().camera as FollowCamera).zoom;
       await gesture(tester);
       final anchor = followAnchor(phone, map().padding);
       FreeView rest(Offset vehicle, {double? zoom}) => FreeView(
         size: phone,
         vehicle: vehicle,
-        zoom: zoom ?? followZoom(10),
+        zoom: zoom ?? followed,
         bearing: course,
         tilt: followTiltDeg,
       );
@@ -175,7 +177,7 @@ void main() {
         far,
         reason: 'a map made anew (the phone turned) opens where the user left it',
       );
-      map().onRest!(rest(anchor + const Offset(20, 25), zoom: followZoom(10) + 2));
+      map().onRest!(rest(anchor + const Offset(20, 25), zoom: followed + 2));
       await settleShort(tester);
       expect(map().camera, isA<FreeCamera>(), reason: 'two levels closer');
       map().onRest!(rest(anchor + const Offset(20, 25)));
@@ -192,6 +194,7 @@ void main() {
       await guide(tester, plan);
       await drive(tester, plan, toM: 100);
       final before = (map().camera as FollowCamera).request;
+      final followed = (map().camera as FollowCamera).zoom;
       final course = map().vehicle!.course!;
       // The gesture and the rest before any frame: the screen never builds
       // the free map, the engine must still hear a new request.
@@ -200,7 +203,7 @@ void main() {
         FreeView(
           size: phone,
           vehicle: followAnchor(phone, map().padding) + const Offset(3, 3),
-          zoom: followZoom(10),
+          zoom: followed,
           bearing: course,
           tilt: followTiltDeg,
         ),

@@ -93,3 +93,135 @@ abstract class _$GuidanceCamera extends $Notifier<GuidanceView> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The arrow the guidance map draws on the route at the next maneuver
+/// ([arrowForManeuver]); none off the route, while a new one is sought or
+/// at the arrival. Worked out once per maneuver: where it lies along the
+/// route (the distance driven plus the distance to it, read to 5 m) holds
+/// while the vehicle drives toward it.
+
+@ProviderFor(guidanceArrow)
+final guidanceArrowProvider = GuidanceArrowProvider._();
+
+/// The arrow the guidance map draws on the route at the next maneuver
+/// ([arrowForManeuver]); none off the route, while a new one is sought or
+/// at the arrival. Worked out once per maneuver: where it lies along the
+/// route (the distance driven plus the distance to it, read to 5 m) holds
+/// while the vehicle drives toward it.
+
+final class GuidanceArrowProvider
+    extends $FunctionalProvider<ManeuverArrow?, ManeuverArrow?, ManeuverArrow?>
+    with $Provider<ManeuverArrow?> {
+  /// The arrow the guidance map draws on the route at the next maneuver
+  /// ([arrowForManeuver]); none off the route, while a new one is sought or
+  /// at the arrival. Worked out once per maneuver: where it lies along the
+  /// route (the distance driven plus the distance to it, read to 5 m) holds
+  /// while the vehicle drives toward it.
+  GuidanceArrowProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'guidanceArrowProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$guidanceArrowHash();
+
+  @$internal
+  @override
+  $ProviderElement<ManeuverArrow?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  ManeuverArrow? create(Ref ref) {
+    return guidanceArrow(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ManeuverArrow? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ManeuverArrow?>(value),
+    );
+  }
+}
+
+String _$guidanceArrowHash() => r'6c35c80d08241f841c0126aeaf63f1d7e352edb7';
+
+/// The zoom the guidance map aims at while it follows ([autoZoom]): the
+/// speed held through [SpeedHold], so a GPS speed that wavers does not make
+/// the view breathe, and the next maneuver's distance and kind, so the
+/// camera closes in before a turn and widens down a long straight. The
+/// engines ease toward it at each frame of the glide.
+
+@ProviderFor(GuidanceZoom)
+final guidanceZoomProvider = GuidanceZoomProvider._();
+
+/// The zoom the guidance map aims at while it follows ([autoZoom]): the
+/// speed held through [SpeedHold], so a GPS speed that wavers does not make
+/// the view breathe, and the next maneuver's distance and kind, so the
+/// camera closes in before a turn and widens down a long straight. The
+/// engines ease toward it at each frame of the glide.
+final class GuidanceZoomProvider
+    extends $NotifierProvider<GuidanceZoom, double> {
+  /// The zoom the guidance map aims at while it follows ([autoZoom]): the
+  /// speed held through [SpeedHold], so a GPS speed that wavers does not make
+  /// the view breathe, and the next maneuver's distance and kind, so the
+  /// camera closes in before a turn and widens down a long straight. The
+  /// engines ease toward it at each frame of the glide.
+  GuidanceZoomProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'guidanceZoomProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$guidanceZoomHash();
+
+  @$internal
+  @override
+  GuidanceZoom create() => GuidanceZoom();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(double value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<double>(value),
+    );
+  }
+}
+
+String _$guidanceZoomHash() => r'd519c8153123cf804683e8a1eebcfeef88ebf069';
+
+/// The zoom the guidance map aims at while it follows ([autoZoom]): the
+/// speed held through [SpeedHold], so a GPS speed that wavers does not make
+/// the view breathe, and the next maneuver's distance and kind, so the
+/// camera closes in before a turn and widens down a long straight. The
+/// engines ease toward it at each frame of the glide.
+
+abstract class _$GuidanceZoom extends $Notifier<double> {
+  double build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<double, double>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<double, double>,
+              double,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
