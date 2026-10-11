@@ -24,6 +24,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('home');
@@ -195,9 +196,11 @@ class HomeCard extends ConsumerWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
                 ),
               ),
-              TextButton(
-                onPressed: () => ref.invalidate(userHomeProvider),
-                child: Text(t.common.retry),
+              BusyButton(
+                onPressed: () async => ref.invalidate(userHomeProvider),
+                busy: home.isLoading,
+                look: BusyLook.text,
+                label: Text(t.common.retry),
               ),
             ],
           ),

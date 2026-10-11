@@ -71,28 +71,32 @@ final class AccountSwitch {
   }
 
   Future<MergeResult> _merge(ImportedAccount imported, String currentId) async {
-    var landed = _landed;
-    if (landed == null || !identical(landed.imported, imported)) {
+    if (!identical(_landed?.imported, imported)) {
       final (target, result) = await service.mergeOnServer(imported);
-      landed = (imported: imported, target: target, result: result);
-      _landed = landed;
+      _landed = _Landed(imported: imported, target: target, result: result);
     }
+    return await _finish(currentId);
+  }
+
+  /// A merge the server made that the device has not finished.
+  _Landed? _landed;
+
+  /// Finishes on the device the merge the server made ([_landed]): what
+  /// waits moves to the account kept, which the device then holds. Its
+  /// failure (the device's storage refused) leaves the merge to finish at
+  /// the next try, from here: never by asking the server again with keys
+  /// the device may have half switched.
+  Future<MergeResult> _finish(String currentId) async {
+    final landed = _landed!;
     try {
       await outbox.reassign(from: currentId, to: landed.result.account.id);
       await service.adopt(landed.target, landed.result.account);
     } on Object catch (e) {
-      // Made on the server, unfinished here (the device's storage refused):
-      // the account the device holds is gone, and the device finishes the
-      // switch at the next try, without asking the server again with keys
-      // it may have half changed.
-      throw MergeUnsettledException(e);
+      throw MergeUnsettledException(e, onDevice: true);
     }
     _landed = null;
     return landed.result;
   }
-
-  /// A merge the server made whose end on the device failed.
-  ({ImportedAccount imported, ImportedAccount target, MergeResult result})? _landed;
 
   /// After a merge whose answer did not come: when the server made it, the
   /// device finishes it as [merge] would and returns true; when it did
@@ -100,13 +104,16 @@ final class AccountSwitch {
   /// not answer.
   Future<bool> settle(ImportedAccount imported, {required String currentId}) async {
     await _waitForMerge();
-    if (identical(_landed?.imported, imported)) {
-      await _merge(imported, currentId);
-      return true;
+    if (!identical(_landed?.imported, imported)) {
+      if (!await service.mergeLanded(imported)) return false;
+      _landed = _Landed(
+        imported: imported,
+        target: imported,
+        // What became of the home is not known here, and nothing reads it.
+        result: (account: imported.account, home: MergedHome.none),
+      );
     }
-    if (!await service.mergeLanded(imported)) return false;
-    await outbox.reassign(from: currentId, to: imported.account.id);
-    await service.adopt(imported, imported.account);
+    await _finish(currentId);
     return true;
   }
 
@@ -121,6 +128,16 @@ final class AccountSwitch {
   /// account left's, which keeps on the server what it synced), and the
   /// device switches.
   Future<void> replace(ImportedAccount imported) async {
+    final running = _replace(imported);
+    _replacing = running;
+    try {
+      await running;
+    } finally {
+      if (identical(_replacing, running)) _replacing = null;
+    }
+  }
+
+  Future<void> _replace(ImportedAccount imported) async {
     await service.leaveForReplace();
     await favorites.clearLocal();
     await forgetHome();
@@ -132,8 +149,15 @@ final class AccountSwitch {
   /// ends first: given up after it landed, the import is the device's and
   /// stays.
   Future<void> cancel(ImportedAccount imported) async {
-    await _waitForMerge();
+    await quiet();
+    if (identical(_landed?.imported, imported)) _landed = null;
     await service.cancelImport(imported);
+  }
+
+  /// Once no merge nor replacement is under way.
+  Future<void> quiet() async {
+    await _waitForMerge();
+    await _waitForReplace();
   }
 
   Future<void> _waitForMerge() async {
@@ -143,6 +167,22 @@ final class AccountSwitch {
       // Its failure is the sheet's to show.
     }
   }
+
+  /// The replacement under way, which giving up waits for.
+  Future<void>? _replacing;
+
+  Future<void> _waitForReplace() async {
+    try {
+      await _replacing;
+    } on Object {
+      // Its failure is the sheet's to show.
+    }
+  }
+
+  /// The id of the account whose contributions wait for a merge to end on
+  /// the device: moved to it, while the device still holds the account
+  /// merged. Null otherwise.
+  String? get landing => _landed?.result.account.id;
 
   /// [account] came to this device: when it is the account the device's
   /// went into from elsewhere, the contributions that waited for it leave
@@ -157,6 +197,17 @@ final class AccountSwitch {
     await service.forgetMergedFrom();
     return claimed;
   }
+}
+
+/// A merge the server made that the device has not finished.
+final class _Landed {
+  const new({required this.imported, required this.target, required this.result});
+
+  final ImportedAccount imported;
+
+  /// The imported account with the session the merge was made under.
+  final ImportedAccount target;
+  final MergeResult result;
 }
 
 // keepAlive: one switch for the run, over the services that outlive it.

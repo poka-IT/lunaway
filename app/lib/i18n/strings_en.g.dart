@@ -2438,6 +2438,9 @@ class Translations$accountImport$en {
 	/// en: 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.'
 	String get unsettled => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.';
 
+	/// en: 'The merge is done on the server, but this device could not save it. Try again.'
+	String get deviceFailed => 'The merge is done on the server, but this device could not save it. Try again.';
+
 	/// en: 'Too many merges for now. Try again later.'
 	String get tooMany => 'Too many merges for now. Try again later.';
 
@@ -8788,6 +8791,7 @@ extension on Translations {
 			'accountImport.replaceFailed' => 'The replacement could not finish. Nothing changed on this device. Try again once the network answers.',
 			'accountImport.replaceUnfinished' => ({required Object current}) => '“${current}” has already left this device, but the replacement is not finished. Try again.',
 			'accountImport.unsettled' => 'The merge may have happened: the server has not answered yet. Nothing is lost. Try again once the network answers.',
+			'accountImport.deviceFailed' => 'The merge is done on the server, but this device could not save it. Try again.',
 			'accountImport.tooMany' => 'Too many merges for now. Try again later.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts merged: you are using “${name}”.',
 			'accountImport.replaced' => ({required Object name}) => 'This device now uses “${name}”.',
@@ -9137,9 +9141,9 @@ extension on Translations {
 			'poi.kind.psychologist' => 'Psychologist',
 			'poi.kind.speechTherapist' => 'Speech therapist',
 			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
-			'poi.kind.optician' => 'Optician',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.optician' => 'Optician',
 			'poi.kind.hearingAids' => 'Hearing aids',
 			'poi.kind.medicalSupply' => 'Medical supplies',
 			'poi.kind.hairdresser' => 'Hairdresser',

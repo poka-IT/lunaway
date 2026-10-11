@@ -105,16 +105,24 @@ void main() {
   test(
     'a merge the server made and the device could not keep is finished here, not asked again',
     () async {
-      final store = _Breakable(secrets)..refused.add('device_key');
+      // The key is written, the session refused: the device holds the new
+      // key with the old account's records.
+      final store = _Breakable(secrets)..refused.add('session');
       final (device, switcher) = over(store);
       final oldId = await currentId();
       final imported = await switcher.import(FakeApi.otherRecoveryCode);
       await expectLater(
         switcher.merge(imported, currentId: oldId),
-        throwsA(isA<MergeUnsettledException>()),
+        throwsA(isA<MergeUnsettledException>().having((e) => e.onDevice, 'onDevice', isTrue)),
         reason: 'made on the server, unfinished here: the sheet keeps it uncertain',
       );
       expect(api.merged, isTrue);
+      expect(
+        (await keys.load())!.publicJwk,
+        imported.key.publicJwk,
+        reason: 'half switched: asked again, the server would not know the old key',
+      );
+      expect(switcher.landing, FakeApi.otherId, reason: 'what waits waits for the account kept');
       store.refused.clear();
       final merges = api.operations.where((o) => o == 'MergeAccount').length;
       expect(await switcher.settle(imported, currentId: oldId), isTrue);
@@ -127,6 +135,44 @@ void main() {
       expect((await keys.load())!.publicJwk, imported.key.publicJwk);
     },
   );
+
+  test(
+    'a lost merge found made, then refused by the storage, is finished here at the next try',
+    () async {
+      final store = _Breakable(secrets);
+      final (device, switcher) = over(store);
+      final oldId = await currentId();
+      final imported = await switcher.import(FakeApi.otherRecoveryCode);
+      api.loseMergeAnswer = true;
+      await expectLater(
+        switcher.merge(imported, currentId: oldId),
+        throwsA(isA<MergeUnsettledException>()),
+      );
+      store.refused.add('session');
+      await expectLater(
+        switcher.settle(imported, currentId: oldId),
+        throwsA(isA<MergeUnsettledException>().having((e) => e.onDevice, 'onDevice', isTrue)),
+      );
+      store.refused.clear();
+      expect(
+        await switcher.settle(imported, currentId: oldId),
+        isTrue,
+        reason: 'the new key half written opens the account kept: the server is not asked again',
+      );
+      expect((await device.restore())!.account.id, FakeApi.otherId);
+    },
+  );
+
+  test('a request whose session was read while the device switched is not sent', () async {
+    final imported = await accounts.import(FakeApi.otherRecoveryCode);
+    // A device that has not read its session yet: the read awaits the
+    // storage, and the switch happens meanwhile.
+    final (device, _) = over(secrets);
+    final read = device.run(myAccountOperation);
+    final switching = device.adopt(imported, imported.account);
+    await expectLater(read, throwsA(isA<AccountChangedException>()));
+    await switching;
+  });
 
   test('a replacement that failed after leaving ends when tried again, leaving once', () async {
     final store = _Breakable(secrets)..refused.add('device_key');

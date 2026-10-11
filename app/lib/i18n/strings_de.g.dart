@@ -1146,6 +1146,7 @@ class _Translations$accountImport$de extends Translations$accountImport$en {
 	@override String get replaceFailed => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.';
 	@override String replaceUnfinished({required Object current}) => '„${current}“ hat dieses Gerät bereits verlassen, aber das Ersetzen ist nicht abgeschlossen. Versuchen Sie es erneut.';
 	@override String get unsettled => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.';
+	@override String get deviceFailed => 'Die Zusammenführung ist auf dem Server erfolgt, aber dieses Gerät konnte sie nicht speichern. Versuchen Sie es erneut.';
 	@override String get tooMany => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.';
 	@override String merged({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.';
 	@override String replaced({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.';
@@ -4693,6 +4694,7 @@ extension on TranslationsDe {
 			'accountImport.replaceFailed' => 'Das Ersetzen wurde nicht abgeschlossen. Auf diesem Gerät hat sich nichts geändert. Versuchen Sie es erneut, sobald die Verbindung steht.',
 			'accountImport.replaceUnfinished' => ({required Object current}) => '„${current}“ hat dieses Gerät bereits verlassen, aber das Ersetzen ist nicht abgeschlossen. Versuchen Sie es erneut.',
 			'accountImport.unsettled' => 'Die Zusammenführung ist vielleicht schon geschehen: Der Server hat noch nicht geantwortet. Nichts geht verloren. Versuchen Sie es erneut, sobald die Verbindung steht.',
+			'accountImport.deviceFailed' => 'Die Zusammenführung ist auf dem Server erfolgt, aber dieses Gerät konnte sie nicht speichern. Versuchen Sie es erneut.',
 			'accountImport.tooMany' => 'Zu viele Zusammenführungen im Moment. Versuchen Sie es später erneut.',
 			'accountImport.merged' => ({required Object name}) => 'Konten zusammengeführt: Sie verwenden „${name}“.',
 			'accountImport.replaced' => ({required Object name}) => 'Dieses Gerät verwendet jetzt „${name}“.',
@@ -5042,9 +5044,9 @@ extension on TranslationsDe {
 			'poi.kind.psychologist' => 'Psychotherapie',
 			'poi.kind.speechTherapist' => 'Logopädie',
 			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
-			'poi.kind.optician' => 'Optiker',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.optician' => 'Optiker',
 			'poi.kind.hearingAids' => 'Hörakustik',
 			'poi.kind.medicalSupply' => 'Sanitätshaus',
 			'poi.kind.hairdresser' => 'Friseur',

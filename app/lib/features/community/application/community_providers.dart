@@ -83,7 +83,10 @@ OutboxSender outboxSender(Ref ref) {
     outbox: ref.watch(outboxStoreProvider),
     api: ref.watch(communityApiProvider),
     accountId: () async => (await account.restore())?.account.id,
-    mergedAway: () async => (await account.mergedFrom())?.from,
+    waiting: () async {
+      final merged = await account.mergedFrom();
+      return {?merged?.from, ?merged?.intoId, ?ref.read(accountSwitchProvider).landing};
+    },
     clock: ref.watch(clockProvider),
   );
   ref.onDispose(sender.dispose);

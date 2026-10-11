@@ -200,6 +200,9 @@ Future<TestApp> pumpLunaway(
   bool systemShowsCopies = false,
   // The system's word on the network; none by default, as on a desktop.
   FakeNetworkMonitor? network,
+  // The protected storage the app writes, over [TestApp.secrets]: a test of
+  // a storage that refuses a write wraps it. The memory store by default.
+  SecretStore Function(MemorySecretStore memory)? secretStore,
   // The favourites in the app's database, as on a device, for what only
   // the database does; in memory ([TestApp.favorites]) by default.
   bool storedFavorites = false,
@@ -307,7 +310,7 @@ Future<TestApp> pumpLunaway(
         syncRetryDelaysProvider.overrideWithValue(const []),
         syncStartDelaysProvider.overrideWithValue(syncStartDelays),
         // The account's secrets in memory: no keychain in a widget test.
-        secretStoreProvider.overrideWithValue(app.secrets),
+        secretStoreProvider.overrideWithValue(secretStore?.call(app.secrets) ?? app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
         httpClientProvider.overrideWithValue(httpClient ?? api?.client(_demo) ?? _demo),

@@ -442,6 +442,10 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   /// brings its account as a recovery does.
   bool _importing(AccountState account) => account is SignedIn;
 
+  /// The mode a submit chose, kept while it runs: a recovery that brings
+  /// its account in does not turn the page into an import meanwhile.
+  bool? _chosen;
+
   @override
   void dispose() {
     _code.dispose();
@@ -484,9 +488,11 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final held = ref.read(accountControllerProvider);
     // Still read from the device's storage: neither a recovery nor an
     // import is chosen blind (a few milliseconds at launch).
-    if (held is AccountLoading) return;
+    if (held is AccountLoading) throw FormFailure(t.common.failed);
+    final importing = _importing(held);
+    _chosen = importing;
     try {
-      if (_importing(held)) {
+      if (importing) {
         await _import(code);
         return;
       }
@@ -518,6 +524,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     } on Object catch (e) {
       _log.info('recovery failed: $e');
       throw FormFailure(t.common.offline);
+    } finally {
+      if (mounted) setState(() => _chosen = null);
     }
   }
 
@@ -550,7 +558,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final scheme = theme.colorScheme;
     final account = ref.watch(accountControllerProvider);
     final current = account is SignedIn ? account.account.pseudonym : '';
-    final importing = _importing(account);
+    final importing = _chosen ?? _importing(account);
     final symbols = RecoveryCode.symbolsOf(_code.text);
     final valid = RecoveryCode.parse(_code.text) != null;
     final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;

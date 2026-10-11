@@ -63,6 +63,8 @@ bool mayHaveMade(PendingContribution e, Object made) {
   };
 }
 
+Future<Set<String>> _noneWaiting() async => const {};
+
 /// Sends the outbox, oldest first, and keeps a replay from ever
 /// duplicating a contribution:
 ///
@@ -80,14 +82,12 @@ bool mayHaveMade(PendingContribution e, Object made) {
 /// No network stops the pass at once (every entry would fail the same
 /// way); a server error delays that entry only; a refusal fails it, for the
 /// user to see.
-Future<String?> _none() async => null;
-
 final class OutboxSender {
   new({
     required this.outbox,
     required this.api,
     required this.accountId,
-    this.mergedAway = _none,
+    this.waiting = _noneWaiting,
     this.clock = DateTime.now,
     this.delays = const [
       Duration(seconds: 15),
@@ -107,9 +107,11 @@ final class OutboxSender {
   /// it.
   final Future<String?> Function() accountId;
 
-  /// The account this device held before it went into another one from
-  /// elsewhere, whose entries wait for that one; null otherwise.
-  final Future<String?> Function() mergedAway;
+  /// The accounts whose entries wait, neither sent nor failed: the account
+  /// this device held before it went into another from elsewhere, and that
+  /// other, until it comes to the device; the account kept by a merge the
+  /// device has not finished.
+  final Future<Set<String>> Function() waiting;
   final DateTime Function() clock;
 
   /// The waits after a failed attempt, the last one repeated.
@@ -163,9 +165,11 @@ final class OutboxSender {
       // Made under an account the device no longer holds: never sent under
       // another one, nor under a new one made for it. An account merged
       // into another, since: its entries wait for that account to come to
-      // the device, which takes them (`AccountSwitch.claimMerged`).
+      // the device, which takes them (`AccountSwitch.claimMerged`), as do
+      // the entries already moved to an account a merge has not finished
+      // bringing here.
       if (e.accountId != null && e.accountId != account) {
-        if (e.accountId == await mergedAway()) continue;
+        if ((await waiting()).contains(e.accountId)) continue;
         await outbox.fail(e.id, code: OutboxError.otherAccount);
         failed++;
         continue;
@@ -248,12 +252,12 @@ final class OutboxSender {
 
   Future<DateTime?> _next() async {
     DateTime? next;
-    // What waits for the account the device's went into is due when that
-    // account comes, which sends a pass of its own.
-    final away = await mergedAway();
+    // What waits for an account to come to the device is due when it
+    // comes, which sends a pass of its own.
+    final waits = await waiting();
     for (final e in await outbox.all()) {
       if (e.state == OutboxState.failed) continue;
-      if (away != null && e.accountId == away) continue;
+      if (waits.contains(e.accountId)) continue;
       final at = e.nextAttemptAt ?? clock();
       if (next == null || at.isBefore(next)) next = at;
     }

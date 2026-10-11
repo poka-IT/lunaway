@@ -505,7 +505,7 @@ void main() {
         outbox: outbox,
         api: server,
         accountId: () async => account,
-        mergedAway: () async => 'acc-1',
+        waiting: () async => {'acc-1'},
         clock: () => now,
       );
       final report = await waiting.sendDue();

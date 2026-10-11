@@ -377,7 +377,7 @@ final class OutboxSenderProvider
   }
 }
 
-String _$outboxSenderHash() => r'6228cbe72567357f56e38dbb309baf683a8ac660';
+String _$outboxSenderHash() => r'fcd6ef46f82f3ebe01d7d582a951eb52a3268275';
 
 /// Every contribution waiting, oldest first.
 

@@ -36,11 +36,14 @@ final class AccountChangedException extends NoAccountException {
 
 /// The merge was sent and its answer did not come (the network dropped, a
 /// timeout, a server error): the server may have made it. Asked again, it
-/// answers the same either way ([AccountService.mergeLanded]).
+/// answers the same either way ([AccountService.mergeLanded]). With
+/// [onDevice], the server made it and the device's storage refused to keep
+/// it.
 final class MergeUnsettledException implements Exception {
-  const new(this.cause);
+  const new(this.cause, {this.onDevice = false});
 
   final Object cause;
+  final bool onDevice;
 
   @override
   String toString() => 'MergeUnsettledException(${cause.runtimeType})';

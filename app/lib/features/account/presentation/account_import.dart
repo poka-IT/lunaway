@@ -65,8 +65,9 @@ Future<void> chooseForImported(
   final outboxRunner = ref.read(outboxRunnerProvider.notifier);
   // Kept across the sheet's openings: the card's detour closes it.
   final progress = ImportProgress();
-  Future<void> giveUp() =>
-      favorites.holding(() => outboxRunner.holding(() => _giveUp(controller, imported, progress)));
+  Future<void> giveUp() => favorites.holding(
+    () => outboxRunner.holding(() => _giveUp(controller, switcher, imported, progress)),
+  );
   final start = ref.read(accountControllerProvider);
   if (start is! SignedIn) {
     await controller.cancelImport(imported);
@@ -141,18 +142,24 @@ Future<void> chooseForImported(
 /// account went if it did.
 Future<void> _giveUp(
   AccountController controller,
+  AccountSwitch switcher,
   ImportedAccount imported,
   ImportProgress progress,
 ) async {
+  // What a choice still under way leaves decides.
+  await switcher.quiet();
+  // A merge made on the server, or a replacement begun, ends; giving it up
+  // would detach the key of the only account the device can still open.
+  bool committed() => switcher.left || switcher.landing != null;
   try {
-    if (progress.left) {
+    if (switcher.left) {
       await controller.replace(imported);
       return;
     }
-    if (progress.uncertain && await controller.settleImport(imported)) return;
+    if ((progress.uncertain || committed()) && await controller.settleImport(imported)) return;
   } on Object catch (e) {
     _log.info('the import did not end: ${e.runtimeType}');
-    if (progress.left) return;
+    if (committed()) return;
   }
   await controller.cancelImport(imported);
 }
@@ -278,13 +285,13 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       if (mounted) navigator.pop(settled ? ImportOutcome.merged : outcome);
     } on _Unsettled catch (e) {
       _log.info('the merge is still unsettled: ${e.cause.runtimeType}');
-      _failed(t.accountImport.unsettled);
+      _failed(_onDevice(e.cause) ? t.accountImport.deviceFailed : t.accountImport.unsettled);
     } on MergeUnsettledException catch (e) {
       // Sent, and no answer: the server may have made it, and answers the
-      // same when asked again.
-      _log.info('the merge did not answer: ${e.cause.runtimeType}');
+      // same when asked again. Or made, and the device could not keep it.
+      _log.info('the merge did not end: ${e.cause.runtimeType}');
       progress.uncertain = true;
-      _failed(t.accountImport.failed);
+      _failed(_onDevice(e) ? t.accountImport.deviceFailed : t.accountImport.failed);
     } on GraphQLRateLimitedException {
       _failed(t.accountImport.tooMany);
     } on GraphQLResponseException catch (e) {
@@ -304,6 +311,10 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       _failed(merging ? t.accountImport.failed : replaceFailure());
     }
   }
+
+  /// A merge the server made that the device's own storage could not keep:
+  /// the network is not to blame.
+  static bool _onDevice(Object error) => error is MergeUnsettledException && error.onDevice;
 
   void _failed(String text) {
     if (!mounted) return;
@@ -427,10 +438,11 @@ class _ImportChoiceState extends ConsumerState<ImportChoice> {
       ],
     ];
     return PopScope(
-      // The system back gives up, as "Annuler" does: never while the server
-      // is asked, after a merge that may have been made by asking first,
-      // and never once the device left its account.
-      canPop: !_busy && !_progress.uncertain && !left,
+      // The system back gives up as "Annuler" does, through it: never while
+      // the server is asked, after a merge that may have been made by
+      // asking first, and never once the device left its account. The sheet
+      // closes only with an outcome.
+      canPop: false,
       onPopInvokedWithResult: (popped, _) {
         if (!popped && !_busy && !left) unawaited(_cancel());
       },

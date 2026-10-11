@@ -1456,6 +1456,7 @@
     "replaceFailed": "La sustitución no pudo terminar. No ha cambiado nada en este dispositivo. Vuelve a intentarlo cuando haya conexión.",
     "replaceUnfinished": "«$current» ya ha dejado este dispositivo, pero la sustitución no ha terminado. Vuelve a intentarlo.",
     "unsettled": "Puede que la fusión ya se haya hecho: el servidor aún no ha respondido. No se pierde nada. Vuelve a intentarlo cuando haya conexión.",
+    "deviceFailed": "La fusión está hecha en el servidor, pero este dispositivo no ha podido guardarla. Vuelve a intentarlo.",
     "tooMany": "Demasiadas fusiones por ahora. Vuelve a intentarlo más tarde.",
     "merged": "Cuentas fusionadas: usas «$name».",
     "replaced": "Este dispositivo usa ahora «$name».",

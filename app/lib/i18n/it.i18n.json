@@ -1456,6 +1456,7 @@
     "replaceFailed": "La sostituzione non è andata a buon fine. Su questo dispositivo non è cambiato nulla. Riprova quando la rete risponde.",
     "replaceUnfinished": "«$current» ha già lasciato questo dispositivo, ma la sostituzione non è finita. Riprova.",
     "unsettled": "L'unione potrebbe essere già avvenuta: il server non ha ancora risposto. Non si perde nulla. Riprova quando la rete risponde.",
+    "deviceFailed": "L'unione è fatta sul server, ma questo dispositivo non è riuscito a salvarla. Riprova.",
     "tooMany": "Troppe unioni per ora. Riprova più tardi.",
     "merged": "Account uniti: stai usando «$name».",
     "replaced": "Questo dispositivo ora usa «$name».",

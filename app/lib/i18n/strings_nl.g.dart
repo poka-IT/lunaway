@@ -1146,6 +1146,7 @@ class _Translations$accountImport$nl extends Translations$accountImport$en {
 	@override String get replaceFailed => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.';
 	@override String replaceUnfinished({required Object current}) => '“${current}” heeft dit apparaat al verlaten, maar het vervangen is nog niet klaar. Probeer het opnieuw.';
 	@override String get unsettled => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.';
+	@override String get deviceFailed => 'Het samenvoegen is op de server gedaan, maar dit apparaat kon het niet opslaan. Probeer het opnieuw.';
 	@override String get tooMany => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.';
 	@override String merged({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.';
 	@override String replaced({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.';
@@ -4693,6 +4694,7 @@ extension on TranslationsNl {
 			'accountImport.replaceFailed' => 'Het vervangen is niet afgerond. Op dit apparaat is niets veranderd. Probeer het opnieuw zodra er verbinding is.',
 			'accountImport.replaceUnfinished' => ({required Object current}) => '“${current}” heeft dit apparaat al verlaten, maar het vervangen is nog niet klaar. Probeer het opnieuw.',
 			'accountImport.unsettled' => 'Het samenvoegen is misschien al gebeurd: de server heeft nog niet geantwoord. Er gaat niets verloren. Probeer het opnieuw zodra er verbinding is.',
+			'accountImport.deviceFailed' => 'Het samenvoegen is op de server gedaan, maar dit apparaat kon het niet opslaan. Probeer het opnieuw.',
 			'accountImport.tooMany' => 'Te veel samenvoegingen op dit moment. Probeer het later opnieuw.',
 			'accountImport.merged' => ({required Object name}) => 'Accounts samengevoegd: je gebruikt “${name}”.',
 			'accountImport.replaced' => ({required Object name}) => 'Dit apparaat gebruikt nu “${name}”.',
@@ -5042,9 +5044,9 @@ extension on TranslationsNl {
 			'poi.kind.psychologist' => 'Psycholoog',
 			'poi.kind.speechTherapist' => 'Logopedist',
 			'poi.kind.alternativeMedicine' => 'Osteopaat, alternatieve geneeskunde',
-			'poi.kind.optician' => 'Opticien',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audicien',
 			'poi.kind.medicalSupply' => 'Medische hulpmiddelen',
 			'poi.kind.hairdresser' => 'Kapper',

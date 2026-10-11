@@ -9,6 +9,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/data/secret_store.dart';
 import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/account/presentation/account_import.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
@@ -34,6 +35,7 @@ void main() {
     FakeApi api, {
     Size size = phone,
     DateTime? recoveryCardAt,
+    _Refusing? storage,
   }) async {
     final app = await pumpLunaway(
       tester,
@@ -42,6 +44,7 @@ void main() {
       size: size,
       storedFavorites: true,
       recoveryCardAt: recoveryCardAt,
+      secretStore: storage == null ? null : (memory) => storage..inner = memory,
     );
     // A place the device saved under its account.
     await app.container(tester).read(favoritesRepositoryProvider).addToDefault(lakeArea.summary);
@@ -422,6 +425,73 @@ void main() {
     expect(reads(), before + 2, reason: 'the switch done, the favourites sync again');
   });
 
+  testWidgets('the system back gives up as "Annuler" does', (tester) async {
+    final api = FakeApi();
+    final (app, _) = await openImport(tester, api);
+    await openOther(tester);
+    await tester.binding.handlePopRoute();
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(find.text(t.accountImport.cancelled(name: _current)), findsOneWidget);
+    expect(api.forgotten, ['other']);
+    expect(signedIn(app, tester), _current);
+  });
+
+  testWidgets('a merge the device could not keep loses nothing, and "Réessayer" ends it', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final storage = _Refusing();
+    final (app, _) = await openImport(tester, api, storage: storage);
+    final container = app.container(tester);
+    final account = (container.read(accountControllerProvider) as SignedIn).account;
+    final store = container.read(outboxStoreProvider);
+    final waiting = await store.add(
+      ContributionKind.confirm,
+      placeId: campsite.id,
+      payload: {'placeId': campsite.id, 'status': 'STILL_OK'},
+      accountId: account.id,
+    );
+    await openOther(tester);
+    storage.refused.add('session');
+    await tapInSheet(tester, find.text(t.accountImport.merge(imported: _imported)));
+    expect(find.text(t.accountImport.deviceFailed), findsOneWidget);
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(
+      (await store.byId(waiting!.id))?.state,
+      isNot(OutboxState.failed),
+      reason: 'moved to the account kept, it waits for the device to hold it',
+    );
+
+    storage.refused.clear();
+    await tapInSheet(tester, find.text(t.common.retry));
+    expect(find.text(t.accountImport.merged(name: _imported)), findsOneWidget);
+    expect(signedIn(app, tester), _imported);
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(await store.byId(waiting.id), isNull, reason: 'sent under the account kept');
+  });
+
+  testWidgets('a replacement cut after the account was left offers only to end it', (tester) async {
+    final api = FakeApi();
+    final storage = _Refusing();
+    final (app, _) = await openImport(tester, api, storage: storage);
+    await openOther(tester);
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    storage.refused.add('device_key');
+    await tapInSheet(tester, find.text(t.accountImport.replaceConfirm));
+    expect(find.text(t.accountImport.replaceUnfinished(current: _current)), findsOneWidget);
+    expect(find.text(t.accountImport.card(current: _current)), findsNothing);
+    expect(find.text(t.accountImport.back), findsNothing);
+    await tester.binding.handlePopRoute();
+    await settleShort(tester);
+    expect(find.byType(ImportChoice), findsOneWidget, reason: 'the back does not give it up');
+
+    storage.refused.clear();
+    await tapInSheet(tester, find.text(t.common.retry));
+    expect(find.text(t.accountImport.replaced(name: _imported)), findsOneWidget);
+    expect(signedIn(app, tester), _imported);
+    expect(api.forgotten, ['current'], reason: 'the account was left once');
+  });
+
   testWidgets('no pass of the outbox starts while the device changes accounts', (tester) async {
     final api = FakeApi();
     final app = await pumpLunaway(tester, api: api, signedIn: true);
@@ -447,6 +517,8 @@ void main() {
       inside = true;
       await switching.future;
     });
+    await tester.pump(const Duration(seconds: 1));
+    expect(inside, isFalse, reason: 'the switch waits for the pass under way');
     api.hold!.complete();
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 1));
@@ -551,4 +623,23 @@ void main() {
     final state = app.container(tester).read(accountControllerProvider);
     expect(state, isA<NoAccount>().having((s) => s.mergedInto, 'mergedInto', _imported));
   });
+}
+
+/// The device's protected storage over the test's memory one, refusing to
+/// write the slots in [refused] (a keychain locked, IndexedDB refused).
+final class _Refusing implements SecretStore {
+  MemorySecretStore inner = MemorySecretStore();
+  final refused = <String>{};
+
+  @override
+  Future<String?> read(String key) => inner.read(key);
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (refused.contains(key)) throw StateError('storage refused');
+    await inner.write(key, value);
+  }
+
+  @override
+  Future<void> delete(String key) => inner.delete(key);
 }
