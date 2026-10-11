@@ -1080,7 +1080,6 @@
   "home": {
     "title": "Domicile",
     "setTitle": "Définir mon domicile",
-    "setHint": "Une adresse, votre position ou un point de la carte. L'itinéraire jusque chez vous se lance ensuite en un toucher.",
     "privacy": "Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d'autre ne le voit.",
     "directionsHome": "Itinéraire vers le domicile",
     "actions": "Actions du domicile",
@@ -1096,6 +1095,7 @@
     "myPosition": "Ma position actuelle",
     "onMap": "Choisir sur la carte",
     "onMapNotice": "Appuyez longuement sur la carte à l'endroit de votre domicile, puis touchez « Mon domicile est ici ».",
+    "onMapNoticeClick": "Faites un clic droit sur la carte à l'endroit de votre domicile, puis cliquez sur « Mon domicile est ici ».",
     "here": "Mon domicile est ici",
     "goHome": "Aller au domicile"
   },

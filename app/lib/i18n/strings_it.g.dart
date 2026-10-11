@@ -724,7 +724,6 @@ class _Translations$home$it extends Translations$home$en {
 	// Translations
 	@override String get title => 'Casa';
 	@override String get setTitle => 'Imposta la mia casa';
-	@override String get setHint => 'Un indirizzo, la tua posizione o un punto della mappa. Poi il percorso verso casa parte con un tocco.';
 	@override String get privacy => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.';
 	@override String get directionsHome => 'Percorso verso casa';
 	@override String get actions => 'Azioni della casa';
@@ -740,6 +739,7 @@ class _Translations$home$it extends Translations$home$en {
 	@override String get myPosition => 'La mia posizione attuale';
 	@override String get onMap => 'Scegli sulla mappa';
 	@override String get onMapNotice => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».';
+	@override String get onMapNoticeClick => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».';
 	@override String get here => 'La mia casa è qui';
 	@override String get goHome => 'Vai a casa';
 }
@@ -4323,7 +4323,6 @@ extension on TranslationsIt {
 			'list.offlineNotHere' => 'Niente di quest\'area su questo dispositivo.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Imposta la mia casa',
-			'home.setHint' => 'Un indirizzo, la tua posizione o un punto della mappa. Poi il percorso verso casa parte con un tocco.',
 			'home.privacy' => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.',
 			'home.directionsHome' => 'Percorso verso casa',
 			'home.actions' => 'Azioni della casa',
@@ -4339,6 +4338,7 @@ extension on TranslationsIt {
 			'home.myPosition' => 'La mia posizione attuale',
 			'home.onMap' => 'Scegli sulla mappa',
 			'home.onMapNotice' => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».',
+			'home.onMapNoticeClick' => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».',
 			'home.here' => 'La mia casa è qui',
 			'home.goHome' => 'Vai a casa',
 			'favorites.title' => 'Preferiti',

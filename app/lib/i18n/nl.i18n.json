@@ -1080,7 +1080,6 @@
   "home": {
     "title": "Thuis",
     "setTitle": "Mijn thuis instellen",
-    "setHint": "Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.",
     "privacy": "Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.",
     "directionsHome": "Route naar huis",
     "actions": "Acties voor thuis",
@@ -1096,6 +1095,7 @@
     "myPosition": "Mijn huidige positie",
     "onMap": "Kiezen op de kaart",
     "onMapNotice": "Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.",
+    "onMapNoticeClick": "Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.",
     "here": "Mijn thuis is hier",
     "goHome": "Naar huis"
   },

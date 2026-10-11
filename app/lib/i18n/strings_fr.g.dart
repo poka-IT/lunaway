@@ -724,7 +724,6 @@ class _Translations$home$fr extends Translations$home$en {
 	// Translations
 	@override String get title => 'Domicile';
 	@override String get setTitle => 'Définir mon domicile';
-	@override String get setHint => 'Une adresse, votre position ou un point de la carte. L\'itinéraire jusque chez vous se lance ensuite en un toucher.';
 	@override String get privacy => 'Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d\'autre ne le voit.';
 	@override String get directionsHome => 'Itinéraire vers le domicile';
 	@override String get actions => 'Actions du domicile';
@@ -740,6 +739,7 @@ class _Translations$home$fr extends Translations$home$en {
 	@override String get myPosition => 'Ma position actuelle';
 	@override String get onMap => 'Choisir sur la carte';
 	@override String get onMapNotice => 'Appuyez longuement sur la carte à l\'endroit de votre domicile, puis touchez « Mon domicile est ici ».';
+	@override String get onMapNoticeClick => 'Faites un clic droit sur la carte à l\'endroit de votre domicile, puis cliquez sur « Mon domicile est ici ».';
 	@override String get here => 'Mon domicile est ici';
 	@override String get goHome => 'Aller au domicile';
 }
@@ -4323,7 +4323,6 @@ extension on TranslationsFr {
 			'list.offlineNotHere' => 'Rien de cette zone sur cet appareil.',
 			'home.title' => 'Domicile',
 			'home.setTitle' => 'Définir mon domicile',
-			'home.setHint' => 'Une adresse, votre position ou un point de la carte. L\'itinéraire jusque chez vous se lance ensuite en un toucher.',
 			'home.privacy' => 'Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d\'autre ne le voit.',
 			'home.directionsHome' => 'Itinéraire vers le domicile',
 			'home.actions' => 'Actions du domicile',
@@ -4339,6 +4338,7 @@ extension on TranslationsFr {
 			'home.myPosition' => 'Ma position actuelle',
 			'home.onMap' => 'Choisir sur la carte',
 			'home.onMapNotice' => 'Appuyez longuement sur la carte à l\'endroit de votre domicile, puis touchez « Mon domicile est ici ».',
+			'home.onMapNoticeClick' => 'Faites un clic droit sur la carte à l\'endroit de votre domicile, puis cliquez sur « Mon domicile est ici ».',
 			'home.here' => 'Mon domicile est ici',
 			'home.goHome' => 'Aller au domicile',
 			'favorites.title' => 'Favoris',

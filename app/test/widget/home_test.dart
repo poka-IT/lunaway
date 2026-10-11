@@ -131,6 +131,17 @@ void main() {
     });
   }
 
+  testWidgets('at twice the text size, a phone shows the home and the lists without overflow', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester, textScale: 2);
+    await app.container(tester).read(homeRepositoryProvider).set(_lilas());
+    await settleShort(tester);
+    await _openTab(tester, 'Favoris');
+    expect(_inCard(find.text('Domicile')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'the card holds to one line of address');
+  });
+
   testWidgets('without a home, "Définir mon domicile" takes an address the search finds', (
     tester,
   ) async {

@@ -1080,7 +1080,6 @@
   "home": {
     "title": "Casa",
     "setTitle": "Imposta la mia casa",
-    "setHint": "Un indirizzo, la tua posizione o un punto della mappa. Poi il percorso verso casa parte con un tocco.",
     "privacy": "La tua casa resta su questo dispositivo e, se hai un account, in quell'account. Nessun altro la vede.",
     "directionsHome": "Percorso verso casa",
     "actions": "Azioni della casa",
@@ -1096,6 +1095,7 @@
     "myPosition": "La mia posizione attuale",
     "onMap": "Scegli sulla mappa",
     "onMapNotice": "Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».",
+    "onMapNoticeClick": "Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».",
     "here": "La mia casa è qui",
     "goHome": "Vai a casa"
   },

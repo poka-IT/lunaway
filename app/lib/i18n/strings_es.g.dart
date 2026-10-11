@@ -724,7 +724,6 @@ class _Translations$home$es extends Translations$home$en {
 	// Translations
 	@override String get title => 'Casa';
 	@override String get setTitle => 'Definir mi casa';
-	@override String get setHint => 'Una dirección, tu ubicación o un punto del mapa. Luego la ruta a casa empieza con un toque.';
 	@override String get privacy => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.';
 	@override String get directionsHome => 'Ruta a casa';
 	@override String get actions => 'Acciones de tu casa';
@@ -740,6 +739,7 @@ class _Translations$home$es extends Translations$home$en {
 	@override String get myPosition => 'Mi ubicación actual';
 	@override String get onMap => 'Elegir en el mapa';
 	@override String get onMapNotice => 'Mantén pulsado el mapa donde está tu casa y luego toca «Mi casa está aquí».';
+	@override String get onMapNoticeClick => 'Haz clic derecho en el mapa donde está tu casa y luego haz clic en «Mi casa está aquí».';
 	@override String get here => 'Mi casa está aquí';
 	@override String get goHome => 'Ir a casa';
 }
@@ -4323,7 +4323,6 @@ extension on TranslationsEs {
 			'list.offlineNotHere' => 'Nada de esta zona en este dispositivo.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Definir mi casa',
-			'home.setHint' => 'Una dirección, tu ubicación o un punto del mapa. Luego la ruta a casa empieza con un toque.',
 			'home.privacy' => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.',
 			'home.directionsHome' => 'Ruta a casa',
 			'home.actions' => 'Acciones de tu casa',
@@ -4339,6 +4338,7 @@ extension on TranslationsEs {
 			'home.myPosition' => 'Mi ubicación actual',
 			'home.onMap' => 'Elegir en el mapa',
 			'home.onMapNotice' => 'Mantén pulsado el mapa donde está tu casa y luego toca «Mi casa está aquí».',
+			'home.onMapNoticeClick' => 'Haz clic derecho en el mapa donde está tu casa y luego haz clic en «Mi casa está aquí».',
 			'home.here' => 'Mi casa está aquí',
 			'home.goHome' => 'Ir a casa',
 			'favorites.title' => 'Favoritos',

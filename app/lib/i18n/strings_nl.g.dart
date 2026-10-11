@@ -724,7 +724,6 @@ class _Translations$home$nl extends Translations$home$en {
 	// Translations
 	@override String get title => 'Thuis';
 	@override String get setTitle => 'Mijn thuis instellen';
-	@override String get setHint => 'Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.';
 	@override String get privacy => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.';
 	@override String get directionsHome => 'Route naar huis';
 	@override String get actions => 'Acties voor thuis';
@@ -740,6 +739,7 @@ class _Translations$home$nl extends Translations$home$en {
 	@override String get myPosition => 'Mijn huidige positie';
 	@override String get onMap => 'Kiezen op de kaart';
 	@override String get onMapNotice => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.';
+	@override String get onMapNoticeClick => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.';
 	@override String get here => 'Mijn thuis is hier';
 	@override String get goHome => 'Naar huis';
 }
@@ -4323,7 +4323,6 @@ extension on TranslationsNl {
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
 			'home.title' => 'Thuis',
 			'home.setTitle' => 'Mijn thuis instellen',
-			'home.setHint' => 'Een adres, je positie of een punt op de kaart. De route naar huis start daarna met één tik.',
 			'home.privacy' => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.',
 			'home.directionsHome' => 'Route naar huis',
 			'home.actions' => 'Acties voor thuis',
@@ -4339,6 +4338,7 @@ extension on TranslationsNl {
 			'home.myPosition' => 'Mijn huidige positie',
 			'home.onMap' => 'Kiezen op de kaart',
 			'home.onMapNotice' => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.',
+			'home.onMapNoticeClick' => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.',
 			'home.here' => 'Mijn thuis is hier',
 			'home.goHome' => 'Naar huis',
 			'favorites.title' => 'Favorieten',

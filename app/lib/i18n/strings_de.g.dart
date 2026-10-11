@@ -724,7 +724,6 @@ class _Translations$home$de extends Translations$home$en {
 	// Translations
 	@override String get title => 'Zuhause';
 	@override String get setTitle => 'Mein Zuhause festlegen';
-	@override String get setHint => 'Eine Adresse, Ihr Standort oder ein Punkt auf der Karte. Die Route nach Hause starten Sie danach mit einem Tippen.';
 	@override String get privacy => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.';
 	@override String get directionsHome => 'Route nach Hause';
 	@override String get actions => 'Aktionen für Ihr Zuhause';
@@ -740,6 +739,7 @@ class _Translations$home$de extends Translations$home$en {
 	@override String get myPosition => 'Mein aktueller Standort';
 	@override String get onMap => 'Auf der Karte wählen';
 	@override String get onMapNotice => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.';
+	@override String get onMapNoticeClick => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.';
 	@override String get here => 'Mein Zuhause ist hier';
 	@override String get goHome => 'Nach Hause fahren';
 }
@@ -4323,7 +4323,6 @@ extension on TranslationsDe {
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
 			'home.title' => 'Zuhause',
 			'home.setTitle' => 'Mein Zuhause festlegen',
-			'home.setHint' => 'Eine Adresse, Ihr Standort oder ein Punkt auf der Karte. Die Route nach Hause starten Sie danach mit einem Tippen.',
 			'home.privacy' => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.',
 			'home.directionsHome' => 'Route nach Hause',
 			'home.actions' => 'Aktionen für Ihr Zuhause',
@@ -4339,6 +4338,7 @@ extension on TranslationsDe {
 			'home.myPosition' => 'Mein aktueller Standort',
 			'home.onMap' => 'Auf der Karte wählen',
 			'home.onMapNotice' => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.',
+			'home.onMapNoticeClick' => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.',
 			'home.here' => 'Mein Zuhause ist hier',
 			'home.goHome' => 'Nach Hause fahren',
 			'favorites.title' => 'Favoriten',

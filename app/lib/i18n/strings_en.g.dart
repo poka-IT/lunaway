@@ -1440,9 +1440,6 @@ class Translations$home$en {
 	/// en: 'Set my home'
 	String get setTitle => 'Set my home';
 
-	/// en: 'An address, your position or a point on the map. The route home then starts in one tap.'
-	String get setHint => 'An address, your position or a point on the map. The route home then starts in one tap.';
-
 	/// en: 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.'
 	String get privacy => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.';
 
@@ -1487,6 +1484,9 @@ class Translations$home$en {
 
 	/// en: 'Long press on the map where your home is, then tap "My home is here".'
 	String get onMapNotice => 'Long press on the map where your home is, then tap "My home is here".';
+
+	/// en: 'Right-click the map where your home is, then click "My home is here".'
+	String get onMapNoticeClick => 'Right-click the map where your home is, then click "My home is here".';
 
 	/// en: 'My home is here'
 	String get here => 'My home is here';
@@ -8344,7 +8344,6 @@ extension on Translations {
 			'list.offlineNotHere' => 'Nothing of this area on this device.',
 			'home.title' => 'Home',
 			'home.setTitle' => 'Set my home',
-			'home.setHint' => 'An address, your position or a point on the map. The route home then starts in one tap.',
 			'home.privacy' => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.',
 			'home.directionsHome' => 'Route home',
 			'home.actions' => 'Home actions',
@@ -8360,6 +8359,7 @@ extension on Translations {
 			'home.myPosition' => 'My current position',
 			'home.onMap' => 'Choose on the map',
 			'home.onMapNotice' => 'Long press on the map where your home is, then tap "My home is here".',
+			'home.onMapNoticeClick' => 'Right-click the map where your home is, then click "My home is here".',
 			'home.here' => 'My home is here',
 			'home.goHome' => 'Go home',
 			'favorites.title' => 'Favourites',

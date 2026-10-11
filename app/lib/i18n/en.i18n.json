@@ -1080,7 +1080,6 @@
   "home": {
     "title": "Home",
     "setTitle": "Set my home",
-    "setHint": "An address, your position or a point on the map. The route home then starts in one tap.",
     "privacy": "Your home stays on this device and, if you have an account, in that account. Nobody else sees it.",
     "directionsHome": "Route home",
     "actions": "Home actions",
@@ -1096,6 +1095,7 @@
     "myPosition": "My current position",
     "onMap": "Choose on the map",
     "onMapNotice": "Long press on the map where your home is, then tap \"My home is here\".",
+    "onMapNoticeClick": "Right-click the map where your home is, then click \"My home is here\".",
     "here": "My home is here",
     "goHome": "Go home"
   },

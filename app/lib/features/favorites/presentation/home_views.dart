@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/location/browser_location.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
@@ -35,6 +36,11 @@ String homeLine(SavedPoint home) => switch (home.address) {
   final a when a.startsWith(home.name) => a,
   final a => '${home.name} · $a',
 };
+
+/// How to place the home on the map: a long press, or with a mouse its
+/// right button, which does what a long press does.
+String _onMapNotice(Translations t) =>
+    pointerPlatform ? t.home.onMapNoticeClick : t.home.onMapNotice;
 
 /// The route home: the preview, then the guidance, as for any destination,
 /// named "Domicile".
@@ -191,23 +197,18 @@ class HomeCard extends ConsumerWidget {
           mouseCursor: WidgetStateMouseCursor.clickable,
           borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
           onTap: () => showSetHomeSheet(context),
+          // One line: the lists and their places keep the room of a phone
+          // read at a large text size.
           child: Padding(
-            padding: const EdgeInsets.all(Space.l),
+            padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.m),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 badge,
                 const SizedBox(width: Space.ml),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t.home.setTitle, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: Space.xxs),
-                      Text(t.home.setHint, style: muted),
-                    ],
-                  ),
+                  child: Text(t.home.setTitle, maxLines: 2, style: theme.textTheme.titleMedium),
                 ),
+                Icon(AppIcons.add, color: scheme.primary),
               ],
             ),
           ),
@@ -237,7 +238,7 @@ class HomeCard extends ConsumerWidget {
                       header: true,
                       child: Text(t.home.title, style: theme.textTheme.titleMedium),
                     ),
-                    Text(line, maxLines: 2, overflow: TextOverflow.ellipsis, style: muted),
+                    Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted),
                     const SizedBox(height: Space.s),
                     // The card's one action, in one tap, under the text so
                     // a phone's width and a large text keep it whole.
@@ -358,7 +359,7 @@ class _HomeSearchState extends ConsumerState<HomeSearch> {
     ref.read(homePickingProvider.notifier).start();
     Navigator.of(context).pop();
     ref.read(mapFlowProvider.notifier).openBareMapFromElsewhere();
-    showMessage(messenger, t.home.onMapNotice);
+    showMessage(messenger, _onMapNotice(t));
   }
 
   @override
@@ -450,7 +451,7 @@ class _HomeSearchState extends ConsumerState<HomeSearch> {
                 ListTile(
                   leading: icon(AppIcons.point),
                   title: Text(t.home.onMap),
-                  subtitle: Text(t.home.onMapNotice),
+                  subtitle: Text(_onMapNotice(t)),
                   onTap: _onMap,
                 ),
                 // The API out of reach: the regions kept answer alone.
