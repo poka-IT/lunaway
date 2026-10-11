@@ -770,6 +770,49 @@ async fn the_engine_s_refusals_and_failures_reach_the_app_as_codes(pool: PgPool)
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_answer_too_large_is_asked_again_with_one_alternative_less(pool: PgPool) {
+    seed(&pool).await;
+    // Three long routes off motorways weighed 17.8 to 21.6 MB, more than the
+    // API reads of an answer (2026-10-11); the same trips with one
+    // alternative weighed 10.2 to 14.3 MB.
+    let heavy = json!({"code": "Ok", "routes": [], "padding": "x".repeat(17 * 1024 * 1024)});
+    let (url, asked) = engine(
+        vec![
+            (200, heavy.clone()),
+            (200, heavy),
+            (200, osrm(&[ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let mut c = config(&url);
+    c.routing.timeout = Duration::from_secs(5);
+    let app = lunaway_api::router(ApiState::new(pool, c));
+    let mut variables = input(3.3);
+    variables["input"]["alternatives"] = 2.into();
+    let (_, body) = gql(&app, ROUTE_QUERY, variables).await;
+    let r = &body["data"]["route"];
+    assert_eq!(
+        r["status"], "OK",
+        "the best route comes back without the alternatives that did not fit: {body}"
+    );
+    assert_eq!(
+        r["recalculations"], 0,
+        "asking with fewer alternatives is no recalculation"
+    );
+    let asked = asked.lock().unwrap();
+    let alternates: Vec<Option<u64>> = asked
+        .iter()
+        .map(|b| b.get("alternates").and_then(Value::as_u64))
+        .collect();
+    assert_eq!(
+        alternates,
+        [Some(2), Some(1), None],
+        "one alternative less each time"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_failure_of_the_server_does_not_cost_the_client_a_route(pool: PgPool) {
     seed(&pool).await;
     let (url, _) = engine(

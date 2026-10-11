@@ -873,7 +873,8 @@ impl Routing {
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
-        let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
+        let mut alternates =
+            valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid);
         if !work.without_ahead {
             for centre in self.ahead(graph_id, &request.stops, &dims) {
                 if centres.iter().all(|c| c.distance_m(centre) >= RING_M / 2.0) {
@@ -907,7 +908,21 @@ impl Routing {
             let answer = engine.route(&body).await;
             work.spent.engine += called.elapsed();
             work.spent.engine_calls += 1;
-            let answer = answer?;
+            let answer = match answer {
+                // The routes did not fit the answer's limit: the same trip
+                // with one alternative less, never without its best route.
+                // `alternates_for` keeps this rare; it is not a
+                // recalculation.
+                Err(EngineError::TooLarge) if alternates > 0 => {
+                    alternates -= 1;
+                    tracing::info!(
+                        alternates,
+                        "the engine's answer exceeds its limit: asked again with one alternative less"
+                    );
+                    continue;
+                }
+                other => other?,
+            };
             // From here the engine has worked for this client: a later
             // failure of the server is not given back (a trip made slow on
             // purpose would otherwise cost nothing).

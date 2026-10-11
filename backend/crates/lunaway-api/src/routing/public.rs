@@ -438,7 +438,7 @@ impl Routing {
         let mut failed = 0;
         for &(a, b) in pairs {
             let stops = [Stop::at(a), Stop::at(b)];
-            let alternates = valhalla::alternates_for(2, a.distance_m(b));
+            let alternates = valhalla::alternates_for(2, a.distance_m(b), Avoid::default());
             let mut exclusions: Vec<Vec<Position>> = Vec::new();
             let mut centres: Vec<Position> = Vec::new();
             let mut counted: HashSet<uuid::Uuid> = HashSet::new();
