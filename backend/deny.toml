@@ -7,7 +7,12 @@ version = 2
 yanked = "deny"
 # Every ignore carries its reachability argument, and the same id goes into
 # .cargo/audit.toml.
-ignore = []
+ignore = [
+    # paste, unmaintained (no vulnerability): a procedural macro that
+    # tikv-jemalloc-ctl expands at compile time to name jemalloc's
+    # counters; none of its code runs in the server.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 version = 2

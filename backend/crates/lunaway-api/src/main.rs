@@ -25,11 +25,45 @@ use tracing_subscriber::EnvFilter;
 
 const DEFAULT_LISTEN: &str = "127.0.0.1:8484";
 
+/// The server's allocator. glibc's kept what long routes freed: after
+/// batteries of long trips off motorways, 1.1 GB in 45 per-thread arenas,
+/// the unit at its `MemoryHigh` and part of it swapped
+/// (2026-10-11, `plan/research/129-paquets-routage-suites.md`). jemalloc
+/// gives freed pages back after a few seconds (its background thread, set
+/// in `main`), and counts what the server holds ([`memory`]).
+#[global_allocator]
+static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+/// How often what the allocator holds is logged.
+const MEMORY_LOG_EVERY: Duration = Duration::from_secs(300);
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
+    // Without it, freed pages go back only while the server allocates.
+    if let Err(error) = tikv_jemalloc_ctl::background_thread::write(true) {
+        tracing::warn!(%error, "the allocator's background thread did not start");
+    }
+    tokio::spawn(async {
+        let mut every = tokio::time::interval(MEMORY_LOG_EVERY);
+        loop {
+            every.tick().await;
+            match memory() {
+                Ok(m) => tracing::info!(
+                    allocated_mb = m.allocated >> 20,
+                    resident_mb = m.resident >> 20,
+                    retained_mb = m.retained >> 20,
+                    "memory"
+                ),
+                Err(error) => {
+                    tracing::warn!(%error, "the allocator's counters cannot be read");
+                    return;
+                }
+            }
+        }
+    });
 
     let listen = std::env::var("LUNAWAY_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN.to_owned());
     let addr: SocketAddr = listen
@@ -204,4 +238,50 @@ async fn shutdown_signal() {
         () = terminate => {}
     }
     tracing::info!("shutting down");
+}
+
+/// What the allocator holds, bytes.
+struct Memory {
+    /// Taken by the server's data.
+    allocated: usize,
+    /// In physical pages: `allocated`, the free space of the pages in use
+    /// and the freed pages not given back yet.
+    resident: usize,
+    /// Address space kept for reuse, given back to the system.
+    retained: usize,
+}
+
+/// The allocator's counters, read now.
+fn memory() -> Result<Memory, tikv_jemalloc_ctl::Error> {
+    // The counters are a snapshot taken at each epoch.
+    tikv_jemalloc_ctl::epoch::advance()?;
+    Ok(Memory {
+        allocated: tikv_jemalloc_ctl::stats::allocated::read()?,
+        resident: tikv_jemalloc_ctl::stats::resident::read()?,
+        retained: tikv_jemalloc_ctl::stats::retained::read()?,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "a test states its preconditions with unwrap"
+    )]
+
+    use super::*;
+
+    #[test]
+    fn the_server_s_allocations_are_counted_by_its_allocator() {
+        let before = memory().unwrap().allocated;
+        let held = std::hint::black_box(vec![7_u8; 64 << 20]);
+        let during = memory().unwrap();
+        assert!(
+            during.allocated >= before + (60 << 20),
+            "64 MiB held must show in the counters: {before} then {}",
+            during.allocated
+        );
+        assert!(during.resident >= during.allocated);
+        drop(held);
+    }
 }
