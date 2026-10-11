@@ -109,6 +109,71 @@ class RouteOptionCard extends StatelessWidget {
   }
 }
 
+/// The place an alternative takes before it comes, as tall as its card: the
+/// best route is shown alone first, and what lies under the routes (the
+/// places on the way, the limits, the roadbook) stays where it is when the
+/// alternatives join (`plan/research/130-alternatives-apres.md`). The room
+/// is the card of [like] (the best route, whose roads an alternative mostly
+/// shares) drawn unseen, so it follows the width and the size of the text;
+/// over it, a blank card. It says nothing, to a screen reader either: an
+/// alternative may not come.
+class RouteOptionPlaceholder extends StatelessWidget {
+  const new({required this.like, required this.units, super.key});
+
+  final RouteOption like;
+  final DistanceUnits units;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    // A blank line, about as tall as a line of [style].
+    Widget bar(TextStyle? style, double width) => DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(LunaTokens.radiusXs),
+      ),
+      child: SizedBox(
+        width: width,
+        child: Opacity(opacity: 0, child: Text(' ', style: style)),
+      ),
+    );
+    return ExcludeSemantics(
+      child: Stack(
+        children: [
+          Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: RouteOptionCard(route: like, ordinal: 1, selected: false, units: units),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(LunaTokens.radiusL),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Space.m),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    bar(theme.textTheme.labelMedium, 72),
+                    const SizedBox(height: Space.xxs),
+                    bar(theme.textTheme.headlineSmall, 120),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Fact extends StatelessWidget {
   const new({required this.text, this.icon, this.alert = false});
 

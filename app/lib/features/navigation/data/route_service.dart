@@ -232,8 +232,9 @@ final class CachingRouteService implements RouteService {
     return plan;
   }
 
-  /// Asked once per token; a failure is kept with it, the server would
-  /// refuse the token again.
+  /// Asked once per token, a failure kept with it: a token the server
+  /// served is refused the second time, and one that never reached it is
+  /// not worth a second wait for alternatives.
   @override
   Future<LaterRoutes> alternatives(String token) {
     final now = _clock();

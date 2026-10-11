@@ -921,9 +921,10 @@ pub struct RouteResult {
     /// sooner, and its alternatives are asked of the engine meanwhile, for
     /// `routeAlternatives(token)`. Good for 60 seconds, once, from the
     /// same client. Null when no alternative follows: none asked, `status`
-    /// not `OK`, the server short of room or no safe route for the best
-    /// route alone (the alternatives then come in this answer, as without
-    /// the field), or no random token drawn (the best route stands alone).
+    /// not `OK`, the server short of room, or a best route alone blocked
+    /// for which the trip asked with its alternatives gave the faster safe
+    /// route (the alternatives then come in this answer, as without the
+    /// field); or no random token drawn (the best route stands alone).
     pub alternatives_token: Option<String>,
 }
 

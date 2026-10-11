@@ -401,14 +401,19 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   and checks and traces the others. The result waits in memory 60 s under
   a random token bound to the client (`routing::later`, 256 tokens and
   64 MiB at most), for `Query.routeAlternatives(token)`, once, outside the
-  quota of routes. A best route alone left without a safe way is asked
-  once more with its alternatives, which then come in the same answer. A
-  request without the field (the app 0.1.0) gets every route in one
-  answer, as before. On 120 trips of the production graph the engine's
-  best route was the same with and without alternatives; the API's
-  differed once, a best route blocked by closures that an alternative of
-  the first answer replaced as it stood, where computed again alone it
-  came out 39 km shorter (`plan/research/130-alternatives-apres.md`).
+  quota of routes. When the check blocks the best route alone at its
+  first call, the trip asked as before, with its alternatives, runs beside
+  the recalculation around the blockers (the recalculation takes its
+  engine slot first, the other waits 200 ms at most for one), and the
+  faster safe best route of the two is kept, the shorter at the same time;
+  kept, the trip asked with its alternatives brings them in the same
+  answer. Before the two ran together, 4 of the 120 trips of
+  `infra/routing/bench/` changed best route, three 22 to 24 minutes
+  faster and one 8 minutes slower (`plan/research/130-alternatives-apres.md`).
+  A best route alone left without any safe way is asked once more with its
+  alternatives. A request without the field (the app 0.1.0) gets every
+  route in one answer, as before. On 119 trips drawn the same way, the
+  engine's own best route was the same with and without alternatives.
 - **Ferries.** Avoiding ferries is a preference of the engine; a route
   that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
   (`routing::ferries`: the line's name and ports, where it is boarded and
@@ -659,8 +664,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   drawn and ready for "C'est parti !" at once, and its alternatives join
   it when `routeAlternatives` answers (`RoutePlan.withAlternatives`),
   where the camera already stands (it framed the routes that came at
-  once) and with the route chosen kept; when they do not come, nothing
-  says so. The guidance reads such an alternative in its own OSRM answer
+  once), with the route chosen kept, in the room the panel kept for two
+  cards (`RouteOptionPlaceholder`, sized by an unseen copy of the best
+  route's card), so nothing under them moves; when they do not come,
+  nothing says so and the room closes. The guidance reads such an alternative in its own OSRM answer
   (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy

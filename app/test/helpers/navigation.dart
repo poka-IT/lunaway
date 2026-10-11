@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:lunaway/core/geo/geo.dart';
@@ -109,21 +110,23 @@ final class FakeRouteService implements RouteService {
     return answer as RoutePlan;
   }
 
-  /// What each token's alternatives are: [LaterRoutes], a [Completer] of
-  /// them to hold them back, or an exception to throw. None by default.
+  /// What each token's alternatives are: [LaterRoutes], answered at once
+  /// (sooner even than the completed future a kept answer is, which holds
+  /// the controller to a stricter order), a [Completer] of them to hold them
+  /// back, or an exception to throw. None by default.
   final Map<String, Object> later = {};
 
   /// The tokens asked for, in order.
   final List<String> laterAsked = [];
 
   @override
-  Future<LaterRoutes> alternatives(String token) async {
+  Future<LaterRoutes> alternatives(String token) {
     laterAsked.add(token);
     return switch (later[token]) {
-      final Completer<LaterRoutes> held => await held.future,
-      final Exception failure => throw failure,
-      final LaterRoutes routes => routes,
-      _ => LaterRoutes.none,
+      final Completer<LaterRoutes> held => held.future,
+      final Exception failure => Future.error(failure),
+      final LaterRoutes routes => SynchronousFuture(routes),
+      _ => SynchronousFuture(LaterRoutes.none),
     };
   }
 

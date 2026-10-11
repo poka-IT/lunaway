@@ -61,6 +61,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
@@ -977,58 +978,77 @@ class _Routes extends ConsumerWidget {
   final RouteTarget target;
   final DistanceUnits units;
 
+  /// The alternatives the preview asks for, kept room for while they come.
+  static const _awaited = 2;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      for (final (i, r) in plan.routes.indexed) ...[
-        if (i > 0) const SizedBox(height: Space.s),
-        RouteOptionCard(
-          route: r,
-          ordinal: i,
-          selected: r.index == selected,
-          units: units,
-          onTap: () => ref.read(routePreviewControllerProvider(target).notifier).select(r.index),
-        ),
-      ],
-      // A time far longer than the distance suggests: say where it goes.
-      if (plan.routes.where((r) => r.index == selected).firstOrNull?.slowStretch
-          case final slow?) ...[
-        const SizedBox(height: Space.s),
-        Row(
-          children: [
-            Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: Space.s),
-            Expanded(
-              child: Text(
-                context.t.navigation.preview.slowStretch(
-                  duration: context.t.routeDuration(slow.durationS),
-                  distance: context.t.routeDistance(slow.distanceM, units),
-                ),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
+  Widget build(BuildContext context, WidgetRef ref) => AnimatedSize(
+    // The room kept for alternatives that do not all come closes gently.
+    duration: Motion.of(context, Motion.medium),
+    curve: Motion.standard,
+    alignment: Alignment.topCenter,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, r) in plan.routes.indexed) ...[
+          if (i > 0) const SizedBox(height: Space.s),
+          RouteOptionCard(
+            route: r,
+            ordinal: i,
+            selected: r.index == selected,
+            units: units,
+            onTap: () => ref.read(routePreviewControllerProvider(target).notifier).select(r.index),
+          ),
+        ],
+        if (plan.alternativesToken != null)
+          for (var i = 0; i < _awaited; i++) ...[
+            const SizedBox(height: Space.s),
+            if (plan.routes.firstOrNull case final best?)
+              RouteOptionPlaceholder(like: best, units: units),
           ],
-        ),
+        ..._notes(context),
       ],
-      // The times depend on the driver's own speed: say which.
-      if (plan.applied.cruiseShownKph case final kmh?) ...[
-        const SizedBox(height: Space.s),
-        Row(
-          children: [
-            Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: Space.s),
-            Expanded(
-              child: Text(
-                context.t.navigation.preview.cruise(speed: context.t.speedLimit(kmh, units)),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ],
-        ),
-      ],
-    ],
+    ),
   );
+
+  List<Widget> _notes(BuildContext context) => [
+    // A time far longer than the distance suggests: say where it goes.
+    if (plan.routes.where((r) => r.index == selected).firstOrNull?.slowStretch
+        case final slow?) ...[
+      const SizedBox(height: Space.s),
+      Row(
+        children: [
+          Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(
+              context.t.navigation.preview.slowStretch(
+                duration: context.t.routeDuration(slow.durationS),
+                distance: context.t.routeDistance(slow.distanceM, units),
+              ),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    ],
+    // The times depend on the driver's own speed: say which.
+    if (plan.applied.cruiseShownKph case final kmh?) ...[
+      const SizedBox(height: Space.s),
+      Row(
+        children: [
+          Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(
+              context.t.navigation.preview.cruise(speed: context.t.speedLimit(kmh, units)),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    ],
+  ];
 }
 
 /// The stops the server moved to a road the vehicle can reach: said first,
