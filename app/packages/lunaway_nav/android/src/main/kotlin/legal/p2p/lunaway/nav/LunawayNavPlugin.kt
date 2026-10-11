@@ -2,6 +2,8 @@ package legal.p2p.lunaway.nav
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -307,9 +309,22 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     "name" to info.name,
                     "label" to info.label,
                     "isDefault" to (info.name == default),
-                    "system" to info.system,
+                    "system" to isSystemApp(info.name),
                 )
             }
+    }
+
+    /**
+     * Whether [name] is part of the system image (the engine's own flag is
+     * hidden from apps); visible to the app through its `TTS_SERVICE` query.
+     */
+    private fun isSystemApp(name: String): Boolean {
+        val pm = context?.packageManager ?: return false
+        return try {
+            pm.getApplicationInfo(name, 0).flags and ApplicationInfo.FLAG_SYSTEM != 0
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
     }
 
     /**
