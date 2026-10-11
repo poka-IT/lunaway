@@ -5,7 +5,7 @@
 # legal.p2p.lunaway.routing-sweep, hourly) and installed by
 # infra/ops/mac-routing/install.sh.
 #
-#   lunaway-routing-build.sh run [--force] [--ref BRANCH] [--overlay DIR] [--dry-run]
+#   lunaway-routing-build.sh run [--force] [--ref BRANCH] [--day YYMMDD] [--overlay DIR] [--dry-run]
 #       stops at once when the published graph was built less than 9 days
 #       ago (rebuild_after_s below); otherwise waits until every Geofabrik
 #       extract carries the same date, creates a throwaway build server
@@ -19,6 +19,11 @@
 #       --ref BRANCH builds the head of that branch of the public
 #       repository instead of main's (a change of the preparation, in Rust,
 #       tried on Europe before it merges; launchd never passes it).
+#       --day YYMMDD builds the dated extracts of that day, which Geofabrik
+#       keeps for the last days, without waiting for every extract's
+#       state.txt to agree (on 2026-10-11 twenty extracts stood at
+#       2026-10-08 and five at 2026-10-09); the build still checks that the
+#       files carry one timestamp.
 #       --overlay DIR puts DIR/infra/routing over the commit (a change not
 #       pushed yet). --dry-run stops before creating anything, after the
 #       sweep, the published graph's age, the disk check, the extracts' date
@@ -171,7 +176,7 @@ case "$cmd" in
     ;;
   run) shift ;;
   *)
-    echo "usage: $0 run [--force] [--ref BRANCH] [--overlay DIR] [--dry-run] | sweep" >&2
+    echo "usage: $0 run [--force] [--ref BRANCH] [--day YYMMDD] [--overlay DIR] [--dry-run] | sweep" >&2
     exit 2
     ;;
 esac
@@ -180,9 +185,15 @@ force=no
 overlay=""
 dry=no
 ref=main
+day_asked=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) force=yes; shift ;;
+    --day)
+      day_asked=${2:?}
+      [[ "$day_asked" =~ ^[0-9]{6}$ ]] || { echo "--day: YYMMDD" >&2; exit 2; }
+      shift 2
+      ;;
     --ref)
       ref=${2:?}
       # A branch name as git allows it, nothing a shell or a URL reads.
@@ -277,9 +288,10 @@ fi
 free_gb=$(df -g "$HOME" | awk 'NR == 2 { print $4 }')
 [ "${free_gb:-0}" -ge "$min_free_gb" ] || die "only ${free_gb} GB free on the Mac, $min_free_gb needed"
 
-# 1. One date for every extract, before anything costs money.
+# 1. One date for every extract, before anything costs money; with --day,
+# the dated files of that day, each of which must be there.
 waited=0
-while :; do
+while [ -z "$day_asked" ]; do
   dates=$(published_dates)
   if printf '%s\n' "$dates" | grep -q '^missing'; then
     say "state.txt unreadable for: $(printf '%s\n' "$dates" | sed -n 's/^missing //p' | tr '\n' ' ')"
@@ -303,11 +315,21 @@ while :; do
   wait $!
   waited=$((waited + 1800))
 done
-osm_date=$(printf '%s\n' "$dates" | head -n 1)
-[[ "$day" =~ ^[0-9]{6}$ ]] || die "no day in $osm_date"
-say "every extract at $osm_date, files of $day"
+if [ -n "$day_asked" ]; then
+  day=$day_asked
+  missing=$(missing_files "$day")
+  [ -z "$missing" ] || die "dated files of $day missing for: $missing"
+  # The files' own timestamp is read by the build server; here only its day
+  # is known, which build.json must match (step 6).
+  osm_date="20${day:0:2}-${day:2:2}-${day:4:2}T"
+  say "files of $day asked, every one there"
+else
+  osm_date=$(printf '%s\n' "$dates" | head -n 1)
+  [[ "$day" =~ ^[0-9]{6}$ ]] || die "no day in $osm_date"
+  say "every extract at $osm_date, files of $day"
+fi
 
-if [ "$force" = no ] && [[ "$published_id" == *-eu ]] && [ "$published_osm" = "$osm_date" ]; then
+if [ "$force" = no ] && [ -z "$day_asked" ] && [[ "$published_id" == *-eu ]] && [ "$published_osm" = "$osm_date" ]; then
   say "the published graph $published_id already has the data of $osm_date: nothing to build"
   [ "$dry" = yes ] || record_run nothing
   exit 0
@@ -511,7 +533,11 @@ now=$(date -u +%s)
 for t in "$built_s" "$id_s"; do
   [ "$t" -le "$now" ] && [ "$t" -ge $((born - 60)) ] || die "build.json: $id built at $(jq -r .built_at build.json) is outside this run"
 done
-[ "$(jq -r .osm_data_at build.json)" = "$osm_date" ] || die "build.json: data of $(jq -r .osm_data_at build.json), the extracts were at $osm_date"
+if [ -n "$day_asked" ]; then
+  [[ "$(jq -r .osm_data_at build.json)" == "$osm_date"* ]] || die "build.json: data of $(jq -r .osm_data_at build.json), the files of $day were asked"
+else
+  [ "$(jq -r .osm_data_at build.json)" = "$osm_date" ] || die "build.json: data of $(jq -r .osm_data_at build.json), the extracts were at $osm_date"
+fi
 grep -q '^all [0-9]* route tests passed$' test-routes.txt && ! grep -q '^FAIL' test-routes.txt || die "a route test failed"
 
 # 7. Signed sums, then the release: the parts first, the signed sums next,
