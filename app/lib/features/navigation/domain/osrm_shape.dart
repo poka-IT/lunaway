@@ -108,6 +108,12 @@ List<RouteCrossing> _crossings(Map<String, dynamic> route, List<LatLng> line) {
     for (final step in (leg['steps'] as List?) ?? const []) {
       if (step is! Map<String, dynamic>) continue;
       final length = (step['distance'] as num?)?.toDouble() ?? 0;
+      // Placed again on the line at its maneuver: over a long trip the
+      // router's metres and the line's drift apart.
+      if (_location(step['maneuver']) case final at?) {
+        final v = nearest(at, stepStart - 300, stepStart + 300);
+        if (v >= 0) stepStart = along[v];
+      }
       for (final i in (step['intersections'] as List?) ?? const []) {
         if (i is! Map<String, dynamic>) continue;
         final at = _location(i);

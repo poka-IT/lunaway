@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
@@ -758,6 +759,14 @@ Map<String, Object> routeLinePaint(String id, {required bool dark, double travel
           traveledShare,
         ),
       },
+      RouteLayers.traveledCasing => {
+        'line-color': RouteLook.traveledCasing(dark: dark),
+        'line-width': RouteLook.casingWidthByZoom,
+      },
+      RouteLayers.traveled => {
+        'line-color': RouteLook.traveled(dark: dark),
+        'line-width': RouteLook.lineWidthByZoom,
+      },
       RouteLayers.arrowCasing => {
         'line-color': RouteLook.arrowCasing(dark: dark),
         'line-width': RouteLook.arrowCasingWidthByZoom,
@@ -774,6 +783,7 @@ String routeLineSource(String id) => switch (id) {
   RouteLayers.zones => RouteLayers.zonesSource,
   RouteLayers.alternativesCasing || RouteLayers.alternatives => RouteLayers.alternativesSource,
   RouteLayers.routeCasing || RouteLayers.route => RouteLayers.routeSource,
+  RouteLayers.traveledCasing || RouteLayers.traveled => RouteLayers.traveledSource,
   RouteLayers.arrowCasing || RouteLayers.arrow => RouteLayers.arrowSource,
   _ => throw ArgumentError.value(id, 'id', 'no line of the route map'),
 };
@@ -835,40 +845,84 @@ Map<String, Object?> routeArrowHeadCollection(ManeuverArrow? arrow) => {
   ],
 };
 
-/// What an engine draws of the part of the chosen route behind the vehicle:
-/// the share of the line ([RouteProgress.shareAt]) to send when it moved by
-/// a few metres, the one drawn kept off the route, none on a new route.
+/// The colours MapLibre Native gives a line's gradient along the whole of
+/// it (a ramp of 256): a step of the gradient lands on one of them, so the
+/// grey of a 300 km route moves by 1.2 km at a time.
+const gradientRamp = 256;
+
+/// What an engine draws of the part of the chosen route behind the vehicle,
+/// recomputed when the vehicle moved by a few metres, kept off the route,
+/// none on a new route: the gradient grey up to a colour of its ramp a
+/// little behind the vehicle ([share], [RouteProgress.shareAt]), and from
+/// there up to the vehicle a short grey line drawn over the route
+/// ([tail]), which the ramp cannot place to the metre.
 final class TraveledLine {
   List<LatLng>? _line;
   RouteProgress? _progress;
   double? _sentM;
+  double? _lastM;
 
-  /// The share drawn, or 0 before any.
+  /// The gradient's share drawn, or 0 before any.
   double share = 0;
 
-  /// The route drawn again from scratch (a new style): the next share is
-  /// sent whatever it is.
+  /// The grey from the gradient's end to the vehicle; empty before any.
+  List<LatLng> tail = const [];
+
+  /// The route drawn again from scratch (a new style): the next call sends
+  /// what was drawn, or the vehicle's place when it has one.
   void forget() => _sentM = null;
 
-  /// The share to send for [lines] with [traveledM] behind the vehicle;
-  /// null when the drawn one holds.
-  double? next(List<RouteMapLine> lines, double? traveledM) {
+  /// Whether the grey moved for [lines] with [traveledM] behind the
+  /// vehicle ([share] and [tail] say how); false when the drawn one holds.
+  bool next(List<RouteMapLine> lines, double? traveledM) {
     final line = lines.firstWhereOrNull((l) => l.selected)?.points;
     if (!identical(line, _line)) {
       _line = line;
       _progress = line == null || line.length < 2 ? null : RouteProgress(line);
       _sentM = null;
+      _lastM = null;
     }
     final progress = _progress;
     final sent = _sentM;
-    final m = traveledM ?? (sent == null ? 0.0 : null);
+    // Off the route, what was drawn holds, again after a new style.
+    final m = traveledM ?? (sent == null ? _lastM ?? 0.0 : null);
     // Within a few metres the grey would move by a pixel or two at a
     // town's zoom: no call for it.
-    if (m == null || (sent != null && (m - sent).abs() < 3)) return null;
+    if (m == null || (sent != null && (m - sent).abs() < 3)) return false;
     _sentM = m;
-    return share = progress == null ? 0 : progress.shareAt(m);
+    _lastM = m;
+    if (progress == null || m <= 0) {
+      share = 0;
+      tail = const [];
+      return true;
+    }
+    // A whole colour of the ramp behind the one the vehicle is in: the
+    // ramp blends each colour into the next over half a colour.
+    final steps = (progress.shareAt(m) * gradientRamp).floor() - 1;
+    share = steps <= 0 ? 0 : steps / gradientRamp;
+    final from = math.max(0, progress.alongAt((steps - 0.5) / gradientRamp));
+    tail = lineAlong(progress.line, RouteSpan(from.toDouble(), m));
+    return true;
   }
 }
+
+/// The GeoJSON of the grey up to the vehicle ([TraveledLine.tail]).
+Map<String, Object?> routeTraveledCollection(List<LatLng> tail) => {
+  'type': 'FeatureCollection',
+  'features': [
+    if (tail.length >= 2)
+      {
+        'type': 'Feature',
+        'properties': <String, Object?>{},
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': [
+            for (final p in tail) [p.lon, p.lat],
+          ],
+        },
+      },
+  ],
+};
 
 Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
   'type': 'FeatureCollection',
@@ -943,6 +997,12 @@ abstract final class RouteLayers {
   static const alternatives = 'lw-route-alternatives-line';
   static const routeCasing = 'lw-route-casing';
   static const route = 'lw-route-line';
+
+  /// The grey of the chosen route just behind the vehicle
+  /// ([TraveledLine.tail]), over the route.
+  static const traveledSource = 'lw-route-traveled';
+  static const traveledCasing = 'lw-route-traveled-casing';
+  static const traveled = 'lw-route-traveled-line';
   static const vehicle = 'lw-route-vehicle';
   static const vehicleImage = 'lw-vehicle-arrow';
 
@@ -962,6 +1022,8 @@ abstract final class RouteLayers {
     alternatives,
     routeCasing,
     route,
+    traveledCasing,
+    traveled,
     arrowCasing,
     arrow,
   ];

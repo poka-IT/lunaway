@@ -138,7 +138,7 @@
           zoom = zoom === null ? follow.zoom : zoom + (follow.zoom - zoom) * Math.min(1, dt / 2000);
           if (Math.abs(follow.zoom - zoom) > 0.01) settled = false;
           pitch = pitch === null ? follow.tilt : pitch + (follow.tilt - pitch) * Math.min(1, dt / 2000);
-          if (Math.abs(follow.tilt - pitch) > 0.05) settled = false;
+          if (Math.abs(follow.tilt - pitch) > 0.3) settled = false;
           if (shown.course !== null) {
             bearing = bearing === null
               ? shown.course

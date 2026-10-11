@@ -247,8 +247,8 @@ void main() {
         placeNames: 'places_subplace',
         townNames: 'places_locality',
       ),
-      'lw-route-arrow-casing',
-      reason: "over the other lines, under the maneuver's arrow drawn on it",
+      'lw-route-traveled-casing',
+      reason: "over the other lines, under its grey behind the vehicle and the maneuver's arrow",
     );
     expect(
       RouteLayerOrder.below(

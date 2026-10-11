@@ -10,6 +10,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/auto_zoom.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
@@ -20,6 +21,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
@@ -268,6 +270,35 @@ void main() {
       await drive(tester, plan, toM: 500, fromM: 160);
       expect(camera().zoom, closeTo(wideZoom(36), 0.01));
       expect(camera().tilt, AutoTilt.straight);
+    });
+
+    testWidgets('keeps its aim while the speed wavers by a few km/h, moves it past that', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final last = driveFixes(plan.routes.first, toM: 100).last;
+      var second = 0;
+      Future<double> at(double kmh) async {
+        feed.send(
+          Fix(
+            position: last.position,
+            accuracyM: 5,
+            at: last.at.add(Duration(seconds: ++second)),
+            courseDeg: last.courseDeg,
+            speedMps: kmh / 3.6,
+          ),
+        );
+        await settleShort(tester);
+        return (map().camera as FollowCamera).zoom;
+      }
+
+      // 92 m from the left turn: the closest the speed allows.
+      final steady = await at(50);
+      expect(await at(47), steady);
+      expect(await at(53), steady);
+      expect(await at(62), lessThan(steady), reason: 'faster: a wider closest');
     });
 
     testWidgets('draws the arrow of the next turn on the route, and greys the road driven', (
@@ -745,6 +776,17 @@ void main() {
           // On its side, over the map beside the panel.
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
           expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
+        }
+        // Clear of the road's name under the vehicle, while the map follows.
+        await tester.tap(
+          find.text('Recentrer').evaluate().isEmpty
+              ? find.byTooltip('Recentrer')
+              : find.text('Recentrer'),
+        );
+        await settleShort(tester);
+        final road = find.byType(RoadNamePill);
+        if (road.evaluate().isNotEmpty && !tester.getRect(road).isEmpty) {
+          expect(credit().overlaps(tester.getRect(road)), isFalse, reason: "the road's name");
         }
         // A caption: a touch while driving opens nothing.
         expect(tester.widget<MapCredit>(find.byType(MapCredit)).caption, isTrue);

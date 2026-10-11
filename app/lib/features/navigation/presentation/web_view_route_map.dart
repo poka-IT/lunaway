@@ -73,6 +73,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   /// The grey behind the vehicle, as drawn.
   final _traveled = TraveledLine();
+  bool _gradientSent = false;
 
   /// The maneuver's arrow sent, once the page holds its sources.
   ManeuverArrow? _sentArrow;
@@ -207,6 +208,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentLines = null;
         _sentZones = null;
         _traveled.forget();
+        _gradientSent = false;
         _arrowSent = false;
         _sentMarks = null;
         _sentLit = const {};
@@ -417,14 +419,29 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'data': routeZonesCollection(p.lines, p.zones),
       });
     }
-    // The road behind the vehicle greys, at most once a fix.
-    if (_traveled.next(p.lines, p.traveledM) case final share?) {
-      for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
-        await _call('return window.lunaway.setPaint(id, paint);', {
-          'id': id,
-          'paint': routeLinePaint(id, dark: p.dark, traveledShare: share),
-        });
+    // The road behind the vehicle greys, at most once a fix: the gradient
+    // when its share moved, and the grey up to the vehicle.
+    final share = _traveled.share;
+    if (_traveled.next(p.lines, p.traveledM)) {
+      if (_traveled.share != share || !_gradientSent) {
+        _gradientSent = true;
+        for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
+          await _call('return window.lunaway.setPaint(id, paint);', {
+            'id': id,
+            'paint': {
+              'line-gradient': routeLinePaint(
+                id,
+                dark: p.dark,
+                traveledShare: _traveled.share,
+              )['line-gradient'],
+            },
+          });
+        }
       }
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RouteLayers.traveledSource,
+        'data': routeTraveledCollection(_traveled.tail),
+      });
     }
     if (!_arrowSent || p.arrow != _sentArrow) {
       _arrowSent = true;
@@ -645,6 +662,7 @@ Map<String, Object?> routePageSpec({
       'id': RouteLayers.routeSource,
       'options': <String, Object?>{'lineMetrics': true},
     },
+    {'id': RouteLayers.traveledSource, 'options': <String, Object?>{}},
     {'id': RouteLayers.arrowSource, 'options': <String, Object?>{}},
     {'id': RouteLayers.arrowHeadSource, 'options': <String, Object?>{}},
     {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},

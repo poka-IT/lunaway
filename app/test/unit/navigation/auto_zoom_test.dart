@@ -115,11 +115,7 @@ void main() {
         at(40, 200, type: 'roundabout').tilt,
         inExclusiveRange(AutoTilt.roundabout, AutoTilt.cruise),
       );
-      expect(
-        at(40, 20, type: 'arrive', modifier: 'right').tilt,
-        AutoTilt.cruise,
-        reason: 'the arrival keeps it',
-      );
+      expect(at(40, 20, type: 'arrive').tilt, AutoTilt.cruise, reason: 'the arrival keeps it');
     });
   });
 

@@ -19,7 +19,9 @@ import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/navigation.dart';
@@ -777,12 +779,20 @@ void main() {
       expect(covered(strip), isTrue, reason: 'a place drawn large under the strip');
       await tester.tap(find.byTooltip('Recentrer'));
       await settleShort(tester);
-      // Its room goes with it: the foot of the map takes its own again (the
-      // speed, the road under the vehicle, the credit coming down).
-      bool isStrip(Rect o) =>
-          (o.topLeft - strip.topLeft).distance < 0.5 &&
-          (o.bottomRight - strip.bottomRight).distance < 0.5;
-      expect(map().rich!.obstacles.any(isStrip), isFalse);
+      // Its room goes with it: what keeps the places drawn large off its
+      // place now is the foot of the map's own (the speed, the road under
+      // the vehicle, the credit coming down), each where it stands.
+      final own = [
+        for (final type in [SpeedAndLimit, RoadNamePill, MapCredit])
+          for (final e in find.byType(type).evaluate())
+            if (tester.getRect(find.byWidget(e.widget)) case final r when !r.isEmpty) r,
+      ];
+      bool isOwn(Rect o) => own.any((r) => r.inflate(1).contains(o.center));
+      expect(
+        map().rich!.obstacles.where((o) => o.overlaps(strip)).every(isOwn),
+        isTrue,
+        reason: 'nothing kept for the strip',
+      );
     });
   }
 }

@@ -13,6 +13,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_map.dart' show hiddenAttributionMargins;
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart' show RawLayerProperties;
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
@@ -86,6 +87,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   /// The grey behind the vehicle, as drawn.
   final _traveled = TraveledLine();
+  bool _gradientSent = false;
 
   /// The maneuver's arrow sent, once the style holds its sources.
   ManeuverArrow? _sentArrow;
@@ -276,6 +278,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         RouteLayers.alternativesSource,
         RouteLayers.zonesSource,
         RouteLayers.routeSource,
+        RouteLayers.traveledSource,
         RouteLayers.arrowSource,
         RouteLayers.arrowHeadSource,
         ...RouteLayers.markSources,
@@ -325,6 +328,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentLines = null;
       _sentZones = null;
       _traveled.forget();
+      _gradientSent = false;
       _arrowSent = false;
       _sentMarks = null;
       _sentLit = null;
@@ -784,11 +788,21 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentZones = (p.lines, p.zones);
       await c.setGeoJsonSource(RouteLayers.zonesSource, routeZonesCollection(p.lines, p.zones));
     }
-    // The road behind the vehicle greys, at most once a fix.
-    if (_traveled.next(p.lines, p.traveledM) != null) {
-      for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
-        await c.setLayerProperties(id, _lineLook(id));
+    // The road behind the vehicle greys, at most once a fix: the gradient
+    // alone (maplibre_gl resets the properties it is not given), when its
+    // share moved, and the grey up to the vehicle.
+    final share = _traveled.share;
+    if (_traveled.next(p.lines, p.traveledM)) {
+      if (_traveled.share != share || !_gradientSent) {
+        _gradientSent = true;
+        for (final id in [RouteLayers.routeCasing, RouteLayers.route]) {
+          await c.setLayerProperties(
+            id,
+            RawLayerProperties({'line-gradient': _lineLook(id).lineGradient}),
+          );
+        }
       }
+      await c.setGeoJsonSource(RouteLayers.traveledSource, routeTraveledCollection(_traveled.tail));
     }
     if (!_arrowSent || p.arrow != _sentArrow) {
       _arrowSent = true;
@@ -981,7 +995,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       final shownTilt = _shownTilt;
       var tilt = shownTilt == null ? camera.tilt : easeTilt(shownTilt, camera.tilt, dt);
       _shownTilt = tilt;
-      if ((camera.tilt - tilt).abs() > 0.05) settled = false;
+      if ((camera.tilt - tilt).abs() > 0.3) settled = false;
       final aimTilt = tilt;
       var target = position;
       var bearing = _shownBearing;

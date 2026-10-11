@@ -7,11 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 Finder guidanceSaid(Pattern label) =>
     find.byWidgetPredicate((w) => w is Semantics && (w.properties.label?.contains(label) ?? false));
 
-/// The handle of the guidance's bar, which opens and closes its options.
+/// The middle of the guidance's bar, which opens and closes its options.
 final Finder guidanceOptionsHandle = find.byWidgetPredicate(
   (w) =>
       w is Semantics &&
-      (w.properties.label == 'Options du guidage' || w.properties.label == 'Guidance options'),
+      (w.properties.hint == 'Options du guidage' || w.properties.hint == 'Guidance options'),
 );
 
 /// Opens the guidance's options under the bar, and lets them grow.

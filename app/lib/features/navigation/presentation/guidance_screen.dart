@@ -754,7 +754,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
         final photos = _photosRoom(context, box.biggest, left, creditRight);
         // The road's name at the foot of the map, centred on it beside the
         // panel, clear of the foot and of the column.
-        final roadFrom = Space.s + (pill.width > 0 ? pill.width + Space.s : 0);
+        // The credit shares the foot's line with it; the pill is over it.
+        final footWidth = math.max(pill.width, credit?.width ?? 0);
+        final roadFrom = Space.s + (footWidth > 0 ? footWidth + Space.s : 0);
         Rect road(Size size) {
           final span = centredSpan(
             centre: (left + box.maxWidth) / 2,
@@ -1738,29 +1740,18 @@ class _BottomBarState extends ConsumerState<_BottomBar> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // The handle: the options open and close from it too.
-                Center(
-                  child: Semantics(
-                    button: true,
-                    expanded: _open,
-                    label: t.navigation.guidance.options,
-                    excludeSemantics: true,
-                    child: InkWell(
-                      onTap: toggle,
-                      mouseCursor: WidgetStateMouseCursor.clickable,
-                      borderRadius: BorderRadius.circular(LunaTokens.radiusM),
-                      child: SizedBox(
-                        width: 64,
-                        height: 22,
-                        child: Center(
-                          child: Container(
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: scheme.outlineVariant,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
+                // The handle says the bar opens; the middle of the bar and a
+                // swipe open it, a finger's size.
+                ExcludeSemantics(
+                  child: SizedBox(
+                    height: 22,
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: scheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
@@ -1787,6 +1778,7 @@ class _BottomBarState extends ConsumerState<_BottomBar> {
                           container: true,
                           button: true,
                           expanded: _open,
+                          hint: t.navigation.guidance.options,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: Space.xxs),
                             child: Column(

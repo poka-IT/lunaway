@@ -39,23 +39,49 @@ void main() {
       }
     });
 
+    test('measures back from a share to the metres', () {
+      for (final m in <double>[0, 1234.5, 40000, progress.lengthM]) {
+        expect(progress.alongAt(progress.shareAt(m)), closeTo(m, 1e-6), reason: '$m m');
+      }
+    });
+
+    test('the gradient greys up to a colour of its ramp behind the vehicle, the tail up to it', () {
+      final traveled = TraveledLine();
+      final lines = [RouteMapLine(index: 0, points: line, selected: true)];
+      // 890 km of route: a colour of the ramp is about 3.5 km.
+      const at = 300000.0;
+      expect(traveled.next(lines, at), isTrue);
+      final ramp = traveled.share * gradientRamp;
+      expect(ramp, ramp.roundToDouble(), reason: 'on a colour of the ramp');
+      final drawn = progress.alongAt(traveled.share);
+      expect(drawn, lessThan(at), reason: 'never ahead of the vehicle');
+      expect(at - drawn, lessThan(2 * progress.lengthM / gradientRamp), reason: 'nor far behind');
+      // The tail covers the rest, from half a colour back, up to the vehicle.
+      expect(traveled.tail.first.distanceTo(line.first), lessThan(drawn));
+      expect(traveled.tail.last.distanceTo(line.first), closeTo(at, 200));
+    });
+
     test('an engine sends it once the vehicle moved a few metres, keeps it off the route', () {
       final traveled = TraveledLine();
       final lines = [RouteMapLine(index: 0, points: line, selected: true)];
-      expect(traveled.next(lines, null), 0, reason: 'a new route starts with none');
-      expect(traveled.next(lines, null), isNull);
-      final first = traveled.next(lines, 1000);
-      expect(first, closeTo(progress.shareAt(1000), 1e-9));
-      expect(traveled.next(lines, 1002), isNull, reason: 'two metres are no call');
-      expect(traveled.next(lines, null), isNull, reason: 'off the route the grey stays');
-      expect(traveled.share, first);
-      expect(traveled.next(lines, 1010), isNotNull);
+      expect(traveled.next(lines, null), isTrue, reason: 'a new route starts with none');
+      expect(traveled.share, 0);
+      expect(traveled.tail, isEmpty);
+      expect(traveled.next(lines, null), isFalse);
+      expect(traveled.next(lines, 100000), isTrue);
+      final first = (traveled.share, traveled.tail);
+      expect(traveled.next(lines, 100002), isFalse, reason: 'two metres are no call');
+      expect(traveled.next(lines, null), isFalse, reason: 'off the route the grey stays');
+      expect((traveled.share, traveled.tail), first);
+      traveled.forget();
+      expect(traveled.next(lines, null), isTrue, reason: 'a new style draws it again');
+      expect(traveled.share, first.$1, reason: 'where it was, off the route');
+      expect(traveled.next(lines, 100010), isTrue);
       final other = [
         RouteMapLine(index: 0, points: [...line], selected: true),
       ];
-      expect(traveled.next(other, null), 0, reason: 'a new route drops the grey');
-      traveled.forget();
-      expect(traveled.next(other, null), 0, reason: 'a new style draws it again');
+      expect(traveled.next(other, null), isTrue);
+      expect(traveled.share, 0, reason: 'a new route drops the grey');
     });
 
     test('the grey is a step at the share, the line coloured past it', () {

@@ -13,7 +13,8 @@ import 'package:lunaway/features/navigation/presentation/route_place_layers.dart
 abstract final class RouteLayerOrder {
   /// The lines, bottom to top: the danger zones' band under every route, the
   /// other routes under the chosen one, each casing under its line, and on
-  /// the chosen route the arrow of the next maneuver, its head last. Over
+  /// the chosen route its grey just behind the vehicle, then the arrow of the
+  /// next maneuver, its head last. Over
   /// the basemap and its roads' names, under its names of places
   /// ([placeNamesOf]): a town the route crosses keeps its name.
   static const List<String> lines = [
@@ -22,6 +23,8 @@ abstract final class RouteLayerOrder {
     RouteLayers.alternatives,
     RouteLayers.routeCasing,
     RouteLayers.route,
+    RouteLayers.traveledCasing,
+    RouteLayers.traveled,
     RouteLayers.arrowCasing,
     RouteLayers.arrow,
     RouteLayers.arrowHead,

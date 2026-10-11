@@ -52,6 +52,27 @@ final class RouteProgress {
     return (_plane[low] + (_plane[high] - _plane[low]) * t) / _plane.last;
   }
 
+  /// The metres from the start of the line at [share] of it as the map
+  /// measures it, the inverse of [shareAt].
+  double alongAt(double share) {
+    if (line.length < 2 || _plane.last <= 0 || share <= 0) return 0;
+    if (share >= 1) return _metres.last;
+    final target = share * _plane.last;
+    var low = 0;
+    var high = _plane.length - 1;
+    while (high - low > 1) {
+      final mid = (low + high) ~/ 2;
+      if (_plane[mid] <= target) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    final span = _plane[high] - _plane[low];
+    final t = span <= 0 ? 0.0 : (target - _plane[low]) / span;
+    return _metres[low] + (_metres[high] - _metres[low]) * t;
+  }
+
   /// The longitude and latitude in the unit square of Web Mercator, as
   /// MapLibre projects a GeoJSON line before it measures it.
   static (double, double) _mercator(LatLng p) {
