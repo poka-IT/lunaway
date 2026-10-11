@@ -315,7 +315,7 @@ the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
 | `photon@europe` | 3.1 GB (2.68 GB resident; a heap of 2 GB) | `MemoryHigh` 6 GB, `MemoryMax` 7 GB |
 | `photon@morocco` | 0.8 GB (a heap of 512 MB) | the same unit file |
 | `lunaway-translate` | 3.2 GB | `MemoryHigh` 4 GB, `MemoryMax` 4.5 GB |
-| `lunaway-api` | 0.3 GB | `MemoryHigh` 1.25 GB, `MemoryMax` 1.5 GB |
+| `lunaway-api` | 0.1 GB idle, 0.33 GB at most under route batteries (jemalloc, 2026-10-11) | `MemoryHigh` 1.5 GB, `MemoryMax` 2 GB, no swap (`MemorySwapMax=0`) |
 | the external feed's crawler | 0.47 GB | |
 | Caddy | 0.11 GB | |
 | Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
@@ -579,7 +579,16 @@ under `/media/` with a year of cache.
   are built at each answer from the stored paths, so changing the base later
   changes every URL at once.
 - Two photo decodes at once take up to about 1 GB: the API's memory cap is
-  1.5 GB (`MemoryHigh` 1.25 GB).
+  2 GB (`MemoryHigh` 1.5 GB), without swap.
+- The API allocates through jemalloc (`main.rs`), which gives freed pages
+  back after a few seconds, and logs every five minutes what it holds
+  (`memory allocated_mb resident_mb retained_mb`, `journalctl -u
+  lunaway-api | grep ' memory '`). The same 240 trips (one pass without
+  preference, one off motorways) left glibc's allocator at 812 MB that it
+  kept, with `MALLOC_ARENA_MAX=2` at 431 MB, and jemalloc at a peak of
+  326 MB, back to 101 MB, at the same latency (2026-10-11,
+  plan/research/129-paquets-routage-suites.md). Under glibc the API had sat
+  at its `MemoryHigh` with 157 MB swapped.
 - `/media/` answers with `Access-Control-Allow-Origin: https://lunaway.net`:
   the web app reads a photo with `fetch`, from another origin. Without it
   every photo failed in the web app (measured in Chromium on 2026-10-07,

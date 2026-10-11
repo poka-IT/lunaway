@@ -105,8 +105,16 @@ SocketBindAllow=tcp:8484
 # Resources: a runaway process is stopped before it starves PostgreSQL. Two
 # photo decodes at once (LUNAWAY_MEDIA_WORKERS) take up to 256 MB each plus
 # their copies: about 1 GB at the peak (report of backend iteration 2).
-MemoryHigh=1280M
-MemoryMax=1536M
+# Routes took up to 0.33 GB with jemalloc (a battery of 240 trips, long
+# ones off motorways, 2026-10-11), given back within minutes, where glibc's
+# allocator kept 0.81 GB of the same and 1.3 GB under heavier traffic, part
+# of it swapped (plan/research/129-paquets-routage-suites.md): both peaks at
+# once fit under MemoryHigh with a sixth to spare. No swap for the API, whose answers
+# would wait on the disk: past MemoryMax the kernel stops it and systemd
+# starts it again (Restart=on-failure).
+MemoryHigh=1536M
+MemoryMax=2048M
+MemorySwapMax=0
 TasksMax=512
 LimitNOFILE=65536
 
