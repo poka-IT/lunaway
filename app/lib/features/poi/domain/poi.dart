@@ -392,7 +392,7 @@ DateTime? _minute(int minutes) {
 
 /// Night, when what is open around the clock comes first (a pizza machine,
 /// a card pump, a cash machine): from 21:00 to 06:00 on the place's clock.
-bool isNight(DateTime now, {PlaceZone zone = PlaceZone.central}) {
+bool isNight(DateTime now, {required PlaceZone zone}) {
   final hour = zone.wallClock(now).hour;
   return hour >= 21 || hour < 6;
 }
@@ -781,6 +781,10 @@ final class Poi {
   PoiCategory get category => kind.category;
 
   LatLng get position => LatLng(lat, lon);
+
+  /// The clock its hours read on: its country's zone at its position,
+  /// France's when its address names no country.
+  PlaceZone get zone => PlaceZone.of(address?.countryCode, position);
 
   /// The point as a tile would show it, for the map's selection.
   PoiFeature get feature => PoiFeature(

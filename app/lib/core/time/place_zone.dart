@@ -1,46 +1,69 @@
-/// The wall clock of a place, from its country: opening hours read "closes
-/// at 19:00" in the place's time, whatever the device's zone (a traveller
-/// from Portugal planning a night in France reads French hours).
+/// The wall clock of a place, from its country and its position: opening
+/// hours read "closes at 19:00" in the place's time, whatever the device's
+/// zone (a traveller from Portugal planning a night in France reads French
+/// hours).
 ///
-/// The app covers Europe, where every country follows one of three standard
-/// offsets and, but for Iceland, the European Union's summer time: from the
-/// last Sunday of March at 01:00 UTC to the last Sunday of October at 01:00
-/// UTC. A table of a few countries replaces a time zone database of several
-/// hundred kilobytes.
+/// The zone comes from the IANA time zone database, embedded in the app
+/// (`zone_data.g.dart`, from `tool/time_zones/generate.dart`) and read by
+/// the timezone package: a zone the database gives the country in its
+/// table of countries and zones (zone.tab), the only one for most
+/// countries, and for a country with several the one whose principal
+/// location is nearest (the Canary Islands, the Azores and Madeira keep
+/// their own clock). The server picks the zone the same way from the same
+/// release (`lunaway_conflate::time_zone`): the opening intervals it
+/// computes and the times written here agree.
 library;
 
-/// A European time zone: its standard offset, and whether it keeps summer
-/// time.
+import 'dart:convert';
+import 'dart:math' as math;
+
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/time/zone_data.g.dart';
+import 'package:meta/meta.dart';
+import 'package:timezone/timezone.dart' as tz;
+
+/// The zone of a place.
+@immutable
 final class PlaceZone {
-  const new(this.standardOffset, {this.summerTime = true});
+  const new _(this._location);
 
-  /// Central European Time, the zone of metropolitan France.
-  static const central = PlaceZone(Duration(hours: 1));
-  static const western = PlaceZone(Duration.zero);
-  static const eastern = PlaceZone(Duration(hours: 2));
-  static const iceland = PlaceZone(Duration.zero, summerTime: false);
+  /// The zone of a place in [countryCode] (ISO 3166-1 alpha-2, any case)
+  /// at [position]; France's when the code is missing or the database does
+  /// not name the country (Kosovo).
+  factory of(String? countryCode, LatLng position) {
+    final centres = _byCountry[countryCode?.toUpperCase()];
+    if (centres == null) return paris;
+    var best = centres.first;
+    var bestDistance = double.infinity;
+    for (final centre in centres) {
+      final d = _distance(centre.$3, centre.$4, position);
+      if (d < bestDistance) {
+        best = centre;
+        bestDistance = d;
+      }
+    }
+    return PlaceZone.named(best.$2);
+  }
 
-  final Duration standardOffset;
-  final bool summerTime;
-
-  /// The zone of a country by its ISO 3166-1 alpha-2 code; France's when the
-  /// code is missing or not European.
-  static PlaceZone ofCountry(String? countryCode) => switch (countryCode?.toUpperCase()) {
-    'PT' || 'GB' || 'IE' || 'FO' => western,
-    'IS' => iceland,
-    'FI' || 'EE' || 'LV' || 'LT' || 'RO' || 'BG' || 'GR' || 'CY' || 'UA' || 'MD' => eastern,
-    _ => central,
+  /// The zone named [name] (`Europe/Paris`); France's for a name the
+  /// database embedded here does not hold.
+  factory named(String name) => switch (_zones[name]) {
+    final location? => PlaceZone._(location),
+    null => paris,
   };
 
+  /// Metropolitan France, the zone of the French sources and the app's
+  /// fallback (UTC if the embedded database lacked it, which a test rules
+  /// out).
+  static final PlaceZone paris = PlaceZone._(_zones['Europe/Paris'] ?? tz.UTC);
+
+  final tz.Location _location;
+
+  /// Its name in the database (`Africa/Casablanca`).
+  String get name => _location.name;
+
   /// The offset from UTC at [instant].
-  Duration offsetAt(DateTime instant) {
-    if (!summerTime) return standardOffset;
-    final utc = instant.toUtc();
-    final start = _lastSundayAtOneUtc(utc.year, 3);
-    final end = _lastSundayAtOneUtc(utc.year, 10);
-    final summer = !utc.isBefore(start) && utc.isBefore(end);
-    return summer ? standardOffset + const Duration(hours: 1) : standardOffset;
-  }
+  Duration offsetAt(DateTime instant) => _location.timeZone(instant.millisecondsSinceEpoch).offset;
 
   /// The wall clock time of the place at [instant], as a UTC [DateTime]
   /// whose fields read like the place's clock: format it, never convert it.
@@ -51,12 +74,45 @@ final class PlaceZone {
   /// clocks change.
   DateTime instantOf(DateTime wall) {
     final fields = DateTime.utc(wall.year, wall.month, wall.day, wall.hour, wall.minute);
-    return fields.subtract(offsetAt(fields.subtract(standardOffset)));
+    return DateTime.fromMillisecondsSinceEpoch(
+      _location.translateToUtc(fields.millisecondsSinceEpoch),
+      isUtc: true,
+    );
   }
 
-  static DateTime _lastSundayAtOneUtc(int year, int month) {
-    final lastDay = DateTime.utc(year, month + 1, 0);
-    final back = lastDay.weekday % 7;
-    return DateTime.utc(year, month, lastDay.day - back, 1);
+  @override
+  bool operator ==(Object other) => other is PlaceZone && other.name == name;
+
+  @override
+  int get hashCode => name.hashCode;
+
+  @override
+  String toString() => 'PlaceZone($name)';
+
+  /// The rows of zone.tab by country.
+  static final Map<String, List<(String, String, double, double)>> _byCountry = () {
+    final out = <String, List<(String, String, double, double)>>{};
+    for (final centre in zoneCentres) {
+      (out[centre.$1] ??= []).add(centre);
+    }
+    return out;
+  }();
+
+  /// The zones of the embedded database by name, read once on first use.
+  /// A copy: the package keeps its database in a global another reader
+  /// could fill again.
+  static final Map<String, tz.Location> _zones = () {
+    tz.initializeDatabase(base64.decode(zoneRules));
+    return Map<String, tz.Location>.unmodifiable(tz.timeZoneDatabase.locations);
+  }();
+
+  /// A distance to [p] that orders like the true one at these scales:
+  /// degrees, the longitude shrunk by the cosine of the mean latitude. The
+  /// server computes the same.
+  static double _distance(double lat, double lon, LatLng p) {
+    final dlat = lat - p.lat;
+    final dlon = (lon - p.lon + 540) % 360 - 180;
+    final shrink = math.cos((lat + p.lat) / 2 * math.pi / 180);
+    return dlat * dlat + (dlon * shrink) * (dlon * shrink);
   }
 }

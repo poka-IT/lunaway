@@ -254,7 +254,7 @@ class _OfferRow extends ConsumerWidget {
                     ),
                     if (known && offer.shortage == null)
                       Text(
-                        t.poiOpening(station.hours, now),
+                        t.poiOpening(station.hours, now, zone: station.zone),
                         style: muted?.copyWith(color: poiOpeningColor(scheme, station.hours, now)),
                       ),
                     if (offer.shortage != null)

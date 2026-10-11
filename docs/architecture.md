@@ -543,6 +543,59 @@ Shared test vectors (`schema/conflation-vectors.json`) pin the scoring and
 the decisions; any change to the rules updates them in the same commit. The
 exact algorithm, constants included, is specified in `docs/conflation.md`.
 
+## Time zones
+
+A place's hours are read on its own clock: the server computes its open
+intervals from local midnight in its zone (`docs/conflation.md`, "Opening
+hours"), and the app writes "closes at 19:00" on that same clock, whatever
+the device's zone. Both take the zone from the IANA time zone database,
+one release on both sides:
+
+- **The zone of a place.** The database's table of countries and zones,
+  `zone.tab`: the only zone of the place's country for most, and for a
+  country with several, the zone whose principal location (the city the
+  table places it at) is nearest the place. That tells the Canary Islands,
+  the Azores and Madeira from their mainland. Where zones with different
+  clocks meet inside a country it is an approximation: in Russia, and in
+  southern Ukraine, where places nearer Simferopol than Kyiv (80 of 555 on
+  2026-10-11, all online only) read Crimea's clock, an hour ahead in winter.
+  Kosovo (`XK`) has no row: no zone on the server, France's in the app.
+  Server: `lunaway_conflate::time_zone`; app: `PlaceZone`
+  (`app/lib/core/time/place_zone.dart`), the same rule and the same
+  distance.
+- **The rules.** The server reads the database jiff bundles (`jiff-tzdb`,
+  never the host's zoneinfo); the app embeds the rules of every zone of the
+  table from 2025 on, read by the `timezone` package
+  (`app/lib/core/time/zone_data.g.dart`). The French sources keep
+  `Europe/Paris` through chrono-tz (a fuel price's day, the road events'
+  named periods), whose data stopped at 2025b, right for Paris.
+- **Times that are not a place's.** The arrival time of a route and the
+  time a point is passed ("open when you get there") are on the device's
+  clock, the one the traveller's phone shows. The windows of a road event
+  are on Paris's clock or UTC, as the server says (`timeZone`).
+
+Morocco shows why the release matters: tzdata 2026c (July 2026) moved it
+back to +00 without daylight saving on 2026-09-20 (Decree 2.26.530); the
+database before it still put Morocco at +01 with a change at every ramadan,
+and chrono-tz 0.10.4, the last release, carries 2025b.
+
+Moving to a new release, after IANA publishes one (`tz-announce`):
+
+1. `cargo update -p jiff-tzdb` in `backend/` once jiff-tzdb carries it
+   (`jiff_tzdb::VERSION`);
+2. download `https://data.iana.org/time-zones/releases/tzdata<release>.tar.gz`
+   and its `.asc`, check the signature (Paul Eggert's key,
+   `7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34`), extract it under `data/tmp/`;
+3. from `app/`, `fvm dart run tool/time_zones/generate.dart <that directory>`:
+   it compiles the release with `zic`, writes `zone_data.g.dart` and the
+   server's copy of `zone.tab` (`backend/crates/lunaway-conflate/data/`),
+   then update the record of `zone.tab` in `tool/harness/vendored.txt`;
+4. `cargo nextest run -p lunaway-conflate` (a test holds the app's release
+   and table to the server's) and `fvm flutter test test/unit/opening_test.dart`.
+
+The places whose zone changed take new intervals at their next refresh,
+within a day; the app's new rules reach the devices with the next release.
+
 ## App
 
 `app/`, Flutter, Riverpod 3 with code generation, go_router, slang, drift.

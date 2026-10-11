@@ -47,6 +47,7 @@ dependencies:
   slang: ^4.19.2
   slang_flutter: ^4.19.0
   sqlite3: ^3.7.0
+  timezone: ^0.11.1
   url_launcher: ^6.3.3
   wakelock_plus: ^1.8.1
   web: ^1.1.1

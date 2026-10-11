@@ -516,6 +516,17 @@ Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two
 community mirrors the first adapter tried in turn are no longer defaults.
 
+## The time zone database
+
+The clock a place's hours are read on (`docs/architecture.md`, "Time
+zones"). Embedded, never fetched at run time: the server reads the copy
+jiff bundles, the app a copy written from the same release by
+`app/tool/time_zones/generate.dart`.
+
+| source | content | licence | attribution |
+|---|---|---|---|
+| IANA time zone database, release 2026e (`tzdata2026e.tar.gz` of https://data.iana.org/time-zones/releases/, signature checked; bundled in the server by the `jiff-tzdb` crate 0.1.9) | `zone.tab`, the countries and their zones with each zone's principal location (`backend/crates/lunaway-conflate/data/zone.tab`, as published), and the rules of every zone it names (`app/lib/core/time/zone_data.g.dart`, from 2025 on) | "Unless specified below, all files in the tz code and data (including this LICENSE file) are in the public domain." (`LICENSE` of the release, read 2026-10-11; the exceptions are three files of code Lunaway does not use). jiff-tzdb: MIT or Unlicense; the `timezone` package that reads the app's copy: BSD-2-Clause | none required |
+
 ## The routing graph
 
 The motorhome routing graph is derived from OpenStreetMap (ODbL) and IGN

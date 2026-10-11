@@ -228,14 +228,28 @@ void main() {
   });
 
   test('night runs from 21:00 to 06:00 on the place clock (summer time in October)', () {
-    expect(isNight(DateTime.utc(2026, 10, 6, 18, 59)), isFalse, reason: '20:59 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 19)), isTrue, reason: '21:00 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 3, 59)), isTrue, reason: '05:59 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 4)), isFalse, reason: '06:00 in Paris');
+    final paris = PlaceZone.paris;
     expect(
-      isNight(DateTime.utc(2026, 10, 6, 19), zone: PlaceZone.western),
+      isNight(DateTime.utc(2026, 10, 6, 18, 59), zone: paris),
+      isFalse,
+      reason: '20:59 in Paris',
+    );
+    expect(isNight(DateTime.utc(2026, 10, 6, 19), zone: paris), isTrue, reason: '21:00 in Paris');
+    expect(
+      isNight(DateTime.utc(2026, 10, 6, 3, 59), zone: paris),
+      isTrue,
+      reason: '05:59 in Paris',
+    );
+    expect(isNight(DateTime.utc(2026, 10, 6, 4), zone: paris), isFalse, reason: '06:00 in Paris');
+    expect(
+      isNight(DateTime.utc(2026, 10, 6, 19), zone: PlaceZone.of('PT', const LatLng(38.72, -9.14))),
       isFalse,
       reason: '20:00 in Lisbon',
+    );
+    expect(
+      isNight(DateTime.utc(2027, 7, 15, 20, 30), zone: PlaceZone.of('MA', const LatLng(31.63, -8))),
+      isFalse,
+      reason: '20:30 in Marrakech, 22:30 in Paris',
     );
   });
 

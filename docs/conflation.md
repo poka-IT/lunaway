@@ -214,9 +214,11 @@ on blocking threads, as pure functions of what was read.
 The device cannot evaluate the OSM `opening_hours` syntax, so each place
 carries its open intervals for the 14 days from local midnight of the day of
 computation, in UTC (`openingIntervals`), computed with the `opening-hours`
-crate: the timezone comes from the place's country (`FR` is
-`Europe/Paris`), and from its island for the Canary Islands, the Azores and
-Madeira, which keep another time than their mainland; public holidays from
+crate: the timezone comes from the IANA database, its country's zone in
+`zone.tab` (`FR` is `Europe/Paris`, `MA` `Africa/Casablanca`), the nearest
+of its country's zones where it has several, which gives the Canary
+Islands, the Azores and Madeira their own time (`docs/architecture.md`,
+"Time zones"); a country without a row (Kosovo) gets no intervals; public holidays from
 the national calendar of that country, embedded in the crate (regional ones,
 as in Alsace-Moselle or a German Land, are not applied); sun events from the
 place's position. Only `open` periods count. `openingIntervalsUntil` is

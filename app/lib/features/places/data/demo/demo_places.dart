@@ -527,7 +527,7 @@ final List<_Hours> _hours = [
 /// The demo towns are French: their hours are read on the clock of France,
 /// as the server reads them in each place's zone, never on the clock of the
 /// machine running the demo or the tests.
-const PlaceZone _zone = PlaceZone.central;
+final PlaceZone _zone = PlaceZone.paris;
 
 /// The UTC intervals of [hours] from the day before [now] over the window.
 List<OpeningInterval> _intervals(_Hours hours, DateTime now) {

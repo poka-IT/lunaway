@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -10,6 +11,7 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -129,10 +131,18 @@ PoiLayerState poiLayerState(Ref ref) {
   return computePoiLayerState(features, now, places: places);
 }
 
-/// Whether it is night now, when what is open around the clock comes first.
+/// Whether it is night now, when what is open around the clock comes first,
+/// on the clock of the country at the centre of the view (its region's:
+/// `MA`, `FR-BRE`); France's at sea or where no region is kept.
 @riverpod
-bool poiNight(Ref ref) =>
-    isNight(ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)());
+bool poiNight(Ref ref) {
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  final region = ref.watch(viewRegionProvider)?.code;
+  return isNight(
+    ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)(),
+    zone: PlaceZone.of(region?.split('-').first, view.center),
+  );
+}
 
 /// "Around this place": the copy kept on the device first, then the API's.
 /// A failure shows at once (no automatic retry): offline without a copy,

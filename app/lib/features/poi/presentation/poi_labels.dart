@@ -424,7 +424,7 @@ extension PoiLabels on Translations {
 
   /// A point's state at [now]: "Open 24/7", "Open, closes at 19:00",
   /// "Closed, opens tomorrow at 08:00", or "Hours unknown".
-  String poiOpening(PoiHours hours, DateTime now, {PlaceZone zone = PlaceZone.central}) {
+  String poiOpening(PoiHours hours, DateTime now, {required PlaceZone zone}) {
     if (hours.alwaysOpen) return _t.poi.alwaysOpen;
     final state = hours.stateAt(now);
     if (state == null) return _t.poi.hoursUnknown;
