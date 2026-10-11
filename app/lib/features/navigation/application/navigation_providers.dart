@@ -328,14 +328,16 @@ class ChosenDeparture extends _$ChosenDeparture {
 }
 
 /// A position the device already knows starts the preview's routes at once
-/// when it is this recent ([PreviewDevicePosition]).
-const previewKnownAge = Duration(minutes: 2);
+/// when it is this recent ([PreviewDevicePosition]): a vehicle parked while
+/// its trip is prepared has not moved; one that has is put right by the
+/// fresh fix once it comes.
+const previewKnownAge = Duration(minutes: 10);
 
 /// And when this precise, metres: a Wi-Fi fix, not a cell's.
 const previewKnownAccuracyM = 100.0;
 
-/// A fresh fix at least this far from the known one starts the routes
-/// again from it, metres (or farther than its own accuracy).
+/// A fresh fix farther than this from the known one, and farther than its
+/// own accuracy, starts the routes again from it, metres.
 const previewMovedM = 50.0;
 
 /// How long the device's last known position may take to read before the
@@ -347,23 +349,27 @@ const _knownReadWait = Duration(milliseconds: 500);
 /// the device is, whatever start the routes have (docs/speed-cameras.md).
 ///
 /// A recent and precise position the device already knows answers at once
-/// ([LocationFeed.lastKnown]), as a browser answers from its cache: a fresh
-/// fix took 4 s on the emulator, and up to its 15 s limit on a phone that
-/// has to wait for the satellites, while no other request keeps the
-/// platform's provider busy (`plan/research/125-calcul-itineraire.md`).
-/// The fresh fix is still asked for at once; it replaces the known
-/// position when it lands farther than [previewMovedM], and the routes
+/// ([LocationFeed.lastKnown]), as a browser answers from its cache: while
+/// no other request keeps the platform's provider busy, a fresh fix took
+/// 4 s on the emulator, and the request gives up only after 15 s
+/// (`plan/research/125-calcul-itineraire.md`). The fresh fix is still
+/// asked for at once; it replaces the known position when it lands
+/// farther than [previewMovedM] and than its own accuracy, and the routes
 /// follow it.
 @riverpod
 class PreviewDevicePosition extends _$PreviewDevicePosition {
   @override
   Future<LatLng?> build() async {
+    // This build's own Ref and clock, read before any wait: `ref` names the
+    // current build's, which a rebuild meanwhile would make another one.
+    final started = ref;
+    final now = ref.read(clockProvider);
     final fallback = ref.watch(userLocationProvider);
     final feed = ref.read(locationFeedProvider);
     final fresh = feed.current();
-    final known = await _known(feed);
+    final known = await _known(feed, now);
     if (known != null) {
-      unawaited(_settle(ref, fresh, known));
+      unawaited(_settle(started, fresh, known));
       return known.position;
     }
     final fix = await fresh;
@@ -372,7 +378,7 @@ class PreviewDevicePosition extends _$PreviewDevicePosition {
 
   /// The last position the device knew, when recent and precise enough to
   /// start from.
-  Future<Fix?> _known(LocationFeed feed) async {
+  static Future<Fix?> _known(LocationFeed feed, DateTime Function() now) async {
     final Fix? fix;
     try {
       fix = await feed.lastKnown().timeout(_knownReadWait, onTimeout: () => null);
@@ -381,15 +387,20 @@ class PreviewDevicePosition extends _$PreviewDevicePosition {
       return null;
     }
     if (fix == null || fix.accuracyM > previewKnownAccuracyM) return null;
-    final age = ref.read(clockProvider)().difference(fix.at);
-    return age > previewKnownAge ? null : fix;
+    return now().difference(fix.at) > previewKnownAge ? null : fix;
   }
 
-  /// Takes the fresh fix in place of [known] when it lands elsewhere; the
-  /// build that started it must still be the current one.
-  Future<void> _settle(Ref build, Future<Fix?> fresh, Fix known) async {
-    final fix = await fresh;
-    if (fix == null || !build.mounted) return;
+  /// Takes the fresh fix in place of [known] when it lands elsewhere, while
+  /// the build that asked for it is still the current one.
+  Future<void> _settle(Ref started, Future<Fix?> fresh, Fix known) async {
+    final Fix? fix;
+    try {
+      fix = await fresh;
+    } on Object catch (e) {
+      _log.fine('no fresh position: $e');
+      return;
+    }
+    if (fix == null || !started.mounted) return;
     final moved = fix.position.distanceTo(known.position);
     if (moved > math.max(previewMovedM, fix.accuracyM)) state = AsyncData(fix.position);
   }

@@ -624,10 +624,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   three layouts; `app/tool/web/journeys.py` plays them in three browsers
   before a deploy (`docs/release.md`, "Web").
 - **The preview's first route**: the route is asked from a position the
-  device already knows when it is under 2 minutes old and precise to
+  device already knows when it is under 10 minutes old and precise to
   100 m (`PreviewDevicePosition`, `LocationFeed.lastKnown`), as a browser
   answers from its cache; the fresh fix is asked at the same time and
-  starts the routes again when it lands more than 50 m away. Waiting for
+  starts the routes again when it lands farther than 50 m and than its
+  own accuracy. Waiting for
   a fresh fix held every route 4 s on the emulator, and that request
   gives up only after 15 s. The route map draws the
   images of its style (the badges, the arrows) as it is built, all at

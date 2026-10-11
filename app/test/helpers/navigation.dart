@@ -202,8 +202,18 @@ final class FakeLocationFeed implements LocationFeed {
   /// What [lastKnown] answers: the position the device had before.
   Fix? last;
 
+  /// Set: [lastKnown] answers when it completes, as a platform that is slow
+  /// to tell.
+  Completer<void>? lastHeld;
+
   @override
-  Future<Fix?> lastKnown() async => last;
+  Future<Fix?> lastKnown() async {
+    await lastHeld?.future;
+    return last;
+  }
+
+  /// The accuracy of the position [current] answers, metres.
+  double accuracyM = 5;
 
   /// Set: the position asked for once comes when it completes, as a
   /// browser's does seconds after the question.
@@ -213,7 +223,9 @@ final class FakeLocationFeed implements LocationFeed {
   Future<Fix?> current() async {
     currentAsked++;
     await held?.future;
-    return position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
+    return position == null
+        ? null
+        : Fix(position: position!, accuracyM: accuracyM, at: DateTime.utc(2026));
   }
 
   @override

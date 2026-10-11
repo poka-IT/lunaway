@@ -646,8 +646,42 @@ void main() {
         expect(tester.widget<FilledButton>(start()).onPressed, isNotNull);
       });
 
+      testWidgets('a fresh fix within its own accuracy of the known position asks nothing more', (
+        tester,
+      ) async {
+        // 120 m north, from a fix only good to 200 m.
+        final feed = FakeLocationFeed(position: const LatLng(45.84827, 1.28476))
+          ..held = Completer<void>()
+          ..accuracyM = 200
+          ..last = Fix(
+            position: known,
+            accuracyM: 12,
+            at: testNow.subtract(const Duration(seconds: 20)),
+          );
+        final plan = routeFixture('utrillo_motorhome');
+        final (_, routes) = await openPreview(
+          tester,
+          feed: feed,
+          answers: [plan, plan],
+          engine: LineEngine([plan]),
+        );
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests.map((r) => r.origin), [known]);
+      });
+
+      testWidgets('a device slow to tell its last position waits no more than a moment', (
+        tester,
+      ) async {
+        final feed = FakeLocationFeed(position: elsewhere)..lastHeld = Completer<void>();
+        final (_, routes) = await openPreview(tester, feed: feed);
+        await tester.pump(const Duration(milliseconds: 600));
+        await settleShort(tester);
+        expect(routes.requests.single.origin, elsewhere);
+      });
+
       for (final (name, age, accuracy) in [
-        ('an old', const Duration(minutes: 10), 12.0),
+        ('an old', const Duration(minutes: 30), 12.0),
         ('an imprecise', const Duration(seconds: 20), 900.0),
       ]) {
         testWidgets('$name known position waits for the fresh fix', (tester) async {
