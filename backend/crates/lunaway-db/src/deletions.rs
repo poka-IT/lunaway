@@ -350,12 +350,13 @@ pub struct Replayed {
 }
 
 /// What the journal finally says of one account.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Fate {
     /// Deleted: its own deletion, or merged into an account deleted since.
     Deleted,
-    /// Merged, at the end of its chain of merges, into this account.
-    MergedInto(Uuid),
+    /// Merged: the account it went into, then the accounts that one went
+    /// into in turn, to the one that holds the history now.
+    MergedInto(Vec<Uuid>),
 }
 
 /// The last word of the journal on each account, in the order of their
@@ -386,11 +387,13 @@ fn fates(entries: Vec<Entry>) -> Vec<(Uuid, Fate)> {
         .into_iter()
         .map(|account| {
             let mut seen = BTreeSet::from([account]);
+            let mut chain = Vec::new();
             let mut at = line.get(&account).copied().flatten();
             let fate = loop {
                 let Some(into) = at else {
                     break Fate::Deleted;
                 };
+                chain.push(into);
                 match line.get(&into) {
                     Some(None) => break Fate::Deleted,
                     // Merged further, unless the chain comes back on itself.
@@ -398,7 +401,7 @@ fn fates(entries: Vec<Entry>) -> Vec<(Uuid, Fate)> {
                         seen.insert(into);
                         at = Some(*next);
                     }
-                    Some(Some(_)) | None => break Fate::MergedInto(into),
+                    Some(Some(_)) | None => break Fate::MergedInto(chain),
                 }
             };
             (account, fate)
@@ -454,12 +457,25 @@ pub async fn replay(
                     out.orphan_files.extend(d.orphan_files);
                 }
             }
-            Fate::MergedInto(into) => {
-                let target = accounts::account(pool, into).await?;
-                if target.is_none_or(|t| t.banned_at.is_some()) {
+            Fate::MergedInto(chain) => {
+                // The account it went into when the database holds it: its
+                // own later merge, replayed after, then carries both as the
+                // merges did (which home won, which review); else the next
+                // one down the chain.
+                let mut target = None;
+                for into in chain {
+                    if accounts::account(pool, into)
+                        .await?
+                        .is_some_and(|t| t.banned_at.is_none())
+                    {
+                        target = Some(into);
+                        break;
+                    }
+                }
+                let Some(into) = target else {
                     out.kept.push(account);
                     continue;
-                }
+                };
                 if dry_run {
                     out.deleted += 1;
                     out.merged += 1;
@@ -688,8 +704,11 @@ mod tests {
         let (f, g, h) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
         assert_eq!(
             fates_of(vec![line(f, 1, Some(g)), line(g, 2, Some(h))]),
-            [(f, Fate::MergedInto(h)), (g, Fate::MergedInto(h))],
-            "f's history is in h now, through g"
+            [
+                (f, Fate::MergedInto(vec![g, h])),
+                (g, Fate::MergedInto(vec![h]))
+            ],
+            "f went into g, whose history is in h now"
         );
         assert_eq!(
             fates_of(vec![line(f, 1, Some(g)), line(f, 2, None)]),
@@ -698,7 +717,10 @@ mod tests {
         );
         assert_eq!(
             fates_of(vec![line(f, 1, Some(g)), line(g, 2, Some(f))]),
-            [(f, Fate::MergedInto(g)), (g, Fate::MergedInto(f))],
+            [
+                (f, Fate::MergedInto(vec![g])),
+                (g, Fate::MergedInto(vec![f]))
+            ],
             "a chain that comes back on itself ends"
         );
     }

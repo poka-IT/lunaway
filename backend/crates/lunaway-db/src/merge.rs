@@ -507,7 +507,11 @@ async fn fold_poi_review(
 /// The reports and queue entries about the review `from` now speak of the
 /// review `to`: a reporter who reported both keeps one report, and an open
 /// entry of a kind `to` already has open stays that one.
-async fn move_moderation(conn: &mut PgConnection, from: Uuid, to: Uuid) -> Result<(), DbError> {
+pub(crate) async fn move_moderation(
+    conn: &mut PgConnection,
+    from: Uuid,
+    to: Uuid,
+) -> Result<(), DbError> {
     sqlx::query!(
         r#"
         UPDATE content_reports c SET target_id = $2

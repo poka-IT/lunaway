@@ -10,7 +10,7 @@
 //! | a "still there?" answer | [`CONFIRMATION_DAYS`] from its creation | deleted; the place keeps what it gave in `confirmation_tallies`, the account its count |
 //! | a refused or withdrawn submission's content | [`SUBMISSION_PAYLOAD_DAYS`] from its decision | emptied (`{}`); the row stays as history |
 //! | a banned account's key hash, after it deleted itself | [`BANNED_KEY_DAYS`] from the deletion | deleted |
-//! | the key hash of an account merged into another, with that account | [`MERGED_KEY_DAYS`] from the merge | deleted; its device then hears "no account" alone |
+//! | the key hash of an account merged into another, with that account | [`MERGED_KEY_DAYS`] from the merge, as long as that account is not banned | deleted; its device then hears "no account" alone |
 //! | a machine translation | while its original stands, as it was translated | deleted with the original or its change (triggers), or by the next sweep after a race ([`crate::translations::forget_stale`]) |
 //!
 //! A report is resolved when a moderator dismissed it, or decided the
@@ -125,8 +125,14 @@ pub async fn sweep(pool: &PgPool, now: DateTime<Utc>) -> Result<Swept, DbError> 
     .execute(pool)
     .await?
     .rows_affected();
+    // The keys of an account merged into one banned since stay: past their
+    // year they would open a new account, which the ban's own keys cannot.
     let merged_keys = sqlx::query!(
-        "DELETE FROM merged_keys WHERE merged_at < $1",
+        r#"
+        DELETE FROM merged_keys m WHERE m.merged_at < $1
+          AND NOT EXISTS (SELECT 1 FROM accounts a
+                          WHERE a.id = m.into_account AND a.banned_at IS NOT NULL)
+        "#,
         before(now, MERGED_KEY_DAYS)
     )
     .execute(pool)

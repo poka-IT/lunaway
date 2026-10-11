@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM merged_keys m WHERE m.merged_at < $1\n          AND NOT EXISTS (SELECT 1 FROM accounts a\n                          WHERE a.id = m.into_account AND a.banned_at IS NOT NULL)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "399f931c9e0deb90c8349bfa5da4d3dada387207d1470d24f8c5ab68f42252f8"
+}
