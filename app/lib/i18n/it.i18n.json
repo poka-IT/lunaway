@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, secondo il tuo veicolo",
       "otherFuel": "Altro carburante",
       "keepFuel": "Salva come mio carburante",
+      "keepFuelHint": "Salva il tuo carburante per vederne il prezzo sulla mappa, accanto ai distributori.",
       "fuelKept": "$fuel salvato per il tuo veicolo.",
       "keepFuelFailed": "Non è stato possibile salvare il carburante.",
       "loading": "Ricerca lungo il percorso",
@@ -822,7 +823,6 @@
       "showInList": "Vedi nell'elenco",
       "showAll": "Mostra tutto",
       "onMap": "mostra sulla mappa",
-      "price": "$price €",
       "kindCamera": "Autovelox",
       "cameras(param=n)": {
         "one": "$n autovelox",
@@ -906,7 +906,6 @@
       "limitEstimated": "Limite stimato",
       "overLimit": "oltre il limite",
       "enforcementSource": "$source, elenco del $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Viaggio simulato: dimostrazione senza GPS",
       "places": {
         "button": "Luoghi sulla mappa",

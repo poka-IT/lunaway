@@ -4229,6 +4229,9 @@ class Translations$navigation$onTheWay$en {
 	/// en: 'Keep as my fuel'
 	String get keepFuel => 'Keep as my fuel';
 
+	/// en: 'Keep your fuel to see its price on the map, beside the stations.'
+	String get keepFuelHint => 'Keep your fuel to see its price on the map, beside the stations.';
+
 	/// en: '$fuel kept for your vehicle.'
 	String fuelKept({required Object fuel}) => '${fuel} kept for your vehicle.';
 
@@ -4785,9 +4788,6 @@ class Translations$navigation$marks$en {
 	/// en: 'show on the map'
 	String get onMap => 'show on the map';
 
-	/// en: '$price €'
-	String price({required Object price}) => '${price} €';
-
 	/// en: 'Speed camera'
 	String get kindCamera => 'Speed camera';
 
@@ -4951,9 +4951,6 @@ class Translations$navigation$guidance$en {
 
 	/// en: '$source, list of $date'
 	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
-
-	/// en: '$source…'
-	String enforcementSourceUndated({required Object source}) => '${source}…';
 
 	/// en: 'Simulated drive: a demonstration without GPS'
 	String get demoDrive => 'Simulated drive: a demonstration without GPS';
@@ -7879,6 +7876,7 @@ extension on Translations {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, from your vehicle',
 			'navigation.onTheWay.otherFuel' => 'Another fuel',
 			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
+			'navigation.onTheWay.keepFuelHint' => 'Keep your fuel to see its price on the map, beside the stations.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} kept for your vehicle.',
 			'navigation.onTheWay.keepFuelFailed' => 'The fuel could not be kept.',
 			'navigation.onTheWay.loading' => 'Searching along the route',
@@ -7915,9 +7913,9 @@ extension on Translations {
 			'navigation.states.originTitle' => 'Where are you?',
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
-			'navigation.states.offlineTitle' => 'No connection',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'No connection',
 			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
@@ -8073,7 +8071,6 @@ extension on Translations {
 			'navigation.marks.showInList' => 'See it in the list',
 			'navigation.marks.showAll' => 'Show all',
 			'navigation.marks.onMap' => 'show on the map',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Speed camera',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} speed camera', other: '${n} speed cameras', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Speed cameras: ${source}, list of ${date}',
@@ -8143,7 +8140,6 @@ extension on Translations {
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
@@ -8430,9 +8426,9 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
+			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
 			'translation.busy' => 'The translation service is busy. Try again later.',
@@ -8944,9 +8940,9 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
+			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
 			'poi.kind.secondHand' => 'Second-hand and antiques',

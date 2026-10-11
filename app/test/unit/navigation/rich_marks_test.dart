@@ -17,6 +17,7 @@ import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/rich_mark_art.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/season.dart';
@@ -435,29 +436,35 @@ void main() {
     const closure = LatLng(45.05, 4.05);
     at({a: const Offset(100, 400)});
     engine.screen[closure] = const Offset(100, 380);
-    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
-    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null, reach: 0)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null, reach: 0)]));
     expect(engine.features, isEmpty);
     engine.screen[closure] = const Offset(300, 600);
-    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
-    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null, reach: 0)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null, reach: 0)]));
     expect(engine.ids, ['a']);
   });
 
-  test("no mark over the figures beside a mark of the route: a camera's limit", () async {
+  test("no mark over what stands beside a mark of the route: a price, a camera's sign", () async {
     // Drawn over the route's marks, a place would hide the text MapLibre
-    // writes beside a badge: the camera's badge stands clear of the place,
-    // its limit, written to its right, does not.
+    // writes beside a badge, or the limit's sign beside a camera: the
+    // badge stands clear of the place, what is on its right does not.
     final a = _place('a', 45.01);
     const camera = LatLng(45.05, 4.05);
     at({a: const Offset(100, 400)});
     engine.screen[camera] = const Offset(30, 385);
-    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
-    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
+    const alone = (at: camera, side: null, reach: 0.0);
+    await driver.refresh(_input(art, places: [a], marks: [alone]));
+    await driver.refresh(_input(art, places: [a], marks: [alone]));
     expect(engine.ids, ['a'], reason: 'the badge alone leaves the place its room');
-    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
-    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
-    expect(engine.features, isEmpty);
+    final sign = (at: camera, side: null, reach: RouteBadge.cameraWithLimit.rightReach);
+    await driver.refresh(_input(art, places: [a], marks: [sign]));
+    await driver.refresh(_input(art, places: [a], marks: [sign]));
+    expect(engine.features, isEmpty, reason: "the camera's sign keeps its room");
+    const price = (at: camera, side: '1,789', reach: 0.0);
+    await driver.refresh(_input(art, places: [a], marks: [price]));
+    await driver.refresh(_input(art, places: [a], marks: [price]));
+    expect(engine.features, isEmpty, reason: 'a price keeps its room');
   });
 
   test('the room of a mark of the route takes in the text beside it', () {
@@ -468,8 +475,11 @@ void main() {
     expect(price.left, badge.left);
     expect(price.top, badge.top);
     expect(price.bottom, badge.bottom);
-    // 1.75 em to the text, then seven characters of 11 px figures.
-    expect(price.right, greaterThan(at.dx + 19 + 7 * 6));
+    // 1.5 em to the text, then seven characters of 13 px figures.
+    expect(price.right, greaterThan(at.dx + 19 + 7 * 7.8));
+    final sign = routeSignRoom(at, null, reach: RouteBadge.cameraWithLimit.rightReach);
+    expect(sign.left, badge.left, reason: 'the camera stays on its place');
+    expect(sign.right, at.dx + RouteBadge.cameraWithLimit.rightReach);
   });
 
   test('the same marks are not sent again', () async {

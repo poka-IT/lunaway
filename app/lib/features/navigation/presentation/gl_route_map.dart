@@ -30,6 +30,7 @@ import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart'
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -77,6 +78,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   /// The zones sent, with the lines they were cut from.
   (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
+
+  /// The prices under the stations' pins, as the source holds them.
+  List<FuelLabel>? _sentPrices;
   List<RouteMapMark>? _sentMarks;
   VehiclePuck? _sentVehicle;
   RouteCamera? _sentCamera;
@@ -456,12 +460,22 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       await _quietly(() => c.removeLayer(id));
       _drawn.remove(id);
     }
-    for (final id in [RoutePlaceLayers.poiSource, RoutePlaceLayers.placeSource]) {
+    for (final id in [
+      RoutePlaceLayers.poiSource,
+      RoutePlaceLayers.placeSource,
+      RoutePlaceLayers.fuelPriceSource,
+    ]) {
       await _quietly(() => c.removeSource(id));
     }
     if (!current()) return;
     await c.addSource(RoutePlaceLayers.poiSource, tileJsonSource(places.poiTileJsonUrl));
     await c.addSource(RoutePlaceLayers.placeSource, tileJsonSource(places.placeTileJsonUrl));
+    // The prices the app sends again once the layer is there.
+    _sentPrices = null;
+    await c.addSource(
+      RoutePlaceLayers.fuelPriceSource,
+      const gl.GeojsonSourceProperties(data: {'type': 'FeatureCollection', 'features': <Object>[]}),
+    );
     final poi = RoutePlaceLayers.poiLayout(_pinScale);
     final place = RoutePlaceLayers.placeLayout(_pinScale);
     for (final id in RouteLayerOrder.pins) {
@@ -482,6 +496,28 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           sourceLayer: PlaceTiles.pinsSourceLayer,
           minzoom: RoutePlaceLayers.placeMinZoom,
           filter: places.placeFilter ?? RoutePlaceLayers.none,
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      } else if (id == RoutePlaceLayers.fuelPrices) {
+        final layout = RoutePlaceLayers.fuelPriceLayout();
+        final paint = RoutePlaceLayers.fuelPricePaint(dark: _props.dark);
+        await c.addSymbolLayer(
+          RoutePlaceLayers.fuelPriceSource,
+          id,
+          gl.SymbolLayerProperties(
+            textField: layout['text-field'],
+            textFont: layout['text-font'],
+            textSize: layout['text-size'],
+            textAnchor: layout['text-anchor'],
+            textOffset: layout['text-offset'],
+            textPadding: layout['text-padding'],
+            textColor: paint['text-color'],
+            textHaloColor: paint['text-halo-color'],
+            textHaloWidth: paint['text-halo-width'],
+            visibility: places.poiFilter == null ? 'none' : 'visible',
+          ),
+          minzoom: RoutePlaceLayers.poiMinZoom,
           belowLayerId: below,
           enableInteraction: false,
         );
@@ -591,6 +627,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       if (filter != null) await c.setFilter(id, filter);
       await c.setLayerVisibility(id, filter != null);
     }
+    // The prices with the points' pins: no filter of their own.
+    await c.setLayerVisibility(RoutePlaceLayers.fuelPrices, places.poiFilter != null);
     _sentPlaces = places;
   }
 
@@ -655,6 +693,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           textField: RouteMarkStyle.textField,
           textFont: RouteMarkStyle.font,
           textSize: RouteMarkStyle.textSize,
+          textOffset: RouteMarkStyle.textOffset,
           textColor: RouteMarkStyle.textColor,
           textAllowOverlap: true,
           textIgnorePlacement: RouteMarkStyle.ignorePlacement,
@@ -674,7 +713,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           textAnchor: 'left',
           textOffset: RouteMarkStyle.sideOffset,
           textOptional: true,
-          textColor: RouteLook.hex(Palette.minuit),
+          textColor: RouteMarkStyle.sideTextColor,
           textHaloColor: RouteLook.hex(Palette.creme),
           textHaloWidth: RouteMarkStyle.sideHalo,
         ),
@@ -794,6 +833,14 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     await _syncPlaces(c);
     if (!mounted) return;
+    if (_placeLayers && !listEquals(p.fuelPrices, _sentPrices)) {
+      _sentPrices = p.fuelPrices;
+      await c.setGeoJsonSource(
+        RoutePlaceLayers.fuelPriceSource,
+        PoiMapStyle.fuelCollection(p.fuelPrices),
+      );
+      if (!mounted) return;
+    }
     final page = _page;
     if (p.vehicle != _sentVehicle) {
       final before = _sentVehicle;

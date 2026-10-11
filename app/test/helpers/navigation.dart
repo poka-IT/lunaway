@@ -35,8 +35,11 @@ import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
+import 'package:lunaway/shared/theme/palette.dart';
 
 /// The motorhome the recorded routes were computed for: 3.30 m high,
 /// 2.30 m wide, 7.4 m long, 3.5 t.
@@ -515,7 +518,11 @@ final class SchematicRouteMap extends StatelessWidget {
     final dark = props.dark;
     return ColoredBox(
       color: dark ? const Color(0xFF0E2340) : const Color(0xFFF1E7D2),
-      child: CustomPaint(painter: _SchematicPainter(props), size: Size.infinite),
+      child: CustomPaint(
+        // The app's typeface, as the legend and the cards draw the badges.
+        painter: _SchematicPainter(props, DefaultTextStyle.of(context).style.fontFamily),
+        size: Size.infinite,
+      ),
     );
   }
 }
@@ -557,11 +564,52 @@ Offset Function(LatLng)? schematicProjection(RouteMapProps props, Size size) {
 }
 
 class _SchematicPainter extends CustomPainter {
-  new(this.props);
+  new(this.props, this.fontFamily);
 
   final RouteMapProps props;
+  final String? fontFamily;
 
   Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
+
+  /// [text] at [at], its halo around it, as the engines write a label:
+  /// from [at] to the right, or centred on it ([centreX]), its middle on
+  /// [at]'s height ([centreY]) or its top.
+  static void _text(
+    Canvas canvas,
+    String text,
+    Offset at, {
+    required double size,
+    required Color color,
+    required Color halo,
+    String? fontFamily,
+    bool centreX = false,
+    bool centreY = false,
+  }) {
+    for (final (paint, stroke) in [(halo, true), (color, false)]) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: size,
+            fontWeight: FontWeight.w600,
+            foreground: stroke
+                ? (Paint()
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 3
+                    ..color = paint)
+                : (Paint()..color = paint),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.paint(
+        canvas,
+        at - Offset(centreX ? painter.width / 2 : 0, centreY ? painter.height / 2 : 0),
+      );
+      painter.dispose();
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -631,7 +679,36 @@ class _SchematicPainter extends CustomPainter {
       if (props.highlighted.contains(m.id)) {
         canvas.drawCircle(o, 19 * scale, Paint()..color = _hex(RouteLook.halo));
       }
-      paintRouteBadge(canvas, m.badge, o, scale: scale, text: m.label);
+      paintRouteBadge(canvas, m.badge, o, scale: scale, text: m.label, fontFamily: fontFamily);
+      // The text beside it (a station's price), from where the engines
+      // start it, in its colour on the cream halo.
+      if (m.side case final side?) {
+        _text(
+          canvas,
+          side,
+          o + const Offset(RouteMarkStyle.sideEms * RouteMarkStyle.sideTextSize, 0),
+          size: RouteMarkStyle.sideTextSize,
+          color: m.sideInk ?? _hex(RouteLook.hex(Palette.minuit)),
+          halo: Palette.creme,
+          fontFamily: fontFamily,
+          centreY: true,
+        );
+      }
+    }
+    // The prices under the stations' pins, the pin's tip on the station.
+    for (final l in props.fuelPrices) {
+      final o = project(l.position);
+      canvas.drawCircle(o, 3, Paint()..color = _hex(RouteLook.hex(Palette.lanterne700)));
+      _text(
+        canvas,
+        l.text,
+        o + const Offset(0, 4),
+        size: PoiMapStyle.fuelTextSize,
+        color: PoiLook.price(l.rank, dark: props.dark),
+        halo: props.dark ? const Color(0xFF06142A) : const Color(0xFFFFFBF4),
+        fontFamily: fontFamily,
+        centreX: true,
+      );
     }
     final v = props.vehicle;
     if (v != null) {

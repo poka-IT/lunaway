@@ -28,6 +28,10 @@ String routeMarkSource(RouteMapMark mark) => switch (mark.kind) {
 Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
   final features = {for (final s in RouteLayers.markSources) s: <Object?>[]};
   for (final (i, m) in marks.indexed) {
+    // A figure in a limit's sign beside the badge (a camera's) is written
+    // in the sign, larger than a stop's number while two figures fit.
+    final inSign = m.label != null && m.badge.limitSign;
+    final labelSize = inSign ? RouteMarkStyle.signTextSize(m.label!) : null;
     features[routeMarkSource(m)]!.add({
       'type': 'Feature',
       'id': routeMarkFeatureId(i),
@@ -37,9 +41,12 @@ Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
         'badge': m.badge.id,
         'rank': m.kind.tone.rank,
         'size': m.minor ? RouteMarkStyle.minorSize : 1,
-        'ink': RouteLook.hex(m.badge.ink),
+        'ink': RouteLook.hex(m.badge.labelInk),
         'label': ?m.label,
+        'labelSize': ?labelSize,
+        if (labelSize != null) 'labelAt': m.badge.labelOffset(labelSize),
         'side': ?m.side,
+        if (m.sideInk case final ink?) 'sideInk': RouteLook.hex(ink),
       },
       'geometry': {
         'type': 'Point',
@@ -136,10 +143,30 @@ abstract final class RouteMarkStyle {
     12,
     [
       '*',
-      11,
+      [
+        'coalesce',
+        ['get', 'labelSize'],
+        11,
+      ],
       ['get', 'size'],
     ],
   ];
+
+  /// Where a mark's text stands from its badge's centre, in ems: in the
+  /// limit's sign beside a camera (`labelAt`), else on the badge, as a
+  /// group's count.
+  static const List<Object> textOffset = [
+    'coalesce',
+    ['get', 'labelAt'],
+    [
+      'literal',
+      [0, 0],
+    ],
+  ];
+
+  /// The size of a limit's figure in its sign beside a camera: as large as
+  /// two figures fit in it, smaller for three (110, 130).
+  static double signTextSize(String figure) => figure.length > 2 ? 11 : 13;
 
   /// A higher rank draws above: a closure over a place.
   static const List<Object> sortKey = [
@@ -239,6 +266,7 @@ abstract final class RouteMarkStyle {
           'text-field': textField,
           'text-font': font,
           'text-size': textSize,
+          'text-offset': textOffset,
           'text-allow-overlap': true,
           'text-ignore-placement': ignorePlacement,
         },
@@ -259,7 +287,7 @@ abstract final class RouteMarkStyle {
           'text-optional': true,
         },
         'paint': {
-          'text-color': RouteLook.hex(Palette.minuit),
+          'text-color': sideTextColor,
           'text-halo-color': RouteLook.hex(Palette.creme),
           'text-halo-width': sideHalo,
         },
@@ -267,22 +295,33 @@ abstract final class RouteMarkStyle {
     ],
   ];
 
-  /// The text beside a badge: a station's price.
+  /// The text beside a badge: a station's price, a limit's figure.
   static const List<Object> sideFilter = [
     'all',
     notGroup,
     ['has', 'side'],
   ];
 
-  /// The size of the text beside a badge, and its halo.
-  static const double sideTextSize = 11;
+  /// The size of the text beside a badge, and its halo: a price read at a
+  /// glance from the cab, as large as the main map's (14) less a point, the
+  /// marks being smaller there.
+  static const double sideTextSize = 13;
   static const double sideHalo = 1.5;
+
+  /// The colour of the text beside a badge: a station's price in the
+  /// colour of its rank among those shown (`sideInk`), as on the main map;
+  /// else the navy.
+  static final List<Object> sideTextColor = [
+    'coalesce',
+    ['get', 'sideInk'],
+    RouteLook.hex(Palette.minuit),
+  ];
 
   /// Where the text beside a badge starts, in ems of [sideTextSize]: past
   /// the widest badge it stands beside (a blocking sign, 17.75 px from its
   /// centre with its hairline) by the text's halo, so neither the halo nor
   /// the figures cover the ring.
-  static const double sideEms = 1.75;
+  static const double sideEms = 1.5;
   static const List<Object> sideOffset = [sideEms, 0];
 
   static Map<String, Object?> _minZoom(String source) =>

@@ -8,14 +8,23 @@ import 'package:lunaway/shared/theme/map_look.dart';
 
 /// The places and points of interest on the guidance map: the main map's
 /// vector tiles, drawn lighter. Pins only (no dots of the far zooms, no
-/// gathering dots, no price under the stations), smaller, thinned where
-/// they would touch and kept off the vehicle's arrow, so the road and the
-/// arrow read first. Over the route line, at their own size: the line never
-/// hides a pin, and a pin hides only the bit of line under its head
-/// (`RouteLayerOrder`).
+/// gathering dots), smaller, thinned where they would touch and kept off
+/// the vehicle's arrow, so the road and the arrow read first; under a
+/// station's pin the price of the vehicle's fuel, as on the main map. Over
+/// the route line, at their own size: the line never hides a pin, and a
+/// pin hides only the bit of line under its head (`RouteLayerOrder`).
 abstract final class RoutePlaceLayers {
   static const placeSource = 'lw-route-place-tiles';
   static const poiSource = 'lw-route-pois';
+
+  /// The prices of the vehicle's fuel at the stations read around the
+  /// vehicle (`routePrices`), as GeoJSON the app sends.
+  static const fuelPriceSource = 'lw-route-fuel-prices';
+
+  /// Those prices, each under its station's pin, as the main map writes
+  /// them (`PoiMapStyle.fuelLayerId`): under the pins, which keep their
+  /// room, a price showing where there is some left.
+  static const fuelPrices = 'lw-route-fuel-prices';
 
   /// The places' pins, from the zoom whose tiles name them.
   static const placePins = 'lw-route-place-pins';
@@ -36,8 +45,9 @@ abstract final class RoutePlaceLayers {
     (poiMorePins, PoiMapStyle.morePointsLayer),
   ];
 
-  /// Bottom to top: the points under the places, as on the main map.
-  static const List<String> layers = [poiPins, poiMorePins, placePins];
+  /// Bottom to top: the prices under the points' pins, the points under
+  /// the places, as on the main map.
+  static const List<String> layers = [fuelPrices, poiPins, poiMorePins, placePins];
 
   /// Topmost first, for a tap.
   static const List<String> tappable = [placePins, poiMorePins, poiPins];
@@ -79,10 +89,37 @@ abstract final class RoutePlaceLayers {
   static List<Map<String, Object?>> jsonSources(RouteMapPlaces places) => [
     {'id': poiSource, 'vector': true, 'url': places.poiTileJsonUrl},
     {'id': placeSource, 'vector': true, 'url': places.placeTileJsonUrl},
+    {'id': fuelPriceSource, 'options': <String, Object?>{}},
   ];
 
+  /// The look of [fuelPrices], in the GL JS style syntax: the main map's
+  /// labels, coloured from the cheapest to the dearest of those shown, on
+  /// the halo of the basemap of the day or of the night.
+  static Map<String, Object?> fuelPriceLayout() => {
+    'text-field': ['get', 'label'],
+    'text-font': PoiMapStyle.fuelFont,
+    'text-size': PoiMapStyle.fuelTextSize,
+    'text-anchor': 'top',
+    'text-offset': [0, 0.25],
+    'text-padding': 1,
+  };
+
+  static Map<String, Object?> fuelPricePaint({required bool dark}) => {
+    'text-color': PoiMapStyle.fuelTextColor(dark: dark),
+    'text-halo-color': PoiMapStyle.fuelHalo(dark: dark),
+    'text-halo-width': 2,
+  };
+
   /// The layers in the GL JS style syntax, at the page's own scale.
-  static List<Map<String, Object?>> jsonLayers(RouteMapPlaces places) => [
+  static List<Map<String, Object?>> jsonLayers(RouteMapPlaces places, {bool dark = false}) => [
+    {
+      'id': fuelPrices,
+      'type': 'symbol',
+      'source': fuelPriceSource,
+      'minzoom': poiMinZoom,
+      'layout': {...fuelPriceLayout(), 'visibility': places.poiFilter == null ? 'none' : 'visible'},
+      'paint': fuelPricePaint(dark: dark),
+    },
     for (final (id, sourceLayer) in poiLayers)
       {
         'id': id,

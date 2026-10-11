@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, volgens je voertuig",
       "otherFuel": "Andere brandstof",
       "keepFuel": "Bewaren als mijn brandstof",
+      "keepFuelHint": "Bewaar je brandstof om de prijs ervan op de kaart te zien, naast de tankstations.",
       "fuelKept": "$fuel bewaard voor je voertuig.",
       "keepFuelFailed": "De brandstof kon niet worden bewaard.",
       "loading": "Zoeken langs de route",
@@ -822,7 +823,6 @@
       "showInList": "In de lijst bekijken",
       "showAll": "Alles tonen",
       "onMap": "op de kaart tonen",
-      "price": "€ $price",
       "kindCamera": "Flitser",
       "cameras(param=n)": {
         "one": "$n flitser",
@@ -906,7 +906,6 @@
       "limitEstimated": "Geschatte limiet",
       "overLimit": "boven de limiet",
       "enforcementSource": "$source, lijst van $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Gesimuleerde rit: demonstratie zonder gps",
       "places": {
         "button": "Plekken op de kaart",

@@ -110,6 +110,7 @@ final class RouteMapMark {
     this.minor = false,
     this.label,
     this.side,
+    this.sideInk,
   });
 
   /// What a tap or a hover on it reports (`place:<id>`, `poi:<id>`,
@@ -123,11 +124,16 @@ final class RouteMapMark {
   /// smaller, from a closer zoom.
   final bool minor;
 
-  /// Written on the badge: a stop's number, a limit's figure.
+  /// Written on the badge: a stop's number; in the limit's sign beside a
+  /// camera's badge, the limit.
   final String? label;
 
-  /// Written beside it: a station's price, a camera's limit.
+  /// Written beside it: a station's price, a restriction's figure.
   final String? side;
+
+  /// The colour of [side]: a price's, by its rank among the prices shown;
+  /// null for the navy.
+  final Color? sideInk;
 
   @override
   bool operator ==(Object other) =>
@@ -138,10 +144,11 @@ final class RouteMapMark {
       other.badge == badge &&
       other.minor == minor &&
       other.label == label &&
-      other.side == side;
+      other.side == side &&
+      other.sideInk == sideInk;
 
   @override
-  int get hashCode => Object.hash(id, position, kind, badge, minor, label, side);
+  int get hashCode => Object.hash(id, position, kind, badge, minor, label, side, sideInk);
 }
 
 /// What the pointer is over on the route map: a mark, or a group of them.
@@ -434,6 +441,7 @@ final class RouteMapProps {
     this.focus,
     this.guiding = false,
     this.places,
+    this.fuelPrices = const [],
     this.rich,
     this.zones = const [],
     this.onLineTap,
@@ -474,6 +482,10 @@ final class RouteMapProps {
   /// The places and points of interest, their pins over the route; null draws
   /// none.
   final RouteMapPlaces? places;
+
+  /// The price of the vehicle's fuel under the pins of the stations of
+  /// [places] (`routePrices`); drawn with those pins only.
+  final List<FuelLabel> fuelPrices;
 
   /// The few places drawn large, their photo or their pictogram; null
   /// draws none.

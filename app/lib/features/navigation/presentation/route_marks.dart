@@ -204,9 +204,9 @@ RouteMarker eventMarker(String id, RouteRoadEvent e, {bool blocking = false}) {
   );
 }
 
-/// The mark of a camera of the route: its badge, its limit beside it in
-/// the user's units. Null for an item without a place, which no route
-/// meets.
+/// The mark of a camera of the route, on its exact place: its badge, and
+/// the road sign of the limit it controls beside it, the figure in the
+/// user's units. Null for an item without a place, which no route meets.
 RouteMarker? cameraMarker(CameraOnRoute c, Translations t, {required DistanceUnits units}) {
   final at = c.item.markAt;
   if (at == null) return null;
@@ -216,8 +216,8 @@ RouteMarker? cameraMarker(CameraOnRoute c, Translations t, {required DistanceUni
       id: cameraMarkId(c.item.id),
       position: at,
       kind: RouteMarkKind.camera,
-      badge: RouteBadge.camera,
-      side: limit == null ? null : t.speedLimit(limit, units),
+      badge: limit == null ? RouteBadge.camera : RouteBadge.cameraWithLimit,
+      label: limit == null ? null : '${t.speedIn(limit, units)}',
     ),
     CameraSubject(c),
   );
@@ -513,7 +513,13 @@ List<LegendRow> legendRows(List<RouteMapMark> marks) {
       : groupable.map((m) => m.kind.tone).reduce((a, b) => a.rank >= b.rank ? a : b);
   return [
     for (final k in RouteMarkKind.values)
-      if (first[k] case final m?) LegendRow(k, m.badge, label: m.label, count: counts[k]!),
+      if (first[k] case final m?)
+        // The cameras' row stands for all of them: the camera alone, no
+        // one camera's limit.
+        if (m.badge.limitSign)
+          LegendRow(k, RouteBadge.camera, count: counts[k]!)
+        else
+          LegendRow(k, m.badge, label: m.label, count: counts[k]!),
     if (groupable.length > 1) LegendRow(null, RouteBadge.cluster(tone), label: '3'),
   ];
 }

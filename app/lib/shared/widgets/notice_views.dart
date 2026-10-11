@@ -68,7 +68,13 @@ final class StandingNotice {
 /// closes a passing notice and folds a standing one; a tap on a chip
 /// opens it again.
 class NoticeColumn extends StatelessWidget {
-  const new({required this.standing, this.gap = Space.s, this.centred = false, super.key});
+  const new({
+    required this.standing,
+    this.gap = Space.s,
+    this.centred = false,
+    this.atStart = false,
+    super.key,
+  });
 
   final List<StandingNotice> standing;
 
@@ -78,6 +84,10 @@ class NoticeColumn extends StatelessWidget {
   /// Each notice at its own width, centred, rather than across the column
   /// (the map's offline line, a pill under the search).
   final bool centred;
+
+  /// Each standing notice at its own width, at the column's start (the
+  /// guidance's camera beside the speed).
+  final bool atStart;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +102,11 @@ class NoticeColumn extends StatelessWidget {
       curve: Motion.standard,
       alignment: Alignment.topCenter,
       child: Column(
-        crossAxisAlignment: centred ? CrossAxisAlignment.center : CrossAxisAlignment.stretch,
+        crossAxisAlignment: centred
+            ? CrossAxisAlignment.center
+            : atStart
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.stretch,
         children: [
           for (final s in open)
             Padding(
@@ -119,7 +133,7 @@ class NoticeColumn extends StatelessWidget {
                 ),
               ),
             ),
-          _PassingSlot(board: board, gap: gap),
+          _PassingSlot(board: board, gap: gap, across: !atStart),
         ],
       ),
     );
@@ -128,10 +142,13 @@ class NoticeColumn extends StatelessWidget {
 
 /// The passing notice of the board, faded in, faded out.
 class _PassingSlot extends StatelessWidget {
-  const new({required this.board, required this.gap});
+  const new({required this.board, required this.gap, required this.across});
 
   final NoticeBoard board;
   final double gap;
+
+  /// Across the column; else at the notice's own width, from its start.
+  final bool across;
 
   @override
   Widget build(BuildContext context) {
@@ -147,18 +164,22 @@ class _PassingSlot extends StatelessWidget {
       // The one fading out takes no more touches: a tap on it would close
       // the one that replaced it.
       layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
+        alignment: across ? Alignment.topCenter : AlignmentDirectional.topStart,
         children: [
           for (final p in previous) IgnorePointer(child: p),
           ?current,
         ],
       ),
       child: notice == null
-          ? const SizedBox(key: ValueKey('no notice'), width: double.infinity)
+          ? SizedBox(key: const ValueKey('no notice'), width: across ? double.infinity : 0)
           : Padding(
               key: ValueKey(('passing', board.serial)),
               padding: EdgeInsets.only(top: gap),
-              child: _PassingCard(notice: notice, board: board, serial: board.serial),
+              child: across
+                  ? _PassingCard(notice: notice, board: board, serial: board.serial)
+                  : IntrinsicWidth(
+                      child: _PassingCard(notice: notice, board: board, serial: board.serial),
+                    ),
             ),
     );
   }

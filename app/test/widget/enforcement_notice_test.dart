@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/plural_rules.dart';
@@ -9,6 +8,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/notices.dart';
@@ -16,33 +16,15 @@ import 'package:lunaway/shared/theme/app_theme.dart';
 
 import '../helpers/fonts.dart';
 
-// The French lists as the API serves them: the banner cites a list by its
-// licensor, in the app's language, and leaves the longer attribution to
-// the route preview.
 final _list = EnforcementSource(
   id: 'fr-dsr',
   name: 'Délégation à la sécurité routière, radars fixes',
   attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
   fetchedAt: DateTime.utc(2026, 10, 6, 5),
 );
-final _map = EnforcementSource(
-  id: 'securite-routiere',
-  name: 'Sécurité routière, radars',
-  attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
-  fetchedAt: DateTime.utc(2026, 10, 6, 5),
-);
-// The longest of the other names; its attribution is a whole sentence.
-final _norway = EnforcementSource(
-  id: 'no-nvdb-atk',
-  name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
-  attribution:
-      'Inneholder data under norsk lisens for offentlige data (NLOD) '
-      'tilgjengeliggjort av Statens vegvesen.',
-  fetchedAt: DateTime.utc(2026, 10, 6, 5),
-);
 
-/// Every look of the aids' standing notice, as long as each gets.
-final _banners = <String, EnforcementAlert>{
+/// Every look of the camera's pill, as long as each gets.
+final _pills = <String, EnforcementAlert>{
   'a camera ahead': EnforcementAlert(
     id: 'c',
     kind: EnforcementKind.camera,
@@ -77,31 +59,30 @@ final _banners = <String, EnforcementAlert>{
   ),
 };
 
+/// The pill alone, at the start of a room [width] wide, as the guidance
+/// gives it beside the speed.
 Future<void> _pump(
   WidgetTester tester,
-  EnforcementAlert banner, {
+  EnforcementAlert alert, {
   required double width,
-  double scale = 2,
+  double scale = 1,
+  AppLocale locale = AppLocale.de,
 }) async {
-  await LocaleSettings.setLocale(AppLocale.de);
+  await LocaleSettings.setLocale(locale);
   tester.platformDispatcher.textScaleFactorTestValue = scale;
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(
     TranslationProvider(
       child: MaterialApp(
         theme: lunaTheme(Brightness.light),
-        // The notices scroll where they run out of height: only the
-        // width binds.
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: Center(
-              child: SizedBox(
-                width: width,
-                child: EnforcementNotice(
-                  alert: banner,
-                  units: DistanceUnits.metric,
-                  now: DateTime(2026, 10, 9),
-                ),
+          body: Align(
+            alignment: Alignment.bottomLeft,
+            child: SizedBox(
+              width: width,
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: EnforcementChip(alert: alert, units: DistanceUnits.metric),
               ),
             ),
           ),
@@ -111,19 +92,12 @@ Future<void> _pump(
   );
 }
 
-/// The lines of the notice that cite a list, as drawn: those naming one
-/// of [names].
-List<({String text, RenderParagraph paragraph})> _citedLines(
-  WidgetTester tester,
-  List<String> names,
-) => [
-  for (final e
-      in find
-          .descendant(of: find.byType(EnforcementNotice), matching: find.byType(RichText))
-          .evaluate())
-    if ((e.widget as RichText).text.toPlainText() case final text when names.any(text.contains))
-      (text: text, paragraph: e.renderObject! as RenderParagraph),
-];
+/// The colour the pill is drawn on.
+Color _ground(WidgetTester tester) => tester
+    .widget<Material>(
+      find.descendant(of: find.byType(EnforcementChip), matching: find.byType(Material)).first,
+    )
+    .color!;
 
 void main() {
   setUpAll(() async {
@@ -132,174 +106,102 @@ void main() {
     await initializeDateFormatting('fr');
   });
 
-  // German runs the longest of the six; 240 dp is a small phone's notice
-  // column once the buttons have their room.
-  for (final MapEntry(key: name, value: banner) in _banners.entries) {
-    for (final width in [240.0, 364.0]) {
+  // German runs the longest of the six; 160 dp is what a small phone leaves
+  // left of the road behind the vehicle.
+  for (final MapEntry(key: name, value: pill) in _pills.entries) {
+    for (final width in [160.0, 240.0]) {
       testWidgets('$name fits $width dp in German with text twice as large', (tester) async {
-        await _pump(tester, banner, width: width);
+        await _pump(tester, pill, width: width, scale: 2);
         expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(EnforcementChip)).width, lessThanOrEqualTo(width));
       });
     }
   }
+
+  testWidgets('a compact pill: the pictogram, the distance and the limit, nothing more', (
+    tester,
+  ) async {
+    await loadRealFonts();
+    await _pump(tester, _pills['a camera ahead']!, width: 390, locale: AppLocale.fr);
+    final pill = find.byType(EnforcementChip);
+    expect(find.descendant(of: pill, matching: find.byType(RouteBadgeView)), findsOneWidget);
+    expect(find.descendant(of: pill, matching: find.text('780 m')), findsOneWidget);
+    final sign = tester.widget<LimitSign>(
+      find.descendant(of: pill, matching: find.byType(LimitSign)),
+    );
+    expect(sign.value, 110);
+    // The kind, the lists and their date go to the screen reader and to the
+    // camera's card, not on the road's view.
+    final words = [
+      for (final t in tester.widgetList<Text>(
+        find.descendant(of: pill, matching: find.byType(Text)),
+      ))
+        t.data,
+    ];
+    expect(words, ['780 m', '110'], reason: 'one figure and the limit');
+    // A touch target high, no more; about a third of a phone's width.
+    final size = tester.getSize(pill);
+    expect(size.height, 48);
+    expect(size.width, lessThan(170));
+  });
+
+  testWidgets("red only over the camera's limit, sober otherwise", (tester) async {
+    final scheme = lunaTheme(Brightness.light).colorScheme;
+    const ahead = EnforcementAlert(
+      id: 'c',
+      kind: EnforcementKind.camera,
+      category: CameraCategory.fixed,
+      aheadM: 400,
+      remainingM: 0,
+      limitKmh: 90,
+      cameraLimit: true,
+    );
+    await _pump(tester, ahead, width: 360);
+    expect(_ground(tester), scheme.surfaceContainerLowest, reason: 'under the limit');
+    expect(_ground(tester), isNot(scheme.error));
+    expect(_ground(tester), isNot(scheme.errorContainer));
+    final over = ahead.withOver();
+    await _pump(tester, over, width: 360);
+    expect(_ground(tester), scheme.error, reason: 'over the limit');
+    final sign = tester.widget<LimitSign>(find.byType(LimitSign));
+    expect(sign.outline, scheme.onError, reason: "the sign's red ring kept apart on the red");
+    await _pump(tester, _pills['a zone with an estimated limit']!, width: 360);
+    expect(_ground(tester), scheme.surfaceContainerLowest, reason: 'a zone, under the limit');
+  });
 
   testWidgets('a zone never shows a camera; a camera shows its badge, as on the map', (
     tester,
   ) async {
-    await _pump(tester, _banners['a zone with an estimated limit']!, width: 364);
+    await _pump(tester, _pills['a zone with an estimated limit']!, width: 364);
     expect(find.byType(RouteBadgeView), findsNothing);
-    await _pump(tester, _banners['a camera ahead']!, width: 364);
+    await _pump(tester, _pills['a camera ahead']!, width: 364);
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
-  // The test font draws every glyph a square as wide as the text is high:
-  // the widths below choose which form of each line fits.
-  testWidgets('three lists take two lines, the last ones dropped whole before a name is cut', (
+  testWidgets("inside a section: the average's sign and the vehicle's average under the figure", (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    EnforcementSource list(String id, String name) => EnforcementSource(
-      id: id,
-      name: name,
-      attribution: name,
-      fetchedAt: DateTime.utc(2026, 10, 9, 5),
-      listUpdatedAt: DateTime.utc(2025, 12, 30),
-    );
-    final zone = EnforcementAlert(
-      id: 'z',
-      kind: EnforcementKind.zone,
-      aheadM: 0,
-      remainingM: 1800,
-      sources: [
-        list('securite-routiere', 'Sécurité routière, radars'),
-        list('fr-dsr', 'Liste des radars fixes en France'),
-        list('osm', 'OpenStreetMap'),
-      ],
-    );
-    final de = AppLocale.de.buildSync();
-    final [map, dsr, osm] = zone.sources;
-    String undated(String names) => de.navigation.guidance.enforcementSourceUndated(source: names);
-    final names = [for (final s in zone.sources) de.listName(s)];
-    for (final (width, expected) in [
-      (
-        1000.0,
-        [
-          de.enforcementSource(map, now: DateTime(2026, 10, 9)),
-          undated('${de.listName(dsr)} · ${de.listName(osm)}'),
-        ],
-      ),
-      (650.0, [undated(de.listName(map)), undated(de.listName(dsr))]),
-    ]) {
-      await _pump(tester, zone, width: width, scale: 1);
-      final lines = _citedLines(tester, names);
-      expect([for (final l in lines) l.text], expected, reason: 'at $width');
-      for (final line in lines) {
-        expect(line.paragraph.didExceedMaxLines, isFalse, reason: 'cut: ${line.text}');
-      }
-    }
-    expect(find.textContaining('Liste des radars'), findsNothing, reason: 'named in German');
+    await _pump(tester, _pills['a section over its average']!, width: 360, locale: AppLocale.fr);
+    final fr = AppLocale.fr.buildSync();
+    expect(find.text(fr.navigation.enforcement.averageLabel), findsOneWidget);
+    expect(find.text('encore 12 km'), findsOneWidget);
+    expect(find.text(fr.navigation.enforcement.yourAverage(speed: '118 km/h')), findsOneWidget);
+    expect(find.text(fr.navigation.guidance.overLimit), findsNothing, reason: 'the colour says it');
   });
-
-  testWidgets('lists share a line that holds them, else take one each, named by their licensor', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(2400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final zone = EnforcementAlert(
-      id: 'z',
-      kind: EnforcementKind.zone,
-      aheadM: 0,
-      remainingM: 1200,
-      sources: [_map, _list],
-    );
-    await _pump(tester, zone, width: 2000, scale: 1);
-    expect(find.textContaining(' · '), findsOneWidget, reason: 'two lists, one line');
-    expect(
-      find.textContaining('Délégation à la sécurité routière'),
-      findsOneWidget,
-      reason: 'the Licence Ouverte asks for the licensor',
-    );
-    expect(find.textContaining('radars fixes'), findsNothing, reason: 'the API names it in French');
-    expect(
-      find.textContaining('data.gouv.fr'),
-      findsNothing,
-      reason: "the attribution is the route preview's",
-    );
-    await _pump(tester, zone, width: 364, scale: 1);
-    expect(find.textContaining(' · '), findsNothing, reason: 'a line each, never one cut short');
-    final lines = _citedLines(tester, ['Sécurité routière', 'Délégation à la sécurité routière']);
-    expect(
-      [for (final l in lines) l.text.split(',').first.replaceAll('…', '')],
-      ['Sécurité routière', 'Délégation à la sécurité routière'],
-    );
-  });
-
-  // The banner sits over the top of the map while driving: a single list
-  // takes one line on a phone, measured with the app's own typefaces (the
-  // test font draws every glyph as a square). Both French lists are
-  // measured in the guidance itself (enforcement_lists_test.dart).
-  for (final locale in [AppLocale.fr, AppLocale.de]) {
-    for (final (name, sources) in [
-      ('the French list of fixed cameras', [_list]),
-      ("Norway's list", [_norway]),
-    ]) {
-      testWidgets('$name takes one line at 360 dp in ${locale.languageCode}', (tester) async {
-        await loadRealFonts();
-        await LocaleSettings.setLocale(locale);
-        final zone = EnforcementAlert(
-          id: 'z',
-          kind: EnforcementKind.zone,
-          aheadM: 0,
-          remainingM: 1200,
-          limitKmh: 80,
-          sources: sources,
-        );
-        await tester.pumpWidget(
-          TranslationProvider(
-            child: MaterialApp(
-              theme: lunaTheme(Brightness.light),
-              home: Scaffold(
-                body: Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: 360,
-                    child: EnforcementNotice(
-                      alert: zone,
-                      units: DistanceUnits.metric,
-                      now: DateTime(2026, 10, 9),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        final lines = _citedLines(tester, [locale.buildSync().listName(sources.first)]);
-        expect(
-          lines,
-          hasLength(1),
-          reason: "three lines of lists took a fifth of a phone's screen",
-        );
-        expect(lines.single.paragraph.didExceedMaxLines, isFalse, reason: lines.single.text);
-      });
-    }
-  }
 
   testWidgets('the look gives the notice one sentence and makes no live region of its own', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await _pump(tester, _banners['a section over its average']!, width: 364);
+    await _pump(tester, _pills['a section over its average']!, width: 364);
     final de = AppLocale.de.buildSync();
     final sentence = enforcementText(
       de,
-      _banners['a section over its average']!,
+      _pills['a section over its average']!,
       DistanceUnits.metric,
     );
     expect(sentence, contains(de.navigation.guidance.overLimit));
+    expect(sentence, contains(de.alertKind(_pills['a section over its average']!)));
     // The notice's own node is live on its first frame; a live region here
     // would read every new distance.
     expect(find.bySemanticsLabel(sentence), findsOneWidget);
@@ -311,10 +213,22 @@ void main() {
   });
 
   test('graver as the vehicle comes, enters, then goes over the limit', () {
-    final ahead = _banners['a camera ahead']!;
-    final inside = _banners['a zone with an estimated limit']!;
-    final over = _banners['a section over its average']!;
+    final ahead = _pills['a camera ahead']!;
+    final inside = _pills['a zone with an estimated limit']!;
+    final over = _pills['a section over its average']!;
     expect([enforcementLevel(ahead), enforcementLevel(inside), enforcementLevel(over)], [1, 2, 3]);
+  });
+
+  test('the standing notice of a pill: folded in the colours of the error only over the limit', () {
+    final de = AppLocale.de.buildSync();
+    final ahead = enforcementNotice(de, _pills['a camera ahead']!, DistanceUnits.metric);
+    expect(ahead.strong, isFalse);
+    expect(ahead.level, 1);
+    expect(ahead.look, isA<EnforcementChip>());
+    final over = enforcementNotice(de, _pills['a section over its average']!, DistanceUnits.metric);
+    expect(over.strong, isTrue);
+    expect(over.level, 3);
+    expect(over.id, isNot(ahead.id));
   });
 
   test("a camera's point just passed is no stretch entered: its notice is not told again", () {
@@ -341,7 +255,7 @@ void main() {
     for (final alert in [held, near]) {
       await _pump(tester, alert, width: 360);
       expect(find.textContaining(RegExp(r'\b0 m\b')), findsNothing, reason: '$alert');
-      expect(find.textContaining('Gefahrenzone'), findsWidgets, reason: 'the kind alone');
+      expect(tester.takeException(), isNull);
     }
     final fr = AppLocale.fr.buildSync();
     expect(enforcementText(fr, held, DistanceUnits.metric), 'Zone de danger.');
@@ -363,4 +277,18 @@ void main() {
     expect(rule.text, startsWith(de.countryName('NL')));
     expect(rule.id, isNot(end.id));
   });
+}
+
+extension on EnforcementAlert {
+  /// The same alert, the vehicle over its limit.
+  EnforcementAlert withOver() => EnforcementAlert(
+    id: id,
+    kind: kind,
+    category: category,
+    aheadM: aheadM,
+    remainingM: remainingM,
+    limitKmh: limitKmh,
+    cameraLimit: cameraLimit,
+    over: true,
+  );
 }

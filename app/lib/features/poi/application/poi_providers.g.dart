@@ -1056,7 +1056,7 @@ final class FuelLabelsProvider
   }
 }
 
-String _$fuelLabelsHash() => r'10ed9c0c413fe629ac6044d3dad85f3fcc7fd8ab';
+String _$fuelLabelsHash() => r'cc0edd4b43bc78d9cea212507fcc19448982c49a';
 
 /// The price of the chosen fuel under each station of the view, coloured
 /// from the cheapest to the dearest of those in view, written in

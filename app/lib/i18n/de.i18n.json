@@ -598,6 +598,7 @@
       "fuelOfVehicle": "$fuel, laut Ihrem Fahrzeug",
       "otherFuel": "Anderer Kraftstoff",
       "keepFuel": "Als meinen Kraftstoff speichern",
+      "keepFuelHint": "Speichern Sie Ihren Kraftstoff, um seinen Preis auf der Karte neben den Tankstellen zu sehen.",
       "fuelKept": "$fuel für Ihr Fahrzeug gespeichert.",
       "keepFuelFailed": "Der Kraftstoff konnte nicht gespeichert werden.",
       "loading": "Suche entlang der Route",
@@ -822,7 +823,6 @@
       "showInList": "In der Liste ansehen",
       "showAll": "Alle anzeigen",
       "onMap": "auf der Karte zeigen",
-      "price": "$price €",
       "kindCamera": "Blitzer",
       "cameras(param=n)": {
         "one": "$n Blitzer",
@@ -906,7 +906,6 @@
       "limitEstimated": "Geschätztes Tempolimit",
       "overLimit": "über dem Tempolimit",
       "enforcementSource": "$source, Liste vom $date",
-      "enforcementSourceUndated": "$source…",
       "demoDrive": "Simulierte Fahrt: Vorführung ohne GPS",
       "places": {
         "button": "Plätze auf der Karte",

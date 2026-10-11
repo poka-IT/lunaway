@@ -1970,6 +1970,7 @@ class _Translations$navigation$onTheWay$fr extends Translations$navigation$onThe
 	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, d\'après votre véhicule';
 	@override String get otherFuel => 'Autre carburant';
 	@override String get keepFuel => 'Retenir comme mon carburant';
+	@override String get keepFuelHint => 'Retenez votre carburant pour voir son prix sur la carte, à côté des stations.';
 	@override String fuelKept({required Object fuel}) => '${fuel} retenu pour votre véhicule.';
 	@override String get keepFuelFailed => 'Le carburant n\'a pas pu être retenu.';
 	@override String get loading => 'Recherche le long du trajet';
@@ -2201,7 +2202,6 @@ class _Translations$navigation$marks$fr extends Translations$navigation$marks$en
 	@override String get showInList => 'Voir dans la liste';
 	@override String get showAll => 'Tout afficher';
 	@override String get onMap => 'montrer sur la carte';
-	@override String price({required Object price}) => '${price} €';
 	@override String get kindCamera => 'Radar';
 	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} radar',
@@ -2268,7 +2268,6 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get limitEstimated => 'Limite estimée';
 	@override String get overLimit => 'au-dessus de la limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, liste du ${date}';
-	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Trajet simulé : démonstration sans GPS';
 	@override late final _Translations$navigation$guidance$places$fr places = _Translations$navigation$guidance$places$fr._(_root);
 }
@@ -3898,6 +3897,7 @@ extension on TranslationsFr {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, d\'après votre véhicule',
 			'navigation.onTheWay.otherFuel' => 'Autre carburant',
 			'navigation.onTheWay.keepFuel' => 'Retenir comme mon carburant',
+			'navigation.onTheWay.keepFuelHint' => 'Retenez votre carburant pour voir son prix sur la carte, à côté des stations.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} retenu pour votre véhicule.',
 			'navigation.onTheWay.keepFuelFailed' => 'Le carburant n\'a pas pu être retenu.',
 			'navigation.onTheWay.loading' => 'Recherche le long du trajet',
@@ -3934,9 +3934,9 @@ extension on TranslationsFr {
 			'navigation.states.originTitle' => 'Où êtes-vous ?',
 			'navigation.states.originHint' => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.',
 			'navigation.states.locate' => 'Me localiser',
-			'navigation.states.offlineTitle' => 'Pas de connexion',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'Pas de connexion',
 			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			'navigation.states.rateLimitedTitle' => 'Trop d\'itinéraires demandés',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Réessayez dans ${seconds} s.',
@@ -4092,7 +4092,6 @@ extension on TranslationsFr {
 			'navigation.marks.showInList' => 'Voir dans la liste',
 			'navigation.marks.showAll' => 'Tout afficher',
 			'navigation.marks.onMap' => 'montrer sur la carte',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Radar',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} radar', other: '${n} radars', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Radars : ${source}, liste du ${date}',
@@ -4162,7 +4161,6 @@ extension on TranslationsFr {
 			'navigation.guidance.limitEstimated' => 'Limite estimée',
 			'navigation.guidance.overLimit' => 'au-dessus de la limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Trajet simulé : démonstration sans GPS',
 			'navigation.guidance.places.button' => 'Lieux sur la carte',
 			'navigation.guidance.places.buttonHidden' => 'Lieux sur la carte : masqués',
@@ -4449,9 +4447,9 @@ extension on TranslationsFr {
 			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
 			'translation.from.it' => 'Traduit automatiquement de l\'italien',
 			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			'translation.offline' => 'La traduction a besoin du réseau.',
 			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
 			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
@@ -4963,9 +4961,9 @@ extension on TranslationsFr {
 			'poi.kind.hardware' => 'Bricolage, quincaillerie',
 			'poi.kind.home' => 'Maison, décoration',
 			'poi.kind.electronics' => 'Électronique, téléphonie',
+			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			'poi.kind.departmentStore' => 'Grand magasin, centre commercial',
 			'poi.kind.varietyStore' => 'Bazar, discount',
 			'poi.kind.secondHand' => 'Occasion, brocante',

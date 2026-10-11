@@ -388,7 +388,14 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
             ],
           ),
         ),
-        if (own == null && ref.watch(vehicleProvider).value != null)
+        // Without a fuel of its own, the vehicle's stations on the map show
+        // their logo alone: one sentence says what keeping one does.
+        if (own == null && ref.watch(vehicleProvider).value != null) ...[
+          const SizedBox(height: Space.s),
+          Text(
+            t.navigation.onTheWay.keepFuelHint,
+            style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
@@ -397,6 +404,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
               child: Text(t.navigation.onTheWay.keepFuel),
             ),
           ),
+        ],
       ],
     ];
     return [

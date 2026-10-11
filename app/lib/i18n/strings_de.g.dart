@@ -1970,6 +1970,7 @@ class _Translations$navigation$onTheWay$de extends Translations$navigation$onThe
 	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, laut Ihrem Fahrzeug';
 	@override String get otherFuel => 'Anderer Kraftstoff';
 	@override String get keepFuel => 'Als meinen Kraftstoff speichern';
+	@override String get keepFuelHint => 'Speichern Sie Ihren Kraftstoff, um seinen Preis auf der Karte neben den Tankstellen zu sehen.';
 	@override String fuelKept({required Object fuel}) => '${fuel} für Ihr Fahrzeug gespeichert.';
 	@override String get keepFuelFailed => 'Der Kraftstoff konnte nicht gespeichert werden.';
 	@override String get loading => 'Suche entlang der Route';
@@ -2201,7 +2202,6 @@ class _Translations$navigation$marks$de extends Translations$navigation$marks$en
 	@override String get showInList => 'In der Liste ansehen';
 	@override String get showAll => 'Alle anzeigen';
 	@override String get onMap => 'auf der Karte zeigen';
-	@override String price({required Object price}) => '${price} €';
 	@override String get kindCamera => 'Blitzer';
 	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: '${n} Blitzer',
@@ -2268,7 +2268,6 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String get limitEstimated => 'Geschätztes Tempolimit';
 	@override String get overLimit => 'über dem Tempolimit';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, Liste vom ${date}';
-	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Simulierte Fahrt: Vorführung ohne GPS';
 	@override late final _Translations$navigation$guidance$places$de places = _Translations$navigation$guidance$places$de._(_root);
 }
@@ -3898,6 +3897,7 @@ extension on TranslationsDe {
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, laut Ihrem Fahrzeug',
 			'navigation.onTheWay.otherFuel' => 'Anderer Kraftstoff',
 			'navigation.onTheWay.keepFuel' => 'Als meinen Kraftstoff speichern',
+			'navigation.onTheWay.keepFuelHint' => 'Speichern Sie Ihren Kraftstoff, um seinen Preis auf der Karte neben den Tankstellen zu sehen.',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} für Ihr Fahrzeug gespeichert.',
 			'navigation.onTheWay.keepFuelFailed' => 'Der Kraftstoff konnte nicht gespeichert werden.',
 			'navigation.onTheWay.loading' => 'Suche entlang der Route',
@@ -3934,9 +3934,9 @@ extension on TranslationsDe {
 			'navigation.states.originTitle' => 'Wo sind Sie?',
 			'navigation.states.originHint' => 'Lunaway braucht Ihren Standort, um die Route zu berechnen.',
 			'navigation.states.locate' => 'Mich orten',
-			'navigation.states.offlineTitle' => 'Keine Verbindung',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offlineTitle' => 'Keine Verbindung',
 			'navigation.states.offlineHint' => 'Routen werden auf dem Server von Lunaway berechnet. Ohne Netz übergibt „Öffnen in …“ die Fahrt an eine Navigations-App mit eigenen Karten.',
 			'navigation.states.rateLimitedTitle' => 'Zu viele Routenanfragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Versuchen Sie es in ${seconds} s erneut.',
@@ -4092,7 +4092,6 @@ extension on TranslationsDe {
 			'navigation.marks.showInList' => 'In der Liste ansehen',
 			'navigation.marks.showAll' => 'Alle anzeigen',
 			'navigation.marks.onMap' => 'auf der Karte zeigen',
-			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.marks.kindCamera' => 'Blitzer',
 			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Blitzer', other: '${n} Blitzer', ), 
 			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Blitzer: ${source}, Liste vom ${date}',
@@ -4162,7 +4161,6 @@ extension on TranslationsDe {
 			'navigation.guidance.limitEstimated' => 'Geschätztes Tempolimit',
 			'navigation.guidance.overLimit' => 'über dem Tempolimit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, Liste vom ${date}',
-			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Simulierte Fahrt: Vorführung ohne GPS',
 			'navigation.guidance.places.button' => 'Plätze auf der Karte',
 			'navigation.guidance.places.buttonHidden' => 'Plätze auf der Karte: ausgeblendet',
@@ -4449,9 +4447,9 @@ extension on TranslationsDe {
 			'translation.from.es' => 'Automatisch aus dem Spanischen übersetzt',
 			'translation.from.it' => 'Automatisch aus dem Italienischen übersetzt',
 			'translation.from.nl' => 'Automatisch aus dem Niederländischen übersetzt',
+			'translation.from.unknown' => ({required Object language}) => 'Automatisch übersetzt (Originalsprache: ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Automatisch übersetzt (Originalsprache: ${language})',
 			'translation.offline' => 'Für die Übersetzung ist eine Internetverbindung nötig.',
 			'translation.failedOffline' => 'Keine Internetverbindung: Der Text konnte nicht übersetzt werden.',
 			'translation.busy' => 'Der Übersetzungsdienst ist ausgelastet. Versuchen Sie es später erneut.',
@@ -4963,9 +4961,9 @@ extension on TranslationsDe {
 			'poi.kind.hardware' => 'Baumarkt',
 			'poi.kind.home' => 'Einrichtung, Möbel',
 			'poi.kind.electronics' => 'Elektronik, Handys',
+			'poi.kind.cosmetics' => 'Drogerie, Parfümerie',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Drogerie, Parfümerie',
 			'poi.kind.departmentStore' => 'Kaufhaus, Einkaufszentrum',
 			'poi.kind.varietyStore' => 'Sonderpostenmarkt',
 			'poi.kind.secondHand' => 'Second Hand, Antiquitäten',

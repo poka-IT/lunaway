@@ -21,6 +21,7 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
@@ -55,6 +56,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   /// The zones sent, with the lines they were cut from.
   (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
   List<RouteMapMark>? _sentMarks;
+
+  /// The prices under the stations' pins, as the page has them.
+  List<FuelLabel>? _sentPrices;
 
   /// The marks lit, by index, as the page has them.
   Set<int> _sentLit = const {};
@@ -197,6 +201,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentLines = null;
         _sentZones = null;
         _sentMarks = null;
+        _sentPrices = null;
         _sentLit = const {};
         _sentFocus = _props.focus?.serial;
         _sentCamera = null;
@@ -383,6 +388,19 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           'visible': filter != null,
         });
       }
+      // The prices with the points' pins: no filter of their own.
+      await _call('return window.lunaway.setLayer(id, filter, visible);', {
+        'id': RoutePlaceLayers.fuelPrices,
+        'filter': null,
+        'visible': places?.poiFilter != null,
+      });
+    }
+    if (_specPlaces != null && !listEquals(p.fuelPrices, _sentPrices)) {
+      _sentPrices = p.fuelPrices;
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RoutePlaceLayers.fuelPriceSource,
+        'data': PoiMapStyle.fuelCollection(p.fuelPrices),
+      });
     }
     if (!identical(p.lines, _sentLines)) {
       _sentLines = p.lines;
@@ -653,7 +671,7 @@ List<Map<String, Object?>> _layers({
       ),
       // The pins are shipped at their own density and added at the
       // screen's (pixelRatio): sized back as the main map draws them.
-      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio)),
+      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio), dark: dark),
       ...RouteMarkStyle.jsonLayers(),
       {
         'id': RichLayers.marks,
@@ -699,17 +717,24 @@ List<Map<String, Object?>> _layers({
 }
 
 /// The places' and the points' layers, their images drawn at [scale].
-List<Map<String, Object?>> _placeLayers(RouteMapPlaces places, double scale) => [
-  for (final layer in RoutePlaceLayers.jsonLayers(places))
-    {
-      ...layer,
-      'layout': {
-        ...layer['layout']! as Map<String, Object?>,
-        'icon-size': layer['id'] == RoutePlaceLayers.placePins
-            ? RoutePlaceLayers.placeSize(scale)
-            : RoutePlaceLayers.poiSize(scale),
+List<Map<String, Object?>> _placeLayers(
+  RouteMapPlaces places,
+  double scale, {
+  required bool dark,
+}) => [
+  for (final layer in RoutePlaceLayers.jsonLayers(places, dark: dark))
+    if (layer['id'] == RoutePlaceLayers.fuelPrices)
+      layer
+    else
+      {
+        ...layer,
+        'layout': {
+          ...layer['layout']! as Map<String, Object?>,
+          'icon-size': layer['id'] == RoutePlaceLayers.placePins
+              ? RoutePlaceLayers.placeSize(scale)
+              : RoutePlaceLayers.poiSize(scale),
+        },
       },
-    },
   // Every place the filter keeps in view, even one whose pin found no
   // room: what the rich marks choose among.
   {
