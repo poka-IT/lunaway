@@ -62,17 +62,21 @@ fringe a clip path leaves where the white road meets the edge.
 
 ## Wordmark
 
-"Lunaway" is set in Fraunces 72pt SemiBold, with the L-u pair tightened by
-70 font units; the taglines use Fraunces 72pt Regular. The text is converted
-to outlines, so no font file ships with the brand.
+"Lunaway" is set in Figtree at weight 650, the heading weight of the app,
+tracked by -0.01 em with the L-u pair tightened by 50 font units; the
+taglines use weight 480. The face is the app's own (Figtree Lunaway,
+`app/assets/fonts/figtree-lunaway/`), the one the screens and the site use.
+The text is converted to outlines, so no font file ships with the brand.
 
-Fraunces is by Undercase Type (Phaedra Charles and Flavia Zimbardi), from
-https://github.com/undercasetype/Fraunces (commit
-`7ccdec31c6028118dce3e47fe864e3744460371d`), under the SIL Open Font License
-1.1. Glyph outlines in a logo are a document made with the font, which the
-licence leaves free; its condition 5 ends: "The requirement for fonts to
-remain under this license does not apply to any document created using the
-Font Software." No copy of the licence is needed next to these files.
+Figtree is by Erik Kennedy, from https://github.com/erikdkennedy/figtree, as
+published by Google Fonts (`google/fonts`, commit
+`a60a77e14f28abd4ef243a1b5dfc48df0cec5205`), under the SIL Open Font License
+1.1; `app/assets/fonts/figtree-lunaway/SOURCE.txt` records the file and what
+the app's derivative changes. Glyph outlines in a logo are a document made
+with the font, which the licence leaves free; its condition 5 ends: "The
+requirement for fonts to remain under this license does not apply to any
+document created using the Font Software." No copy of the licence is needed
+next to these files.
 
 ## Regenerating
 
@@ -81,9 +85,9 @@ python3 tool/brand/build_sources.py   # mono mark, lockups, store art (needs fon
 tool/brand/generate.sh                # every raster, from the SVGs (needs rsvg-convert, magick, oxipng)
 ```
 
-`build_sources.py` downloads the two Fraunces files once, at the pinned
-commit, checks their SHA-256 and keeps them in `data/tmp/brand/fonts/`.
-`generate.sh` renders each PNG at its final size straight from the vector,
+`build_sources.py` reads the app's font file, which
+`app/tool/fonts/build.sh` builds from its pinned upstream and checks against
+its SHA-256. `generate.sh` renders each PNG at its final size straight from the vector,
 then strips every metadata chunk with oxipng; two runs give byte-identical
 files. It writes:
 
