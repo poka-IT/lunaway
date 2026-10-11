@@ -360,7 +360,9 @@ fuel list and under the stations' pins of the guidance (`routePrices`,
 read their prices as the main map does (`pois` with `fuel`), for the cell
 of 0.05 degree the vehicle is in, grown by 0.02 degree
 (`guidanceStations`), while the pins show stations, the vehicle's fuel is
-known and the vehicle is in France or its country unknown.
+known and the vehicle is in France or its country unknown. The price is
+the pin's own text (`RoutePlaceLayers.priceText`): written with its pin,
+never without it.
 
 History: each poll writes, per station and fuel, the day's lowest and
 highest price (`fuel_price_days`, the day in Paris time, 30 days kept),

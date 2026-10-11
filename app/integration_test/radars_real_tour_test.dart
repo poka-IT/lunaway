@@ -24,6 +24,7 @@ import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
@@ -46,6 +47,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/poi/domain/poi.dart' show FuelLabel;
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -90,6 +92,15 @@ const _places = String.fromEnvironment('LUNAWAY_TOUR_PLACES');
 /// Stops the drive once this many alerts were met (0: the whole route),
 /// for the captures of the pill and the frames of a few minutes.
 const _stopAlerts = int.fromEnvironment('LUNAWAY_TOUR_STOP_ALERTS');
+
+/// `1`: the stations of "Sur le trajet" for the vehicle's fuel are read
+/// from the API as the guidance starts and shown on its map, their price
+/// beside their pump, as after the list was opened.
+const _list = String.fromEnvironment('LUNAWAY_TOUR_LIST');
+
+/// A capture every this many seconds of the drive, three at most (0: none):
+/// the same moments of two drives, the prices written or not.
+const _shotEvery = int.fromEnvironment('LUNAWAY_TOUR_SHOT_EVERY');
 
 /// Drives this many minutes at real speed, one fix a second, then stops
 /// (0: the tour's own pace): two runs of the same drive compare their
@@ -176,6 +187,14 @@ const _scenarios = {
   // stations of the towns it crosses, for their prices on the map.
   'prix': _Scenario(
     from: LatLng(44.9180, 4.9010),
+    to: LatLng(44.5581, 4.7508),
+    label: 'Montélimar',
+    avoid: AvoidOptions(motorways: true),
+  ),
+  // The N7 from Livron-sur-Drôme to Montélimar: the stations of its towns
+  // within a few minutes, for the frames of a drive at real speed.
+  'prix-n7': _Scenario(
+    from: LatLng(44.7726, 4.8417),
     to: LatLng(44.5581, 4.7508),
     label: 'Montélimar',
     avoid: AvoidOptions(motorways: true),
@@ -707,6 +726,14 @@ void main() {
         );
     unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
     await until(() => session()?.snapshot != null, what: 'the first fix');
+    final listFuel = _list == '1' ? FuelType.fromWire(_fuel) : null;
+    if (listFuel case final fuel?) {
+      final offers = await container.read(
+        fuelOffersProvider(FuelQuery(line: route.line, fromM: 0, fuel: fuel)).future,
+      );
+      container.read(shownFuelOffersProvider(route.line).notifier).show(offers);
+      debugPrint('LIST ${offers.length} stations of the fuel list on the map');
+    }
 
     // Where the route crosses a border, by the library the guidance reads.
     final locator = await container.read(countryLocatorProvider.future);
@@ -733,10 +760,19 @@ void main() {
     };
     // A station whose price the map writes, within this of the vehicle:
     // driven at real speed, and captured once.
+    // The stations whose price the map writes: those of the fuel list
+    // (their pump), with the list; under the stations' pins otherwise.
+    List<LatLng> priced() => _list == '1'
+        ? [
+            for (final m in _map()?.marks ?? const <RouteMapMark>[])
+              if (m.kind == RouteMarkKind.fuel && m.side != null) m.position,
+          ]
+        : [for (final p in _map()?.fuelPrices ?? const <FuelLabel>[]) p.position];
+
     bool nearPrice() {
       final at = session()?.snapshot?.position;
       if (at == null) return false;
-      return (_map()?.fuelPrices ?? const []).any((p) => p.position.distanceTo(at) < 700);
+      return priced().any((p) => p.distanceTo(at) < 700);
     }
 
     // A station whose price the map writes, 120 to 400 m ahead of the
@@ -746,12 +782,12 @@ void main() {
       final at = snap?.position;
       if (at == null) return false;
       final course = snap?.courseDeg;
-      return (_map()?.fuelPrices ?? const []).any((p) {
-        final d = p.position.distanceTo(at);
+      return priced().any((p) {
+        final d = p.distanceTo(at);
         if (d < 120 || d > 400) return false;
         if (course == null) return true;
-        final dy = p.position.lat - at.lat;
-        final dx = (p.position.lon - at.lon) * math.cos(at.lat * math.pi / 180);
+        final dy = p.lat - at.lat;
+        final dx = (p.lon - at.lon) * math.cos(at.lat * math.pi / 180);
         final bearing = (math.atan2(dx, dy) * 180 / math.pi + 360) % 360;
         final off = ((bearing - course) % 360 + 360) % 360;
         return math.min(off, 360 - off) < 50;
@@ -760,6 +796,8 @@ void main() {
 
     var priceShots = 0;
     var lastPriceShot = DateTime(2000);
+    var timedShots = 0;
+    final driveStart = DateTime.now();
 
     drive.pace = () {
       if (_realMinutes > 0) return _real;
@@ -888,6 +926,13 @@ void main() {
         }
       }
       if (aids.exit case final e?) await shot(e.section ? 'sortie-troncon' : 'sortie-zone');
+      if (_shotEvery > 0 && timedShots < 3) {
+        final due = driveStart.add(Duration(seconds: _shotEvery * (timedShots + 1)));
+        if (DateTime.now().isAfter(due)) {
+          timedShots++;
+          await shot('temps-$timedShots');
+        }
+      }
       // A priced station ahead, close enough for its pin to show: a few
       // captures, apart.
       if (_fuel.isNotEmpty &&
@@ -897,6 +942,7 @@ void main() {
         priceShots++;
         lastPriceShot = DateTime.now();
         await shot('prix-$priceShots');
+        if (_list == '1' && priceShots == 3) break;
       }
       if (_stopAlerts > 0 && alerts >= _stopAlerts && a == null && aids.exit == null) break;
       if (_realMinutes > 0 && DateTime.now().isAfter(realEnd)) break;

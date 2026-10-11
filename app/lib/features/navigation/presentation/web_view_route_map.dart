@@ -21,7 +21,6 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
-import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
@@ -297,6 +296,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   void _setStyle() {
     _style = _props.style;
     _specPlaces = _props.places;
+    // The prices' colours follow the theme the new style is of.
+    _sentPrices = null;
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
@@ -388,20 +389,22 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           'visible': filter != null,
         });
       }
-      // The prices with the points' pins, every one of them: the page keeps
-      // the filter in its spec, which a style change applies again, and
-      // GL JS takes a filter only as an expression (true), never null.
-      await _call('return window.lunaway.setLayer(id, filter, visible);', {
-        'id': RoutePlaceLayers.fuelPrices,
-        'filter': true,
-        'visible': places?.poiFilter != null,
-      });
     }
+    // The prices under the stations' pins, written by the pins' layers; the
+    // page applies them again after a change of style.
     if (_specPlaces != null && !listEquals(p.fuelPrices, _sentPrices)) {
       _sentPrices = p.fuelPrices;
-      await _call('return window.lunaway.setData(id, data);', {
-        'id': RoutePlaceLayers.fuelPriceSource,
-        'data': PoiMapStyle.fuelCollection(p.fuelPrices),
+      await _call('return window.lunaway.setPois(update);', {
+        'update': {
+          'layout': {
+            for (final (id, _) in RoutePlaceLayers.poiLayers)
+              id: {'text-field': RoutePlaceLayers.priceText(p.fuelPrices)},
+          },
+          'paint': {
+            for (final (id, _) in RoutePlaceLayers.poiLayers)
+              id: {'text-color': RoutePlaceLayers.priceColor(p.fuelPrices, dark: p.dark)},
+          },
+        },
       });
     }
     if (!identical(p.lines, _sentLines)) {
@@ -725,18 +728,15 @@ List<Map<String, Object?>> _placeLayers(
   required bool dark,
 }) => [
   for (final layer in RoutePlaceLayers.jsonLayers(places, dark: dark))
-    if (layer['id'] == RoutePlaceLayers.fuelPrices)
-      layer
-    else
-      {
-        ...layer,
-        'layout': {
-          ...layer['layout']! as Map<String, Object?>,
-          'icon-size': layer['id'] == RoutePlaceLayers.placePins
-              ? RoutePlaceLayers.placeSize(scale)
-              : RoutePlaceLayers.poiSize(scale),
-        },
+    {
+      ...layer,
+      'layout': {
+        ...layer['layout']! as Map<String, Object?>,
+        'icon-size': layer['id'] == RoutePlaceLayers.placePins
+            ? RoutePlaceLayers.placeSize(scale)
+            : RoutePlaceLayers.poiSize(scale),
       },
+    },
   // Every place the filter keeps in view, even one whose pin found no
   // room: what the rich marks choose among.
   {

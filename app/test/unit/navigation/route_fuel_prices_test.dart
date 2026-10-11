@@ -3,8 +3,12 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/route_fuel_prices.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_fuel_prices.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
+import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart' show Poi, maxPriceAge, priceIsCurrent;
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
 import '../../helpers/poi_fakes.dart';
@@ -167,6 +171,37 @@ void main() {
       routePrices(fuel: FuelType.diesel, now: _now, language: 'fr', stations: [abroad]).pins,
       isEmpty,
     );
+  });
+
+  test("a price is its station pin's own text: written with the pin, never without it", () {
+    final prices = routePrices(
+      fuel: FuelType.diesel,
+      now: _now,
+      language: 'fr',
+      stations: [
+        _station('near', {'DIESEL': 1.789}),
+        _station('dear', {'DIESEL': 1.849}),
+      ],
+    ).pins;
+    final layout = RoutePlaceLayers.poiLayout(1, prices: prices);
+    expect(layout['text-field'], [
+      'match',
+      ['get', 'id'],
+      'near',
+      '1,789',
+      'dear',
+      '1,849',
+      '',
+    ]);
+    expect(layout['text-optional'], isTrue, reason: 'the pin stays where its price finds no room');
+    expect(layout['text-anchor'], 'top', reason: 'under the tip of the pin');
+    expect(RoutePlaceLayers.priceText(const []), '', reason: 'no price, the logo alone');
+    final colour = RoutePlaceLayers.priceColor(prices, dark: false) as List<Object?>;
+    expect(colour[3], RouteLook.hex(PoiLook.price(0, dark: false)), reason: 'the cheapest');
+    expect(colour[5], RouteLook.hex(PoiLook.price(1, dark: false)), reason: 'the dearest');
+    // No layer of prices of its own, which drew a figure where its pin had
+    // found no room.
+    expect(RouteLayerOrder.layers.where((l) => l.contains('price')), isEmpty);
   });
 
   test('the stations around the vehicle are read for its cell, the same box while it stays '
