@@ -24,8 +24,14 @@ String routeMarkSource(RouteMapMark mark) => switch (mark.kind) {
   _ => mark.minor ? RouteLayers.minorSource : RouteLayers.marksSource,
 };
 
-/// The marks as the GeoJSON sources of [RouteLayers.markSources].
-Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
+/// The marks as the GeoJSON sources of [RouteLayers.markSources]; an
+/// engine whose images measure [imageUnits] to a logical pixel (the
+/// browser's, added at their density) says so: the shift of a camera's
+/// image ([RouteBadge.iconShift]) is told in them.
+Map<String, Map<String, Object?>> routeMarkSources(
+  List<RouteMapMark> marks, {
+  double imageUnits = 1,
+}) {
   final features = {for (final s in RouteLayers.markSources) s: <Object?>[]};
   for (final (i, m) in marks.indexed) {
     // A figure in a limit's sign beside the badge (a camera's) is written
@@ -45,6 +51,7 @@ Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
         'label': ?m.label,
         'labelSize': ?labelSize,
         if (labelSize != null) 'labelAt': m.badge.labelOffset(labelSize),
+        if (m.badge.limitSign) 'iconAt': [m.badge.iconShift * imageUnits, 0],
         'side': ?m.side,
         if (m.sideInk case final ink?) 'sideInk': RouteLook.hex(ink),
       },
@@ -113,6 +120,19 @@ abstract final class RouteMarkStyle {
       _group,
       1,
       ['get', 'size'],
+    ],
+  ];
+
+  /// Where a badge's image stands from its mark's place: shifted right for
+  /// a camera, whose sign widens the image (`iconAt`), so the camera
+  /// stands on its place; centred on it otherwise, as a group's. The
+  /// engine multiplies it by the icon's size.
+  static const List<Object> iconOffset = [
+    'coalesce',
+    ['get', 'iconAt'],
+    [
+      'literal',
+      [0, 0],
     ],
   ];
 
@@ -260,6 +280,7 @@ abstract final class RouteMarkStyle {
         'layout': {
           'icon-image': iconImage,
           'icon-size': iconSize(1),
+          'icon-offset': iconOffset,
           'icon-allow-overlap': true,
           'icon-ignore-placement': ignorePlacement,
           'symbol-sort-key': sortKey,

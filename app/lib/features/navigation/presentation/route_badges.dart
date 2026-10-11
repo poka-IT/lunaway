@@ -103,18 +103,18 @@ final class RouteBadge {
   /// How far the drawing reaches right of the disc's centre.
   double get rightReach => limitSign ? signDx + signDiameter / 2 + signRing + 1 : extent / 2;
 
-  /// The image the map draws, the disc at its centre, on the mark's place:
-  /// as wide again on the left as the sign reaches on the right, the left
-  /// empty.
-  Size get imageSize => Size(2 * rightReach, extent);
-
-  /// The drawing alone, for the legend and the cards: the disc, then the
-  /// sign.
+  /// The drawing, the disc on the left and the sign right of it: the
+  /// image of the map, the legend's and the cards'.
   Size get viewSize => Size(extent / 2 + rightReach, extent);
 
+  /// How far right of the mark's place the map draws the image's centre,
+  /// in logical pixels, so the disc stands on the place: the map centres an
+  /// image on it, and the sign widens this one on the right.
+  double get iconShift => viewSize.width / 2 - extent / 2;
+
   /// Where the map writes the text of a mark (its label), in ems of
-  /// [labelSize] from the image's centre: in the sign beside the disc, or
-  /// on the disc.
+  /// [labelSize] from the mark's place, the disc's centre: in the sign
+  /// beside the disc, or on the disc.
   List<double> labelOffset(double labelSize) => [if (limitSign) signDx / labelSize else 0, 0];
 
   /// The colour of a text the map writes over the badge: the sign's navy
@@ -359,13 +359,19 @@ Offset figuresCentred(TextPainter painter, Offset center) {
   );
 }
 
-/// The badge as a PNG at [ratio] physical pixels per logical one, its disc
-/// at the image's centre ([RouteBadge.imageSize]).
+/// The badge as a PNG at [ratio] physical pixels per logical one
+/// ([RouteBadge.viewSize]), the sign of a limit right of the disc
+/// ([RouteBadge.iconShift] sets it on its place).
 Future<Uint8List> routeBadgePng(RouteBadge badge, double ratio) async {
-  final width = (badge.imageSize.width * ratio).ceil();
-  final height = (badge.imageSize.height * ratio).ceil();
+  final width = (badge.viewSize.width * ratio).ceil();
+  final height = (badge.viewSize.height * ratio).ceil();
   final recorder = ui.PictureRecorder();
-  paintRouteBadge(Canvas(recorder), badge, Offset(width / 2, height / 2), scale: ratio);
+  paintRouteBadge(
+    Canvas(recorder),
+    badge,
+    Offset(badge.extent / 2 * ratio, height / 2),
+    scale: ratio,
+  );
   final image = await recorder.endRecording().toImage(width, height);
   try {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);

@@ -85,8 +85,9 @@ class NoticeColumn extends StatelessWidget {
   /// (the map's offline line, a pill under the search).
   final bool centred;
 
-  /// Each standing notice at its own width, at the column's start (the
-  /// guidance's camera beside the speed).
+  /// Each notice at its own width, at the column's start, the column
+  /// standing on its foot (the guidance's camera beside the speed, over the
+  /// bar): it grows upwards, and takes no more width than its notices.
   final bool atStart;
 
   @override
@@ -100,7 +101,7 @@ class NoticeColumn extends StatelessWidget {
     return AnimatedSize(
       duration: Motion.of(context, Motion.medium),
       curve: Motion.standard,
-      alignment: Alignment.topCenter,
+      alignment: atStart ? AlignmentDirectional.bottomStart : Alignment.topCenter,
       child: Column(
         crossAxisAlignment: centred
             ? CrossAxisAlignment.center
@@ -119,6 +120,7 @@ class NoticeColumn extends StatelessWidget {
               padding: EdgeInsets.only(top: gap),
               child: Align(
                 alignment: centred ? Alignment.center : AlignmentDirectional.centerStart,
+                widthFactor: atStart ? 1 : null,
                 child: Wrap(
                   spacing: Space.s,
                   runSpacing: Space.s,
@@ -159,7 +161,11 @@ class _PassingSlot extends StatelessWidget {
       switchOutCurve: Motion.exit,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
-        child: SizeTransition(sizeFactor: animation, alignment: Alignment.topCenter, child: child),
+        child: SizeTransition(
+          sizeFactor: animation,
+          alignment: across ? Alignment.topCenter : AlignmentDirectional.topStart,
+          child: child,
+        ),
       ),
       // The one fading out takes no more touches: a tap on it would close
       // the one that replaced it.

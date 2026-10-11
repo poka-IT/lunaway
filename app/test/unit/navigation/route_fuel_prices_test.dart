@@ -143,6 +143,23 @@ void main() {
     expect(prices.pins.firstWhere((l) => l.id == 'near').position, const LatLng(45.905, 6.12));
   });
 
+  test(
+    "a station of the list switched to another fuel keeps the vehicle's price under its pin",
+    () {
+      final prices = routePrices(
+        fuel: FuelType.diesel,
+        now: _now,
+        language: 'fr',
+        offers: [_offer('gas:1', fuel: FuelType.lpg, price: 0.999, poiId: 'gas')],
+        stations: [
+          _station('gas', {'DIESEL': 1.779, 'LPG': 0.999}),
+        ],
+      );
+      expect(prices.marks, isEmpty, reason: "the list's price is of another fuel");
+      expect({for (final l in prices.pins) l.id: l.text}, {'gas': '1,779'});
+    },
+  );
+
   test('outside France a station has no price: nothing written', () {
     final abroad = poiFromJson(poiJson('es', 'FUEL_STATION', name: 'Repsol'))!;
     expect(abroad.fuel, isNull);

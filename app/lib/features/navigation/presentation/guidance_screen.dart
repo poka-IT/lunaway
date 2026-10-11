@@ -1154,7 +1154,12 @@ class _GuidanceMap extends ConsumerWidget {
               fuel != null &&
               choice.selection.poiKinds.contains(PoiKind.fuelStation) &&
               (session.aids.country ?? 'FR') == 'FR'
-          ? ref.watch(guidanceStationsProvider)
+          ? switch (ref.watch(guidanceStationsProvider)) {
+              AsyncData(:final value) => value,
+              // The next cell on its way, or its read failed: the stations
+              // read before keep their prices; none before the first read.
+              final read => read.value ?? const [],
+            }
           : const [],
     );
     final points = RoutePoints(
@@ -1351,11 +1356,21 @@ class _AidPill extends StatelessWidget {
   final GuidanceSession session;
   final ValueChanged<Size> onSize;
 
+  /// The step the size is told in, rounded up: the distance changes at
+  /// each fix and the pill eases into its new width, which told to the pixel
+  /// rebuilt the whole layout at every frame of the easing.
+  static const double _step = 4;
+
   @override
   Widget build(BuildContext context) => Align(
     alignment: AlignmentDirectional.bottomStart,
     child: ReportsRect(
-      onRect: (rect) => onSize(rect.size),
+      onRect: (rect) => onSize(
+        Size(
+          (rect.width / _step).ceilToDouble() * _step,
+          (rect.height / _step).ceilToDouble() * _step,
+        ),
+      ),
       child: NoticeScope(
         board: board,
         child: GuidanceAidNotices(session: session),

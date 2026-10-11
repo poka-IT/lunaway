@@ -155,6 +155,9 @@ class EnforcementChip extends StatelessWidget {
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: ink,
                             fontWeight: FontWeight.w700,
+                            // Figures of one width: the pill keeps its width
+                            // as the distance counts down.
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),

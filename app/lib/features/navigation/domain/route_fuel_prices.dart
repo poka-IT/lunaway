@@ -59,9 +59,10 @@ RoutePrices routePrices({
       if (o.fuel == fuel && priceIsCurrent(o.priceUpdatedAt, now))
         o.id: (offer: o, price: o.priceEur),
   };
-  // The fuel list's stations by their point of interest: their mark tells
-  // their price, their pin says nothing more.
-  final listedPois = {for (final o in offers) ?o.poiId};
+  // The fuel list's stations priced beside their mark, by their point of
+  // interest: their pin says nothing more. A station of the list switched
+  // to another fuel keeps the vehicle's price under its pin.
+  final listedPois = {for (final l in listed.values) ?l.offer.poiId};
   final around = <({Poi station, double price})>[];
   final seen = <String>{};
   for (final s in stations) {

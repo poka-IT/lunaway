@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -33,27 +34,23 @@ GeoBounds stationsAround(LatLng at) {
 
 /// The fuel stations around the vehicle during a guidance, with the prices
 /// of the feed, as the main map reads them (`fuelStations`): those whose
-/// price the guidance's map writes under their pins. The stations of the
-/// cell left stay while those of the next one are read; none before the
-/// first fix. The map has no place to say a read failed (offline, too many
-/// stations in the area): it writes no price, the pins stay as they are.
-@riverpod
-class GuidanceStations extends _$GuidanceStations {
-  @override
-  List<Poi> build() {
-    final box = ref.watch(
-      guidanceControllerProvider.select(
-        (s) => switch (s?.lastFix?.position) {
-          final at? => stationsAround(at),
-          null => null,
-        },
-      ),
-    );
-    if (box == null) return const [];
-    return switch (ref.watch(fuelStationsProvider(box))) {
-      AsyncData(:final value) => value ?? const [],
-      AsyncError() => const [],
-      _ => stateOrNull ?? const [],
-    };
-  }
+/// price the guidance's map writes under their pins. None before the first
+/// fix, and none for an area that holds more stations than are read: a
+/// part of them would rank as the cheapest without being so. Read again
+/// only in the next cell: a read that failed (a tunnel, offline) leaves the
+/// cell without prices, the map keeping those of the cell before.
+// A failure shows nowhere but in the prices missing: no retry here.
+@Riverpod(retry: noRetry)
+Future<List<Poi>> guidanceStations(Ref ref) async {
+  final box = ref.watch(
+    guidanceControllerProvider.select(
+      (s) => switch (s?.lastFix?.position) {
+        final at? => stationsAround(at),
+        null => null,
+      },
+    ),
+  );
+  if (box == null) return const [];
+  final stations = await ref.watch(fuelStationsProvider(box).future);
+  return stations ?? const [];
 }

@@ -10,33 +10,46 @@ part of 'route_fuel_prices.dart';
 // ignore_for_file: type=lint, type=warning
 /// The fuel stations around the vehicle during a guidance, with the prices
 /// of the feed, as the main map reads them (`fuelStations`): those whose
-/// price the guidance's map writes under their pins. The stations of the
-/// cell left stay while those of the next one are read; none before the
-/// first fix. The map has no place to say a read failed (offline, too many
-/// stations in the area): it writes no price, the pins stay as they are.
+/// price the guidance's map writes under their pins. None before the first
+/// fix, and none for an area that holds more stations than are read: a
+/// part of them would rank as the cheapest without being so. Read again
+/// only in the next cell: a read that failed (a tunnel, offline) leaves the
+/// cell without prices, the map keeping those of the cell before.
+// A failure shows nowhere but in the prices missing: no retry here.
 
-@ProviderFor(GuidanceStations)
+@ProviderFor(guidanceStations)
 final guidanceStationsProvider = GuidanceStationsProvider._();
 
 /// The fuel stations around the vehicle during a guidance, with the prices
 /// of the feed, as the main map reads them (`fuelStations`): those whose
-/// price the guidance's map writes under their pins. The stations of the
-/// cell left stay while those of the next one are read; none before the
-/// first fix. The map has no place to say a read failed (offline, too many
-/// stations in the area): it writes no price, the pins stay as they are.
+/// price the guidance's map writes under their pins. None before the first
+/// fix, and none for an area that holds more stations than are read: a
+/// part of them would rank as the cheapest without being so. Read again
+/// only in the next cell: a read that failed (a tunnel, offline) leaves the
+/// cell without prices, the map keeping those of the cell before.
+// A failure shows nowhere but in the prices missing: no retry here.
+
 final class GuidanceStationsProvider
-    extends $NotifierProvider<GuidanceStations, List<Poi>> {
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Poi>>,
+          List<Poi>,
+          FutureOr<List<Poi>>
+        >
+    with $FutureModifier<List<Poi>>, $FutureProvider<List<Poi>> {
   /// The fuel stations around the vehicle during a guidance, with the prices
   /// of the feed, as the main map reads them (`fuelStations`): those whose
-  /// price the guidance's map writes under their pins. The stations of the
-  /// cell left stay while those of the next one are read; none before the
-  /// first fix. The map has no place to say a read failed (offline, too many
-  /// stations in the area): it writes no price, the pins stay as they are.
+  /// price the guidance's map writes under their pins. None before the first
+  /// fix, and none for an area that holds more stations than are read: a
+  /// part of them would rank as the cheapest without being so. Read again
+  /// only in the next cell: a read that failed (a tunnel, offline) leaves the
+  /// cell without prices, the map keeping those of the cell before.
+  // A failure shows nowhere but in the prices missing: no retry here.
   GuidanceStationsProvider._()
     : super(
         from: null,
         argument: null,
-        retry: null,
+        retry: noRetry,
         name: r'guidanceStationsProvider',
         isAutoDispose: true,
         dependencies: null,
@@ -48,40 +61,13 @@ final class GuidanceStationsProvider
 
   @$internal
   @override
-  GuidanceStations create() => GuidanceStations();
+  $FutureProviderElement<List<Poi>> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(List<Poi> value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<List<Poi>>(value),
-    );
-  }
-}
-
-String _$guidanceStationsHash() => r'73f141bf4a2938e0c8125694e22fd4b7f13e1881';
-
-/// The fuel stations around the vehicle during a guidance, with the prices
-/// of the feed, as the main map reads them (`fuelStations`): those whose
-/// price the guidance's map writes under their pins. The stations of the
-/// cell left stay while those of the next one are read; none before the
-/// first fix. The map has no place to say a read failed (offline, too many
-/// stations in the area): it writes no price, the pins stay as they are.
-
-abstract class _$GuidanceStations extends $Notifier<List<Poi>> {
-  List<Poi> build();
-  @$mustCallSuper
   @override
-  WhenComplete runBuild() {
-    final ref = this.ref as $Ref<List<Poi>, List<Poi>>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<List<Poi>, List<Poi>>,
-              List<Poi>,
-              Object?,
-              Object?
-            >;
-    return element.handleCreate(ref, build);
+  FutureOr<List<Poi>> create(Ref ref) {
+    return guidanceStations(ref);
   }
 }
+
+String _$guidanceStationsHash() => r'9e1fae79a51f70ba0b6be6adfaf90c9b13e70287';

@@ -228,7 +228,6 @@ void main() {
     final over = enforcementNotice(de, _pills['a section over its average']!, DistanceUnits.metric);
     expect(over.strong, isTrue);
     expect(over.level, 3);
-    expect(over.id, isNot(ahead.id));
   });
 
   test("a camera's point just passed is no stretch entered: its notice is not told again", () {

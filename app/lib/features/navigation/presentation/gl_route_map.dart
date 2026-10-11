@@ -687,6 +687,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         gl.SymbolLayerProperties(
           iconImage: RouteMarkStyle.iconImage,
           iconSize: RouteMarkStyle.iconSize(_imageScale),
+          iconOffset: RouteMarkStyle.iconOffset,
           iconAllowOverlap: true,
           iconIgnorePlacement: RouteMarkStyle.ignorePlacement,
           symbolSortKey: RouteMarkStyle.sortKey,
@@ -814,7 +815,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
-      for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
+      final sources = routeMarkSources(p.marks, imageUnits: 1 / _imageScale);
+      for (final MapEntry(:key, :value) in sources.entries) {
         await c.setGeoJsonSource(key, value);
       }
       // The states and the halo's filter name features by their index in

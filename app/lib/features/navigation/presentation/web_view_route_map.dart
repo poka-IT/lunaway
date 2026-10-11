@@ -388,10 +388,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           'visible': filter != null,
         });
       }
-      // The prices with the points' pins: no filter of their own.
+      // The prices with the points' pins, every one of them: the page keeps
+      // the filter in its spec, which a style change applies again, and
+      // GL JS takes a filter only as an expression (true), never null.
       await _call('return window.lunaway.setLayer(id, filter, visible);', {
         'id': RoutePlaceLayers.fuelPrices,
-        'filter': null,
+        'filter': true,
         'visible': places?.poiFilter != null,
       });
     }

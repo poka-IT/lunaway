@@ -261,9 +261,14 @@ void main() {
 
     test("the camera's image keeps the camera on its place, the sign on its right", () {
       const badge = RouteBadge.cameraWithLimit;
-      expect(badge.imageSize.width / 2, badge.rightReach, reason: 'the disc at the centre');
+      // The map centres the image on the place, then shifts it: the disc's
+      // centre, extent / 2 from the image's left, lands on the place.
+      final left = badge.iconShift - badge.viewSize.width / 2;
+      expect(left + badge.extent / 2, 0, reason: 'the disc on the place');
       expect(badge.signDx, greaterThan(badge.extent / 2), reason: 'the sign right of the disc');
-      expect(badge.imageSize.height, badge.extent);
+      expect(badge.viewSize.height, badge.extent);
+      expect(badge.viewSize.width, badge.extent / 2 + badge.rightReach, reason: 'no empty side');
+      expect(RouteBadge.camera.iconShift, 0);
       expect(badge.labelOffset(13), [badge.signDx / 13, 0]);
       expect(RouteBadge.camera.labelOffset(11), [0, 0]);
       expect(badge.labelInk, isNot(badge.ink), reason: 'a navy figure on the white sign');
@@ -294,8 +299,22 @@ void main() {
       expect(props['labelSize'], 13);
       expect(props['labelAt'], RouteBadge.cameraWithLimit.labelOffset(13));
       expect(props['ink'], RouteLook.hex(Palette.minuit), reason: 'the figure in navy');
+      expect(props['iconAt'], [RouteBadge.cameraWithLimit.iconShift, 0]);
       expect(props.containsKey('side'), isFalse);
       expect(RouteMarkStyle.clusterProperties.keys, contains('n_camera'));
+      // In the browser the images measure the screen's pixels.
+      final browser = routeMarkSources([for (final m in markers) m.mark], imageUnits: 2.5);
+      final shifted = [
+        for (final f in browser[RouteLayers.marksSource]!['features']! as List<Object?>)
+          (f! as Map<String, Object?>)['properties']! as Map<String, Object?>,
+      ].singleWhere((p) => p['mark'] == 'camera:c');
+      expect(shifted['iconAt'], [RouteBadge.cameraWithLimit.iconShift * 2.5, 0]);
+      final others = features.where((p) => p['mark'] != 'camera:c');
+      expect(
+        others.where((p) => p.containsKey('iconAt')),
+        isEmpty,
+        reason: 'centred on their place',
+      );
     });
 
     test("a variant's cameras stay off the map: only the route chosen has them", () {

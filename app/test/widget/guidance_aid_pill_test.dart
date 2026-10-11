@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
+import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
@@ -30,12 +32,13 @@ const _rules = EnforcementRules(
 /// The guidance on a screen of [size] in [country], driven to 250 m before
 /// a fixed camera limited to 70 (Spain) or a danger zone (France), whose
 /// alert then shows; the vehicle's limit, 80 km/h, beside its speed.
-Future<void> _driveTo(
+Future<TestApp> _driveTo(
   WidgetTester tester, {
   required Size size,
   required AppLocale locale,
   required double scale,
   String country = 'ES',
+  double toM = 750,
 }) async {
   final plan = routeFixture(
     'limoges_drive',
@@ -94,15 +97,21 @@ Future<void> _driveTo(
       );
   unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
   await settleShort(tester);
-  // Up to 750 m at 36 km/h.
+  // Up to [toM] at 36 km/h.
   var at = DateTime.utc(2026, 10, 6, 9);
-  for (var m = 0.0; m <= 750; m += 10) {
+  for (var m = 0.0; m <= toM; m += 10) {
     feed.send(Fix(position: track.at(m), accuracyM: 5, at: at, speedMps: 10));
     at = at.add(const Duration(seconds: 1));
     await tester.pump(const Duration(milliseconds: 20));
   }
   await settleShort(tester);
+  return app;
 }
+
+/// The bar that shows the speed and its limit.
+Rect _bar(WidgetTester tester) => tester.getRect(
+  find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
+);
 
 /// The union of the rects [finder] finds.
 Rect _around(WidgetTester tester, Finder finder) => finder
@@ -188,4 +197,59 @@ void main() {
       }
     }
   }
+
+  testWidgets('the end of a zone shows where its pill stood, for a moment', (tester) async {
+    await _driveTo(
+      tester,
+      size: const Size(390, 844),
+      locale: AppLocale.fr,
+      scale: 1,
+      country: 'FR',
+      toM: 1560,
+    );
+    final end = find.text(AppLocale.fr.buildSync().navigation.enforcement.zoneEnd);
+    expect(end, findsOneWidget);
+    expect(find.byType(EnforcementChip), findsNothing, reason: 'the zone left');
+    final card = tester.getRect(find.ancestor(of: end, matching: find.byType(Material)).first);
+    expect(card.bottom, closeTo(_bar(tester).top - Space.s, 0.5), reason: 'beside the speed');
+    expect(card.left, Space.s);
+    expect(card.width, lessThan(390 * 0.75), reason: 'at its own width, not across the screen');
+  });
+
+  testWidgets('a tap folds the pill into a small chip in its place, which a tap opens again', (
+    tester,
+  ) async {
+    await _driveTo(tester, size: const Size(390, 844), locale: AppLocale.fr, scale: 1);
+    final pill = find.byType(EnforcementChip);
+    await tester.tap(pill);
+    await settleShort(tester);
+    expect(pill, findsNothing, reason: 'folded');
+    final chip = find.byWidgetPredicate(
+      (w) => w is Tooltip && (w.message ?? '').startsWith('Radar fixe dans'),
+    );
+    expect(chip, findsOneWidget);
+    final rect = tester.getRect(chip);
+    expect(rect.left, Space.s);
+    expect(rect.bottom, closeTo(_bar(tester).top - Space.s, 0.5));
+    expect(rect.width, lessThan(80), reason: 'its pictogram alone');
+    await tester.tap(chip);
+    await settleShort(tester);
+    expect(pill, findsOneWidget, reason: 'open again');
+  });
+
+  testWidgets('with "Recentrer" beside it, the pill rises over the button, the credit over both', (
+    tester,
+  ) async {
+    final app = await _driveTo(tester, size: const Size(390, 844), locale: AppLocale.fr, scale: 1);
+    app.container(tester).read(guidanceCameraProvider.notifier).moved();
+    await settleShort(tester);
+    final recenter = tester.getRect(
+      find.ancestor(of: find.text('Recentrer'), matching: find.byType(Material)).first,
+    );
+    final pill = tester.getRect(find.byType(EnforcementChip));
+    expect(pill.overlaps(recenter), isFalse, reason: 'pill $pill, Recentrer $recenter');
+    expect(pill.bottom, closeTo(recenter.top - Space.s, 0.5));
+    final credit = tester.getRect(find.byType(MapCredit));
+    expect(credit.bottom, lessThanOrEqualTo(pill.top), reason: 'credit $credit over the pill');
+  });
 }

@@ -714,7 +714,7 @@ void main() {
     Iterable<RouteMapMark> cameraMarks() =>
         SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.camera);
 
-    testWidgets('France with its positions asked for: the camera on the map, in the banner, on '
+    testWidgets('France with its positions asked for: the camera on the map, in the pill, on '
         'its card', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
@@ -784,7 +784,7 @@ void main() {
       container.read(guidanceControllerProvider.notifier).stop();
     });
 
-    testWidgets('France by default: no camera on the map nor in the banner', (tester) async {
+    testWidgets('France by default: no camera on the map nor in the pill', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
       await guide(tester, plan, items: [camera(route, 1000)], sources: [listed]);
@@ -793,8 +793,8 @@ void main() {
       expect(find.byType(EnforcementChip), findsNothing);
     });
 
-    testWidgets("over the camera's limit the banner says so, to the eye and to the screen "
-        'reader', (tester) async {
+    testWidgets("over the camera's limit the pill turns red, and a screen reader hears it "
+        'in its sentence', (tester) async {
       final plan = _plan();
       final route = plan.routes.first;
       await guide(
@@ -845,7 +845,7 @@ void main() {
       ('a tablet on its side', const Size(1280, 800)),
       ('a desktop', const Size(1440, 900)),
     ]) {
-      testWidgets('on $name with large text, a section and its average fit the banner', (
+      testWidgets('on $name with large text, a section and its average fit the pill', (
         tester,
       ) async {
         final plan = _plan();

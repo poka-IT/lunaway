@@ -359,7 +359,7 @@ fuel list and under the stations' pins of the guidance (`routePrices`,
 `app/lib/features/navigation/domain/route_fuel_prices.dart`). Those pins
 read their prices as the main map does (`pois` with `fuel`), for the cell
 of 0.05 degree the vehicle is in, grown by 0.02 degree
-(`GuidanceStations`), while the pins show stations, the vehicle's fuel is
+(`guidanceStations`), while the pins show stations, the vehicle's fuel is
 known and the vehicle is in France or its country unknown.
 
 History: each poll writes, per station and fuel, the day's lowest and
