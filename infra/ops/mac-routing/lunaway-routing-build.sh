@@ -5,7 +5,7 @@
 # legal.p2p.lunaway.routing-sweep, hourly) and installed by
 # infra/ops/mac-routing/install.sh.
 #
-#   lunaway-routing-build.sh run [--force] [--overlay DIR] [--dry-run]
+#   lunaway-routing-build.sh run [--force] [--ref BRANCH] [--overlay DIR] [--dry-run]
 #       stops at once when the published graph was built less than 9 days
 #       ago (rebuild_after_s below); otherwise waits until every Geofabrik
 #       extract carries the same date, creates a throwaway build server
@@ -16,6 +16,9 @@
 #       `routing-graph`, which the backend pulls (lunaway-routing-refresh).
 #       Nothing is built either when the published graph already has the
 #       extracts' date. --force builds whatever the graph's age and date.
+#       --ref BRANCH builds the head of that branch of the public
+#       repository instead of main's (a change of the preparation, in Rust,
+#       tried on Europe before it merges; launchd never passes it).
 #       --overlay DIR puts DIR/infra/routing over the commit (a change not
 #       pushed yet). --dry-run stops before creating anything, after the
 #       sweep, the published graph's age, the disk check, the extracts' date
@@ -168,7 +171,7 @@ case "$cmd" in
     ;;
   run) shift ;;
   *)
-    echo "usage: $0 run [--force] [--overlay DIR] [--dry-run] | sweep" >&2
+    echo "usage: $0 run [--force] [--ref BRANCH] [--overlay DIR] [--dry-run] | sweep" >&2
     exit 2
     ;;
 esac
@@ -176,9 +179,16 @@ esac
 force=no
 overlay=""
 dry=no
+ref=main
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) force=yes; shift ;;
+    --ref)
+      ref=${2:?}
+      # A branch name as git allows it, nothing a shell or a URL reads.
+      [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] && [[ "$ref" != *..* ]] || { echo "--ref: a branch name" >&2; exit 2; }
+      shift 2
+      ;;
     --overlay) overlay=${2:?}; shift 2 ;;
     --dry-run) dry=yes; shift ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
@@ -304,9 +314,9 @@ if [ "$force" = no ] && [[ "$published_id" == *-eu ]] && [ "$published_osm" = "$
 fi
 
 # The commit of the public repository the server builds.
-commit=$(git ls-remote "https://github.com/$repo.git" refs/heads/main | cut -f1)
-[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "cannot read the head of main"
-say "source: $repo@$commit${overlay:+, infra/routing from $overlay}"
+commit=$(git ls-remote "https://github.com/$repo.git" "refs/heads/$ref" | cut -f1)
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "cannot read the head of $ref"
+say "source: $repo@$commit ($ref)${overlay:+, infra/routing from $overlay}"
 if [ "$dry" = yes ]; then
   say "dry run: would build the extracts of $day from $commit (published: ${published_id:-none}, data of ${published_osm:-none}); nothing created"
   exit 0
