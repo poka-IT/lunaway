@@ -440,6 +440,10 @@ const _fixRetryAfter = Duration(seconds: 10);
 /// coming (Firefox), which is no lost position.
 const positionLostAfter = Duration(seconds: 15);
 
+/// How long the screen stays on after the arrival, the card read; then the
+/// device's own timeout puts it out.
+const arrivalScreenOn = Duration(minutes: 2);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
@@ -466,6 +470,9 @@ class GuidanceController extends _$GuidanceController {
 
   /// Says the position is lost, unless a fix comes first.
   Timer? _lostCheck;
+
+  /// Lets the screen go out a while after the arrival ([arrivalScreenOn]).
+  Timer? _arrivalWake;
 
   /// A position error came and no fix since.
   bool _noFixSinceError = false;
@@ -974,6 +981,8 @@ class GuidanceController extends _$GuidanceController {
     _fixes = null;
     unawaited(_returns?.cancel());
     _returns = null;
+    _arrivalWake?.cancel();
+    _arrivalWake = null;
     _fixRetry?.cancel();
     _fixRetry = null;
     _lostCheck?.cancel();
@@ -1104,7 +1113,14 @@ class GuidanceController extends _$GuidanceController {
     _lostCheck = null;
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
-      // the screen stays on for the arrival card.
+      // the screen stays on for the arrival card a while, then goes out
+      // as the device's settings say: a phone left on its mount after the
+      // trip kept it lit until the app was closed.
+      final generation = _generation;
+      _arrivalWake?.cancel();
+      _arrivalWake = Timer(arrivalScreenOn, () {
+        if (generation == _generation) unawaited(_wake?.keepOn(on: false));
+      });
       unawaited(_fixes?.cancel());
       _fixes = null;
       _fixRetry?.cancel();

@@ -984,6 +984,25 @@ void main() {
     expect(engine.tracks.single.disposed, isTrue);
   });
 
+  test('after the arrival the screen stays on a while, then the device puts it out', () {
+    fakeAsync((async) {
+      final a = routeFixture('limoges_drive');
+      unawaited(start(a));
+      async.elapse(const Duration(seconds: 1));
+      for (final f in along(a.routes.single, step: 40)) {
+        feed.send(f);
+        async.elapse(const Duration(milliseconds: 10));
+      }
+      expect(session().phase, GuidancePhase.arrived);
+      async.elapse(arrivalScreenOn - const Duration(seconds: 5));
+      expect(wake.on, isTrue, reason: 'the arrival card read');
+      async.elapse(const Duration(seconds: 10));
+      expect(wake.on, isFalse);
+      expect(session().phase, GuidancePhase.arrived, reason: 'the card stays');
+      container.read(guidanceControllerProvider.notifier).stop();
+    });
+  });
+
   test('the voice off is silent and remembered', () async {
     final a = routeFixture('limoges_drive');
     final controller = await start(a);

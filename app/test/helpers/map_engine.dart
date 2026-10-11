@@ -26,6 +26,9 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
   /// How many layers the map added so far.
   int added = 0;
 
+  /// Every call the map made to the engine, in order.
+  final List<MethodCall> calls = [];
+
   bool _created = false;
 
   /// Takes the place of the platform's engine for the test, until its end.
@@ -54,6 +57,7 @@ final class LayerStackEngine extends gl.MapLibreMethodChannel {
   }
 
   Future<Object?> _answer(MethodCall call) async {
+    calls.add(call);
     final args = call.arguments is Map
         ? call.arguments as Map<Object?, Object?>
         : const <Object?, Object?>{};

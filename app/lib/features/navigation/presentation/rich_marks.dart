@@ -233,6 +233,13 @@ final class RouteMapRich {
   @override
   bool operator ==(Object other) =>
       other is RouteMapRich &&
+      sameBesidesVehicle(other) &&
+      other.vehicleAlongM == vehicleAlongM &&
+      other.speedMps == speedMps;
+
+  /// The same, but for where the vehicle is and how fast it goes: what a
+  /// parked vehicle's wandering fixes change alone.
+  bool sameBesidesVehicle(RouteMapRich other) =>
       other.style == style &&
       identical(other.art, art) &&
       other.tiles == tiles &&
@@ -241,9 +248,7 @@ final class RouteMapRich {
       listEquals(other.obstacles, obstacles) &&
       other.limit == limit &&
       other.sizes == sizes &&
-      other.yielding == yielding &&
-      other.vehicleAlongM == vehicleAlongM &&
-      other.speedMps == speedMps;
+      other.yielding == yielding;
 
   @override
   int get hashCode => Object.hash(

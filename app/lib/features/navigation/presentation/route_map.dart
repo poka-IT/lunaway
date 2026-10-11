@@ -360,14 +360,19 @@ FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
 /// The vehicle on the map: its position on the route and its course.
 @immutable
 final class VehiclePuck {
-  const new({required this.position, this.course});
+  const new({required this.position, this.course, this.speedMps});
 
   final LatLng position;
   final double? course;
 
+  /// The speed of the fix, when known: a parked vehicle's fixes wander
+  /// around it, and the map does not glide the vehicle through them
+  /// ([VehicleMotion.retarget]).
+  final double? speedMps;
+
   /// The same fix: the guidance screen rebuilds for many reasons besides a
   /// new position (a poll, the voice, a banner), and only a new fix may
-  /// start a glide.
+  /// start a glide. The speed alone moves nothing.
   @override
   bool operator ==(Object other) =>
       other is VehiclePuck && other.position == position && other.course == course;
