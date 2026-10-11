@@ -1077,6 +1077,28 @@
     "offlineTitle": "Pas de connexion",
     "offlineNotHere": "Rien de cette zone sur cet appareil."
   },
+  "home": {
+    "title": "Domicile",
+    "setTitle": "Définir mon domicile",
+    "privacy": "Votre domicile reste sur cet appareil et, si vous avez un compte, dans ce compte. Personne d'autre ne le voit.",
+    "directionsHome": "Itinéraire vers le domicile",
+    "actions": "Actions du domicile",
+    "change": "Changer de domicile",
+    "remove": "Retirer le domicile",
+    "removed": "Domicile retiré",
+    "saved": "Domicile enregistré",
+    "changed": "Domicile changé",
+    "setHere": "Définir comme domicile",
+    "removeHere": "Ce n'est plus mon domicile",
+    "sheetTitle": "Où est votre domicile ?",
+    "searchHint": "Une adresse ou une commune",
+    "myPosition": "Ma position actuelle",
+    "onMap": "Choisir sur la carte",
+    "onMapNotice": "Appuyez longuement sur la carte à l'endroit de votre domicile, puis touchez « Mon domicile est ici ».",
+    "onMapNoticeClick": "Faites un clic droit sur la carte à l'endroit de votre domicile, puis cliquez sur « Mon domicile est ici ».",
+    "here": "Mon domicile est ici",
+    "goHome": "Aller au domicile"
+  },
   "favorites": {
     "title": "Favoris",
     "defaultList": "Mes favoris",

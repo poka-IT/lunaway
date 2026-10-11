@@ -61,6 +61,7 @@ class TranslationsDe extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$de directions = _Translations$directions$de._(_root);
 	@override late final _Translations$navigation$de navigation = _Translations$navigation$de._(_root);
 	@override late final _Translations$list$de list = _Translations$list$de._(_root);
+	@override late final _Translations$home$de home = _Translations$home$de._(_root);
 	@override late final _Translations$favorites$de favorites = _Translations$favorites$de._(_root);
 	@override late final _Translations$vehicle$de vehicle = _Translations$vehicle$de._(_root);
 	@override late final _Translations$vehicleHeight$de vehicleHeight = _Translations$vehicleHeight$de._(_root);
@@ -713,6 +714,35 @@ class _Translations$list$de extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Sortiert innerhalb der ${n} Plätze, die der Kartenmitte am nächsten liegen';
 	@override String get offlineTitle => 'Keine Verbindung';
 	@override String get offlineNotHere => 'Nichts aus diesem Gebiet auf diesem Gerät.';
+}
+
+// Path: home
+class _Translations$home$de extends Translations$home$en {
+	_Translations$home$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Zuhause';
+	@override String get setTitle => 'Mein Zuhause festlegen';
+	@override String get privacy => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.';
+	@override String get directionsHome => 'Route nach Hause';
+	@override String get actions => 'Aktionen für Ihr Zuhause';
+	@override String get change => 'Zuhause ändern';
+	@override String get remove => 'Zuhause entfernen';
+	@override String get removed => 'Zuhause entfernt';
+	@override String get saved => 'Zuhause gespeichert';
+	@override String get changed => 'Zuhause geändert';
+	@override String get setHere => 'Als Zuhause festlegen';
+	@override String get removeHere => 'Nicht mehr mein Zuhause';
+	@override String get sheetTitle => 'Wo ist Ihr Zuhause?';
+	@override String get searchHint => 'Eine Adresse oder eine Gemeinde';
+	@override String get myPosition => 'Mein aktueller Standort';
+	@override String get onMap => 'Auf der Karte wählen';
+	@override String get onMapNotice => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.';
+	@override String get onMapNoticeClick => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.';
+	@override String get here => 'Mein Zuhause ist hier';
+	@override String get goHome => 'Nach Hause fahren';
 }
 
 // Path: favorites
@@ -4336,6 +4366,26 @@ extension on TranslationsDe {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Sortiert innerhalb der ${n} Plätze, die der Kartenmitte am nächsten liegen',
 			'list.offlineTitle' => 'Keine Verbindung',
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
+			'home.title' => 'Zuhause',
+			'home.setTitle' => 'Mein Zuhause festlegen',
+			'home.privacy' => 'Ihr Zuhause bleibt auf diesem Gerät und, wenn Sie ein Konto haben, in diesem Konto. Niemand sonst sieht es.',
+			'home.directionsHome' => 'Route nach Hause',
+			'home.actions' => 'Aktionen für Ihr Zuhause',
+			'home.change' => 'Zuhause ändern',
+			'home.remove' => 'Zuhause entfernen',
+			'home.removed' => 'Zuhause entfernt',
+			'home.saved' => 'Zuhause gespeichert',
+			'home.changed' => 'Zuhause geändert',
+			'home.setHere' => 'Als Zuhause festlegen',
+			'home.removeHere' => 'Nicht mehr mein Zuhause',
+			'home.sheetTitle' => 'Wo ist Ihr Zuhause?',
+			'home.searchHint' => 'Eine Adresse oder eine Gemeinde',
+			'home.myPosition' => 'Mein aktueller Standort',
+			'home.onMap' => 'Auf der Karte wählen',
+			'home.onMapNotice' => 'Halten Sie die Karte dort gedrückt, wo Ihr Zuhause ist, und tippen Sie dann auf „Mein Zuhause ist hier“.',
+			'home.onMapNoticeClick' => 'Klicken Sie mit der rechten Maustaste dort auf die Karte, wo Ihr Zuhause ist, und dann auf „Mein Zuhause ist hier“.',
+			'home.here' => 'Mein Zuhause ist hier',
+			'home.goHome' => 'Nach Hause fahren',
 			'favorites.title' => 'Favoriten',
 			'favorites.defaultList' => 'Meine Favoriten',
 			'favorites.empty' => 'Hier ist noch nichts gespeichert',
@@ -4474,6 +4524,8 @@ extension on TranslationsDe {
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
@@ -4494,8 +4546,6 @@ extension on TranslationsDe {
 			'translation.from.es' => 'Automatisch aus dem Spanischen übersetzt',
 			'translation.from.it' => 'Automatisch aus dem Italienischen übersetzt',
 			'translation.from.nl' => 'Automatisch aus dem Niederländischen übersetzt',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch übersetzt (Originalsprache: ${language})',
 			'translation.offline' => 'Für die Übersetzung ist eine Internetverbindung nötig.',
 			'translation.failedOffline' => 'Keine Internetverbindung: Der Text konnte nicht übersetzt werden.',
@@ -4988,6 +5038,8 @@ extension on TranslationsDe {
 			'poi.kind.hairdresser' => 'Friseur',
 			'poi.kind.beauty' => 'Kosmetikstudio',
 			'poi.kind.massage' => 'Massage',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.tattoo' => 'Tattoostudio',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Wechselstube',
@@ -5008,8 +5060,6 @@ extension on TranslationsDe {
 			'poi.kind.funeralDirectors' => 'Bestattungen',
 			'poi.kind.petGrooming' => 'Hundesalon',
 			'poi.kind.tyres' => 'Reifenhandel',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.carParts' => 'Autoteile',
 			'poi.kind.carDealer' => 'Autohaus',
 			'poi.kind.motorcycleShop' => 'Motorradhändler',

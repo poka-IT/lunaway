@@ -61,6 +61,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$nl directions = _Translations$directions$nl._(_root);
 	@override late final _Translations$navigation$nl navigation = _Translations$navigation$nl._(_root);
 	@override late final _Translations$list$nl list = _Translations$list$nl._(_root);
+	@override late final _Translations$home$nl home = _Translations$home$nl._(_root);
 	@override late final _Translations$favorites$nl favorites = _Translations$favorites$nl._(_root);
 	@override late final _Translations$vehicle$nl vehicle = _Translations$vehicle$nl._(_root);
 	@override late final _Translations$vehicleHeight$nl vehicleHeight = _Translations$vehicleHeight$nl._(_root);
@@ -715,6 +716,35 @@ class _Translations$list$nl extends Translations$list$en {
 	@override String get offlineNotHere => 'Niets van dit gebied op dit apparaat.';
 }
 
+// Path: home
+class _Translations$home$nl extends Translations$home$en {
+	_Translations$home$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Thuis';
+	@override String get setTitle => 'Mijn thuis instellen';
+	@override String get privacy => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.';
+	@override String get directionsHome => 'Route naar huis';
+	@override String get actions => 'Acties voor thuis';
+	@override String get change => 'Thuis wijzigen';
+	@override String get remove => 'Thuis verwijderen';
+	@override String get removed => 'Thuis verwijderd';
+	@override String get saved => 'Thuis opgeslagen';
+	@override String get changed => 'Thuis gewijzigd';
+	@override String get setHere => 'Instellen als thuis';
+	@override String get removeHere => 'Niet meer mijn thuis';
+	@override String get sheetTitle => 'Waar is je thuis?';
+	@override String get searchHint => 'Een adres of een gemeente';
+	@override String get myPosition => 'Mijn huidige positie';
+	@override String get onMap => 'Kiezen op de kaart';
+	@override String get onMapNotice => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.';
+	@override String get onMapNoticeClick => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.';
+	@override String get here => 'Mijn thuis is hier';
+	@override String get goHome => 'Naar huis';
+}
+
 // Path: favorites
 class _Translations$favorites$nl extends Translations$favorites$en {
 	_Translations$favorites$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -1093,16 +1123,16 @@ class _Translations$accountImport$nl extends Translations$accountImport$en {
 	@override String get choiceTitle => 'Twee accounts op dit apparaat';
 	@override String choiceBody({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.';
 	@override String merge({required Object imported}) => 'Samenvoegen met “${imported}”';
-	@override String mergeMoves({required Object current, required Object imported}) => 'De favorietenlijsten, het thuisadres, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.';
+	@override String mergeMoves({required Object current, required Object imported}) => 'De favorietenlijsten, het thuis, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.';
 	@override String mergePublic({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.';
-	@override String mergeHomeKept({required Object imported}) => 'Beide accounts hebben een thuisadres: dat van “${imported}” blijft.';
+	@override String mergeHomeKept({required Object imported}) => 'Beide accounts hebben een thuis: dat van “${imported}” blijft.';
 	@override String mergeDuplicates({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.';
 	@override String mergeDeletes({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.';
 	@override String get replace => 'Vervangen zonder samenvoegen';
 	@override String replaceTitle({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”';
 	@override String replaceKeeps({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.';
 	@override String replaceNoCard({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.';
-	@override String replaceLocal({required Object imported}) => 'De favorietenlijsten en het thuisadres verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.';
+	@override String replaceLocal({required Object imported}) => 'De favorietenlijsten en het thuis verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.';
 	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'De wachtende bijdrage wordt niet verstuurd.',
 		other: 'De ${n} wachtende bijdragen worden niet verstuurd.',
@@ -4336,6 +4366,26 @@ extension on TranslationsNl {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen',
 			'list.offlineTitle' => 'Geen verbinding',
 			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
+			'home.title' => 'Thuis',
+			'home.setTitle' => 'Mijn thuis instellen',
+			'home.privacy' => 'Je thuis blijft op dit apparaat en, als je een account hebt, in dat account. Niemand anders ziet het.',
+			'home.directionsHome' => 'Route naar huis',
+			'home.actions' => 'Acties voor thuis',
+			'home.change' => 'Thuis wijzigen',
+			'home.remove' => 'Thuis verwijderen',
+			'home.removed' => 'Thuis verwijderd',
+			'home.saved' => 'Thuis opgeslagen',
+			'home.changed' => 'Thuis gewijzigd',
+			'home.setHere' => 'Instellen als thuis',
+			'home.removeHere' => 'Niet meer mijn thuis',
+			'home.sheetTitle' => 'Waar is je thuis?',
+			'home.searchHint' => 'Een adres of een gemeente',
+			'home.myPosition' => 'Mijn huidige positie',
+			'home.onMap' => 'Kiezen op de kaart',
+			'home.onMapNotice' => 'Houd de kaart ingedrukt waar je thuis is en tik dan op “Mijn thuis is hier”.',
+			'home.onMapNoticeClick' => 'Klik met de rechtermuisknop op de kaart waar je thuis is en klik dan op “Mijn thuis is hier”.',
+			'home.here' => 'Mijn thuis is hier',
+			'home.goHome' => 'Naar huis',
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
@@ -4474,6 +4524,8 @@ extension on TranslationsNl {
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), onder de Licence Ouverte 2.0; Bordeaux Métropole en het departement Côtes-d\'Armor, onder de Licence Ouverte; Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4494,8 +4546,6 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
@@ -4618,16 +4668,16 @@ extension on TranslationsNl {
 			'accountImport.choiceTitle' => 'Twee accounts op dit apparaat',
 			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Dit apparaat gebruikt “${current}”. Je hebt net “${imported}” geopend.',
 			'accountImport.merge' => ({required Object imported}) => 'Samenvoegen met “${imported}”',
-			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'De favorietenlijsten, het thuisadres, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'De favorietenlijsten, het thuis, de verborgen auteurs en de wachtende bijdragen van “${current}” gaan naar “${imported}”.',
 			'accountImport.mergePublic' => ({required Object imported}) => 'De gepubliceerde reviews, foto\'s, plekken en wijzigingen komen op naam van “${imported}”.',
-			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Beide accounts hebben een thuisadres: dat van “${imported}” blijft.',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Beide accounts hebben een thuis: dat van “${imported}” blijft.',
 			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Een plek die beide accounts beoordeelden, houdt de beoordeling van “${imported}”.',
 			'accountImport.mergeDeletes' => ({required Object current}) => 'Daarna wordt “${current}” van dit apparaat en van de server gewist.',
 			'accountImport.replace' => 'Vervangen zonder samenvoegen',
 			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => '“${current}” vervangen door “${imported}”',
 			'accountImport.replaceKeeps' => ({required Object current}) => '“${current}” blijft op de server. Alleen de herstelkaart ervan brengt het terug.',
 			'accountImport.replaceNoCard' => ({required Object current}) => 'Er is geen herstelkaart van “${current}” bekend. Staat het op geen ander apparaat open, dan wordt het van de server gewist, omdat niets het nog kan openen.',
-			'accountImport.replaceLocal' => ({required Object imported}) => 'De favorietenlijsten en het thuisadres verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'De favorietenlijsten en het thuis verdwijnen van dit apparaat; die van “${imported}” komen ervoor in de plaats.',
 			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'De wachtende bijdrage wordt niet verstuurd.', other: 'De ${n} wachtende bijdragen worden niet verstuurd.', ), 
 			'accountImport.card' => ({required Object current}) => 'Herstelkaart van “${current}”',
 			'accountImport.replaceConfirm' => 'Vervangen',
@@ -4988,6 +5038,8 @@ extension on TranslationsNl {
 			'poi.kind.hairdresser' => 'Kapper',
 			'poi.kind.beauty' => 'Schoonheidssalon',
 			'poi.kind.massage' => 'Massage',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.tattoo' => 'Tattooshop',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Wisselkantoor',
@@ -5008,8 +5060,6 @@ extension on TranslationsNl {
 			'poi.kind.funeralDirectors' => 'Uitvaartcentrum',
 			'poi.kind.petGrooming' => 'Trimsalon',
 			'poi.kind.tyres' => 'Bandenservice',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.carParts' => 'Auto-onderdelen',
 			'poi.kind.carDealer' => 'Autodealer',
 			'poi.kind.motorcycleShop' => 'Motorzaak',

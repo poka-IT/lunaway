@@ -10,6 +10,7 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -681,6 +682,7 @@ class _Panel extends ConsumerWidget {
           ),
         const SizedBox(height: Space.s),
         const _DepartureLine(),
+        _HomeArrival(target: target),
         const SizedBox(height: Space.s),
         StopsStrip(target: target),
         if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)
@@ -1214,6 +1216,39 @@ class _Prompt extends StatelessWidget {
           OutlinedButton(onPressed: onSecondary, child: Text(secondary!)),
         ],
       ],
+    );
+  }
+}
+
+/// The user's home offered as the arrival instead: the preview of the
+/// route home in place of this one, from the same start. None when the
+/// route goes home already, or starts there.
+class _HomeArrival extends ConsumerWidget {
+  const new({required this.target});
+
+  final RouteTarget target;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final home = ref.watch(userHomeProvider).value;
+    final start = ref.watch(chosenDepartureProvider)?.position;
+    if (home == null ||
+        home.position.distanceTo(target.destination) < 50 ||
+        (start != null && home.position.distanceTo(start) < 50)) {
+      return const SizedBox.shrink();
+    }
+    final t = context.t;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton.icon(
+        onPressed: () {
+          final next = RouteTarget(destination: home.position, label: t.home.title);
+          replaceOverMap(context, NavigationRoutes.previewOf(next), extra: next);
+        },
+        icon: const Icon(AppIcons.home),
+        label: Text(t.home.goHome),
+        style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+      ),
     );
   }
 }

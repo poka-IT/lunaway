@@ -149,15 +149,34 @@ final class FakeApi {
 
   Map<String, Object?> otherAccount() => {...account(), 'id': otherId, 'pseudonym': otherPseudonym};
 
+  /// The other account's home, when [otherHasHome].
+  static const Map<String, Object?> otherHome = {
+    'kind': 'ADDRESS',
+    'name': 'Capitainerie',
+    'address': 'Quai de la Tournette, 74000 Annecy',
+    'lat': 45.9,
+    'lon': 6.13,
+    'poiId': null,
+    'poiKind': null,
+  };
+
   /// The device now uses the other account: it becomes the account this
-  /// server serves.
-  void _becomeOther() {
+  /// server serves. Merged into it, the device's account brought its lists,
+  /// and its home when the other had none; taken in its place, the other
+  /// account comes with its own, and no list.
+  void _becomeOther({required bool merging}) {
     _keys
       ..clear()
       ..addAll(_otherKeys);
     _otherKeys.clear();
     pseudonym = otherPseudonym;
     _accountId = otherId;
+    if (otherHasHome) {
+      home = {...otherHome};
+    } else if (!merging) {
+      home = null;
+    }
+    if (!merging) favoriteLists.clear();
   }
 
   /// The operations received, by name.
@@ -180,6 +199,9 @@ final class FakeApi {
   /// An import carrying points is refused (`INVALID_INPUT`), as for an
   /// account that holds as many points as it may.
   bool refuseImportedPoints = false;
+
+  /// The account's home as `myHome` answers it; null while it has none.
+  Map<String, Object?>? home;
 
   /// The pseudonyms `updateProfile` refuses (`INVALID_INPUT`), as the
   /// server does a link or an insult.
@@ -277,6 +299,11 @@ final class FakeApi {
           : RegExp(r'\bpoints \{').hasMatch(query)
           ? 'Unknown field "points" on type "FavoriteList".'
           : name.contains('PointFromList') || name.contains('PointToList')
+          ? 'Unknown field "${name[0].toLowerCase()}${name.substring(1)}" on type "Mutation".'
+          // Nor the home.
+          : name == 'MyHome'
+          ? 'Unknown field "myHome" on type "Query".'
+          : name == 'SetHome' || name == 'ClearHome'
           ? 'Unknown field "${name[0].toLowerCase()}${name.substring(1)}" on type "Mutation".'
           : null;
       if (message != null) {
@@ -376,6 +403,9 @@ final class FakeApi {
     'MergeAccount',
     'SignOutForgettingDevice',
     'AccountHasHome',
+    'MyHome',
+    'SetHome',
+    'ClearHome',
   };
 
   static http.Response _json(Object body) => http.Response(
@@ -550,7 +580,7 @@ final class FakeApi {
       if (answer != null) return answer;
       // Anything else the device asks as the other account: it uses that
       // account now (an import that replaced the device's).
-      _becomeOther();
+      _becomeOther(merging: false);
     }
     final key = _signedIn(token);
     String id() => v['id']! as String;
@@ -602,7 +632,7 @@ final class FakeApi {
           mergedKeys[k] = otherPseudonym;
         }
         mergedKeys[absorbed] = otherPseudonym;
-        _becomeOther();
+        _becomeOther(merging: true);
         merged = true;
         return {
           'mergeAccount': {'home': home, 'account': account()},
@@ -846,6 +876,25 @@ final class FakeApi {
         'renameList': {'id': id()},
       },
       'DeleteList' => {'deleteList': true},
+      'MyHome' => {'myHome': home},
+      'SetHome' => () {
+        final h = v['home']! as Map<String, Object?>;
+        home = {
+          'kind': h['kind'],
+          'name': h['name'],
+          'address': h['address'],
+          'lat': h['lat'],
+          'lon': h['lon'],
+          'poiId': h['poiId'],
+          'poiKind': h['poiKind'],
+        };
+        return {'setHome': home};
+      }(),
+      'ClearHome' => () {
+        final had = home != null;
+        home = null;
+        return {'clearHome': had};
+      }(),
       _ => throw _Refused('UNKNOWN $name'),
     };
   }

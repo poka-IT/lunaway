@@ -7,6 +7,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/home_views.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -71,6 +72,10 @@ class PointDetails extends ConsumerWidget {
             _ => null,
           };
     final title = saved?.name ?? address?.name ?? t.map.pointTitle;
+    // The point as a home keeps it: the name it was saved under, else the
+    // address the search found, else the day.
+    SavedPoint homeDraft() =>
+        saved ?? pointDraft(t, position, now: ref.read(clockProvider)(), address: address);
     // Under the title, where it is: what the search found, else what was
     // saved with the point.
     final hint = switch (address) {
@@ -121,6 +126,7 @@ class PointDetails extends ConsumerWidget {
             StartHereMenu(
               position: position,
               label: saved?.name ?? (address == null ? null : addressRouteLabel(address)),
+              home: homeDraft,
             ),
             if (onClose != null) ...[
               const SizedBox(width: Space.xs),
@@ -140,6 +146,8 @@ class PointDetails extends ConsumerWidget {
             style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
+        // The user is placing their home on the map: this point is it.
+        HomeHereButton(draft: homeDraft),
         SavedPointBlock(id: savedId, shownName: title, initial: saved),
         const SizedBox(height: Space.l),
         if (address != null) ...[

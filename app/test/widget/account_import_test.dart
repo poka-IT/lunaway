@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_import.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/fake_api.dart';
@@ -153,6 +155,36 @@ void main() {
     await tapInSheet(tester, find.text(t.accountImport.back));
     expect(find.text(t.accountImport.merge(imported: _imported)), findsOneWidget);
     expect(api.forgotten, isEmpty);
+  });
+
+  testWidgets('with a home on both sides, the sheet says the imported one stays', (tester) async {
+    final api = FakeApi()..otherHasHome = true;
+    final (app, _) = await openImport(tester, api);
+    final homes = app.container(tester).read(homeRepositoryProvider);
+    await homes.set(
+      SavedPoint(
+        id: 'home',
+        kind: SavedPointKind.address,
+        name: 'Hôtel de ville',
+        position: const LatLng(45.8992, 6.1294),
+      ),
+    );
+    await openOther(tester);
+    expect(find.text(t.accountImport.mergeHomeKept(imported: _imported)), findsOneWidget);
+
+    // Replacing instead: the device's home leaves with the account left,
+    // and the imported account's comes with its first sync.
+    await tapInSheet(tester, find.text(t.accountImport.replace));
+    await tapInSheet(tester, find.text(t.accountImport.replaceConfirm));
+    await settleShort(tester, const Duration(seconds: 2));
+    expect((await homes.read())?.name, 'Capitainerie');
+  });
+
+  testWidgets('without a home on the device, the sheet does not speak of one', (tester) async {
+    final api = FakeApi()..otherHasHome = true;
+    await openImport(tester, api);
+    await openOther(tester);
+    expect(find.text(t.accountImport.mergeHomeKept(imported: _imported)), findsNothing);
   });
 
   testWidgets('giving up leaves the device as it was', (tester) async {

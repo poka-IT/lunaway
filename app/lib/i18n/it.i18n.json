@@ -1077,6 +1077,28 @@
     "offlineTitle": "Nessuna connessione",
     "offlineNotHere": "Niente di quest'area su questo dispositivo."
   },
+  "home": {
+    "title": "Casa",
+    "setTitle": "Imposta la mia casa",
+    "privacy": "La tua casa resta su questo dispositivo e, se hai un account, in quell'account. Nessun altro la vede.",
+    "directionsHome": "Percorso verso casa",
+    "actions": "Azioni della casa",
+    "change": "Cambia casa",
+    "remove": "Rimuovi la casa",
+    "removed": "Casa rimossa",
+    "saved": "Casa salvata",
+    "changed": "Casa cambiata",
+    "setHere": "Imposta come casa",
+    "removeHere": "Non è più la mia casa",
+    "sheetTitle": "Dov'è la tua casa?",
+    "searchHint": "Un indirizzo o un comune",
+    "myPosition": "La mia posizione attuale",
+    "onMap": "Scegli sulla mappa",
+    "onMapNotice": "Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».",
+    "onMapNoticeClick": "Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».",
+    "here": "La mia casa è qui",
+    "goHome": "Vai a casa"
+  },
   "favorites": {
     "title": "Preferiti",
     "defaultList": "I miei preferiti",

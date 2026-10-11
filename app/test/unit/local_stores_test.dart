@@ -33,9 +33,9 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 9 (the search history), the user store at 6 (saved streets)', () {
+  test('the cache is at version 9 (the search history), the user store at 7 (the home)', () {
     expect(db.schemaVersion, 9);
-    expect(user.schemaVersion, 6);
+    expect(user.schemaVersion, 7);
   });
 
   group('settings', () {

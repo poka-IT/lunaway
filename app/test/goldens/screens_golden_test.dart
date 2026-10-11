@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -172,6 +173,21 @@ void main() {
         await expectLater(
           find.byType(MaterialApp),
           matchesGoldenFile('images/favorites_$name.png'),
+        );
+      }),
+    );
+
+    testWidgets(
+      'favourites headed by the home, $name',
+      skip: skip,
+      (tester) => _withShadows(() async {
+        final app = await _pump(tester, size, Brightness.light);
+        await app.favorites.addToDefault(lakeArea.summary);
+        await app.container(tester).read(homeRepositoryProvider).set(_savedAddress);
+        await _openTab(tester, 'Favoris');
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('images/favorites_home_$name.png'),
         );
       }),
     );

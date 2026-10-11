@@ -84,6 +84,6 @@ AccountSwitch accountSwitch(Ref ref) => AccountSwitch(
   service: ref.watch(accountServiceProvider),
   outbox: ref.watch(outboxStoreProvider),
   favorites: ref.watch(favoritesSyncProvider),
-  deviceHasHome: () async => false,
-  forgetHome: () async {},
+  deviceHasHome: () async => await ref.read(homeRepositoryProvider).read() != null,
+  forgetHome: () => ref.read(homeRepositoryProvider).clearLocal(),
 );

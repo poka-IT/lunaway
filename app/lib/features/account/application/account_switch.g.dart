@@ -48,4 +48,4 @@ final class AccountSwitchProvider
   }
 }
 
-String _$accountSwitchHash() => r'75ded9c6035e90a7cf76bc33e362471e5ce8960c';
+String _$accountSwitchHash() => r'15e1b1dbb2972d77fee897b12e208465e12986ad';

@@ -28,9 +28,10 @@ final class UserDatabase extends _$UserDatabase {
   // developer's device, so they get no migration. Version 2 adds the
   // account's favourites sync and the outbox of contributions, version 3
   // the vehicle's fuel, version 4 its cruising speed, version 5 the points
-  // saved outside the places, version 6 the street of a saved place.
+  // saved outside the places, version 6 the street of a saved place,
+  // version 7 the user's home.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -63,6 +64,9 @@ final class UserDatabase extends _$UserDatabase {
       }
       if (from < 6) {
         await m.addColumn(favoriteItems, favoriteItems.street);
+      }
+      if (from < 7) {
+        await m.createTable(favoriteHome);
       }
     },
     beforeOpen: (details) async {

@@ -61,6 +61,7 @@ class TranslationsIt extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$it directions = _Translations$directions$it._(_root);
 	@override late final _Translations$navigation$it navigation = _Translations$navigation$it._(_root);
 	@override late final _Translations$list$it list = _Translations$list$it._(_root);
+	@override late final _Translations$home$it home = _Translations$home$it._(_root);
 	@override late final _Translations$favorites$it favorites = _Translations$favorites$it._(_root);
 	@override late final _Translations$vehicle$it vehicle = _Translations$vehicle$it._(_root);
 	@override late final _Translations$vehicleHeight$it vehicleHeight = _Translations$vehicleHeight$it._(_root);
@@ -713,6 +714,35 @@ class _Translations$list$it extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Ordine calcolato sui ${n} luoghi più vicini al centro della mappa';
 	@override String get offlineTitle => 'Nessuna connessione';
 	@override String get offlineNotHere => 'Niente di quest\'area su questo dispositivo.';
+}
+
+// Path: home
+class _Translations$home$it extends Translations$home$en {
+	_Translations$home$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Casa';
+	@override String get setTitle => 'Imposta la mia casa';
+	@override String get privacy => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.';
+	@override String get directionsHome => 'Percorso verso casa';
+	@override String get actions => 'Azioni della casa';
+	@override String get change => 'Cambia casa';
+	@override String get remove => 'Rimuovi la casa';
+	@override String get removed => 'Casa rimossa';
+	@override String get saved => 'Casa salvata';
+	@override String get changed => 'Casa cambiata';
+	@override String get setHere => 'Imposta come casa';
+	@override String get removeHere => 'Non è più la mia casa';
+	@override String get sheetTitle => 'Dov\'è la tua casa?';
+	@override String get searchHint => 'Un indirizzo o un comune';
+	@override String get myPosition => 'La mia posizione attuale';
+	@override String get onMap => 'Scegli sulla mappa';
+	@override String get onMapNotice => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».';
+	@override String get onMapNoticeClick => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».';
+	@override String get here => 'La mia casa è qui';
+	@override String get goHome => 'Vai a casa';
 }
 
 // Path: favorites
@@ -4336,6 +4366,26 @@ extension on TranslationsIt {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ordine calcolato sui ${n} luoghi più vicini al centro della mappa',
 			'list.offlineTitle' => 'Nessuna connessione',
 			'list.offlineNotHere' => 'Niente di quest\'area su questo dispositivo.',
+			'home.title' => 'Casa',
+			'home.setTitle' => 'Imposta la mia casa',
+			'home.privacy' => 'La tua casa resta su questo dispositivo e, se hai un account, in quell\'account. Nessun altro la vede.',
+			'home.directionsHome' => 'Percorso verso casa',
+			'home.actions' => 'Azioni della casa',
+			'home.change' => 'Cambia casa',
+			'home.remove' => 'Rimuovi la casa',
+			'home.removed' => 'Casa rimossa',
+			'home.saved' => 'Casa salvata',
+			'home.changed' => 'Casa cambiata',
+			'home.setHere' => 'Imposta come casa',
+			'home.removeHere' => 'Non è più la mia casa',
+			'home.sheetTitle' => 'Dov\'è la tua casa?',
+			'home.searchHint' => 'Un indirizzo o un comune',
+			'home.myPosition' => 'La mia posizione attuale',
+			'home.onMap' => 'Scegli sulla mappa',
+			'home.onMapNotice' => 'Tieni premuto sulla mappa dove si trova la tua casa, poi tocca «La mia casa è qui».',
+			'home.onMapNoticeClick' => 'Fai clic con il tasto destro sulla mappa dove si trova la tua casa, poi fai clic su «La mia casa è qui».',
+			'home.here' => 'La mia casa è qui',
+			'home.goHome' => 'Vai a casa',
 			'favorites.title' => 'Preferiti',
 			'favorites.defaultList' => 'I miei preferiti',
 			'favorites.empty' => 'Ancora niente di salvato qui',
@@ -4474,6 +4524,8 @@ extension on TranslationsIt {
 			'profile.attributionRoadEvents' => 'Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), con Licence Ouverte 2.0; Bordeaux Métropole e dipartimento delle Côtes-d\'Armor, con Licence Ouverte; Ville de Paris, Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l\'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}',
 			'profile.attributionOverture' => 'Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4494,8 +4546,6 @@ extension on TranslationsIt {
 			'translation.from.es' => 'Tradotto automaticamente dallo spagnolo',
 			'translation.from.it' => 'Tradotto automaticamente dall\'italiano',
 			'translation.from.nl' => 'Tradotto automaticamente dall\'olandese',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Tradotto automaticamente (lingua originale: ${language})',
 			'translation.offline' => 'Per tradurre serve una connessione a internet.',
 			'translation.failedOffline' => 'Nessuna connessione: impossibile tradurre il testo.',
@@ -4988,6 +5038,8 @@ extension on TranslationsIt {
 			'poi.kind.hairdresser' => 'Parrucchiere',
 			'poi.kind.beauty' => 'Centro estetico',
 			'poi.kind.massage' => 'Massaggi',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.tattoo' => 'Studio tatuaggi',
 			'poi.kind.bank' => 'Banca',
 			'poi.kind.moneyExchange' => 'Cambiavalute',
@@ -5008,8 +5060,6 @@ extension on TranslationsIt {
 			'poi.kind.funeralDirectors' => 'Onoranze funebri',
 			'poi.kind.petGrooming' => 'Toelettatura',
 			'poi.kind.tyres' => 'Gommista',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.carParts' => 'Ricambi auto',
 			'poi.kind.carDealer' => 'Concessionaria auto',
 			'poi.kind.motorcycleShop' => 'Moto',

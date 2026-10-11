@@ -65,6 +65,25 @@ CREATE TABLE favorite_points (
 
 CREATE INDEX favorite_points_id ON favorite_points (id);
 
+-- The user's home, one row at most: an address, a town, a bare point of
+-- the map or a shop, as a saved point is (`SavedPoint`), without a note.
+-- It heads the favourites and the search, and the route there is one tap.
+-- Synced with the account like the favourites; the last state both sides
+-- agreed on is the `home_sync_base` row of `settings`. Added in version 7.
+CREATE TABLE favorite_home (
+  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+  -- `SavedPointKind.wire`.
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  address TEXT,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  -- The point of interest, for a shop or a service (`PoiKind.code`).
+  poi_id TEXT,
+  poi_kind TEXT,
+  updated_at INTEGER NOT NULL
+) AS FavoriteHomeRow;
+
 -- The user's vehicle, one row: the filters use its size now, the route
 -- planner its limits later. Every dimension is optional, so a user who knows
 -- only the height still gets the height filter.

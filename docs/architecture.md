@@ -539,6 +539,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   `Poi.locality` (its address's town, else the French commune whose
   outline covers it, read by the API at the request: 0.4 ms for a page
   of ten points, `lunaway_db::pois::communes_of`).
+- **The home**: one point per user (an address, a town, a bare point, a
+  place or a shop, as a saved point is), table `favorite_home` of the
+  user database, synced with the account by the favourites' sync
+  (`HomeSync`, three-way against the `home_sync_base` setting; at an
+  account's first sync on a device the account's home wins), private
+  (`myHome`, `setHome`, `clearHome`). It heads the favourites, the list
+  under the empty search field and the preview's choice of a start, and
+  the route there is one tap; the "…" of a card makes its point the home.
 - **The search's history**: the field focused and empty lists the
   results opened and the texts searched without opening one, 15 at most
   (`features/search/`, table `search_history` of the cache database). An

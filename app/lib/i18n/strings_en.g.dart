@@ -66,6 +66,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$directions$en directions = Translations$directions$en.internal(_root);
 	late final Translations$navigation$en navigation = Translations$navigation$en.internal(_root);
 	late final Translations$list$en list = Translations$list$en.internal(_root);
+	late final Translations$home$en home = Translations$home$en.internal(_root);
 	late final Translations$favorites$en favorites = Translations$favorites$en.internal(_root);
 	late final Translations$vehicle$en vehicle = Translations$vehicle$en.internal(_root);
 	late final Translations$vehicleHeight$en vehicleHeight = Translations$vehicleHeight$en.internal(_root);
@@ -1424,6 +1425,75 @@ class Translations$list$en {
 
 	/// en: 'Nothing of this area on this device.'
 	String get offlineNotHere => 'Nothing of this area on this device.';
+}
+
+// Path: home
+class Translations$home$en {
+	Translations$home$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Home'
+	String get title => 'Home';
+
+	/// en: 'Set my home'
+	String get setTitle => 'Set my home';
+
+	/// en: 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.'
+	String get privacy => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.';
+
+	/// en: 'Route home'
+	String get directionsHome => 'Route home';
+
+	/// en: 'Home actions'
+	String get actions => 'Home actions';
+
+	/// en: 'Change home'
+	String get change => 'Change home';
+
+	/// en: 'Remove home'
+	String get remove => 'Remove home';
+
+	/// en: 'Home removed'
+	String get removed => 'Home removed';
+
+	/// en: 'Home saved'
+	String get saved => 'Home saved';
+
+	/// en: 'Home changed'
+	String get changed => 'Home changed';
+
+	/// en: 'Set as home'
+	String get setHere => 'Set as home';
+
+	/// en: 'No longer my home'
+	String get removeHere => 'No longer my home';
+
+	/// en: 'Where is your home?'
+	String get sheetTitle => 'Where is your home?';
+
+	/// en: 'An address or a town'
+	String get searchHint => 'An address or a town';
+
+	/// en: 'My current position'
+	String get myPosition => 'My current position';
+
+	/// en: 'Choose on the map'
+	String get onMap => 'Choose on the map';
+
+	/// en: 'Long press on the map where your home is, then tap "My home is here".'
+	String get onMapNotice => 'Long press on the map where your home is, then tap "My home is here".';
+
+	/// en: 'Right-click the map where your home is, then click "My home is here".'
+	String get onMapNoticeClick => 'Right-click the map where your home is, then click "My home is here".';
+
+	/// en: 'My home is here'
+	String get here => 'My home is here';
+
+	/// en: 'Go home'
+	String get goHome => 'Go home';
 }
 
 // Path: favorites
@@ -8381,6 +8451,26 @@ extension on Translations {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'list.offlineTitle' => 'No connection',
 			'list.offlineNotHere' => 'Nothing of this area on this device.',
+			'home.title' => 'Home',
+			'home.setTitle' => 'Set my home',
+			'home.privacy' => 'Your home stays on this device and, if you have an account, in that account. Nobody else sees it.',
+			'home.directionsHome' => 'Route home',
+			'home.actions' => 'Home actions',
+			'home.change' => 'Change home',
+			'home.remove' => 'Remove home',
+			'home.removed' => 'Home removed',
+			'home.saved' => 'Home saved',
+			'home.changed' => 'Home changed',
+			'home.setHere' => 'Set as home',
+			'home.removeHere' => 'No longer my home',
+			'home.sheetTitle' => 'Where is your home?',
+			'home.searchHint' => 'An address or a town',
+			'home.myPosition' => 'My current position',
+			'home.onMap' => 'Choose on the map',
+			'home.onMapNotice' => 'Long press on the map where your home is, then tap "My home is here".',
+			'home.onMapNoticeClick' => 'Right-click the map where your home is, then click "My home is here".',
+			'home.here' => 'My home is here',
+			'home.goHome' => 'Go home',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -8519,6 +8609,8 @@ extension on Translations {
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
@@ -8539,8 +8631,6 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
@@ -9033,6 +9123,8 @@ extension on Translations {
 			'poi.kind.hairdresser' => 'Hairdresser',
 			'poi.kind.beauty' => 'Beauty salon',
 			'poi.kind.massage' => 'Massage',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.tattoo' => 'Tattoo studio',
 			'poi.kind.bank' => 'Bank',
 			'poi.kind.moneyExchange' => 'Currency exchange',
@@ -9053,8 +9145,6 @@ extension on Translations {
 			'poi.kind.funeralDirectors' => 'Funeral directors',
 			'poi.kind.petGrooming' => 'Pet grooming',
 			'poi.kind.tyres' => 'Tyres',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.carParts' => 'Car parts',
 			'poi.kind.carDealer' => 'Car dealer',
 			'poi.kind.motorcycleShop' => 'Motorcycle shop',

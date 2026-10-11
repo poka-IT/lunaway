@@ -61,6 +61,7 @@ class TranslationsEs extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$es directions = _Translations$directions$es._(_root);
 	@override late final _Translations$navigation$es navigation = _Translations$navigation$es._(_root);
 	@override late final _Translations$list$es list = _Translations$list$es._(_root);
+	@override late final _Translations$home$es home = _Translations$home$es._(_root);
 	@override late final _Translations$favorites$es favorites = _Translations$favorites$es._(_root);
 	@override late final _Translations$vehicle$es vehicle = _Translations$vehicle$es._(_root);
 	@override late final _Translations$vehicleHeight$es vehicleHeight = _Translations$vehicleHeight$es._(_root);
@@ -715,6 +716,35 @@ class _Translations$list$es extends Translations$list$en {
 	@override String get offlineNotHere => 'Nada de esta zona en este dispositivo.';
 }
 
+// Path: home
+class _Translations$home$es extends Translations$home$en {
+	_Translations$home$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Casa';
+	@override String get setTitle => 'Definir mi casa';
+	@override String get privacy => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.';
+	@override String get directionsHome => 'Ruta a casa';
+	@override String get actions => 'Acciones de tu casa';
+	@override String get change => 'Cambiar de casa';
+	@override String get remove => 'Quitar casa';
+	@override String get removed => 'Casa quitada';
+	@override String get saved => 'Casa guardada';
+	@override String get changed => 'Casa cambiada';
+	@override String get setHere => 'Definir como casa';
+	@override String get removeHere => 'Ya no es mi casa';
+	@override String get sheetTitle => '¿Dónde está tu casa?';
+	@override String get searchHint => 'Una dirección o un municipio';
+	@override String get myPosition => 'Mi ubicación actual';
+	@override String get onMap => 'Elegir en el mapa';
+	@override String get onMapNotice => 'Mantén pulsado el mapa donde está tu casa y luego toca «Mi casa está aquí».';
+	@override String get onMapNoticeClick => 'Haz clic derecho en el mapa donde está tu casa y luego haz clic en «Mi casa está aquí».';
+	@override String get here => 'Mi casa está aquí';
+	@override String get goHome => 'Ir a casa';
+}
+
 // Path: favorites
 class _Translations$favorites$es extends Translations$favorites$en {
 	_Translations$favorites$es._(TranslationsEs root) : this._root = root, super.internal(root);
@@ -1093,16 +1123,16 @@ class _Translations$accountImport$es extends Translations$accountImport$en {
 	@override String get choiceTitle => 'Dos cuentas en este dispositivo';
 	@override String choiceBody({required Object current, required Object imported}) => 'Este dispositivo usa «${current}». Acabas de abrir «${imported}».';
 	@override String merge({required Object imported}) => 'Fusionar con «${imported}»';
-	@override String mergeMoves({required Object current, required Object imported}) => 'Las listas de favoritos, el domicilio, los autores ocultos y las contribuciones pendientes de «${current}» pasan a «${imported}».';
+	@override String mergeMoves({required Object current, required Object imported}) => 'Las listas de favoritos, la casa, los autores ocultos y las contribuciones pendientes de «${current}» pasan a «${imported}».';
 	@override String mergePublic({required Object imported}) => 'Sus reseñas, fotos, lugares y cambios publicados pasan a nombre de «${imported}».';
-	@override String mergeHomeKept({required Object imported}) => 'Las dos cuentas tienen un domicilio: se conserva el de «${imported}».';
+	@override String mergeHomeKept({required Object imported}) => 'Las dos cuentas tienen una casa: se conserva la de «${imported}».';
 	@override String mergeDuplicates({required Object imported}) => 'Un lugar valorado por las dos cuentas conserva la valoración de «${imported}».';
 	@override String mergeDeletes({required Object current}) => 'Después, «${current}» se borra de este dispositivo y del servidor.';
 	@override String get replace => 'Sustituir sin fusionar';
 	@override String replaceTitle({required Object current, required Object imported}) => 'Sustituir «${current}» por «${imported}»';
 	@override String replaceKeeps({required Object current}) => '«${current}» se queda en el servidor. Solo su tarjeta de recuperación permite volver a ella.';
 	@override String replaceNoCard({required Object current}) => 'No se conoce ninguna tarjeta de recuperación de «${current}». Si no está abierta en ningún otro dispositivo, se borra del servidor, porque ya nada podría abrirla.';
-	@override String replaceLocal({required Object imported}) => 'Sus listas de favoritos y su domicilio salen de este dispositivo; los de «${imported}» ocupan su lugar.';
+	@override String replaceLocal({required Object imported}) => 'Sus listas de favoritos y su casa salen de este dispositivo; las de «${imported}» ocupan su lugar.';
 	@override String replacePending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Su contribución pendiente no se enviará.',
 		other: 'Sus ${n} contribuciones pendientes no se enviarán.',
@@ -4336,6 +4366,26 @@ extension on TranslationsEs {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ordenados entre los ${n} lugares más cercanos al centro del mapa',
 			'list.offlineTitle' => 'Sin conexión',
 			'list.offlineNotHere' => 'Nada de esta zona en este dispositivo.',
+			'home.title' => 'Casa',
+			'home.setTitle' => 'Definir mi casa',
+			'home.privacy' => 'Tu casa se queda en este dispositivo y, si tienes una cuenta, en esa cuenta. Nadie más la ve.',
+			'home.directionsHome' => 'Ruta a casa',
+			'home.actions' => 'Acciones de tu casa',
+			'home.change' => 'Cambiar de casa',
+			'home.remove' => 'Quitar casa',
+			'home.removed' => 'Casa quitada',
+			'home.saved' => 'Casa guardada',
+			'home.changed' => 'Casa cambiada',
+			'home.setHere' => 'Definir como casa',
+			'home.removeHere' => 'Ya no es mi casa',
+			'home.sheetTitle' => '¿Dónde está tu casa?',
+			'home.searchHint' => 'Una dirección o un municipio',
+			'home.myPosition' => 'Mi ubicación actual',
+			'home.onMap' => 'Elegir en el mapa',
+			'home.onMapNotice' => 'Mantén pulsado el mapa donde está tu casa y luego toca «Mi casa está aquí».',
+			'home.onMapNoticeClick' => 'Haz clic derecho en el mapa donde está tu casa y luego haz clic en «Mi casa está aquí».',
+			'home.here' => 'Mi casa está aquí',
+			'home.goHome' => 'Ir a casa',
 			'favorites.title' => 'Favoritos',
 			'favorites.defaultList' => 'Mis favoritos',
 			'favorites.empty' => 'Todavía no hay nada guardado aquí',
@@ -4474,6 +4524,8 @@ extension on TranslationsEs {
 			'profile.attributionRoadEvents' => 'Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), bajo Licence Ouverte 2.0; Bordeaux Métropole y el departamento de Côtes-d\'Armor, bajo Licence Ouverte; Ville de Paris, Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).',
+			_ => null,
+		} ?? switch (path) {
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}',
 			'profile.attributionOverture' => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation (overturemaps.org): datos de Meta, PinMeTo y DAC con licencia CDLA Permissive 2.0, y de AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
@@ -4494,8 +4546,6 @@ extension on TranslationsEs {
 			'translation.from.es' => 'Traducido automáticamente del español',
 			'translation.from.it' => 'Traducido automáticamente del italiano',
 			'translation.from.nl' => 'Traducido automáticamente del neerlandés',
-			_ => null,
-		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Traducido automáticamente (idioma original: ${language})',
 			'translation.offline' => 'Para traducir hace falta conexión a internet.',
 			'translation.failedOffline' => 'Sin conexión: no se ha podido traducir el texto.',
@@ -4618,16 +4668,16 @@ extension on TranslationsEs {
 			'accountImport.choiceTitle' => 'Dos cuentas en este dispositivo',
 			'accountImport.choiceBody' => ({required Object current, required Object imported}) => 'Este dispositivo usa «${current}». Acabas de abrir «${imported}».',
 			'accountImport.merge' => ({required Object imported}) => 'Fusionar con «${imported}»',
-			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Las listas de favoritos, el domicilio, los autores ocultos y las contribuciones pendientes de «${current}» pasan a «${imported}».',
+			'accountImport.mergeMoves' => ({required Object current, required Object imported}) => 'Las listas de favoritos, la casa, los autores ocultos y las contribuciones pendientes de «${current}» pasan a «${imported}».',
 			'accountImport.mergePublic' => ({required Object imported}) => 'Sus reseñas, fotos, lugares y cambios publicados pasan a nombre de «${imported}».',
-			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Las dos cuentas tienen un domicilio: se conserva el de «${imported}».',
+			'accountImport.mergeHomeKept' => ({required Object imported}) => 'Las dos cuentas tienen una casa: se conserva la de «${imported}».',
 			'accountImport.mergeDuplicates' => ({required Object imported}) => 'Un lugar valorado por las dos cuentas conserva la valoración de «${imported}».',
 			'accountImport.mergeDeletes' => ({required Object current}) => 'Después, «${current}» se borra de este dispositivo y del servidor.',
 			'accountImport.replace' => 'Sustituir sin fusionar',
 			'accountImport.replaceTitle' => ({required Object current, required Object imported}) => 'Sustituir «${current}» por «${imported}»',
 			'accountImport.replaceKeeps' => ({required Object current}) => '«${current}» se queda en el servidor. Solo su tarjeta de recuperación permite volver a ella.',
 			'accountImport.replaceNoCard' => ({required Object current}) => 'No se conoce ninguna tarjeta de recuperación de «${current}». Si no está abierta en ningún otro dispositivo, se borra del servidor, porque ya nada podría abrirla.',
-			'accountImport.replaceLocal' => ({required Object imported}) => 'Sus listas de favoritos y su domicilio salen de este dispositivo; los de «${imported}» ocupan su lugar.',
+			'accountImport.replaceLocal' => ({required Object imported}) => 'Sus listas de favoritos y su casa salen de este dispositivo; las de «${imported}» ocupan su lugar.',
 			'accountImport.replacePending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Su contribución pendiente no se enviará.', other: 'Sus ${n} contribuciones pendientes no se enviarán.', ), 
 			'accountImport.card' => ({required Object current}) => 'Tarjeta de recuperación de «${current}»',
 			'accountImport.replaceConfirm' => 'Sustituir',
@@ -4988,6 +5038,8 @@ extension on TranslationsEs {
 			'poi.kind.hairdresser' => 'Peluquería',
 			'poi.kind.beauty' => 'Centro de estética',
 			'poi.kind.massage' => 'Masajes',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.tattoo' => 'Estudio de tatuajes',
 			'poi.kind.bank' => 'Banco',
 			'poi.kind.moneyExchange' => 'Casa de cambio',
@@ -5008,8 +5060,6 @@ extension on TranslationsEs {
 			'poi.kind.funeralDirectors' => 'Funeraria',
 			'poi.kind.petGrooming' => 'Peluquería canina',
 			'poi.kind.tyres' => 'Neumáticos',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.carParts' => 'Recambios',
 			'poi.kind.carDealer' => 'Concesionario',
 			'poi.kind.motorcycleShop' => 'Tienda de motos',
