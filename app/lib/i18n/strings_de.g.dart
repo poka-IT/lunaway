@@ -2336,6 +2336,7 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String get limit => 'Tempolimit';
 	@override String noVoice({required Object language}) => 'Keine Stimme für ${language} auf diesem Gerät: Anweisungen nur auf dem Bildschirm.';
 	@override String missingVoice({required Object language}) => 'Die Stimme für ${language} ist noch nicht heruntergeladen.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'Die Stimme für ${language} ist in „${engine}“ noch nicht heruntergeladen.';
 	@override String get installVoice => 'Installieren';
 	@override String get voiceSettingsIos => 'Einstellungen, Bedienungshilfen, Gesprochene Inhalte, Stimmen';
 	@override String get notificationTitle => 'Navigation mit Lunaway aktiv';
@@ -4220,6 +4221,7 @@ extension on TranslationsDe {
 			'navigation.guidance.limit' => 'Tempolimit',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Keine Stimme für ${language} auf diesem Gerät: Anweisungen nur auf dem Bildschirm.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'Die Stimme für ${language} ist noch nicht heruntergeladen.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'Die Stimme für ${language} ist in „${engine}“ noch nicht heruntergeladen.',
 			'navigation.guidance.installVoice' => 'Installieren',
 			'navigation.guidance.voiceSettingsIos' => 'Einstellungen, Bedienungshilfen, Gesprochene Inhalte, Stimmen',
 			'navigation.guidance.notificationTitle' => 'Navigation mit Lunaway aktiv',
@@ -4529,9 +4531,9 @@ extension on TranslationsDe {
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
 			'profile.attributionTranslation' => 'Automatische Übersetzungen: OPUS-MT-Modelle der Universität Helsinki, unter CC BY 4.0, ausgeführt auf den Servern von Lunaway.',
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), unter der Licence Ouverte 2.0; Bordeaux Métropole und das Département Côtes-d\'Armor, unter der Licence Ouverte; Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
-			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
@@ -5043,9 +5045,9 @@ extension on TranslationsDe {
 			'poi.kind.podiatrist' => 'Podologie',
 			'poi.kind.psychologist' => 'Psychotherapie',
 			'poi.kind.speechTherapist' => 'Logopädie',
-			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.alternativeMedicine' => 'Osteopathie, Naturheilkunde',
 			'poi.kind.optician' => 'Optiker',
 			'poi.kind.hearingAids' => 'Hörakustik',
 			'poi.kind.medicalSupply' => 'Sanitätshaus',

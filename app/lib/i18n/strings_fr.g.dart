@@ -2336,6 +2336,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get limit => 'Limite';
 	@override String noVoice({required Object language}) => 'Aucune voix en ${language} sur cet appareil : instructions à l\'écran seulement.';
 	@override String missingVoice({required Object language}) => 'La voix en ${language} n\'est pas encore téléchargée.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'La voix en ${language} n\'est pas encore téléchargée dans « ${engine} ».';
 	@override String get installVoice => 'Installer';
 	@override String get voiceSettingsIos => 'Réglages, Accessibilité, Contenu énoncé, Voix';
 	@override String get notificationTitle => 'Lunaway vous guide';
@@ -4220,6 +4221,7 @@ extension on TranslationsFr {
 			'navigation.guidance.limit' => 'Limite',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Aucune voix en ${language} sur cet appareil : instructions à l\'écran seulement.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'La voix en ${language} n\'est pas encore téléchargée.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'La voix en ${language} n\'est pas encore téléchargée dans « ${engine} ».',
 			'navigation.guidance.installVoice' => 'Installer',
 			'navigation.guidance.voiceSettingsIos' => 'Réglages, Accessibilité, Contenu énoncé, Voix',
 			'navigation.guidance.notificationTitle' => 'Lunaway vous guide',
@@ -4529,9 +4531,9 @@ extension on TranslationsFr {
 			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
 			'profile.attributionTranslation' => 'Traductions automatiques : modèles OPUS-MT de l\'Université d\'Helsinki, sous licence CC BY 4.0, exécutés sur les serveurs de Lunaway.',
 			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), sous Licence Ouverte 2.0 ; Bordeaux Métropole et département des Côtes-d\'Armor, sous Licence Ouverte ; Ville de Paris, Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
-			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radars et zones de danger : ${attribution}',
 			'profile.attributionOverture' => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation (overturemaps.org) : données de Meta, PinMeTo et DAC sous licence CDLA Permissive 2.0, et d\'AllThePlaces sous CC0 1.0.',
@@ -5043,9 +5045,9 @@ extension on TranslationsFr {
 			'poi.kind.podiatrist' => 'Pédicure-podologue',
 			'poi.kind.psychologist' => 'Psychologue',
 			'poi.kind.speechTherapist' => 'Orthophoniste',
-			'poi.kind.alternativeMedicine' => 'Ostéopathe, médecines douces',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.alternativeMedicine' => 'Ostéopathe, médecines douces',
 			'poi.kind.optician' => 'Opticien',
 			'poi.kind.hearingAids' => 'Audioprothésiste',
 			'poi.kind.medicalSupply' => 'Matériel médical',

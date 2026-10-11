@@ -58,7 +58,7 @@ class GlRouteMap extends StatefulWidget {
   State<GlRouteMap> createState() => _GlRouteMapState();
 }
 
-class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateMixin {
+class _GlRouteMapState extends State<GlRouteMap> {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
 
@@ -95,9 +95,23 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   // The drawn vehicle and the camera that rides with it, on a phone.
   final _motion = VehicleMotion();
   final _clock = Stopwatch()..start();
-  late final Ticker _ticker = createTicker((_) => _frame());
+
+  /// The frames of the glide on a phone. A timer rather than a ticker: a
+  /// ticker asks Flutter for a frame at every vsync (60, up to 120 a second
+  /// on some phones) while the map takes one call every [_frameGap], and
+  /// the map's own frames reach the screen without one of Flutter's
+  /// (measured on the emulator: 57.5 Flutter frames a second while
+  /// driving, `plan/research/117-voix-energie-android.md`). The next frame
+  /// is set once the last one's calls are answered, [_frameGap] after it
+  /// began, or at once when they took longer.
+  Timer? _nextFrame;
+  bool _framing = false;
   bool _frameBusy = false;
   Duration _lastFrame = Duration.zero;
+
+  /// What the last frame sent: a frame that would send the same is not
+  /// sent, and the map draws nothing.
+  _SentFrame? _sentFrame;
   double? _shownZoom;
   double _shownBearing = 0;
   EdgeInsets? _sentInsets;
@@ -186,7 +200,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   void dispose() {
     _stopHover?.call();
     _richPasses.dispose();
-    _ticker.dispose();
+    _stopFrames();
+    _idleLater?.cancel();
     super.dispose();
   }
 
@@ -199,6 +214,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentMarks = null;
       _sentVehicle = null;
       _sentPlaces = null;
+      _sentFrame = null;
     }
     if (old.props.guiding != _props.guiding) _page?.guiding(on: _props.guiding);
     if ((old.props.onGesture == null) != (_props.onGesture == null)) {
@@ -310,6 +326,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentVehicle = null;
       _sentCamera = null;
       _sentInsets = null;
+      _sentFrame = null;
       if (kIsWeb) {
         _page = bindPageRouteMotion(_tag, _onPageEvent);
         _page?.guiding(on: _props.guiding);
@@ -734,6 +751,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final shown = await c.queryCameraPosition();
     if (!mounted) return;
     final zoom = math.max(shown?.zoom ?? 0, RouteMarkStyle.focusZoom);
+    _sentFrame = null;
     await c.animateCamera(
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(focus.position.lat, focus.position.lon), zoom),
       duration: mounted ? Motion.of(context, Motion.camera) : Duration.zero,
@@ -755,6 +773,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
     final p = _props;
+    final before = (
+      lines: _sentLines,
+      marks: _sentMarks,
+      places: _sentPlaces,
+      camera: _sentCamera,
+      drawn: _motion.target,
+    );
     if (!listEquals(p.lines, _sentLines)) {
       _sentLines = p.lines;
       await c.setGeoJsonSource(
@@ -801,6 +826,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       final v = p.vehicle;
       if (v == null) {
         page?.clear();
+        _sentFrame = null;
         await c.setGeoJsonSource(RouteLayers.vehicleSource, vehicleCollection(null));
       } else if (page != null) {
         page.vehicle(
@@ -816,12 +842,61 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           v.course,
           _clock.elapsed,
           jump: Motion.reduced(context) || (shown != null && shown.distanceTo(v.position) > _jumpM),
+          speedMps: v.speedMps,
         );
-        _startTicker();
+        _startFrames();
       }
     }
     if (!mounted) return;
     await _syncCamera(c, page);
+    // On a phone, a fix that moved nothing on the map (a parked vehicle's,
+    // [VehicleMotion.parkedWanderM]) leaves the marks as they were: no pass
+    // asks the map for them again, every second.
+    final still =
+        page == null &&
+        identical(before.lines, _sentLines) &&
+        identical(before.marks, _sentMarks) &&
+        identical(before.places, _sentPlaces) &&
+        before.drawn == _motion.target &&
+        (identical(before.camera, _sentCamera) ||
+            (before.camera is FollowCamera && _sentCamera is FollowCamera)) &&
+        switch ((_richAsked, p.rich)) {
+          (null, null) => true,
+          (final RouteMapRich a, final RouteMapRich b) => a.sameBesidesVehicle(b),
+          _ => false,
+        };
+    _richAsked = p.rich;
+    if (!still) _requestRich();
+  }
+
+  /// The rich marks the last [_sync] saw.
+  RouteMapRich? _richAsked;
+
+  /// When the map's going idle last asked for the marks again, and the
+  /// pass set for the end of that while.
+  final _idlePasses = Stopwatch();
+  Timer? _idleLater;
+
+  /// The map has drawn all it was loading. Parked, no fix asks for the
+  /// rich marks again ([_sync]): the places of tiles that came after the
+  /// last pass are read now, at most once per [tilePlacesKept], an idle
+  /// within that while answered at its end. Not while the glide runs,
+  /// whose frames may leave the map idle between two and would query the
+  /// map at each.
+  void _onMapIdle() {
+    if (_framing || !_ready || !mounted || _idleLater != null) return;
+    final since = _idlePasses.isRunning ? _idlePasses.elapsed : tilePlacesKept;
+    if (since < tilePlacesKept) {
+      _idleLater = Timer(tilePlacesKept - since, () {
+        _idleLater = null;
+        _onMapIdle();
+      });
+      return;
+    }
+    _idlePasses
+      ..reset()
+      ..start();
+    _richEngine.forget();
     _requestRich();
   }
 
@@ -840,6 +915,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     if (step == CameraStep.none) return;
     _sentCamera = camera;
+    // The camera moves elsewhere, or into following from elsewhere: the
+    // next frame sends the view again, even one the last frame sent.
+    if (step != CameraStep.follow) _sentFrame = null;
     switch (step) {
       case CameraStep.none:
         return;
@@ -866,7 +944,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           _sentInsets = insets;
           await c.updateContentInsets(insets);
         }
-        _startTicker();
+        _startFrames();
       case CameraStep.free:
         _entryFrom = null;
         page?.free();
@@ -895,39 +973,65 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
   }
 
-  /// Starts the frames, the first one measured from now: after a pause
-  /// (parked, a tunnel) the zoom must not catch up in one step.
-  void _startTicker() {
-    if (_ticker.isActive || _page != null) return;
+  /// Starts the frames, the first one now and measured from now: after a
+  /// pause (parked, a tunnel) the zoom must not catch up in one step.
+  void _startFrames() {
+    if (_framing || _page != null) return;
+    _framing = true;
     _lastFrame = Duration.zero;
-    _ticker.start();
+    if (!_frameBusy) _frame();
+  }
+
+  void _stopFrames() {
+    _framing = false;
+    _nextFrame?.cancel();
+    _nextFrame = null;
+  }
+
+  /// Sets the next frame [_frameGap] after the last one began, at once
+  /// when that time is past.
+  void _frameAgain() {
+    if (!_framing || _nextFrame != null) return;
+    final wait = _frameGap - (_clock.elapsed - _lastFrame);
+    _nextFrame = Timer(wait.isNegative ? Duration.zero : wait, () {
+      _nextFrame = null;
+      if (_framing) _frame();
+    });
   }
 
   /// One frame of the glide on a phone: the vehicle where [VehicleMotion]
   /// draws it, and the camera on it while following. A frame waits for the
   /// previous one's calls, so a slow map drops frames instead of queueing
-  /// them.
+  /// them; one that would send what the last one sent sends nothing, and
+  /// the frames stop once the vehicle, the zoom and the way into following
+  /// have come to rest.
   void _frame() {
     final c = _controller;
     final now = _clock.elapsed;
     if (c == null || !_ready || !mounted || _page != null) {
       // No style yet (or a failed one): frames resume with the next sync.
-      _ticker.stop();
+      _stopFrames();
       return;
     }
-    if (_frameBusy || now - _lastFrame < _frameGap) return;
+    if (_frameBusy) return;
     final (position, course) = _motion.at(now);
-    if (position == null) return;
+    if (position == null) {
+      _stopFrames();
+      return;
+    }
     final dt = _lastFrame == Duration.zero ? Duration.zero : now - _lastFrame;
     _lastFrame = now;
     final camera = _props.camera;
     var settled = !_motion.movingAt(now);
+    final sent = _sentFrame;
     final calls = <Future<Object?>>[
-      c.setGeoJsonSource(
-        RouteLayers.vehicleSource,
-        vehicleCollection(VehiclePuck(position: position, course: course)),
-      ),
+      if (sent == null || sent.position != position || sent.course != course)
+        c.setGeoJsonSource(
+          RouteLayers.vehicleSource,
+          vehicleCollection(VehiclePuck(position: position, course: course)),
+        ),
     ];
+    var view = sent?.view;
     // The camera waits while a finger is down: MapLibre drops a gesture it
     // has begun when the camera moves under it.
     if (camera is FollowCamera && !_heldByUser && !_pressed) {
@@ -966,27 +1070,42 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           calls.add(c.updateContentInsets(insets));
         }
       }
-      calls.add(
-        c.moveCamera(
-          gl.CameraUpdate.newCameraPosition(
-            gl.CameraPosition(
-              target: gl.LatLng(target.lat, target.lon),
-              zoom: zoom,
-              bearing: bearing,
-              tilt: tilt,
+      final next = (target: target, zoom: zoom, bearing: bearing, tilt: tilt);
+      if (next != view) {
+        view = next;
+        calls.add(
+          c.moveCamera(
+            gl.CameraUpdate.newCameraPosition(
+              gl.CameraPosition(
+                target: gl.LatLng(target.lat, target.lon),
+                zoom: zoom,
+                bearing: bearing,
+                tilt: tilt,
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
+    } else {
+      // Not following: the next time it does, the camera is sent again.
+      view = null;
+    }
+    _sentFrame = (position: position, course: course, view: view);
+    if (settled) _stopFrames();
+    if (calls.isEmpty) {
+      _frameAgain();
+      return;
     }
     _frameBusy = true;
     unawaited(
       Future.wait(calls)
           .then<void>((_) {})
           .catchError((Object e, StackTrace st) => _log.warning('route map frame failed', e, st))
-          .whenComplete(() => _frameBusy = false),
+          .whenComplete(() {
+            _frameBusy = false;
+            if (mounted) _frameAgain();
+          }),
     );
-    if (settled) _ticker.stop();
   }
 
   Future<void> _moveCamera(gl.MapLibreMapController c, RouteCamera camera) async {
@@ -1309,6 +1428,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         if (!kIsWeb && _gestured && !_pressed) unawaited(_reportRest());
         _requestRich();
       },
+      onMapIdle: kIsWeb ? null : _onMapIdle,
       // In the browser the plugin reports a double click as a long press,
       // which also zooms: the page reports right clicks and held fingers
       // instead (_onPageEvent).
@@ -1487,3 +1607,11 @@ final class _GlRichEngine implements RichMarkEngine {
     ]);
   }
 }
+
+/// What a frame of the glide sent: the vehicle, and the camera while it
+/// followed.
+typedef _SentFrame = ({
+  LatLng position,
+  double? course,
+  ({LatLng target, double zoom, double bearing, double tilt})? view,
+});

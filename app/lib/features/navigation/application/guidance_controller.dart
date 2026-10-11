@@ -251,6 +251,7 @@ final class GuidanceSession {
     this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
     this.voiceNoticeClosed = false,
+    this.voiceInstallIn,
     this.startup,
   });
 
@@ -300,6 +301,11 @@ final class GuidanceSession {
   /// for this guidance.
   final bool voiceNoticeClosed;
 
+  /// The engine whose voice of the route's language is to download, as
+  /// the system names it: the voice notice says where it goes. Null when
+  /// the system chooses, or with a voice.
+  final String? voiceInstallIn;
+
   /// What the guidance still waits for since its start; null once ready.
   final GuidanceStartup? startup;
 
@@ -332,6 +338,7 @@ final class GuidanceSession {
     StopMoves? moves,
     DrivingAids? aids,
     bool? voiceNoticeClosed,
+    String? Function()? voiceInstallIn,
     GuidanceStartup? Function()? startup,
   }) => GuidanceSession(
     target: target ?? this.target,
@@ -352,6 +359,7 @@ final class GuidanceSession {
     moves: moves ?? this.moves,
     aids: aids ?? this.aids,
     voiceNoticeClosed: voiceNoticeClosed ?? this.voiceNoticeClosed,
+    voiceInstallIn: voiceInstallIn == null ? this.voiceInstallIn : voiceInstallIn(),
     startup: startup == null ? this.startup : startup(),
   );
 }
@@ -432,6 +440,14 @@ const _fixRetryAfter = Duration(seconds: 10);
 /// coming (Firefox), which is no lost position.
 const positionLostAfter = Duration(seconds: 15);
 
+/// How long the screen stays on after the arrival, the card read; then the
+/// device's own timeout puts it out.
+const arrivalScreenOn = Duration(minutes: 2);
+
+/// A return to the app this soon after the last look for a missing voice
+/// asks nothing, unless the user comes back from its installer.
+const voiceLookGap = Duration(seconds: 30);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
@@ -458,6 +474,9 @@ class GuidanceController extends _$GuidanceController {
 
   /// Says the position is lost, unless a fix comes first.
   Timer? _lostCheck;
+
+  /// Lets the screen go out a while after the arrival ([arrivalScreenOn]).
+  Timer? _arrivalWake;
 
   /// A position error came and no fix since.
   bool _noFixSinceError = false;
@@ -590,6 +609,7 @@ class GuidanceController extends _$GuidanceController {
       return false;
     }
     _ready = _prepare(_generation);
+    _listenReturns(_generation);
     return true;
   }
 
@@ -705,10 +725,80 @@ class GuidanceController extends _$GuidanceController {
     }
     timelineMark('lunaway-guidance-voice');
     if (!ref.mounted || generation != _generation || state == null) return;
+    _lastVoiceLook = ref.read(clockProvider)();
     _speech?.settle(ready: readiness == VoiceReadiness.ready);
-    state = state!.copyWith(voice: readiness);
+    state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
     _changeStartup((s) => s.copyWith(voice: true));
   }
+
+  /// Looks for the voice again when the user comes back to the app without
+  /// one: from the engine's installer the notice opened, or from the
+  /// system's settings, where a voice may have been downloaded or another
+  /// engine chosen meanwhile.
+  void _listenReturns(int generation) {
+    unawaited(_returns?.cancel());
+    _returns = ref.read(appForegroundProvider).returns().listen((_) {
+      final s = state;
+      if (!_current(generation) || s == null || s.voice == VoiceReadiness.ready) return;
+      // Not before the first look has answered: it is the one the start
+      // waits for.
+      if (!(s.startup?.voice ?? true)) return;
+      // Each look binds the engines anew, seconds for one whose process
+      // sleeps: a return soon after the last (the notification shade
+      // pulled down) asks nothing, unless the user comes back from the
+      // installer the notice opened.
+      final last = _lastVoiceLook;
+      if (!_installerOpened &&
+          last != null &&
+          ref.read(clockProvider)().difference(last) < voiceLookGap) {
+        return;
+      }
+      unawaited(_lookForVoiceAgain(generation));
+    });
+  }
+
+  StreamSubscription<void>? _returns;
+
+  /// When the voice was last looked for, and whether its installer was
+  /// opened since.
+  DateTime? _lastVoiceLook;
+  bool _installerOpened = false;
+
+  /// Asks the device anew for the voice of the route's language.
+  Future<void> _lookForVoiceAgain(int generation) async {
+    final voice = _voice;
+    final s = state;
+    if (voice == null || s == null) return;
+    _lastVoiceLook = ref.read(clockProvider)();
+    final fromInstaller = _installerOpened;
+    _installerOpened = false;
+    _voiceLookLater?.cancel();
+    _voiceLookLater = null;
+    VoiceReadiness readiness;
+    try {
+      readiness = await voice.prepare(s.plan.applied.language, fresh: true);
+    } on Object catch (e) {
+      _log.info('no voice: $e');
+      return;
+    }
+    if (!_current(generation)) return;
+    _speech?.ready = readiness == VoiceReadiness.ready;
+    state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
+    // A voice pack goes on downloading once the user has left its
+    // installer: looked for once more a while later, the driver back in
+    // the app and not leaving it again.
+    if (fromInstaller && readiness != VoiceReadiness.ready) {
+      _voiceLookLater = Timer(voiceLookGap, () {
+        _voiceLookLater = null;
+        if (_current(generation) && state!.voice != VoiceReadiness.ready) {
+          unawaited(_lookForVoiceAgain(generation));
+        }
+      });
+    }
+  }
+
+  /// The look set for a while after a return from the installer.
+  Timer? _voiceLookLater;
 
   /// The position the device knew a moment ago, taken as the first fix:
   /// the first instruction shows with its distance, and the camera follows
@@ -916,22 +1006,28 @@ class GuidanceController extends _$GuidanceController {
     if (s != null) state = s.copyWith(voiceNoticeClosed: true);
   }
 
-  /// Opens the system's voice installer, then tries the voice again.
+  /// Opens the installer of the engine whose voice is missing; the voice is
+  /// looked for again once the user comes back to the app
+  /// ([_listenReturns]), not as the installer opens: nothing is installed
+  /// yet then.
   Future<void> installVoices() async {
     final voice = _voice;
     if (voice == null) return;
-    await voice.installVoices();
-    if (!ref.mounted || state == null) return;
-    final readiness = await voice.prepare(state!.plan.applied.language);
-    if (!ref.mounted || state == null) return;
-    _speech?.ready = readiness == VoiceReadiness.ready;
-    state = state!.copyWith(voice: readiness);
+    _installerOpened = await voice.installVoices();
   }
 
   void _release() {
     _generation++;
     unawaited(_fixes?.cancel());
     _fixes = null;
+    unawaited(_returns?.cancel());
+    _returns = null;
+    _lastVoiceLook = null;
+    _voiceLookLater?.cancel();
+    _voiceLookLater = null;
+    _installerOpened = false;
+    _arrivalWake?.cancel();
+    _arrivalWake = null;
     _fixRetry?.cancel();
     _fixRetry = null;
     _lostCheck?.cancel();
@@ -1062,7 +1158,14 @@ class GuidanceController extends _$GuidanceController {
     _lostCheck = null;
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
-      // the screen stays on for the arrival card.
+      // the screen stays on for the arrival card a while, then goes out
+      // as the device's settings say: a phone left on its mount after the
+      // trip kept it lit until the app was closed.
+      final generation = _generation;
+      _arrivalWake?.cancel();
+      _arrivalWake = Timer(arrivalScreenOn, () {
+        if (generation == _generation) unawaited(_wake?.keepOn(on: false));
+      });
       unawaited(_fixes?.cancel());
       _fixes = null;
       _fixRetry?.cancel();

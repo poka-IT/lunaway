@@ -289,7 +289,11 @@ final class _SilentVoice implements VoiceOutput {
   const new();
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async => VoiceReadiness.ready;
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async =>
+      VoiceReadiness.ready;
+
+  @override
+  String? get installEngine => null;
 
   @override
   bool get chimes => false;

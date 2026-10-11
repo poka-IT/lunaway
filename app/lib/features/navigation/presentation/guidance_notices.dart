@@ -322,11 +322,16 @@ class GuidanceNotices extends ConsumerWidget {
     final language = t.languageName(session.plan.applied.language.name);
     final missing = session.voice == VoiceReadiness.missingData;
     final ios = Theme.of(context).platform == TargetPlatform.iOS;
+    final engine = session.voiceInstallIn;
     return StandingNotice(
       id: 'voice',
       icon: AppIcons.offline,
       text: [
-        if (missing)
+        // The engine named: a device may carry several, and the voice the
+        // user finds installed in another one is not the one missing here.
+        if (missing && engine != null)
+          t.navigation.guidance.missingVoiceIn(language: language, engine: engine)
+        else if (missing)
           t.navigation.guidance.missingVoice(language: language)
         else
           t.navigation.guidance.noVoice(language: language),

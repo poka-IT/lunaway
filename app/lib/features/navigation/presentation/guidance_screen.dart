@@ -266,8 +266,11 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     }
     // The map follows the vehicle and never rests: each new position checks
     // whether the basemap's host still answers, at most every 30 s, so the
-    // downloaded map takes over soon after the network goes.
-    ref.listen(guidanceControllerProvider.select((s) => s?.lastFix), (_, _) {
+    // downloaded map takes over soon after the network goes. Not while
+    // parked: the map asks for no tile then, and the request woke the
+    // phone's radio twice a minute for nothing.
+    ref.listen(guidanceControllerProvider.select((s) => s?.lastFix), (_, fix) {
+      if ((fix?.speedMps ?? double.infinity) < VehicleMotion.parkedMps) return;
       unawaited(ref.read(basemapReachabilityProvider.notifier).probeIfStale());
     });
     // Watched here, above both layouts: a free map stays free when the
@@ -989,6 +992,7 @@ class _GuidanceMap extends ConsumerWidget {
         : VehiclePuck(
             position: snap.offRoute ? session.lastFix!.position : snap.position,
             course: snap.courseDeg ?? session.lastFix?.courseDeg,
+            speedMps: session.lastFix?.speedMps,
           );
     final whole =
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
