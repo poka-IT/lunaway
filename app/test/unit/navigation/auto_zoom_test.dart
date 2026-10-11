@@ -51,8 +51,18 @@ void main() {
     test('far off, the widest the speed allows; near, the closest', () {
       expect(at(40, 3000).zoom, closeTo(wideZoom(40), 1e-9));
       expect(at(40, 20).zoom, closeTo(closeZoom(40), 1e-9));
-      expect(at(130, 5000, type: 'off ramp').zoom, closeTo(wideZoom(130), 1e-9));
-      expect(at(130, 50, type: 'off ramp').zoom, closeTo(closeZoom(130), 1e-9));
+      expect(at(130, 5000, type: 'roundabout').zoom, closeTo(wideZoom(130), 1e-9));
+      expect(at(130, 50, type: 'roundabout').zoom, closeTo(closeZoom(130), 1e-9));
+    });
+
+    test('a motorway fork or ramp taken fast keeps the wide view, as Google Maps does', () {
+      for (final type in ['fork', 'off ramp', 'on ramp', 'merge']) {
+        final fast = at(110, 100, type: type, modifier: 'slight right', afterM: 3000);
+        expect(fast.zoom, closeTo(wideZoom(110), 1e-9), reason: type);
+        expect(fast.tilt, greaterThanOrEqualTo(AutoTilt.cruise), reason: type);
+        final slow = at(40, 100, type: type, modifier: 'slight right', afterM: 3000);
+        expect(slow.zoom, greaterThan(wideZoom(40) + 1), reason: '$type in town');
+      }
     });
 
     test('the closer the turn, the closer the camera, never a jump', () {
@@ -71,7 +81,7 @@ void main() {
     test('a fast road starts closing in further from the maneuver', () {
       double start(double kmh) {
         for (var d = 6000.0; d >= 0; d -= 5) {
-          if (at(kmh, d, type: 'off ramp').zoom > wideZoom(kmh) + 0.01) return d;
+          if (at(kmh, d, type: 'roundabout').zoom > wideZoom(kmh) + 0.01) return d;
         }
         return 0;
       }
@@ -102,7 +112,7 @@ void main() {
 
   group('the tilt', () {
     test('toward the horizon down a long straight, cruising otherwise', () {
-      expect(at(130, 8000, type: 'off ramp').tilt, AutoTilt.straight);
+      expect(at(130, 8000, type: 'roundabout').tilt, AutoTilt.straight);
       final cruising = at(50, 330);
       expect(cruising.zoom, greaterThan(wideZoom(50) + 0.5));
       expect(cruising.tilt, AutoTilt.cruise);

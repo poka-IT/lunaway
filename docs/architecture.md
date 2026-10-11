@@ -643,11 +643,12 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   eases to are `autoAim`'s (`domain/auto_zoom.dart`), measured against
   Google Maps: the next maneuver framed (at 55 % of the road in view),
   never wider than the speed allows (`AutoZoom.wide`, 16.0 at 30 km/h,
-  14.4 at 130) nor closer (`AutoZoom.close`, 17.7 at 30 km/h, 16.3 at
+  14.4 at 130) nor closer (`AutoZoom.close`, 17.3 at 30 km/h, 16.2 at
   130), the speed held through 6 km/h of hysteresis (`SpeedHold`); a road
-  that only changes its name counts as far as the maneuver after it. The
-  tilt is 52° cruising, 60° down a straight shown at its widest, 42° over
-  a junction and 30° over a roundabout within 120 m. The map turns to the
+  that only changes its name counts as far as the maneuver after it, and
+  a fork or a ramp taken at 70 km/h or more does not draw the camera. The
+  tilt is 52° cruising, 60° down a straight shown at its widest, 30° over
+  a junction and 26° over a roundabout within 120 m. The map turns to the
   course with a 400 ms ease, and the vehicle stands 76 px over the foot of
   the free map. Each engine animates only while the vehicle glides or the
   camera has not reached its aim; a vehicle parked draws no frame.

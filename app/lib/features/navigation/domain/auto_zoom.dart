@@ -13,7 +13,9 @@ import 'dart:math' as math;
 /// follows the distance to the next maneuver far more than the speed (the
 /// same 1.3 m a pixel on a motorway straight at 30 and at 130 km/h, the
 /// maneuver 4 km off, MapLibre zoom 14.5); tilted about 52° cruising, 63°
-/// down long straights, 23° within 150 m of a roundabout.
+/// down long straights, 21 to 26° as a junction comes (from about 300 m
+/// in town, 150 m before a roundabout of a main road); no closer before a
+/// motorway fork at 90 km/h.
 ///
 /// Zooms are MapLibre's (tiles of 512 pixels). At 45° of latitude a level
 /// halves or doubles the metres a pixel covers: 0.42 m at 17, 0.84 m at 16,
@@ -34,8 +36,13 @@ abstract final class AutoZoom {
   ];
 
   /// The closest the camera comes before a maneuver at a speed: a street
-  /// corner at 17.9, a motorway exit at 16.3.
-  static const List<(double, double)> close = [(0, 17.9), (50, 17.6), (90, 16.8), (130, 16.3)];
+  /// corner at 17.4 (Google Maps 17.0 to 17.4 within 150 m of one), a
+  /// motorway exit at 16.2.
+  static const List<(double, double)> close = [(0, 17.4), (50, 17.2), (90, 16.6), (130, 16.2)];
+
+  /// A fork, a ramp or a merge taken this fast is read from far: the camera
+  /// neither closes in nor flattens for it, km/h.
+  static const splitAtSpeedKmh = 70.0;
 
   /// The zoom of a vehicle with nothing ahead to frame: off the route, or
   /// before the first position.
@@ -69,8 +76,8 @@ abstract final class AutoTilt {
 
   /// Over a roundabout, and over another junction, close to it: flatter,
   /// so its branches read from above.
-  static const roundabout = 30.0;
-  static const junction = 42.0;
+  static const roundabout = 26.0;
+  static const junction = 30.0;
 
   /// The camera starts flattening this far from the junction, metres, and
   /// is flat enough within [flatM].
@@ -136,7 +143,12 @@ CameraAim autoAim({
       tilt: AutoTilt.cruise,
     );
   }
-  final framed = maneuverDrawsZoom(maneuverType, modifier);
+  final split = switch (maneuverType) {
+    'fork' || 'off ramp' || 'on ramp' || 'merge' => true,
+    _ => false,
+  };
+  final framed =
+      maneuverDrawsZoom(maneuverType, modifier) && !(split && speedKmh >= AutoZoom.splitAtSpeedKmh);
   final ahead = framed ? d : d + (afterM ?? double.infinity);
   final zoom = seeZoom(ahead).clamp(wide, close).clamp(AutoZoom.minZoom, AutoZoom.maxZoom);
   // Toward the horizon as the view reaches its widest, half a level in.

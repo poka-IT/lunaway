@@ -20,7 +20,6 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
-import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/guidance_panels.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -160,8 +159,9 @@ void main() {
       await guide(tester, plan);
       await drive(tester, plan, toM: 100);
       final course = map().vehicle!.course!;
-      // The zoom the camera aimed at while it followed.
+      // The zoom and the tilt the camera aimed at while it followed.
       final followed = (map().camera as FollowCamera).zoom;
+      final tilt = (map().camera as FollowCamera).tilt;
       await gesture(tester);
       final anchor = followAnchor(phone, map().padding);
       FreeView rest(Offset vehicle, {double? zoom}) => FreeView(
@@ -169,7 +169,7 @@ void main() {
         vehicle: vehicle,
         zoom: zoom ?? followed,
         bearing: course,
-        tilt: followTiltDeg,
+        tilt: tilt,
       );
       final far = rest(anchor + const Offset(0, -200));
       map().onRest!(far);
@@ -198,6 +198,7 @@ void main() {
       await drive(tester, plan, toM: 100);
       final before = (map().camera as FollowCamera).request;
       final followed = (map().camera as FollowCamera).zoom;
+      final tilt = (map().camera as FollowCamera).tilt;
       final course = map().vehicle!.course!;
       // The gesture and the rest before any frame: the screen never builds
       // the free map, the engine must still hear a new request.
@@ -208,7 +209,7 @@ void main() {
           vehicle: followAnchor(phone, map().padding) + const Offset(3, 3),
           zoom: followed,
           bearing: course,
-          tilt: followTiltDeg,
+          tilt: tilt,
         ),
       );
       await settleShort(tester);
@@ -251,25 +252,21 @@ void main() {
   });
 
   group('the camera', () {
-    testWidgets('closes in and flattens as a turn nears, widens down the avenue after it', (
+    testWidgets('down an avenue, wide and toward the horizon; close and flatter as its end nears', (
       tester,
     ) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
       FollowCamera camera() => map().camera as FollowCamera;
-      // 36 km/h, the left turn onto Boulevard Carnot at 192 m.
-      await drive(tester, plan, toM: 20);
+      // 36 km/h along Avenue des Bénédictins, its slight left at 1303 m.
+      await drive(tester, plan, toM: 500);
       final far = camera();
-      await drive(tester, plan, toM: 160, fromM: 20);
+      expect(far.zoom, closeTo(wideZoom(36), 0.01), reason: '800 m off: the widest at 36 km/h');
+      expect(far.tilt, AutoTilt.straight);
+      await drive(tester, plan, toM: 1260, fromM: 500);
       final near = camera();
-      expect(near.zoom, greaterThan(far.zoom + 0.2), reason: '32 m from the turn against 172');
-      expect(near.zoom, closeTo(closeZoom(36), 0.01), reason: 'the closest at 36 km/h');
+      expect(near.zoom, closeTo(closeZoom(36), 0.01), reason: '43 m off: the closest');
       expect(near.tilt, AutoTilt.junction, reason: 'the junction seen from above');
-      // Avenue des Bénédictins, 800 m from its end: the widest at that
-      // speed, toward the horizon.
-      await drive(tester, plan, toM: 500, fromM: 160);
-      expect(camera().zoom, closeTo(wideZoom(36), 0.01));
-      expect(camera().tilt, AutoTilt.straight);
     });
 
     testWidgets('keeps its aim while the speed wavers by a few km/h, moves it past that', (
