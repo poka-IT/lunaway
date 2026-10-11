@@ -937,8 +937,10 @@ void main() {
         }
       }
       // A priced station ahead, close enough for its pin to show: a few
-      // captures, apart.
+      // captures, apart; none in a drive timed for its frames, which two
+      // runs compare.
       if (_fuel.isNotEmpty &&
+          _realMinutes == 0 &&
           priceShots < 3 &&
           DateTime.now().difference(lastPriceShot) > const Duration(seconds: 20) &&
           priceAhead()) {
