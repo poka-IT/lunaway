@@ -824,7 +824,8 @@ impl Routing {
         .await
         .map_err(|_| RouteError::Deadline)
         .and_then(|r| r);
-        let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
+        let alternates =
+            valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid);
         let later = match (&result, work.found.take()) {
             (Ok(Outcome::Found { .. }), Some((body, best)))
                 if request.later && alternates > 0 && request.stops.len() == 2 =>
@@ -915,11 +916,26 @@ impl Routing {
         let Some(slot) = self.try_spare_slot() else {
             return Ok(After::Busy);
         };
-        body["alternates"] = alternates.into();
-        let called = std::time::Instant::now();
-        let answer = engine.route(&body).await;
-        work.spent.engine += called.elapsed();
-        work.spent.engine_calls += 1;
+        let mut alternates = alternates;
+        let answer = loop {
+            body["alternates"] = alternates.into();
+            let called = std::time::Instant::now();
+            let answer = engine.route(&body).await;
+            work.spent.engine += called.elapsed();
+            work.spent.engine_calls += 1;
+            match answer {
+                // As for the best route (`route_within`): the routes did not
+                // fit the answer's limit, one alternative less.
+                Err(EngineError::TooLarge) if alternates > 1 => {
+                    alternates -= 1;
+                    tracing::info!(
+                        alternates,
+                        "the engine's answer exceeds its limit: alternatives asked again, one less"
+                    );
+                }
+                other => break other,
+            }
+        };
         let Answer::Routes(mut osrm) = answer? else {
             return Ok(After::None);
         };
@@ -1191,11 +1207,13 @@ impl Routing {
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
-        // Asked afterwards, the alternatives make no part of this call.
-        let alternates = if request.later {
+        // Asked afterwards, the alternatives make no part of this call; the
+        // engine computes none through waypoints (`route_body`), so none is
+        // counted on for an answer too large.
+        let mut alternates = if request.later || request.stops.len() != 2 {
             0
         } else {
-            valhalla::alternates_for(request.alternatives, request.straight_m())
+            valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid)
         };
         work.found = None;
         if !work.without_ahead {
@@ -1231,7 +1249,24 @@ impl Routing {
             let answer = engine.route(&body).await;
             work.spent.engine += called.elapsed();
             work.spent.engine_calls += 1;
-            let answer = answer?;
+            let answer = match answer {
+                // The routes did not fit the answer's limit: the same trip
+                // with one alternative less, never without its best route.
+                // `alternates_for` keeps this rare; it is not a
+                // recalculation.
+                Err(EngineError::TooLarge) if alternates > 0 => {
+                    // The engine computed the routes: the call is the
+                    // client's, as any answer is.
+                    work.answered = true;
+                    alternates -= 1;
+                    tracing::info!(
+                        alternates,
+                        "the engine's answer exceeds its limit: asked again with one alternative less"
+                    );
+                    continue;
+                }
+                other => other?,
+            };
             // From here the engine has worked for this client: a later
             // failure of the server is not given back (a trip made slow on
             // purpose would otherwise cost nothing).
@@ -2454,6 +2489,60 @@ mod tests {
             (1_700.0..1_800.0).contains(&s),
             "the block sits where the street is driven through, not at the start: {s}"
         );
+    }
+
+    #[test]
+    fn a_bar_under_a_bridge_crossed_is_not_met_and_a_bar_driven_through_blocks() {
+        use lunaway_domain::routing::{
+            Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        };
+        // A point `north` metres north of (45, 1).
+        let at = |north: f64| Position::new(45.0 + north / 111_195.0, 1.0).unwrap();
+        // The route drives 1 km north, over a bridge at 400 m (no shape
+        // point there) and through a barrier node at 700 m.
+        let line =
+            RouteLine::new(vec![at(0.0), at(350.0), at(450.0), at(700.0), at(1_000.0)]).unwrap();
+        let barrier = |north: f64, id: &str| db::NearRestriction {
+            id: uuid::Uuid::nil(),
+            restriction: Restriction {
+                kind: RestrictionKind::MaxHeight,
+                limit: Some(3.0),
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Barrier,
+                except_destination: false,
+                enclosed: false,
+            },
+            external_id: id.to_owned(),
+            name: None,
+            geometry: vec![at(north)],
+        };
+        let dims = RoutingDimensions {
+            height_m: 3.3,
+            width_m: 2.3,
+            length_m: 7.4,
+            weight_t: 3.5,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+            motorhome: true,
+        };
+        let (warnings, blocking) = match_restrictions(
+            &line,
+            vec![barrier(400.0, "node/1"), barrier(700.0, "node/2")],
+            &dims,
+        );
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let ids: Vec<&str> = blocking
+            .iter()
+            .map(|m| m.restriction.external_id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            ["node/2"],
+            "the 3 m bar under the bridge is on the road below, the one at 700 m is on the route"
+        );
+        assert!((blocking[0].hit.start_m - 700.0).abs() < 1.0);
     }
 
     /// A height limit of 1.9 m drawn as `geometry`, blocking a 3.2 m

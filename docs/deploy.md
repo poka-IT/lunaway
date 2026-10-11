@@ -319,7 +319,7 @@ the day's load: 10,451 MB used, 20,893 MB available. In each unit's cgroup:
 | the external feed's crawler | 0.47 GB | |
 | Caddy | 0.11 GB | |
 | Gatus | 0.02 GB | `MemoryHigh` 384 MB, `MemoryMax` 512 MB |
-| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 8 GB (`--memory=8g`) since 2026-10-11, 6 GB before |
+| `valhalla` | 0.11 GB right after the reboot; it grows to its cap with use | 10 GB (`--memory=10g`) since the evening of 2026-10-11, 8 GB that day, 6 GB before |
 
 The database, the routing engine and Photon read their files through the
 page cache they share; PostgreSQL's settings ("PostgreSQL on the root
@@ -329,7 +329,13 @@ The engine's cap rose from 6 to 8 GB with its threads, from four to six
 (plan/research/127-routage-serveur.md). On 2026-10-11, 21 hours after a
 restart with four threads, it sat at its 6 GB, 2.4 GB anonymous and 3.8 GB
 of tiles, had reached the cap 7,765 times and read 2 GB of tiles again
-(`memory.events`, `workingset_refault_file` of its cgroup).
+(`memory.events`, `workingset_refault_file` of its cgroup). At 8 GB, from
+15:34 to 16:59 the same day, it reached the cap 7,925 times and read
+2.1 GB again while the restrictions kept ahead were computed and route
+batteries ran, its anonymous part up to 3.5 GB; the cap went to 10 GB
+(plan/research/129-paquets-routage-suites.md). Past the anonymous part,
+what the engine holds is page cache the kernel takes back under the
+machine's pressure.
 
 ### The data volume
 
@@ -420,7 +426,7 @@ after a resize retunes them). The other tenants hold about 21 GB at their
 caps (`others` = 21,504 MB): the routing engine 6 GB, an import reading an
 extract 3 GB, the API 1.5 GB, Caddy, the tile server and the system about
 1.5 GB, and since the merge Photon's two JVMs about 3.5 GB, the translation
-server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 8 GB since
+server 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB. The engine's 10 GB since
 2026-10-11 are not in it: `others` only sets `effective_cache_size`, a hint
 to the planner, and a new value restarts PostgreSQL; it follows at the next
 retune. Their page cache is the database's too, so PostgreSQL keeps a
@@ -1729,7 +1735,7 @@ ran on a server of its own in another datacenter (nbg1).
 | backend | Fuel prices | the probe: the fuel price feed was stored less than 2 hours ago (eight runs of `lunaway-ingest-fuel` in a row failed otherwise) |
 | backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 17 days ago (a build every two weeks, a daily refresh) |
 | backend | Places imports (France and Europe) | the probe: France's OpenStreetMap places read less than 30 hours ago, every other country's less than 8 days ago (`imports.json`), and no failed unit among the places and points imports, `lunaway-packs`, `lunaway-cameras*` and `lunaway-enforcement*` (a truncation guard that refuses a country fails its import) |
-| backend | Regional packs of places | the probe: no sync region has waited more than two days for a pack with its changes, and at least one pack exists |
+| backend | Regional packs of places | the probe: no sync region (`SYNC_REGIONS`, the regions the builder makes packs for) has waited more than two days for a pack with its changes, and at least one pack exists. The places of a country outside the catalogue (the external community source's spots in Turkey or Morocco) wait for no pack and are not counted; `worker.json` gives how many such regions hold places (`packs.outside`, 42 on 2026-10-11) |
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the seven official lists each checked less than 30 hours ago (each downloaded at its own pace, its cached copy read in between) |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
@@ -3231,10 +3237,16 @@ Since the graph of 2026-10-11 the engine sees the limits mapped on a node:
 the preparation carries them onto a 4 m stretch of each way through the
 node (`lunaway-ingest/src/node_limits.rs`, "The graph build"), and the
 check still counts the node, for the ways left whole and as a safety
-net. What remains for the second call: a port's lane, the limits of the
-ways a turn relation keeps whole, and a node within 3 m of a route that
-does not go through it, such as one on a cycle path under a bridge the
-route crosses (plan/research/127-routage-serveur.md). The API looks for them
+net. It counts an OpenStreetMap node only where the route's shape passes
+through it (a point of the shape within 0.5 m, the shape being made of the
+nodes of the ways the route follows): a node on a cycle path under a bridge
+the route crosses, or on an aisle beside the road, no longer sends the
+route to the engine again (since 2026-10-11, PO's decision,
+plan/research/129-paquets-routage-suites.md); a barrier drawn beside the
+road, joined to no way the route drives, no longer counts either. What
+remains for the second call: a port's lane, the limits of the ways a turn
+relation keeps whole, and the limits the graph does not carry (a plate
+that spares local access, an axle load, a trailer ban). The API looks for them
 ahead from public data only (`routing::public`): a minute after it
 starts, then whenever the active graph or the restrictions outside the
 graphs (DiaLog's, the community's) changed, read every ten minutes, it

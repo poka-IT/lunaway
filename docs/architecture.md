@@ -337,7 +337,12 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   test): 8 of 10 trips between 2 645 and 4 166 km took 7 to 15 s on the
   production server on 2026-10-07. One alternative at most beyond 2 000 km,
   so that the engine's answer stays within 16 MB and the route sent within
-  11 MB.
+  11 MB. Off motorways a route weighs up to three times as much (2.8 to
+  6.6 kB per kilometre of straight line against 2.3 at most): one
+  alternative at most beyond 1 400 km and none beyond 2 100 km, where the
+  others, as light as the lightest measured, would not fit the 11 MB, and
+  an answer above 16 MB is asked again with one alternative less rather
+  than refused.
 - **Stops.** A stop is snapped to the nearest road the vehicle may drive,
   never onto a ferry line nor into a tunnel (`search_filter.exclude_ferry`
   and `exclude_tunnel`: a point on a city square fell into the car park
