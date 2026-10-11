@@ -2969,7 +2969,9 @@ by launchd on the Mac (`legal.p2p.lunaway.routing-build`) every Sunday at
    on the Mac, handed over by cloud-init and pinned before the first
    connection, as for `infra/build/remote-build.sh`;
 4. the server fetches the commit at the head of `main` of the public
-   repository and runs `infra/routing/europe-build.sh <YYMMDD>` under
+   repository (of the branch `--ref` names, by hand only; the release
+   notes name the commit and the branch) and runs
+   `infra/routing/europe-build.sh <YYMMDD>` under
    `systemd-run` (killed by systemd after 6 hours): the 25 dated extracts,
    three at a time, each checked against its MD5, their replication
    timestamps compared (equal, or the build stops), `osmium merge`, then

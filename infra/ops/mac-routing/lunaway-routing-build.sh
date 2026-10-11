@@ -549,7 +549,9 @@ ssh-keygen -Y verify -f "$signers" -I lunaway-routing -n lunaway-routing-graph -
   || die "the signature does not verify against routing-signers"
 GH_TOKEN=$(gh auth token --hostname github.com --user "$gh_user" 2>/dev/null) || die "no gh token for $gh_user"
 export GH_TOKEN
-notes="Valhalla graph of Europe and Morocco for the Lunaway API, rebuilt every two weeks from the maintainer's Mac (infra/ops/mac-routing/). ODbL (OpenStreetMap contributors, Geofabrik extracts) and Licence Ouverte 2.0 (IGN, BD TOPO, France)."
+# The notes name the commit and branch that built the graph: a build of
+# another branch than main (--ref) is told apart from the published asset.
+notes="Valhalla graph of Europe and Morocco for the Lunaway API, rebuilt every two weeks from the maintainer's Mac (infra/ops/mac-routing/). Graph $id, built from $repo@$commit ($ref), extracts of $day. ODbL (OpenStreetMap contributors, Geofabrik extracts) and Licence Ouverte 2.0 (IGN, BD TOPO, France)."
 title="Routing graph (every two weeks)"
 gh release view "$release" --repo "$repo" >/dev/null 2>&1 \
   || gh release create "$release" --repo "$repo" --prerelease --title "$title" --notes "$notes" >/dev/null \
