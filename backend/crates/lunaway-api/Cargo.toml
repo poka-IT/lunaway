@@ -54,6 +54,12 @@ uuid.workspace = true
 # The raw database of a pack, removed whatever happens to the build.
 tempfile.workspace = true
 
+# jemalloc's background thread from its first allocation, built into its
+# configuration: it gives freed pages back while the server is idle. Linux
+# only, where jemalloc has one (main.rs).
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = { workspace = true, features = ["background_threads"] }
+
 [dev-dependencies]
 image.workspace = true
 lunaway-ingest.workspace = true

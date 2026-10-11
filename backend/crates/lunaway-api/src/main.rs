@@ -25,16 +25,20 @@ use tracing_subscriber::EnvFilter;
 
 const DEFAULT_LISTEN: &str = "127.0.0.1:8484";
 
-/// The server's allocator. glibc's kept what long routes freed: after
-/// batteries of long trips off motorways, 1.1 GB in 45 per-thread arenas,
-/// the unit at its `MemoryHigh` and part of it swapped
-/// (2026-10-11, `plan/research/129-paquets-routage-suites.md`). jemalloc
-/// gives freed pages back after a few seconds (its background thread, set
-/// in `main`), and counts what the server holds ([`memory`]).
+/// The server's allocator for its Rust code. glibc's kept what long routes
+/// freed: 1.3 GB in the production unit, 1.1 GB of it in 45 per-thread
+/// arenas, the unit at its `MemoryHigh` and part of it swapped; 0.81 GB
+/// after a test series of 240 trips where jemalloc held 0.1 GB (2026-10-11,
+/// `plan/research/129-paquets-routage-suites.md`). jemalloc gives freed
+/// pages back after about ten seconds (the decay of its dirty pages) from a
+/// background thread, which the crate's `background_threads` feature turns
+/// on from the first allocation on Linux (`Cargo.toml`), and counts what it
+/// hands out ([`memory`]). The C libraries (libwebp, SQLite) still allocate
+/// through glibc.
 #[global_allocator]
 static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-/// How often what the allocator holds is logged.
+/// How often the allocator's counters are logged.
 const MEMORY_LOG_EVERY: Duration = Duration::from_secs(300);
 
 #[tokio::main]
@@ -42,15 +46,13 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
-    // Without it, freed pages go back only while the server allocates.
-    if let Err(error) = tikv_jemalloc_ctl::background_thread::write(true) {
-        tracing::warn!(%error, "the allocator's background thread did not start");
-    }
     tokio::spawn(async {
         let mut every = tokio::time::interval(MEMORY_LOG_EVERY);
         loop {
             every.tick().await;
             match memory() {
+                // MiB, under the names the journal has carried since
+                // 2026-10-11.
                 Ok(m) => tracing::info!(
                     allocated_mb = m.allocated >> 20,
                     resident_mb = m.resident >> 20,
@@ -58,6 +60,8 @@ async fn main() -> anyhow::Result<()> {
                     "memory"
                 ),
                 Err(error) => {
+                    // The counters are compiled in or not: a read that
+                    // failed once fails every time.
                     tracing::warn!(%error, "the allocator's counters cannot be read");
                     return;
                 }
@@ -240,14 +244,19 @@ async fn shutdown_signal() {
     tracing::info!("shutting down");
 }
 
-/// What the allocator holds, bytes.
+/// What jemalloc holds for the server's Rust code, bytes: neither the C
+/// libraries' allocations (glibc's), nor the threads' stacks, nor the
+/// binary. The unit's cgroup (`memory.current`) counts everything, and is
+/// what its `MemoryHigh` is compared with.
 struct Memory {
     /// Taken by the server's data.
     allocated: usize,
-    /// In physical pages: `allocated`, the free space of the pages in use
-    /// and the freed pages not given back yet.
+    /// An upper bound of the physical pages jemalloc holds: `allocated`,
+    /// the free space of the pages in use, the freed pages not given back
+    /// yet, and its own metadata.
     resident: usize,
-    /// Address space kept for reuse, given back to the system.
+    /// Address space kept for reuse, with no memory behind it: its pages
+    /// were given back to the system.
     retained: usize,
 }
 
@@ -281,7 +290,23 @@ mod tests {
             "64 MiB held must show in the counters: {before} then {}",
             during.allocated
         );
-        assert!(during.resident >= during.allocated);
         drop(held);
+    }
+
+    /// Freed pages go back to the system only from jemalloc's background
+    /// thread while the server is idle: without it, the unit keeps what a
+    /// battery of long routes freed until it allocates again. macOS has no
+    /// background thread in jemalloc.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn freed_memory_is_given_back_by_a_background_thread() {
+        assert!(
+            tikv_jemalloc_ctl::opt::background_thread::read().unwrap(),
+            "the build must turn the background thread on (feature background_threads)"
+        );
+        assert!(
+            tikv_jemalloc_ctl::background_thread::read().unwrap(),
+            "the background thread must be running"
+        );
     }
 }

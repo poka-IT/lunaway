@@ -20,6 +20,15 @@ if [ -n "${CROSS_PKGS:-}" ]; then
   export "$linker_var=$CROSS_LINKER"
 fi
 
+# jemalloc's configure (the API's allocator, tikv-jemalloc-sys) probes the
+# build machine's CPU for the virtual address bits unless told: a native
+# x86_64 build (the Hetzner builder) would take what that CPU says, a cross
+# build from the Mac takes 57. Both builders get 57, valid on every x86_64
+# kernel, and 4 KiB pages, so one revision gives one binary.
+if [ "${TARGET%%-*}" = x86_64 ]; then
+  export JEMALLOC_SYS_WITH_LG_VADDR=57 JEMALLOC_SYS_WITH_LG_PAGE=12
+fi
+
 mkdir -p /src /out
 tar -xf /w/backend-src.tar -C /src
 cd /src

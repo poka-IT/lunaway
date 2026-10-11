@@ -7,8 +7,10 @@ After=network-online.target postgresql.service
 Wants=network-online.target
 # Photos and the account deletion journal are written to the data volume.
 RequiresMountsFor=/srv/data
-StartLimitIntervalSec=60
-StartLimitBurst=5
+# No start limit: a unit stopped at its MemoryMax several times in a minute
+# would otherwise stay down until someone starts it. RestartSteps below
+# spaces the restarts instead.
+StartLimitIntervalSec=0
 # Before the first deploy there is no binary: skip the unit instead of
 # failing it into its start limit.
 ConditionPathExists=/opt/lunaway/current/lunaway-api
@@ -33,8 +35,16 @@ Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
 Restart=on-failure
+# 2 s, then up to 30 s over five restarts in a row; a start by hand or a
+# deploy (install-release.sh) begins again at 2 s.
 RestartSec=2s
+RestartSteps=5
+RestartMaxDelaySec=30s
 TimeoutStopSec=20s
+# The C libraries (libwebp's photo encoding, SQLite's packs) allocate
+# through glibc, which keeps a heap arena per thread; two arenas hold what
+# they free. The Rust code allocates through jemalloc (main.rs).
+Environment=MALLOC_ARENA_MAX=2
 
 # Identity: a static system user, because the photos it writes outlive any
 # run of the service. It owns /srv/data/media and /srv/data/account-deletions
@@ -105,17 +115,19 @@ SocketBindAllow=tcp:8484
 # Resources: a runaway process is stopped before it starves PostgreSQL. Two
 # photo decodes at once (LUNAWAY_MEDIA_WORKERS) take up to 256 MB each plus
 # their copies: about 1 GB at the peak (report of backend iteration 2).
-# Routes took up to 0.33 GB with jemalloc (a battery of 240 trips, long
-# ones off motorways, sampled every 30 s) and 0.51 GB at the cgroup's peak
-# under two batteries at once, given back within minutes, where glibc's
-# allocator kept 0.81 GB of the same 240 trips and 1.3 GB under heavier
-# traffic, part of it swapped (2026-10-11,
-# plan/research/129-paquets-routage-suites.md): routes and photos at their
-# peaks together stay under MemoryHigh. No swap for the API, whose answers
-# would wait on the disk: past MemoryMax the kernel stops it and systemd
-# starts it again (Restart=on-failure).
-MemoryHigh=1536M
-MemoryMax=2048M
+# Routes in flight hold their engine answers (16 MiB each at most) and the
+# trees parsed from them: six of the heaviest trips off motorways at once,
+# one per engine slot, took the unit from 233 to 1,409 MiB (memory.peak,
+# 2026-10-11, plan/research/131-memoire-serveur.md), given back within
+# seconds. Those routes and two photos fit under MemoryHigh; six answers of
+# 16 MiB with the photos, about 2.7 GiB by the same ratio, under MemoryMax.
+# No swap: the server's swap is compressed memory (zram) that MemoryMax does
+# not count, so a growing API would slow down there instead of being
+# stopped. Past MemoryHigh the kernel can take back only the unit's page
+# cache and slows its allocations; past MemoryMax it stops the API and
+# systemd starts it again (Restart=on-failure).
+MemoryHigh=2560M
+MemoryMax=3072M
 MemorySwapMax=0
 TasksMax=512
 LimitNOFILE=65536
