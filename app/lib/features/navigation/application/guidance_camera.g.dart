@@ -28,7 +28,8 @@ final guidanceCameraProvider = GuidanceCameraProvider._();
 ///
 /// The guidance itself (instructions, voice, new routes) does not read it:
 /// it runs the same whatever the map shows.
-final class GuidanceCameraProvider extends $NotifierProvider<GuidanceCamera, GuidanceView> {
+final class GuidanceCameraProvider
+    extends $NotifierProvider<GuidanceCamera, GuidanceView> {
   /// The guidance map's camera mode: following by default; free as soon as
   /// the user moves the map; the whole route on demand. Back to following on
   /// "Recentrer", by the magnet, or after [FreeMap.idleReturn] without a
@@ -173,7 +174,8 @@ final guidanceAimProvider = GuidanceAimProvider._();
 /// and kind, so the camera frames it, closer as it comes, flatter over a
 /// junction, wider and toward the horizon down a long straight. The
 /// engines ease toward it at each frame of the glide.
-final class GuidanceAimProvider extends $NotifierProvider<GuidanceAim, CameraAim> {
+final class GuidanceAimProvider
+    extends $NotifierProvider<GuidanceAim, CameraAim> {
   /// The zoom and the tilt the guidance map aims at while it follows
   /// ([autoAim]): the speed held through [SpeedHold], so a GPS speed that
   /// wavers does not make the view breathe, and the next maneuver's distance
@@ -200,7 +202,10 @@ final class GuidanceAimProvider extends $NotifierProvider<GuidanceAim, CameraAim
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(CameraAim value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<CameraAim>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CameraAim>(value),
+    );
   }
 }
 
