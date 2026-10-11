@@ -223,9 +223,16 @@ endpoints:
   # paused by the Géoplateforme's limit. France checks a house number of a
   # public building (a ministry, avenue de Ségur in Paris); Europe and
   # Morocco a street near the point sent, which ranks it before any French
-  # match. Three searches every ten minutes are nothing to the
-  # Géoplateforme's 50 a second, nor to the quota of 300 every ten minutes
-  # per client.
+  # match. Each check stands for its own geocoder: every search asks the
+  # Géoplateforme too, wherever it is typed, and Europe's and Morocco's
+  # checks went red 4 and 1 times in 100 on 2026-10-11 when it answered
+  # after the API's 700 ms (plan/research/131-memoire-serveur.md). France's
+  # check alone requires addressesComplete; a first address in Germany or
+  # Morocco, which only Photon gives, says that Photon answered. Europe's
+  # query stays the external probe's (infra/ops/probe/external-probe.py),
+  # which asks three times before it fails. Three
+  # searches every ten minutes are nothing to the Géoplateforme's 50 a
+  # second, nor to the quota of 300 every ten minutes per client.
   - name: Addresses (France)
     group: public
     url: "https://__API_HOST__/graphql"
@@ -252,7 +259,6 @@ endpoints:
     interval: 10m
     conditions:
       - "[STATUS] == 200"
-      - "[BODY].data.searchAll.addressesComplete == true"
       - "[BODY].data.searchAll.addresses[0].countryCode == DE"
       - "[RESPONSE_TIME] < 2000"
 
@@ -267,7 +273,6 @@ endpoints:
     interval: 10m
     conditions:
       - "[STATUS] == 200"
-      - "[BODY].data.searchAll.addressesComplete == true"
       - "[BODY].data.searchAll.addresses[0].countryCode == MA"
       - "[RESPONSE_TIME] < 2000"
 

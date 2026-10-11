@@ -1765,8 +1765,8 @@ ran on a server of its own in another datacenter (nbg1).
 | public | Road events (DiaLog read) | DiaLog, second, read less than 45 minutes ago |
 | public | Road events feed | `roadEvents(first: 1)` answers a cursor within 3 s |
 | public | Addresses (France) | every 10 minutes, `searchAll` of "20 avenue de segur 75007 paris" (a ministry): complete, the first address "20 Avenue de Ségur", within 2 s (the Géoplateforme through Caddy on the loopback) |
-| public | Addresses (Europe) | the same for "unter den linden berlin" near Berlin: complete, the first address in Germany (`photon@europe`) |
-| public | Addresses (Morocco) | the same for "rue de fes rabat" near Rabat: complete, the first address in Morocco (`photon@morocco`) |
+| public | Addresses (Europe) | the same for "unter den linden berlin" near Berlin: the first address in Germany (`photon@europe`), complete or not: every search asks the Géoplateforme too, which France's check watches, and its answers after 700 ms turned this check red 4 times in 100 on 2026-10-11 |
+| public | Addresses (Morocco) | the same for "rue de fes rabat" near Rabat: the first address in Morocco (`photon@morocco`), complete or not |
 | backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
 | backend | Photo backup | the probe: the encrypted copy of the photos brought up to date less than 26 hours ago |
 | backend | Account deletion journal backup | the probe: the encrypted copy of the account deletion journal written less than 3 hours ago (hourly) |
