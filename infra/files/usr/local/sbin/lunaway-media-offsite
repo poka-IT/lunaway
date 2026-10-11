@@ -39,6 +39,20 @@ mkdir -p "$dst"
 # A run cut short leaves .partial files: they go first.
 find "$dst" -type f -name '*.partial' -delete
 
+# The list of the photos the copy holds, which the Mac reads to tell a
+# deleted photo from a kept one (infra/ops/mac/lunaway-ops.sh). It is
+# written on every way out from here, a refusal, a failure or a stop
+# included: a run that encrypted the night's new photos and then stopped
+# left the list of the night before, and the Mac took those new copies for
+# deleted ones (202 of them on 2026-10-11; below its own threshold it drops
+# such a copy at once).
+write_manifest() {
+  find "$dst" -type f -name '*.webp.age' -printf 'photos/%P\n' | LC_ALL=C sort > "$media/manifest.new"
+  mv -f "$media/manifest.new" "$media/manifest"
+}
+trap write_manifest EXIT
+trap 'exit 1' TERM INT HUP
+
 added=0 removed=0
 if [ -d "$src" ]; then
   while IFS= read -r -d '' rel; do
@@ -66,7 +80,8 @@ if [ "$copies" -gt 0 ] && [ ! -d "$src" ]; then
 fi
 if [ "${#gone[@]}" -gt 50 ] && [ $(( ${#gone[@]} * 100 )) -gt $(( copies * 5 )) ] \
   && [ "${LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL:-0}" != 1 ]; then
-  echo "refused: ${#gone[@]} of $copies photo copies would go (is /srv/data/media complete?); nothing removed" >&2
+  echo "refused: ${#gone[@]} of $copies photo copies would go (is /srv/data/media complete?); nothing removed;" \
+    "LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1 lets a deliberate removal through (docs/deploy.md, \"Backups and restore\")" >&2
   exit 1
 fi
 # The deletions of the last 30 days, then today's.
@@ -84,11 +99,12 @@ cutoff="$(date -u -d '30 days ago' +%Y%m%d)"
 mv -f "$deletions.new" "$deletions"
 find "$dst" -mindepth 1 -type d -empty -delete
 
-# The list of the photos the copy holds now. The Mac's rsync (openrsync)
-# cannot delete through the backend's read-only rrsync: it moves aside the
-# copies this list no longer names (infra/ops/mac/lunaway-ops.sh).
-find "$dst" -type f -name '*.webp.age' -printf 'photos/%P\n' | LC_ALL=C sort > "$media/manifest.new"
-mv -f "$media/manifest.new" "$media/manifest"
+# The list of the photos the copy holds now, before the success marker. The
+# Mac's rsync (openrsync) cannot delete through the backend's read-only
+# rrsync: it moves aside the copies this list no longer names
+# (infra/ops/mac/lunaway-ops.sh).
+write_manifest
+trap - EXIT
 files="$(wc -l < "$media/manifest")"
 bytes="$(du -sb "$dst" | cut -f1)"
 date -u +%Y%m%dT%H%M%SZ > "$marker.new"
