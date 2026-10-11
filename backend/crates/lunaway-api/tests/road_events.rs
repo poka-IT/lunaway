@@ -392,11 +392,14 @@ query Route($input: RouteInput!) { route(input: $input) { status recalculations 
     // trip 83, and its alternatives follow around the same ring.
     let mut today = osrm_of(&[ROUTE_UNDER, &detour]);
     today["routes"][1]["duration"] = 900.0.into();
-    let (url, asked) = kind_engine(
-        osrm(ROUTE_UNDER),
-        osrm(ROUTE_AROUND),
-        today,
-        osrm_of(&[ROUTE_AROUND, &detour]),
+    let (url, asked) = super::route_alternatives::kind_engine(
+        [
+            osrm(ROUTE_UNDER),
+            osrm(ROUTE_AROUND),
+            today,
+            osrm_of(&[ROUTE_AROUND, &detour]),
+        ],
+        Duration::ZERO,
     )
     .await;
     let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
@@ -433,51 +436,6 @@ query Alternatives($token: String!) {
         after["exclude_polygons"], ring,
         "the alternatives go round the closure the best route went round"
     );
-}
-
-/// What a fake engine answering by the kind of call records, and its
-/// answers: the best route alone, around rings, today's request with
-/// alternatives, and the alternatives around rings.
-#[derive(Clone)]
-struct Kinds {
-    asked: Arc<Mutex<Vec<Value>>>,
-    answers: Arc<[Value; 4]>,
-}
-
-async fn by_kind(State(k): State<Kinds>, Json(body): Json<Value>) -> Json<Value> {
-    let ringed = body.get("exclude_polygons").is_some();
-    let n = match (body.get("alternates").is_some(), ringed) {
-        (false, false) => 0,
-        (false, true) => 1,
-        (true, false) => 2,
-        (true, true) => 3,
-    };
-    k.asked.lock().unwrap().push(body);
-    Json(k.answers[n].clone())
-}
-
-async fn kind_engine(
-    alone: Value,
-    around: Value,
-    today: Value,
-    later: Value,
-) -> (String, Arc<Mutex<Vec<Value>>>) {
-    let k = Kinds {
-        asked: Arc::new(Mutex::new(Vec::new())),
-        answers: Arc::new([alone, around, today, later]),
-    };
-    let asked = Arc::clone(&k.asked);
-    let app = Router::new()
-        .route("/route", post(by_kind))
-        .route(
-            "/status",
-            get(|| async { Json(json!({"version": "3.9.0"})) }),
-        )
-        .with_state(k);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    tokio::spawn(async move { axum::serve(listener, app).await });
-    (url, asked)
 }
 
 #[sqlx::test(migrations = "../../migrations")]
