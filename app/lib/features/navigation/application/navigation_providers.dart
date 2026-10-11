@@ -249,6 +249,7 @@ final class RoutePreview {
     this.stops = const [],
     this.unreachable = const [],
     this.coveredCountries = const [],
+    this.framedLater = const {},
   });
 
   final VehicleCheck vehicle;
@@ -275,6 +276,12 @@ final class RoutePreview {
   /// outside; empty when the API did not say.
   final List<String> coveredCountries;
 
+  /// The alternatives that came after the best route ([RoutePlan.cameLater])
+  /// the user chose, by index: the camera framed the routes without them,
+  /// and takes each in once chosen. They stay in the frame while this plan
+  /// shows, so choosing a route already in view moves nothing.
+  final Set<int> framedLater;
+
   RouteOption? get route => plan?.routes.where((r) => r.index == selected).firstOrNull;
 
   /// Why the trip has no route, from the device or from the server.
@@ -289,6 +296,10 @@ final class RoutePreview {
     stops: stops,
     unreachable: unreachable,
     coveredCountries: coveredCountries,
+    framedLater: {
+      ...framedLater,
+      if (plan case final p? when p.routes.any((r) => r.index == index && p.cameLater(r))) index,
+    },
   );
 
   /// The same preview over [plan], the route chosen kept.
@@ -300,6 +311,7 @@ final class RoutePreview {
     stops: stops,
     unreachable: unreachable,
     coveredCountries: coveredCountries,
+    framedLater: framedLater,
   );
 }
 

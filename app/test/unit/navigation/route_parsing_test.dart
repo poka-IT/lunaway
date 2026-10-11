@@ -248,6 +248,75 @@ void main() {
       expect(bannerManeuver(banner: null, steps: steps, stepIndex: at - 1), steps[at].maneuver);
     });
 
+    test('the customs ramps the map names "A 411" carry no exit number', () {
+      // Recorded on 2026-10-11 on the A 411 before the Thônex-Vallard
+      // customs: the map gives its lanes the junction reference "A 411".
+      final osrm = jsonDecode(routeAnswer('vallard_customs')['osrmJson'] as String) as Map;
+      final route = (osrm['routes'] as List).single as Map;
+      final raw = ((route['legs'] as List).single as Map)['steps'] as List;
+      final named = [
+        for (final (i, s) in raw.indexed)
+          if ((s as Map)['exits'] == 'A 411') i,
+      ];
+      expect(named, [1, 2, 3, 4], reason: 'the four ramps of the customs, as recorded');
+      final steps = routeFixture('vallard_customs').routes.single.steps;
+      for (final i in named) {
+        expect(steps[i].maneuverType, 'off ramp');
+        expect(steps[i].exitRef, isNull, reason: 'step $i: a road number, no exit');
+      }
+    });
+
+    test('the numbered exits of recorded routes keep their number', () {
+      String? exitOf(String name) =>
+          routeFixture(name).routes.single.steps.map((s) => s.exitRef).nonNulls.singleOrNull;
+      expect(exitOf('a20_limits'), '25');
+      expect(exitOf('perpignan_figueres'), '20');
+      expect(exitOf('brive_ussel_en'), '23');
+    });
+
+    test('only a way off a motorway shows an exit, and only the numbers of its exits', () {
+      String? exitAt(String type, String exits, {String? left, String? taken}) {
+        final plan = routeFixture(
+          'limoges_drive',
+          edit: (answer) {
+            final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+            final route = (osrm['routes'] as List).first as Map<String, dynamic>;
+            final leg = (route['legs'] as List).first as Map<String, dynamic>;
+            final steps = leg['steps'] as List;
+            final step = steps[2] as Map;
+            (step['maneuver'] as Map)['type'] = type;
+            step['exits'] = exits;
+            step['ref'] = taken;
+            (steps[1] as Map)['ref'] = left;
+            answer['osrmJson'] = jsonEncode(osrm);
+          },
+        );
+        return plan.routes.single.steps[2].exitRef;
+      }
+
+      expect(exitAt('off ramp', '17'), '17');
+      expect(exitAt('off ramp', '6.1'), '6.1');
+      expect(exitAt('on ramp', '16'), isNull, reason: 'a ramp onto a motorway is no exit');
+      expect(exitAt('off ramp', '31b'), '31b');
+      expect(exitAt('off ramp', '17; A 411'), '17');
+      expect(exitAt('off ramp', 'A 411'), isNull);
+      expect(exitAt('off ramp', 'N205'), isNull);
+      expect(exitAt('off ramp', 'E 712; A 41'), isNull);
+      // Mapped in France: "4 a;4 b" on way 682936866, "17\u00a0a" on node
+      // 669076112.
+      expect(exitAt('off ramp', '4 a;4 b'), '4 a; 4 b');
+      expect(exitAt('off ramp', '17\u00a0a'), '17\u00a0a');
+      expect(exitAt('off ramp', 'Sortie 47'), isNull);
+      expect(exitAt('off ramp', '1', left: '1'), isNull, reason: 'the road left');
+      expect(
+        exitAt('off ramp', '10', taken: '10'),
+        '10',
+        reason: 'a link that carries its exit number as its own ref (way 40115728)',
+      );
+      expect(exitAt('fork', '17'), isNull, reason: 'a fork is no exit');
+      expect(exitAt('turn', '17'), isNull);
+    });
+
     test('a polyline6 decodes as Valhalla encodes it, and a cut one stops cleanly', () {
       // Two points of the Utrillo route, encoded by Valhalla.
       final points = decodePolyline('yhhmvAshlmAD_@');
