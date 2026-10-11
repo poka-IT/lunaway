@@ -173,8 +173,12 @@ const fn region(
     }
 }
 
-/// Every sync region the data covers: the thirteen regions of metropolitan
-/// France, then the countries of the European import, by code.
+/// Every sync region a device can keep: the thirteen regions of
+/// metropolitan France, then, by code, every country that both an offline
+/// map (`infra/tiles/packs/regions.geojson`) and the routing graph
+/// (`routing::coverage`) cover: those of the European import, and Morocco.
+/// A country outside either stays online only: a device offline there
+/// would have its places without a map, or without a route.
 pub const SYNC_REGIONS: &[SyncRegion] = &[
     region(
         "FR-ARA",
@@ -224,6 +228,7 @@ pub const SYNC_REGIONS: &[SyncRegion] = &[
     region("IE", "IE", "Ireland", "Irlande"),
     region("IT", "IT", "Italy", "Italie"),
     region("LU", "LU", "Luxembourg", "Luxembourg"),
+    region("MA", "MA", "Morocco", "Maroc"),
     region("NL", "NL", "Netherlands", "Pays-Bas"),
     region("NO", "NO", "Norway", "Norvège"),
     region("PL", "PL", "Poland", "Pologne"),
@@ -241,7 +246,10 @@ pub fn sync_region(code: &str) -> Option<&'static SyncRegion> {
 }
 
 /// The microstates and territories that sync with the region around them,
-/// and that region.
+/// and that region. Western Sahara goes with Morocco: the offline map of
+/// Morocco (Natural Earth's outline, to 21.4 degrees north) and the routing
+/// graph's cut of Morocco both hold it, so the one download serves a trip
+/// down the coast. Its places keep their own country (`EH`).
 pub const ATTACHED: &[(&str, &str)] = &[
     ("MC", "FR-PAC"),
     ("AD", "ES"),
@@ -251,6 +259,7 @@ pub const ATTACHED: &[(&str, &str)] = &[
     ("LI", "CH"),
     ("SJ", "NO"),
     ("AX", "FI"),
+    ("EH", "MA"),
 ];
 
 /// The French region of a department (`74`, `2A`), by the 2016 map.
@@ -455,6 +464,12 @@ mod tests {
         assert_eq!(sync_region_of(Some("FR"), None).as_deref(), Some("FR"));
         assert_eq!(sync_region_of(Some("mc"), None).as_deref(), Some("FR-PAC"));
         assert_eq!(sync_region_of(Some("DE"), None).as_deref(), Some("DE"));
+        assert_eq!(sync_region_of(Some("MA"), None).as_deref(), Some("MA"));
+        assert_eq!(
+            sync_region_of(Some("EH"), None).as_deref(),
+            Some("MA"),
+            "Laayoune's places download with Morocco"
+        );
         assert_eq!(sync_region_of(None, Some("74010")), None);
         for (_, around) in ATTACHED {
             assert!(
@@ -462,6 +477,47 @@ mod tests {
                 "{around} must be a sync region"
             );
         }
+    }
+
+    /// The catalogue is what an offline map and the routing graph both
+    /// cover: a device that keeps a region offline has its places, its map
+    /// and its routes there (decision of the product owner, 2026-10-11). A
+    /// country given both later gets its region, or this fails.
+    #[test]
+    fn the_catalogue_holds_every_country_with_an_offline_map_and_routes() {
+        let outlines: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../infra/tiles/packs/regions.geojson"
+        ))
+        .unwrap();
+        let mapped: BTreeSet<String> = outlines["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["properties"]["kind"] == "country")
+            .map(|f| f["properties"]["id"].as_str().unwrap().to_ascii_uppercase())
+            .collect();
+        let routed: BTreeSet<&str> = crate::routing::coverage::countries().into_iter().collect();
+        for country in mapped.iter().filter(|c| routed.contains(c.as_str())) {
+            let region = sync_region_of(Some(country), None).unwrap();
+            assert!(
+                sync_region(&region).is_some(),
+                "{country} has an offline map and routes: its places must be kept offline too"
+            );
+        }
+        for r in SYNC_REGIONS.iter().filter(|r| r.country != "FR") {
+            assert!(
+                mapped.contains(r.code) && routed.contains(r.code),
+                "{}: a region kept offline needs its map and its routes",
+                r.code
+            );
+        }
+        for (territory, around) in ATTACHED {
+            assert!(
+                routed.contains(territory),
+                "{territory} syncs with {around}: the graph must cover it as well"
+            );
+        }
+        assert!(sync_region("MA").is_some(), "Morocco, the wintering trip");
     }
 
     /// The health probe's packs check (`lunaway-worker-status`) counts the

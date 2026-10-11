@@ -760,3 +760,95 @@ async fn a_page_asked_larger_than_the_api_serves_comes_whole_in_two(pool: PgPool
         "past 1000 is still refused"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn morocco_keeps_western_sahara_offline_and_turkey_stays_online(pool: PgPool) {
+    // Marrakech, Laayoune (Western Sahara, `EH`) and Istanbul, as the
+    // importers tag them: the country of each position.
+    for (lon, lat, country) in [
+        (-7.99, 31.63, "MA"),
+        (-13.2, 27.15, "EH"),
+        (28.97, 41.01, "TR"),
+    ] {
+        sqlx::query(
+            "INSERT INTO places (id, kind, geom, overnight, country_code, content_hash, \
+                                 updated_seq) \
+             VALUES (gen_random_uuid(), 'parking', \
+                     ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 'unknown', $3, \
+                     'hash' || $3, nextval('place_change_seq'))",
+        )
+        .bind(lon)
+        .bind(lat)
+        .bind(country)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    let app = app(pool.clone());
+    let regions = gql(&app, "{ regions { code country name nameFr } }", json!({})).await;
+    let listed = regions["data"]["regions"].as_array().unwrap();
+    let morocco = listed
+        .iter()
+        .find(|r| r["code"] == "MA")
+        .expect("Morocco is a region a device can keep");
+    assert_eq!(
+        morocco,
+        &json!({"code": "MA", "country": "MA", "name": "Morocco", "nameFr": "Maroc"})
+    );
+    assert!(
+        listed
+            .iter()
+            .all(|r| r["code"] != "TR" && r["code"] != "EH"),
+        "Turkey has neither an offline map nor routes; Western Sahara goes with Morocco"
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let report = build(
+        &pool,
+        ApiConfig::default(),
+        &PackOptions {
+            dir: dir.path().to_owned(),
+            only: Vec::new(),
+            takedown: false,
+        },
+    )
+    .await
+    .unwrap();
+    let built: Vec<(&str, i32)> = report
+        .built
+        .iter()
+        .map(|b| (b.pack.region.as_str(), b.pack.places))
+        .collect();
+    assert_eq!(
+        built,
+        [("MA", 2)],
+        "one pack for Morocco and Western Sahara, none for Turkey"
+    );
+
+    let feed = gql(
+        &app,
+        &changes_query(),
+        json!({"region": "MA", "since": null}),
+    )
+    .await;
+    let synced: Vec<&str> = feed["data"]["changes"]["places"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["region"].as_str().unwrap())
+        .collect();
+    assert_eq!(synced, ["MA", "MA"], "{feed}");
+    for outside in ["TR", "EH"] {
+        let refused = gql(
+            &app,
+            &changes_query(),
+            json!({"region": outside, "since": null}),
+        )
+        .await;
+        assert_eq!(
+            code(&refused),
+            "INVALID_INPUT",
+            "{outside} is no sync region"
+        );
+    }
+}
