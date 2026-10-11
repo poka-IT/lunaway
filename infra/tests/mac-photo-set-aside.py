@@ -115,7 +115,8 @@ class SetAside(unittest.TestCase):
         self.assertTrue(all(self.on_mac(i) for i in range(1, 31)))
         self.assertIn("70 set aside, 0 dropped", out)
         self.assertIn("fail: 70 des 100 photos copiées sur le Mac supprimées sur le serveur en une nuit, "
-                      "mises de côté 26 jours dans media-deleted : vérifier que la suppression était voulue", out)
+                      "mises de côté dans media-deleted jusqu'à 26 jours après leur date de suppression : "
+                      "vérifier que la suppression était voulue", out)
         # The next night nothing is left to set aside, and nothing fails.
         self.assertEqual(self.run_job(), "failures=\n")
 

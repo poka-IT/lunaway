@@ -248,7 +248,7 @@ set_aside_photos() {
 	aside=$((gone - drop))
 	[ "$gone" = 0 ] || say "$gone photo copies deleted on the server: $aside set aside, $drop dropped"
 	if [ "$aside" -gt 50 ] && [ $((aside * 100)) -gt $((local_count * 5)) ]; then
-		fail "$aside des $local_count photos copiées sur le Mac supprimées sur le serveur en une nuit, mises de côté 26 jours dans media-deleted : vérifier que la suppression était voulue"
+		fail "$aside des $local_count photos copiées sur le Mac supprimées sur le serveur en une nuit, mises de côté dans media-deleted jusqu'à 26 jours après leur date de suppression : vérifier que la suppression était voulue"
 	fi
 }
 held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
