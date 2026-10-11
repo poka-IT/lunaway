@@ -18,15 +18,23 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.IOException
 import java.util.Locale
+import java.util.MissingResourceException
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * The spoken instructions of the guidance, through Android's own speech
- * engine: nothing is downloaded by the app, and a voice that needs the
+ * The spoken instructions of the guidance, through the speech engines of
+ * the device: nothing is downloaded by the app, and a voice that needs the
  * network is reported as such; the app speaks with installed voices only, so
  * the instructions stay on the device.
+ *
+ * A device may carry several engines (Google's, its maker's, eSpeak NG,
+ * RHVoice), one of them chosen in the system's settings. The app asks the
+ * default one first and the others only when it has no voice of the
+ * language; it then speaks with the engine the app picked (`useEngine`). A
+ * language is matched on its ISO 639 code, two or three letters, as engines
+ * name it either way.
  *
  * The speech uses the navigation guidance audio usage and asks for a
  * transient focus that lets music duck under it, as a navigation app does.
@@ -42,15 +50,31 @@ import java.util.concurrent.Executors
 class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private lateinit var channel: MethodChannel
     private var context: Context? = null
-    private var tts: TextToSpeech? = null
 
-    /** Null while the engine starts, then its status. */
-    private var engineStatus: Int? = null
-    private val waiting = mutableListOf<(TextToSpeech?) -> Unit>()
+    /** One engine of the device, bound when first asked for. */
+    private class Engine {
+        var tts: TextToSpeech? = null
+
+        /** Null while the engine starts, then its status. */
+        var status: Int? = null
+        val waiting = mutableListOf<(TextToSpeech?) -> Unit>()
+    }
+
+    /** The device's default engine, bound without naming it. */
+    private var defaultSlot = Engine()
+
+    /** Its package, once it is bound. */
+    private var defaultName: String? = null
+
+    /** The other engines asked for, by package. */
+    private val others = mutableMapOf<String, Engine>()
+
+    /** The engine the app speaks with; null for the default one. */
+    private var speaker: String? = null
     private val main = Handler(Looper.getMainLooper())
 
     /**
-     * Where the voices and the languages are asked of the engine, away
+     * Where the voices and the languages are asked of an engine, away
      * from the main thread, which also draws the app: the engine runs in
      * another process, and Google's lists hundreds of voices, a binder call
      * that holds its caller as long as it takes.
@@ -104,12 +128,9 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         channel.setMethodCallHandler(null)
         stops++
         cutChime()
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
+        unbindAll()
         lists?.shutdown()
         lists = null
-        engineStatus = null
         finishAll()
         releaseFocus()
         context = null
@@ -117,19 +138,29 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "voices" -> withEngine(result) { engine ->
+            "engines" -> withEngine(defaultSlot, result) { engine -> result.success(enginesOf(engine)) }
+            "voices" -> {
                 val language = call.argument<String>("language") ?: ""
-                offMain(result) { voicesFor(engine, language) }
-            }
-            "languageStatus" -> withEngine(result) { engine ->
-                val language = call.argument<String>("language") ?: ""
-                offMain(result) {
-                    when (engine.isLanguageAvailable(Locale.forLanguageTag(language))) {
-                        TextToSpeech.LANG_MISSING_DATA -> "missingData"
-                        TextToSpeech.LANG_NOT_SUPPORTED -> "notSupported"
-                        else -> "available"
-                    }
+                withEngine(slot(call.argument<String>("engine")), result) { engine ->
+                    offMain(result) { voicesFor(engine, language) }
                 }
+            }
+            "languageStatus" -> {
+                val language = call.argument<String>("language") ?: ""
+                withEngine(slot(call.argument<String>("engine")), result) { engine ->
+                    offMain(result) { statusOf(engine, Locale.forLanguageTag(language)) }
+                }
+            }
+            "useEngine" -> {
+                useEngine(call.argument<String>("engine"))
+                result.success(null)
+            }
+            "refresh" -> {
+                // Called while nothing is said with an engine (the voice
+                // was missing): what was installed or chosen meanwhile is
+                // seen by engines bound anew.
+                unbindAll()
+                result.success(null)
             }
             "setChime" -> result.success(setChime(call.argument<ByteArray>("wav")))
             "speak" -> {
@@ -144,7 +175,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     text.isEmpty() -> result.success(false)
                     else -> {
                         val asked = stops
-                        withEngine(result) { engine ->
+                        withEngine(slot(speaker), result) { engine ->
                             if (asked != stops) {
                                 result.success(false)
                             } else {
@@ -160,31 +191,97 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "stop" -> {
                 stops++
                 cutChime()
-                tts?.stop()
+                defaultSlot.tts?.stop()
+                others.values.forEach { it.tts?.stop() }
                 finishAll()
                 releaseFocus()
                 result.success(null)
             }
-            "installVoiceData" -> {
-                val ctx = context
-                if (ctx == null) {
-                    result.success(false)
-                } else {
-                    val intent =
-                        Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    result.success(
-                        try {
-                            ctx.startActivity(intent)
-                            true
-                        } catch (e: Exception) {
-                            false
-                        },
-                    )
-                }
-            }
+            "installVoiceData" -> result.success(installVoiceData(call.argument<String>("engine")))
             else -> result.notImplemented()
         }
+    }
+
+    /**
+     * Opens the page of [engine] that installs voices, or, with no engine
+     * named or one that has none, the system's choice among the engines.
+     */
+    private fun installVoiceData(engine: String?): Boolean {
+        val ctx = context ?: return false
+        val intent =
+            Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (engine != null) {
+            val own = Intent(intent).setPackage(engine)
+            if (own.resolveActivity(ctx.packageManager) != null) {
+                return try {
+                    ctx.startActivity(own)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+            }
+        }
+        return try {
+            ctx.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** The slot of [name]; the default engine's when null or its own name. */
+    private fun slot(name: String?): Engine =
+        if (name == null || name == defaultName) defaultSlot else others.getOrPut(name) { Engine() }
+
+    /**
+     * Speaks from now on with [name] (null: the default engine), and lets go
+     * of the other engines asked about, which the system would otherwise
+     * keep running for this app.
+     */
+    private fun useEngine(name: String?) {
+        speaker = if (name == defaultName) null else name
+        val keep = speaker
+        val iterator = others.entries.iterator()
+        while (iterator.hasNext()) {
+            val (key, engine) = iterator.next()
+            if (key != keep) {
+                unbind(engine)
+                iterator.remove()
+            }
+        }
+    }
+
+    private fun unbind(engine: Engine) {
+        engine.tts?.stop()
+        engine.tts?.shutdown()
+        engine.tts = null
+        engine.status = null
+        val waiting = engine.waiting.toList()
+        engine.waiting.clear()
+        waiting.forEach { it(null) }
+    }
+
+    private fun unbindAll() {
+        unbind(defaultSlot)
+        defaultSlot = Engine()
+        defaultName = null
+        others.values.forEach { unbind(it) }
+        others.clear()
+    }
+
+    /** The engines of the device, the default one first. */
+    private fun enginesOf(engine: TextToSpeech): List<Map<String, Any?>> {
+        val default = engine.defaultEngine
+        defaultName = default
+        return engine.engines
+            .sortedBy { if (it.name == default) 0 else 1 }
+            .map { info ->
+                mapOf(
+                    "name" to info.name,
+                    "label" to info.label,
+                    "isDefault" to (info.name == default),
+                )
+            }
     }
 
     /** Runs [read] on [lists] and answers its value, or its failure, on the main thread. */
@@ -208,8 +305,8 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
     }
 
-    /** Runs [action] once the engine is ready; answers an error when there is none. */
-    private fun withEngine(result: MethodChannel.Result, action: (TextToSpeech) -> Unit) {
+    /** Runs [action] once [slot]'s engine is ready; answers an error when there is none. */
+    private fun withEngine(slot: Engine, result: MethodChannel.Result, action: (TextToSpeech) -> Unit) {
         val run: (TextToSpeech?) -> Unit = { engine ->
             if (engine == null) {
                 result.error("unavailable", "no speech engine on this device", null)
@@ -217,50 +314,56 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 action(engine)
             }
         }
-        val status = engineStatus
-        val engine = tts
+        val status = slot.status
+        val engine = slot.tts
         when {
             engine != null && status == TextToSpeech.SUCCESS -> run(engine)
             status != null && status != TextToSpeech.SUCCESS -> run(null)
             else -> {
-                waiting.add(run)
-                if (engine == null) start()
+                slot.waiting.add(run)
+                if (engine == null) start(slot)
             }
         }
     }
 
-    private fun start() {
+    private fun start(slot: Engine) {
         val ctx = context ?: return
-        tts =
-            TextToSpeech(ctx) { status ->
+        val name = if (slot === defaultSlot) null else others.entries.firstOrNull { it.value === slot }?.key
+        val onInit =
+            TextToSpeech.OnInitListener { status ->
                 main.post {
-                    engineStatus = status
-                    val engine = if (status == TextToSpeech.SUCCESS) tts else null
+                    // Let go of meanwhile (refresh, another engine chosen):
+                    // whoever waited was answered then.
+                    if (slot.tts == null) return@post
+                    slot.status = status
+                    val engine = if (status == TextToSpeech.SUCCESS) slot.tts else null
                     engine?.setAudioAttributes(attributes)
-                    engine?.setOnUtteranceProgressListener(
-                        object : UtteranceProgressListener() {
-                            override fun onStart(utteranceId: String?) {}
-
-                            override fun onDone(utteranceId: String?) {
-                                main.post { finish(utteranceId, true) }
-                            }
-
-                            @Deprecated("Deprecated in Java")
-                            override fun onError(utteranceId: String?) {
-                                main.post { finish(utteranceId, false) }
-                            }
-
-                            override fun onStop(utteranceId: String?, interrupted: Boolean) {
-                                main.post { finish(utteranceId, false) }
-                            }
-                        },
-                    )
-                    val pendingCalls = waiting.toList()
-                    waiting.clear()
+                    engine?.setOnUtteranceProgressListener(progress)
+                    val pendingCalls = slot.waiting.toList()
+                    slot.waiting.clear()
                     pendingCalls.forEach { it(engine) }
                 }
             }
+        slot.tts = if (name == null) TextToSpeech(ctx, onInit) else TextToSpeech(ctx, onInit, name)
     }
+
+    private val progress =
+        object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(utteranceId: String?) {
+                main.post { finish(utteranceId, true) }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                main.post { finish(utteranceId, false) }
+            }
+
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                main.post { finish(utteranceId, false) }
+            }
+        }
 
     /**
      * Writes [wav] where the media player reads it: among the app's files
@@ -329,22 +432,48 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         if (waiting != null) finish(waiting, false)
     }
 
+    /**
+     * The voices of [language] in [engine], their locale written with two
+     * letters where it has them: an engine may name French `fra`, and the
+     * app compares tags.
+     */
     private fun voicesFor(engine: TextToSpeech, language: String): List<Map<String, Any?>> {
-        val wanted = Locale.forLanguageTag(language).language
+        val wanted = Locale.forLanguageTag(language)
         val voices: Set<Voice> = engine.voices ?: emptySet()
         return voices
-            .filter { it.locale.language == wanted }
+            .filter { sameLanguage(it.locale, wanted) }
             .map { voice ->
                 mapOf(
                     "id" to voice.name,
-                    "locale" to voice.locale.toLanguageTag(),
+                    "locale" to tagOf(voice.locale),
                     "networkRequired" to voice.isNetworkConnectionRequired,
                     "notInstalled" to
-                        voice.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED),
+                        voice.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED),
                     "quality" to voice.quality,
                 )
             }
     }
+
+    /**
+     * Whether [engine] speaks [locale] now, for an engine that lists no
+     * voice of it: available, through its vendor's server only, once its
+     * data is downloaded, or not at all.
+     */
+    @Suppress("DEPRECATION")
+    private fun statusOf(engine: TextToSpeech, locale: Locale): String =
+        when (engine.isLanguageAvailable(locale)) {
+            TextToSpeech.LANG_MISSING_DATA -> "missingData"
+            TextToSpeech.LANG_NOT_SUPPORTED -> "notSupported"
+            else -> {
+                val features = engine.getFeatures(locale).orEmpty()
+                when {
+                    TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED in features -> "missingData"
+                    TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS in features &&
+                        TextToSpeech.Engine.KEY_FEATURE_EMBEDDED_SYNTHESIS !in features -> "network"
+                    else -> "available"
+                }
+            }
+        }
 
     /**
      * Plays the chime, when asked and known, then queues [text], never
@@ -438,6 +567,55 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             focus?.let { audio.abandonAudioFocusRequest(it) }
         } else {
             audio.abandonAudioFocus(null)
+        }
+    }
+
+    companion object {
+        /** Three-letter ISO 639 codes to two-letter ones, read once. */
+        private val twoLetterLanguages: Map<String, String> by lazy {
+            Locale.getISOLanguages()
+                .mapNotNull { code -> iso3Language(Locale.forLanguageTag(code))?.let { it to code } }
+                .toMap()
+        }
+
+        /** Three-letter ISO 3166 codes to two-letter ones, read once. */
+        private val twoLetterCountries: Map<String, String> by lazy {
+            Locale.getISOCountries()
+                .mapNotNull { code ->
+                    try {
+                        Locale.Builder().setRegion(code).build().isO3Country
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { it to code }
+                    } catch (e: MissingResourceException) {
+                        null
+                    } catch (e: java.util.IllformedLocaleException) {
+                        null
+                    }
+                }
+                .toMap()
+        }
+
+        private fun iso3Language(locale: Locale): String? =
+            try {
+                locale.isO3Language.takeIf { it.isNotEmpty() }?.lowercase(Locale.ROOT)
+            } catch (e: MissingResourceException) {
+                null
+            }
+
+        /** Whether [locale] is of [wanted]'s language, named with two letters or three. */
+        fun sameLanguage(locale: Locale, wanted: Locale): Boolean {
+            if (locale.language.equals(wanted.language, ignoreCase = true)) return true
+            val a = iso3Language(locale)
+            return a != null && a == iso3Language(wanted)
+        }
+
+        /** [locale] as a language tag with two-letter codes where they exist: `fr-FR`. */
+        fun tagOf(locale: Locale): String {
+            val language = locale.language.lowercase(Locale.ROOT)
+            val country = locale.country.uppercase(Locale.ROOT)
+            val lang = if (language.length == 3) twoLetterLanguages[language] ?: language else language
+            val region = if (country.length == 3) twoLetterCountries[country] ?: country else country
+            return if (region.isEmpty()) lang else "$lang-$region"
         }
     }
 }

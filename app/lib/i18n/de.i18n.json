@@ -879,6 +879,7 @@
       "limit": "Tempolimit",
       "noVoice": "Keine Stimme für $language auf diesem Gerät: Anweisungen nur auf dem Bildschirm.",
       "missingVoice": "Die Stimme für $language ist noch nicht heruntergeladen.",
+      "missingVoiceIn": "Die Stimme für $language ist in „$engine“ noch nicht heruntergeladen.",
       "installVoice": "Installieren",
       "voiceSettingsIos": "Einstellungen, Bedienungshilfen, Gesprochene Inhalte, Stimmen",
       "notificationTitle": "Navigation mit Lunaway aktiv",

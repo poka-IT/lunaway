@@ -2255,6 +2255,7 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get limit => 'Limite';
 	@override String noVoice({required Object language}) => 'Nessuna voce in ${language} su questo dispositivo: istruzioni solo sullo schermo.';
 	@override String missingVoice({required Object language}) => 'La voce in ${language} non è ancora scaricata.';
+	@override String missingVoiceIn({required Object language, required Object engine}) => 'La voce in ${language} non è ancora scaricata in «${engine}».';
 	@override String get installVoice => 'Installa';
 	@override String get voiceSettingsIos => 'Impostazioni, Accessibilità, Contenuto letto ad alta voce, Voci';
 	@override String get notificationTitle => 'Lunaway ti sta guidando';
@@ -4139,6 +4140,7 @@ extension on TranslationsIt {
 			'navigation.guidance.limit' => 'Limite',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'Nessuna voce in ${language} su questo dispositivo: istruzioni solo sullo schermo.',
 			'navigation.guidance.missingVoice' => ({required Object language}) => 'La voce in ${language} non è ancora scaricata.',
+			'navigation.guidance.missingVoiceIn' => ({required Object language, required Object engine}) => 'La voce in ${language} non è ancora scaricata in «${engine}».',
 			'navigation.guidance.installVoice' => 'Installa',
 			'navigation.guidance.voiceSettingsIos' => 'Impostazioni, Accessibilità, Contenuto letto ad alta voce, Voci',
 			'navigation.guidance.notificationTitle' => 'Lunaway ti sta guidando',
@@ -4448,9 +4450,9 @@ extension on TranslationsIt {
 			'translation.from.de' => 'Tradotto automaticamente dal tedesco',
 			'translation.from.es' => 'Tradotto automaticamente dallo spagnolo',
 			'translation.from.it' => 'Tradotto automaticamente dall\'italiano',
-			'translation.from.nl' => 'Tradotto automaticamente dall\'olandese',
 			_ => null,
 		} ?? switch (path) {
+			'translation.from.nl' => 'Tradotto automaticamente dall\'olandese',
 			'translation.from.unknown' => ({required Object language}) => 'Tradotto automaticamente (lingua originale: ${language})',
 			'translation.offline' => 'Per tradurre serve una connessione a internet.',
 			'translation.failedOffline' => 'Nessuna connessione: impossibile tradurre il testo.',
@@ -4962,9 +4964,9 @@ extension on TranslationsIt {
 			'poi.kind.gardenCentre' => 'Garden center',
 			'poi.kind.hardware' => 'Ferramenta, fai da te',
 			'poi.kind.home' => 'Casa e arredamento',
-			'poi.kind.electronics' => 'Elettronica e telefonia',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.electronics' => 'Elettronica e telefonia',
 			'poi.kind.cosmetics' => 'Profumeria',
 			'poi.kind.departmentStore' => 'Grande magazzino, centro commerciale',
 			'poi.kind.varietyStore' => 'Bazar, discount',

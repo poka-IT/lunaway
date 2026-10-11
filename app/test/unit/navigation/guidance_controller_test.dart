@@ -8,6 +8,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -102,10 +103,12 @@ void main() {
     NavigationSettings settings = const NavigationSettings(),
     CountryLocator? countries,
     EnforcementFeed? enforcement,
+    AppForeground? foreground,
+    RecordingVoice? withVoice,
   }) async {
     routes = FakeRouteService(answers.isEmpty ? [p] : answers);
     feed = FakeLocationFeed();
-    voice = RecordingVoice();
+    voice = withVoice ?? RecordingVoice();
     wake = FakeScreenWake();
     engine = LineEngine([p, ...more]);
     container = ProviderContainer.test(
@@ -120,6 +123,7 @@ void main() {
           settings: MemoryRouteSettings(settings),
           countries: countries,
           enforcement: enforcement,
+          foreground: foreground,
           // The driving aids' settings by default, kept in memory.
           drivingAids: DrivingAidsStore(() async => null, (_) async {}),
         ),
@@ -149,6 +153,65 @@ void main() {
       await settle();
     }
   }
+
+  group('a voice missing at the start', () {
+    test(
+      'is looked for again once the user comes back from its installer, not as it opens',
+      () async {
+        final back = ReturningApp();
+        final missing = RecordingVoice(readiness: VoiceReadiness.missingData)
+          ..installEngine = 'Moteur de synthèse vocale Samsung';
+        final p = routeFixture('limoges_drive');
+        final controller = await start(p, foreground: back, withVoice: missing);
+        expect(session().voice, VoiceReadiness.missingData);
+        expect(session().voiceInstallIn, 'Moteur de synthèse vocale Samsung');
+        await controller.installVoices();
+        await settle();
+        expect(missing.installs, 1);
+        // In the engine's installer, the user downloads the voice.
+        missing
+          ..readiness = VoiceReadiness.ready
+          ..installEngine = null;
+        await settle();
+        expect(session().voice, VoiceReadiness.missingData, reason: 'the user is still away');
+        back.comeBack();
+        await settle();
+        expect(session().voice, VoiceReadiness.ready);
+        expect(session().voiceInstallIn, isNull);
+        expect(missing.freshPrepares, 1, reason: 'the engines asked anew, not the answer kept');
+        await send(along(p.routes.single, toM: 400));
+        expect(missing.said, isNotEmpty, reason: 'the instructions are spoken from then on');
+      },
+    );
+
+    test('a voice installed from the system settings is found at the return too', () async {
+      final back = ReturningApp();
+      final missing = RecordingVoice(readiness: VoiceReadiness.none);
+      await start(routeFixture('limoges_drive'), foreground: back, withVoice: missing);
+      missing.readiness = VoiceReadiness.ready;
+      back.comeBack();
+      await settle();
+      expect(session().voice, VoiceReadiness.ready);
+    });
+
+    test('with the voice ready, a return asks the device nothing', () async {
+      final back = ReturningApp();
+      await start(routeFixture('limoges_drive'), foreground: back);
+      final before = voice.prepares;
+      back.comeBack();
+      await settle();
+      expect(voice.prepares, before);
+    });
+
+    test('the returns are no longer heard once the guidance stops', () async {
+      final back = ReturningApp();
+      final controller = await start(routeFixture('limoges_drive'), foreground: back);
+      expect(back.listened, isTrue);
+      controller.stop();
+      await settle();
+      expect(back.listened, isFalse);
+    });
+  });
 
   test('starts with the screen on and the position asked in the background', () async {
     await start(routeFixture('limoges_drive'));

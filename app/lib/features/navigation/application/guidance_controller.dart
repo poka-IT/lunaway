@@ -251,6 +251,7 @@ final class GuidanceSession {
     this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
     this.voiceNoticeClosed = false,
+    this.voiceInstallIn,
     this.startup,
   });
 
@@ -300,6 +301,11 @@ final class GuidanceSession {
   /// for this guidance.
   final bool voiceNoticeClosed;
 
+  /// The engine whose voice of the route's language is to download, as
+  /// the system names it: the voice notice says where it goes. Null when
+  /// the system chooses, or with a voice.
+  final String? voiceInstallIn;
+
   /// What the guidance still waits for since its start; null once ready.
   final GuidanceStartup? startup;
 
@@ -332,6 +338,7 @@ final class GuidanceSession {
     StopMoves? moves,
     DrivingAids? aids,
     bool? voiceNoticeClosed,
+    String? Function()? voiceInstallIn,
     GuidanceStartup? Function()? startup,
   }) => GuidanceSession(
     target: target ?? this.target,
@@ -352,6 +359,7 @@ final class GuidanceSession {
     moves: moves ?? this.moves,
     aids: aids ?? this.aids,
     voiceNoticeClosed: voiceNoticeClosed ?? this.voiceNoticeClosed,
+    voiceInstallIn: voiceInstallIn == null ? this.voiceInstallIn : voiceInstallIn(),
     startup: startup == null ? this.startup : startup(),
   );
 }
@@ -590,6 +598,7 @@ class GuidanceController extends _$GuidanceController {
       return false;
     }
     _ready = _prepare(_generation);
+    _listenReturns(_generation);
     return true;
   }
 
@@ -706,8 +715,43 @@ class GuidanceController extends _$GuidanceController {
     timelineMark('lunaway-guidance-voice');
     if (!ref.mounted || generation != _generation || state == null) return;
     _speech?.settle(ready: readiness == VoiceReadiness.ready);
-    state = state!.copyWith(voice: readiness);
+    state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
     _changeStartup((s) => s.copyWith(voice: true));
+  }
+
+  /// Looks for the voice again when the user comes back to the app without
+  /// one: from the engine's installer the notice opened, or from the
+  /// system's settings, where a voice may have been downloaded or another
+  /// engine chosen meanwhile.
+  void _listenReturns(int generation) {
+    unawaited(_returns?.cancel());
+    _returns = ref.read(appForegroundProvider).returns().listen((_) {
+      final s = state;
+      if (!_current(generation) || s == null || s.voice == VoiceReadiness.ready) return;
+      // Not before the first look has answered: it is the one the start
+      // waits for.
+      if (!(s.startup?.voice ?? true)) return;
+      unawaited(_lookForVoiceAgain(generation));
+    });
+  }
+
+  StreamSubscription<void>? _returns;
+
+  /// Asks the device anew for the voice of the route's language.
+  Future<void> _lookForVoiceAgain(int generation) async {
+    final voice = _voice;
+    final s = state;
+    if (voice == null || s == null) return;
+    VoiceReadiness readiness;
+    try {
+      readiness = await voice.prepare(s.plan.applied.language, fresh: true);
+    } on Object catch (e) {
+      _log.info('no voice: $e');
+      return;
+    }
+    if (!_current(generation)) return;
+    _speech?.ready = readiness == VoiceReadiness.ready;
+    state = state!.copyWith(voice: readiness, voiceInstallIn: () => voice.installEngine);
   }
 
   /// The position the device knew a moment ago, taken as the first fix:
@@ -916,22 +960,20 @@ class GuidanceController extends _$GuidanceController {
     if (s != null) state = s.copyWith(voiceNoticeClosed: true);
   }
 
-  /// Opens the system's voice installer, then tries the voice again.
+  /// Opens the installer of the engine whose voice is missing; the voice is
+  /// looked for again once the user comes back to the app
+  /// ([_listenReturns]). Looked for as the installer opened, it was still
+  /// missing, and the notice stayed for the whole trip.
   Future<void> installVoices() async {
-    final voice = _voice;
-    if (voice == null) return;
-    await voice.installVoices();
-    if (!ref.mounted || state == null) return;
-    final readiness = await voice.prepare(state!.plan.applied.language);
-    if (!ref.mounted || state == null) return;
-    _speech?.ready = readiness == VoiceReadiness.ready;
-    state = state!.copyWith(voice: readiness);
+    await _voice?.installVoices();
   }
 
   void _release() {
     _generation++;
     unawaited(_fixes?.cancel());
     _fixes = null;
+    unawaited(_returns?.cancel());
+    _returns = null;
     _fixRetry?.cancel();
     _fixRetry = null;
     _lostCheck?.cancel();

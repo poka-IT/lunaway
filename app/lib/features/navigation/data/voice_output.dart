@@ -32,8 +32,15 @@ Future<Uint8List> loadAlertChime() async {
 /// The spoken instructions, and the chime before an alert.
 abstract interface class VoiceOutput {
   /// Picks the voice for [language] and tells whether one is ready; makes
-  /// the chime ready too, which needs no voice.
-  Future<VoiceReadiness> prepare(RouteLanguage language);
+  /// the chime ready too, which needs no voice. [fresh] asks the device
+  /// anew: the user may have installed a voice, or chosen another engine,
+  /// in another app since.
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false});
+
+  /// The engine [installVoices] opens, as the system's settings name it,
+  /// once [prepare] found a voice to download; null when the system
+  /// chooses, or where there is a single engine.
+  String? get installEngine;
 
   /// Whether the chime plays here, once [prepare] has run.
   bool get chimes;
@@ -51,7 +58,15 @@ abstract interface class VoiceOutput {
   Future<bool> installVoices();
 }
 
-/// [VoiceOutput] through the platform's speech engine (lunaway_nav).
+/// [VoiceOutput] through the platform's speech engines (lunaway_nav).
+///
+/// On Android the device's default engine is asked first, and kept when it
+/// has a voice of the language on the device; else the first other engine
+/// that has one speaks. With none, the voice to download is the default
+/// engine's when it knows the language, else the first engine's that does:
+/// [installVoices] opens that engine's own page, rather than the system's
+/// choice among all of them, from which the user could pick an engine the
+/// app would not speak with (`plan/research/117-voix-energie-android.md`).
 final class PlatformVoiceOutput implements VoiceOutput {
   new({this._voice = const nav.PlatformVoice(), this._chime = loadAlertChime});
 
@@ -59,11 +74,21 @@ final class PlatformVoiceOutput implements VoiceOutput {
   final Future<Uint8List> Function() _chime;
   String _tag = RouteLanguage.fr.speechTag;
   String? _voiceId;
+  nav.PlatformEngineInfo? _install;
   bool _chimes = false;
   bool _chimeAsked = false;
 
+  /// An engine that does not answer within this is taken as having no
+  /// voice. Google's, its process cold, took 6.3 s to bind on the
+  /// emulator (0.5 s warm); one that never answers no longer holds the
+  /// voice for the whole trip.
+  static const engineWait = Duration(seconds: 20);
+
   @override
   bool get chimes => _chimes;
+
+  @override
+  String? get installEngine => _install?.label;
 
   /// The voice being picked, and for which language: the preview's
   /// warm-up and the start of the guidance share one listing of the
@@ -72,10 +97,16 @@ final class PlatformVoiceOutput implements VoiceOutput {
   RouteLanguage? _pickingFor;
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) {
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) {
     final running = _picking;
-    if (running != null && _pickingFor == language) return running;
-    final picking = _pick(language);
+    if (running != null && _pickingFor == language && !fresh) return running;
+    // A fresh look waits for the one running, whose engines it lets go of.
+    final picking = running == null
+        ? _pick(language, fresh: fresh)
+        : running.then<VoiceReadiness>(
+            (_) => _pick(language, fresh: fresh),
+            onError: (Object _) => _pick(language, fresh: fresh),
+          );
     _picking = picking;
     _pickingFor = language;
     picking.whenComplete(() {
@@ -84,32 +115,85 @@ final class PlatformVoiceOutput implements VoiceOutput {
     return picking;
   }
 
-  Future<VoiceReadiness> _pick(RouteLanguage language) async {
+  Future<VoiceReadiness> _pick(RouteLanguage language, {required bool fresh}) async {
     await _prepareChime();
     try {
-      final code = language.name;
-      final voices = await _voice.voices(code);
-      final best = pickVoice(voices, preferred: language.speechTag);
-      _tag = best?.locale ?? language.speechTag;
-      _voiceId = best?.id;
-      if (best != null) return VoiceReadiness.ready;
-      // Voices of the language, each speaking through its vendor's server:
-      // the one to install works offline and keeps the words on the device.
-      if (voices.any((v) => !v.notInstalled)) return VoiceReadiness.missingData;
-      // An engine that lists no voice may still speak the language, through
-      // a voice nothing proves is on the device: the road names would leave
-      // it. Asked to install one, the user gets a voice the app can check.
-      return switch (await _voice.languageStatus(language.speechTag)) {
-        nav.PlatformLanguageStatus.notSupported => VoiceReadiness.none,
-        nav.PlatformLanguageStatus.available ||
-        nav.PlatformLanguageStatus.missingData => VoiceReadiness.missingData,
-      };
+      if (fresh) await _refresh();
+      final engines = await _engines();
+      final toDownload = <nav.PlatformEngineInfo?>[];
+      for (final engine in engines ?? const <nav.PlatformEngineInfo?>[null]) {
+        final offer = await _offer(
+          engine?.name,
+          language,
+        ).timeout(engineWait, onTimeout: () => _Offer.none);
+        if (offer.kind == _OfferKind.ready) {
+          _tag = offer.voice?.locale ?? language.speechTag;
+          _voiceId = offer.voice?.id;
+          _install = null;
+          if (engines != null) await _voice.useEngine(engine?.name);
+          _log.fine('voice ${language.name}: ${engine?.name ?? "the engine"}, ${_voiceId ?? _tag}');
+          return VoiceReadiness.ready;
+        }
+        if (offer.kind == _OfferKind.download) toDownload.add(engine);
+      }
+      _tag = language.speechTag;
+      _voiceId = null;
+      // The default engine comes first: its download when it has one.
+      _install = toDownload.firstOrNull;
+      _log.fine('voice ${language.name}: none on the device, to download in ${_install?.name}');
+      return toDownload.isEmpty ? VoiceReadiness.none : VoiceReadiness.missingData;
     } on PlatformException catch (e) {
       _log.info('no speech engine: ${e.message}');
       return VoiceReadiness.none;
     } on MissingPluginException {
       return VoiceReadiness.none;
     }
+  }
+
+  /// The engines of the device, the default one first; null where the
+  /// platform has a single one, which answers unnamed (iOS, macOS).
+  Future<List<nav.PlatformEngineInfo>?> _engines() async {
+    try {
+      return await _voice.engines();
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> _refresh() async {
+    try {
+      await _voice.refresh();
+    } on MissingPluginException {
+      return;
+    }
+  }
+
+  /// What [engine] offers for [language]: a voice it lists on the device
+  /// first. An engine that lists none of the language is taken at its
+  /// word, unless it speaks the language through its vendor's server only
+  /// (Android's network synthesis feature), which would send the road
+  /// names there.
+  Future<_Offer> _offer(String? engine, RouteLanguage language) async {
+    final List<nav.PlatformVoiceInfo> voices;
+    try {
+      voices = await _voice.voices(language.name, engine: engine);
+    } on PlatformException catch (e) {
+      // An engine that does not start (removed, broken) has no voice.
+      _log.info('speech engine $engine: ${e.message}');
+      return _Offer.none;
+    }
+    final best = pickVoice(voices, preferred: language.speechTag);
+    if (best != null) return _Offer(_OfferKind.ready, best);
+    // Voices of the language, none of them on the device: each speaks
+    // through its vendor's server, or is not downloaded. The one to
+    // install works offline and keeps the words on the device.
+    if (voices.isNotEmpty) return _Offer.download;
+    return switch (await _voice.languageStatus(language.speechTag, engine: engine)) {
+      nav.PlatformLanguageStatus.available => const _Offer(_OfferKind.ready),
+      nav.PlatformLanguageStatus.network ||
+      nav.PlatformLanguageStatus.missingData => _Offer.download,
+      nav.PlatformLanguageStatus.notSupported => _Offer.none,
+    };
   }
 
   /// Hands the chime to the platform, once per run: the platform keeps it.
@@ -129,7 +213,14 @@ final class PlatformVoiceOutput implements VoiceOutput {
   @override
   Future<bool> say(String text, {bool chime = false}) async {
     try {
-      return await _voice.speak(text, language: _tag, voiceId: _voiceId, chime: chime && _chimes);
+      final said = await _voice.speak(
+        text,
+        language: _tag,
+        voiceId: _voiceId,
+        chime: chime && _chimes,
+      );
+      _log.fine('sentence of ${text.length} characters ${said ? 'said' : 'not said'}');
+      return said;
     } on PlatformException catch (e) {
       _log.info('speech failed: ${e.message}');
       return false;
@@ -152,17 +243,33 @@ final class PlatformVoiceOutput implements VoiceOutput {
   @override
   Future<bool> installVoices() async {
     try {
-      return await _voice.installVoiceData();
+      return await _voice.installVoiceData(engine: _install?.name);
     } on PlatformException {
       return false;
     }
   }
 }
 
+/// What an engine offers for a language: a voice that speaks on the
+/// device ([voice] null when the engine lists none but speaks it), a voice
+/// to download, or nothing.
+final class _Offer {
+  const new(this.kind, [this.voice]);
+
+  static const download = _Offer(_OfferKind.download);
+  static const none = _Offer(_OfferKind.none);
+
+  final _OfferKind kind;
+  final nav.PlatformVoiceInfo? voice;
+}
+
+enum _OfferKind { ready, download, none }
+
 /// The voice to speak with among [voices]: installed ones on the device
 /// only (one that speaks through its vendor's server fails in a valley
 /// without signal and sends the road names there); the exact [preferred]
-/// tag first (fr-FR before fr-CA); then the best quality.
+/// tag first (fr-FR before fr-CA), then the language alone (eSpeak NG's
+/// `es` before its `es-419`); then the best quality.
 @visibleForTesting
 nav.PlatformVoiceInfo? pickVoice(List<nav.PlatformVoiceInfo> voices, {required String preferred}) {
   final usable = [
@@ -170,8 +277,16 @@ nav.PlatformVoiceInfo? pickVoice(List<nav.PlatformVoiceInfo> voices, {required S
       if (!v.notInstalled && !v.networkRequired) v,
   ];
   if (usable.isEmpty) return null;
-  int score(nav.PlatformVoiceInfo v) =>
-      (v.locale.toLowerCase() == preferred.toLowerCase() ? 1000 : 0) + v.quality;
+  int score(nav.PlatformVoiceInfo v) {
+    final tag = v.locale.toLowerCase().replaceAll('_', '-');
+    final region = tag == preferred.toLowerCase()
+        ? 2000
+        : tag.contains('-')
+        ? 0
+        : 1000;
+    return region + v.quality;
+  }
+
   usable.sort((a, b) => score(b).compareTo(score(a)));
   return usable.first;
 }
@@ -242,7 +357,10 @@ final class BrowserVoiceOutput implements VoiceOutput {
   bool get chimes => _chimes;
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+  String? get installEngine => null;
+
+  @override
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async {
     if (!_chimeAsked) {
       _chimeAsked = true;
       try {
@@ -302,7 +420,11 @@ final class SilentVoice implements VoiceOutput {
   const new();
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async => VoiceReadiness.none;
+  Future<VoiceReadiness> prepare(RouteLanguage language, {bool fresh = false}) async =>
+      VoiceReadiness.none;
+
+  @override
+  String? get installEngine => null;
 
   @override
   bool get chimes => false;
