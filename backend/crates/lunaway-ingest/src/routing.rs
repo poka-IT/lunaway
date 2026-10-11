@@ -9,7 +9,9 @@
 //!   rewritten in the form Valhalla parses, `maxweightrating` copied into
 //!   `maxweight`, `motorhome=*` copied into `motorcar`, IGN limits written
 //!   onto the OpenStreetMap ways they match, the most restrictive value
-//!   winning (`lunaway_domain::routing::tags`);
+//!   winning (`lunaway_domain::routing::tags`), and the limits mapped on a
+//!   node carried by a short stretch of each way through it
+//!   ([`crate::node_limits`]);
 //! - `restrictions.ndjson.gz`, one [`RestrictionRecord`] per line: every
 //!   physical limit and motorhome or trailer ban on a road or a node, from
 //!   OpenStreetMap and IGN, with its geometry, for the check after each
@@ -17,7 +19,9 @@
 //!
 //! The extract is read in three parallel passes, as the place import does
 //! (`osm_extract`): the nodes (restricted ones, and those near an IGN
-//! section), the ways, then the coordinates of the ways kept.
+//! section), the ways, then the coordinates of the ways kept; and a fourth
+//! over the blocks of relations, for those that name a way cut around a
+//! node's limit.
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -34,10 +38,17 @@ use lunaway_domain::{
         tags::{self, TagValue},
     },
 };
-use osmpbf::{BlobDecode, BlobReader, Element as PbfElement, ElementReader};
+use osmpbf::{
+    BlobDecode, BlobReader, ByteOffset, Element as PbfElement, ElementReader, RelMemberType,
+};
 use serde::Serialize;
 
-use crate::{IngestError, ign::IgnSection, local_access};
+use crate::{
+    IngestError,
+    ign::IgnSection,
+    local_access,
+    node_limits::{self, Limits, Vertex},
+};
 
 /// The values of `highway` a motor vehicle may drive on.
 pub(crate) const ROUTABLE: [&str; 18] = [
@@ -82,6 +93,22 @@ pub struct PrepareReport {
     pub restricted_ways: usize,
     /// Nodes with a restriction for the check.
     pub restricted_nodes: usize,
+    /// Nodes whose limits the graph carries on a stretch of each way
+    /// through them ([`node_limits`]).
+    pub node_limits_carried: usize,
+    /// Ways that carry such a stretch: cut around the node, or given its
+    /// limit whole when shorter than the stretch.
+    pub node_limit_ways: usize,
+    /// Pieces of those ways the change file creates, beside the first,
+    /// which keeps the way's id.
+    pub node_limit_ways_created: usize,
+    /// Cut points the change file creates.
+    pub node_limit_nodes_created: usize,
+    /// Relations rewritten to name the pieces of a cut way.
+    pub node_limit_relations: usize,
+    /// Ways through such a node left whole, the limit left to the check: a
+    /// ring closed at the node, a turn its pieces could not follow.
+    pub node_limit_ways_left_whole: usize,
     /// Ways the change file rewrites.
     pub fixed_ways: usize,
     /// Nodes the change file rewrites.
@@ -118,13 +145,16 @@ pub struct PrepareReport {
     pub records: usize,
 }
 
-/// A node or way to rewrite, as the change file needs it.
+/// A node, way or relation to rewrite or create, as the change file needs
+/// it.
 #[derive(Debug, Clone, PartialEq)]
 struct Rewrite {
     id: i64,
     version: i32,
     timestamp: DateTime<Utc>,
-    /// The node's position, or the way's node list.
+    /// Whether the extract lacks it: a piece of a cut way, a cut point.
+    create: bool,
+    /// The node's position, the way's node list or the relation's members.
     shape: RewriteShape,
     tags: BTreeMap<String, String>,
 }
@@ -133,6 +163,18 @@ struct Rewrite {
 enum RewriteShape {
     Node(Position),
     Way(Vec<i64>),
+    Relation(Vec<node_limits::Member>),
+}
+
+impl RewriteShape {
+    /// The change file's order: nodes, then ways, then relations.
+    const fn rank(&self) -> u8 {
+        match self {
+            Self::Node(_) => 0,
+            Self::Way(_) => 1,
+            Self::Relation(_) => 2,
+        }
+    }
 }
 
 /// The outputs of a preparation, before they are written.
@@ -351,6 +393,8 @@ struct NodePass {
     rewrites: Vec<Rewrite>,
     /// The nodes near an IGN section.
     near_ign: HashSet<i64>,
+    /// The highest node id: the cut points take the ids above it.
+    max_id: i64,
 }
 
 impl NodePass {
@@ -358,6 +402,7 @@ impl NodePass {
         self.restricted.extend(other.restricted);
         self.rewrites.extend(other.rewrites);
         self.near_ign.extend(other.near_ign);
+        self.max_id = self.max_id.max(other.max_id);
         self
     }
 }
@@ -379,6 +424,8 @@ struct WayPass {
     kept: Vec<KeptWay>,
     routable: usize,
     invalid: usize,
+    /// The highest way id: the pieces of cut ways take the ids above it.
+    max_id: i64,
 }
 
 impl WayPass {
@@ -386,12 +433,21 @@ impl WayPass {
         self.kept.extend(other.kept);
         self.routable += other.routable;
         self.invalid += other.invalid;
+        self.max_id = self.max_id.max(other.max_id);
         self
     }
 }
 
-/// Reads one way of pass 2 into `out`.
-fn way_element(w: &osmpbf::Way<'_>, near_ign: &HashSet<i64>, out: &mut WayPass) {
+/// Reads one way of pass 2 into `out`: kept when it carries a restriction,
+/// may match an IGN section, needs a fix, or goes through a node whose
+/// limits the graph will carry.
+fn way_element(
+    w: &osmpbf::Way<'_>,
+    near_ign: &HashSet<i64>,
+    limited: &HashMap<i64, Limits>,
+    out: &mut WayPass,
+) {
+    out.max_id = out.max_id.max(w.id());
     // Most ways are not roads: test before copying the tags.
     if !w
         .tags()
@@ -409,7 +465,8 @@ fn way_element(w: &osmpbf::Way<'_>, near_ign: &HashSet<i64>, out: &mut WayPass) 
     let refs: Vec<i64> = w.refs().collect();
     let ign_candidate = refs.iter().filter(|r| near_ign.contains(r)).count() >= 2;
     let fixes = !tags::graph_fixes(&tags, &BTreeMap::new()).is_empty();
-    if !restrictions.is_empty() || ign_candidate || fixes {
+    let through_limit = refs.iter().any(|r| limited.contains_key(r));
+    if !restrictions.is_empty() || ign_candidate || fixes || through_limit {
         out.kept.push(KeptWay {
             id: w.id(),
             version: w.info().version().unwrap_or(0),
@@ -431,7 +488,10 @@ fn node_element(
     millis: Option<i64>,
     ign: &IgnIndex,
 ) -> NodePass {
-    let mut out = NodePass::default();
+    let mut out = NodePass {
+        max_id: id,
+        ..NodePass::default()
+    };
     let Ok(at) = Position::new(lat, lon) else {
         return out;
     };
@@ -451,6 +511,7 @@ fn node_element(
             id,
             version: version.max(0) + 1,
             timestamp: timestamp_of(millis) + chrono::Duration::seconds(1),
+            create: false,
             shape: RewriteShape::Node(at),
             tags: new_tags,
         });
@@ -525,16 +586,25 @@ pub fn prepare(
             NodePass::merge,
         )
         .map_err(&err)?;
+    // The nodes whose limits the graph will carry on the ways through them.
+    let limited: HashMap<i64, Limits> = nodes
+        .restricted
+        .iter()
+        .map(|(id, _, tags)| (*id, node_limits::engine_limits(tags)))
+        .filter(|(_, limits)| !limits.is_empty())
+        .collect();
     tracing::info!(
         restricted = nodes.restricted.len(),
+        limited = limited.len(),
         near_ign = nodes.near_ign.len(),
         "nodes read"
     );
 
     // Pass 2: routable ways. The blocks that hold ways are remembered for
-    // the search behind the "sauf desserte" zones.
+    // the search behind the "sauf desserte" zones, those that hold
+    // relations for the relations of the ways cut around a node.
     let near_ign = &nodes.near_ign;
-    let (ways, way_blocks) = local_access::par_blocks(
+    let (ways, blocks) = local_access::par_blocks(
         path,
         None,
         WayPass::default,
@@ -542,7 +612,7 @@ pub fn prepare(
             let mut out = WayPass::default();
             for group in block.groups() {
                 for w in group.ways() {
-                    way_element(&w, near_ign, &mut out);
+                    way_element(&w, near_ign, &limited, &mut out);
                 }
             }
             out
@@ -571,7 +641,7 @@ pub fn prepare(
     let enclosed = if seeds.is_empty() {
         Vec::new()
     } else {
-        local_access::search(path, &way_blocks, &seeds)?
+        local_access::search(path, &blocks.ways, &seeds)?
     };
 
     // Pass 3: the coordinates of the kept ways and of the enclosed roads.
@@ -733,6 +803,7 @@ pub fn prepare(
                 id: w.id,
                 version: w.version.max(0) + 1,
                 timestamp: w.timestamp + chrono::Duration::seconds(1),
+                create: false,
                 shape: RewriteShape::Way(w.refs.clone()),
                 tags: new_tags,
             });
@@ -780,6 +851,16 @@ pub fn prepare(
         observed,
     ));
     report.fixed_ways = rewrites.len() - report.fixed_nodes;
+    carry_node_limits(
+        path,
+        &blocks.relations,
+        &ways.kept,
+        &coords,
+        &limited,
+        (nodes.max_id + 1, ways.max_id + 1),
+        &mut rewrites,
+        &mut report,
+    )?;
 
     for (id, at, tags) in &nodes.restricted {
         report.restricted_nodes += 1;
@@ -851,7 +932,7 @@ pub fn prepare(
         .filter(|r| r.certainty == Certainty::Disputed)
         .count();
     report.records = records.len();
-    rewrites.sort_by_key(|r| (matches!(r.shape, RewriteShape::Way(_)), r.id));
+    rewrites.sort_by_key(|r| (r.create, r.shape.rank(), r.id));
     Ok(Prepared {
         records,
         rewrites,
@@ -967,6 +1048,7 @@ fn extend_local_access(
                 id: road.id,
                 version: road.version.max(0) + 1,
                 timestamp: road.timestamp + chrono::Duration::seconds(1),
+                create: false,
                 shape: RewriteShape::Way(road.refs.clone()),
                 tags: road.tags.clone(),
             });
@@ -1000,6 +1082,210 @@ fn extend_local_access(
         });
     }
     records
+}
+
+/// The relations in the blocks at `blocks` that name one of `ways`.
+fn read_relations(
+    path: &Path,
+    blocks: &[ByteOffset],
+    ways: &HashSet<i64>,
+) -> Result<Vec<node_limits::Relation>, IngestError> {
+    let (mut found, _) = local_access::par_blocks(
+        path,
+        Some(blocks),
+        Vec::new,
+        |block| {
+            let mut out = Vec::new();
+            for group in block.groups() {
+                for r in group.relations() {
+                    if !r
+                        .members()
+                        .any(|m| m.member_type == RelMemberType::Way && ways.contains(&m.member_id))
+                    {
+                        continue;
+                    }
+                    let members = r
+                        .members()
+                        .map(|m| node_limits::Member {
+                            kind: match m.member_type {
+                                RelMemberType::Node => "node",
+                                RelMemberType::Way => "way",
+                                RelMemberType::Relation => "relation",
+                            },
+                            id: m.member_id,
+                            role: m.role().unwrap_or_default().to_owned(),
+                        })
+                        .collect();
+                    out.push(node_limits::Relation {
+                        id: r.id(),
+                        version: r.info().version().unwrap_or(0),
+                        timestamp: timestamp_of(r.info().milli_timestamp()),
+                        tags: tag_map(r.tags()),
+                        members,
+                    });
+                }
+            }
+            out
+        },
+        |mut a, b| {
+            a.extend(b);
+            a
+        },
+    )?;
+    found.sort_unstable_by_key(|r| r.id);
+    Ok(found)
+}
+
+/// Carries the limits mapped on nodes onto the ways through them
+/// ([`node_limits`]): each way cut around its limited nodes, its pieces in
+/// the change file (the first, under the way's id, a modification of the
+/// way; the others and the cut points created with the ids from
+/// `next_ids`, nodes then ways), and each relation that names a cut way
+/// rewritten to name its pieces. The pieces start from the way's tags as
+/// the change file already rewrites them. A way shorter than the stretch
+/// takes the limit whole, and keeps its nodes.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the state of prepare it completes, passed as it stands"
+)]
+fn carry_node_limits(
+    path: &Path,
+    relation_blocks: &[ByteOffset],
+    kept: &[KeptWay],
+    coords: &HashMap<i64, Position>,
+    limited: &HashMap<i64, Limits>,
+    next_ids: (i64, i64),
+    rewrites: &mut Vec<Rewrite>,
+    report: &mut PrepareReport,
+) -> Result<(), IngestError> {
+    let (mut next_node, next_way) = next_ids;
+    let mut whole: BTreeMap<i64, Vec<node_limits::Piece>> = BTreeMap::new();
+    let mut splits: BTreeMap<i64, Vec<node_limits::Piece>> = BTreeMap::new();
+    for w in kept
+        .iter()
+        .filter(|w| w.refs.iter().any(|r| limited.contains_key(r)))
+    {
+        match node_limits::cut(&w.refs, coords, limited) {
+            Some(pieces) if pieces.len() == 1 => {
+                whole.insert(w.id, pieces);
+            }
+            Some(pieces) => {
+                splits.insert(w.id, pieces);
+            }
+            None => report.node_limit_ways_left_whole += 1,
+        }
+    }
+    let relations = if splits.is_empty() {
+        Vec::new()
+    } else {
+        let ids: HashSet<i64> = splits.keys().copied().collect();
+        read_relations(path, relation_blocks, &ids)?
+    };
+    report.node_limit_ways_left_whole += node_limits::keep_turns_whole(&mut splits, &relations);
+    let piece_ids = node_limits::piece_ids(&splits, next_way);
+
+    let kept_index: HashMap<i64, &KeptWay> = kept.iter().map(|w| (w.id, w)).collect();
+    let by_way: HashMap<i64, usize> = rewrites
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !r.create && matches!(r.shape, RewriteShape::Way(_)))
+        .map(|(i, r)| (r.id, i))
+        .collect();
+    let mut carried: HashSet<i64> = HashSet::new();
+    for (way, pieces) in whole.iter().chain(splits.iter()) {
+        let Some(w) = kept_index.get(way) else {
+            continue;
+        };
+        carried.extend(w.refs.iter().filter(|r| limited.contains_key(r)));
+        let base = by_way
+            .get(way)
+            .map_or(&w.tags, |i| &rewrites[*i].tags)
+            .clone();
+        let timestamp = w.timestamp + chrono::Duration::seconds(1);
+        // A cut point ends one piece and starts the next: one node.
+        let mut previous_end: Option<i64> = None;
+        for (k, piece) in pieces.iter().enumerate() {
+            let mut refs = Vec::with_capacity(piece.vertices.len());
+            for (j, v) in piece.vertices.iter().enumerate() {
+                let id = match (j, previous_end, v) {
+                    (0, Some(end), _) => end,
+                    (_, _, Vertex::Node(id)) => *id,
+                    (_, _, Vertex::New(at)) => {
+                        let id = next_node;
+                        next_node += 1;
+                        rewrites.push(Rewrite {
+                            id,
+                            version: 1,
+                            timestamp,
+                            create: true,
+                            shape: RewriteShape::Node(*at),
+                            tags: BTreeMap::new(),
+                        });
+                        report.node_limit_nodes_created += 1;
+                        id
+                    }
+                };
+                refs.push(id);
+            }
+            previous_end = refs.last().copied();
+            let tags = if piece.limits.is_empty() {
+                base.clone()
+            } else {
+                node_limits::piece_tags(&base, &piece.limits)
+            };
+            if k == 0 {
+                match by_way.get(way) {
+                    Some(i) => {
+                        rewrites[*i].shape = RewriteShape::Way(refs);
+                        rewrites[*i].tags = tags;
+                    }
+                    None => rewrites.push(Rewrite {
+                        id: *way,
+                        version: w.version.max(0) + 1,
+                        timestamp,
+                        create: false,
+                        shape: RewriteShape::Way(refs),
+                        tags,
+                    }),
+                }
+            } else if let Some(id) = piece_ids.get(way).and_then(|ids| ids.get(k)) {
+                rewrites.push(Rewrite {
+                    id: *id,
+                    version: 1,
+                    timestamp,
+                    create: true,
+                    shape: RewriteShape::Way(refs),
+                    tags,
+                });
+                report.node_limit_ways_created += 1;
+            }
+        }
+    }
+    for r in &relations {
+        if let Some(members) = node_limits::remap(r, &splits, &piece_ids) {
+            rewrites.push(Rewrite {
+                id: r.id,
+                version: r.version.max(0) + 1,
+                timestamp: r.timestamp + chrono::Duration::seconds(1),
+                create: false,
+                shape: RewriteShape::Relation(members),
+                tags: r.tags.clone(),
+            });
+            report.node_limit_relations += 1;
+        }
+    }
+    report.node_limits_carried = carried.len();
+    report.node_limit_ways = whole.len() + splits.len();
+    tracing::info!(
+        nodes = report.node_limits_carried,
+        ways = report.node_limit_ways,
+        pieces = report.node_limit_ways_created,
+        cut_points = report.node_limit_nodes_created,
+        relations = report.node_limit_relations,
+        left_whole = report.node_limit_ways_left_whole,
+        "node limits carried by the ways through them"
+    );
+    Ok(())
 }
 
 /// Whether an IGN section's limit of `kind` at `value` spares local access.
@@ -1085,52 +1371,74 @@ fn xml_escape(s: &str) -> String {
     out
 }
 
-/// The change file: every rewritten node and way, whole (`osmium
-/// apply-changes` replaces an object by the newer version), with a version
-/// one above the extract's so the change wins.
+/// The change file: every rewritten node, way and relation, whole
+/// (`osmium apply-changes` replaces an object by the newer version), with a
+/// version one above the extract's so the change wins; then the nodes and
+/// ways the extract lacks, version 1.
 fn osc(rewrites: &[Rewrite]) -> String {
     use std::fmt::Write as _;
     let mut out = String::from(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osmChange version=\"0.6\" generator=\"lunaway routing prepare\">\n<modify>\n",
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osmChange version=\"0.6\" generator=\"lunaway routing prepare\">\n",
     );
-    for r in rewrites {
-        let ts = r.timestamp.format("%Y-%m-%dT%H:%M:%SZ");
-        match &r.shape {
-            RewriteShape::Node(p) => {
-                let _ = writeln!(
-                    out,
-                    "<node id=\"{}\" version=\"{}\" timestamp=\"{ts}\" lat=\"{:.7}\" lon=\"{:.7}\">",
-                    r.id,
-                    r.version,
-                    p.lat(),
-                    p.lon()
-                );
-            }
-            RewriteShape::Way(refs) => {
-                let _ = writeln!(
-                    out,
-                    "<way id=\"{}\" version=\"{}\" timestamp=\"{ts}\">",
-                    r.id, r.version
-                );
-                for n in refs {
-                    let _ = writeln!(out, "<nd ref=\"{n}\"/>");
+    for (section, create) in [("modify", false), ("create", true)] {
+        let _ = writeln!(out, "<{section}>");
+        for r in rewrites.iter().filter(|r| r.create == create) {
+            let ts = r.timestamp.format("%Y-%m-%dT%H:%M:%SZ");
+            match &r.shape {
+                RewriteShape::Node(p) => {
+                    let _ = writeln!(
+                        out,
+                        "<node id=\"{}\" version=\"{}\" timestamp=\"{ts}\" lat=\"{:.7}\" lon=\"{:.7}\">",
+                        r.id,
+                        r.version,
+                        p.lat(),
+                        p.lon()
+                    );
+                }
+                RewriteShape::Way(refs) => {
+                    let _ = writeln!(
+                        out,
+                        "<way id=\"{}\" version=\"{}\" timestamp=\"{ts}\">",
+                        r.id, r.version
+                    );
+                    for n in refs {
+                        let _ = writeln!(out, "<nd ref=\"{n}\"/>");
+                    }
+                }
+                RewriteShape::Relation(members) => {
+                    let _ = writeln!(
+                        out,
+                        "<relation id=\"{}\" version=\"{}\" timestamp=\"{ts}\">",
+                        r.id, r.version
+                    );
+                    for m in members {
+                        let _ = writeln!(
+                            out,
+                            "<member type=\"{}\" ref=\"{}\" role=\"{}\"/>",
+                            m.kind,
+                            m.id,
+                            xml_escape(&m.role)
+                        );
+                    }
                 }
             }
+            for (k, v) in &r.tags {
+                let _ = writeln!(
+                    out,
+                    "<tag k=\"{}\" v=\"{}\"/>",
+                    xml_escape(k),
+                    xml_escape(v)
+                );
+            }
+            out.push_str(match r.shape {
+                RewriteShape::Node(_) => "</node>\n",
+                RewriteShape::Way(_) => "</way>\n",
+                RewriteShape::Relation(_) => "</relation>\n",
+            });
         }
-        for (k, v) in &r.tags {
-            let _ = writeln!(
-                out,
-                "<tag k=\"{}\" v=\"{}\"/>",
-                xml_escape(k),
-                xml_escape(v)
-            );
-        }
-        out.push_str(match r.shape {
-            RewriteShape::Node(_) => "</node>\n",
-            RewriteShape::Way(_) => "</way>\n",
-        });
+        let _ = writeln!(out, "</{section}>");
     }
-    out.push_str("</modify>\n</osmChange>\n");
+    out.push_str("</osmChange>\n");
     out
 }
 
@@ -1298,16 +1606,45 @@ mod tests {
 
     #[test]
     fn the_change_file_escapes_values_and_bumps_versions() {
+        let at = Utc.with_ymd_and_hms(2026, 10, 5, 20, 0, 1).unwrap();
         let rewrite = Rewrite {
             id: 42,
             version: 3,
-            timestamp: Utc.with_ymd_and_hms(2026, 10, 5, 20, 0, 1).unwrap(),
+            timestamp: at,
+            create: false,
             shape: RewriteShape::Way(vec![1, 2]),
             tags: tags(&[("name", "Rue \"A\" & <B>"), ("maxweight", "3.5")]),
         };
-        let text = osc(&[rewrite]);
+        let piece = Rewrite {
+            id: 900,
+            version: 1,
+            timestamp: at,
+            create: true,
+            shape: RewriteShape::Way(vec![2, 3]),
+            tags: tags(&[("highway", "service")]),
+        };
+        let relation = Rewrite {
+            id: 7,
+            version: 2,
+            timestamp: at,
+            create: false,
+            shape: RewriteShape::Relation(vec![node_limits::Member {
+                kind: "way",
+                id: 900,
+                role: "a \"b\"".to_owned(),
+            }]),
+            tags: tags(&[("type", "route")]),
+        };
+        let text = osc(&[rewrite, piece, relation]);
         assert!(text.contains(r#"<way id="42" version="3" timestamp="2026-10-05T20:00:01Z">"#));
         assert!(text.contains(r#"<tag k="name" v="Rue &quot;A&quot; &amp; &lt;B&gt;"/>"#));
         assert!(text.contains("<nd ref=\"1\"/>\n<nd ref=\"2\"/>"));
+        assert!(text.contains(r#"<member type="way" ref="900" role="a &quot;b&quot;"/>"#));
+        let create = text.find("<create>").unwrap();
+        assert!(
+            text.find(r#"<way id="900""#).unwrap() > create
+                && text.find(r#"<way id="42""#).unwrap() < create,
+            "a piece the extract lacks is created, the way it comes from modified: {text}"
+        );
     }
 }

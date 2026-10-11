@@ -105,10 +105,20 @@ fn pbf_error(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
     }
 }
 
+/// Where the blocks of an extract that hold ways, and those that hold
+/// relations, start: later passes read those alone.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Blocks {
+    /// The blocks that hold ways, in the file's order.
+    pub ways: Vec<ByteOffset>,
+    /// The blocks that hold relations, in the file's order.
+    pub relations: Vec<ByteOffset>,
+}
+
 /// Reads the data blocks of the extract at `path` on every core: `map` for
 /// each block, the results combined by `reduce`; with `only`, the blocks
 /// at those offsets alone. Also gives the offsets of the blocks that hold
-/// ways, for later passes over the ways alone.
+/// ways and of those that hold relations, for later passes over them alone.
 ///
 /// # Errors
 ///
@@ -119,7 +129,7 @@ pub fn par_blocks<T, I, M, R>(
     identity: I,
     map: M,
     reduce: R,
-) -> Result<(T, Vec<ByteOffset>), IngestError>
+) -> Result<(T, Blocks), IngestError>
 where
     T: Send,
     I: Fn() -> T + Sync,
@@ -161,7 +171,7 @@ where
                 let (identity, map, reduce) = (&identity, &map, &reduce);
                 scope.spawn(move || {
                     let mut acc = identity();
-                    let mut ways = Vec::new();
+                    let mut blocks = Blocks::default();
                     let mut failure = None;
                     loop {
                         let next = rx.lock().unwrap_or_else(PoisonError::into_inner).recv();
@@ -173,10 +183,13 @@ where
                         }
                         match blob.decode() {
                             Ok(BlobDecode::OsmData(block)) => {
-                                if let Some(o) = offset
-                                    && block.groups().any(|g| g.ways().next().is_some())
-                                {
-                                    ways.push(o);
+                                if let Some(o) = offset {
+                                    if block.groups().any(|g| g.ways().next().is_some()) {
+                                        blocks.ways.push(o);
+                                    }
+                                    if block.groups().any(|g| g.relations().next().is_some()) {
+                                        blocks.relations.push(o);
+                                    }
                                 }
                                 acc = reduce(acc, map(&block));
                             }
@@ -184,19 +197,20 @@ where
                             Err(e) => failure = Some(e),
                         }
                     }
-                    (acc, ways, failure)
+                    (acc, blocks, failure)
                 })
             })
             .collect();
         drop(rx);
         let mut total = identity();
-        let mut ways = Vec::new();
+        let mut blocks = Blocks::default();
         let mut failure = None;
         for w in workers {
             match w.join() {
-                Ok((acc, w_ways, w_failure)) => {
+                Ok((acc, w_blocks, w_failure)) => {
                     total = reduce(total, acc);
-                    ways.extend(w_ways);
+                    blocks.ways.extend(w_blocks.ways);
+                    blocks.relations.extend(w_blocks.relations);
                     failure = failure.or(w_failure);
                 }
                 Err(panic) => std::panic::resume_unwind(panic),
@@ -210,8 +224,9 @@ where
         if let Some(e) = failure {
             return Err(err(e));
         }
-        ways.sort_unstable_by_key(|o| o.0);
-        Ok((total, ways))
+        blocks.ways.sort_unstable_by_key(|o| o.0);
+        blocks.relations.sort_unstable_by_key(|o| o.0);
+        Ok((total, blocks))
     })
 }
 

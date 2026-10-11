@@ -152,12 +152,22 @@
     "max_km": 640.0
   },
   {
-    "name": "Seville to Tangier: the Tarifa ferry into Morocco, about 253 km",
+    "name": "Seville to Tangier: a 2.0 m van takes the Tarifa ferry under the bar of the port, mapped without its figure, about 253 km",
+    "from": [37.3891, -5.9845],
+    "to": [35.7595, -5.834],
+    "vehicle": {"height": 2.0, "width": 2.0, "length": 5.5, "weight": 3.0},
+    "use_points": [[36.011235, -5.604291]],
+    "min_km": 220.0,
+    "max_km": 300.0
+  },
+  {
+    "name": "Seville to Tangier: a 3.3 m motorhome never passes the bar of Tarifa's port, taken as 2.2 m, and crosses from Algeciras, about 314 km",
     "from": [37.3891, -5.9845],
     "to": [35.7595, -5.834],
     "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
-    "min_km": 220.0,
-    "max_km": 300.0
+    "avoid_points": [[36.011235, -5.604291]],
+    "min_km": 280.0,
+    "max_km": 350.0
   },
   {
     "name": "Hamburg to Copenhagen: into Denmark, about 336 km",
@@ -240,5 +250,37 @@
     "use_ways": [198967532],
     "first_pass": true,
     "max_km": 7.0
+  },
+  {
+    "name": "Limoges, Impasse Pierre Lavergne: a 2.0 m van reaches its end under the 2.2 m bar mapped on a node",
+    "from": [45.8745074, 1.3314333],
+    "to": [45.8756757, 1.3299581],
+    "vehicle": {"height": 2.0, "width": 2.0, "length": 5.5, "weight": 3.0},
+    "use_points": [[45.8755161, 1.3303281]],
+    "max_km": 1.0
+  },
+  {
+    "name": "Limoges, Impasse Pierre Lavergne: a 3.3 m motorhome is never sent under the 2.2 m bar mapped on a node",
+    "from": [45.8745074, 1.3314333],
+    "to": [45.8756757, 1.3299581],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_points": [[45.8755161, 1.3303281]],
+    "no_route_ok": true
+  },
+  {
+    "name": "Le Pontet, Chemin du Barret: a small car passes the two 2.3 m bars mapped on nodes, one of them 1.75 m wide",
+    "from": [43.88545, 4.83000],
+    "to": [43.88745, 4.84395],
+    "vehicle": {"height": 1.6, "width": 1.7, "length": 4.5, "weight": 1.5},
+    "use_points": [[43.886848, 4.8418473], [43.8867558, 4.8408828]],
+    "max_km": 1.5
+  },
+  {
+    "name": "Le Pontet, Chemin du Barret: a 3.3 m motorhome goes round the two 2.3 m bars mapped on nodes",
+    "from": [43.88545, 4.83000],
+    "to": [43.88745, 4.84395],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_points": [[43.886848, 4.8418473], [43.8867558, 4.8408828]],
+    "max_km": 12.0
   }
 ]

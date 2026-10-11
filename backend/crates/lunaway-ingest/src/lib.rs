@@ -24,6 +24,7 @@ pub mod kmz;
 pub mod laposte;
 pub mod local_access;
 pub mod municipalities;
+mod node_limits;
 pub mod osm;
 pub mod osm_extract;
 pub mod overture;

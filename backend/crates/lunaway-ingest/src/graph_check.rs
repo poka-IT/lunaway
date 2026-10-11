@@ -13,14 +13,26 @@
 //! covers Europe (`plan/research/35-routage-europe-prod.md`, 3.5), trips
 //! across borders and outside France: Spain, Portugal, Italy, Morocco by
 //! the Tarifa ferry, Hamburg to Copenhagen, a 1.5 t street in Warsaw, the
-//! 2.1 m passage before Venice's car ferry.
+//! 2.1 m passage before Venice's car ferry; and the bars mapped on a node
+//! that the graph build carries onto the ways through them
+//! (`plan/research/127-routage-serveur.md`): Tarifa's port, an impasse in
+//! Limoges, a road near Avignon. A node has no way id: those cases name
+//! the bar's position, which a route's shape goes through or not.
 
 use std::time::Duration;
 
+use lunaway_domain::{
+    Position,
+    routing::{corridor::distance_to, polyline},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::IngestError;
+
+/// How close a route's shape passes a point it goes through, metres: the
+/// shape holds the position of every node it follows.
+const ON_POINT_M: f64 = 1.5;
 
 /// A vehicle, as the router's `auto` costing takes it.
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -52,6 +64,14 @@ pub struct Case {
     /// OpenStreetMap ways the route must use.
     #[serde(default)]
     pub use_ways: Vec<i64>,
+    /// Points the route must not go through, latitude then longitude: a
+    /// bar mapped on a node, on a way the graph build cut around it, so
+    /// that no way id names it.
+    #[serde(default)]
+    pub avoid_points: Vec<[f64; 2]>,
+    /// Points the route must go through.
+    #[serde(default)]
+    pub use_points: Vec<[f64; 2]>,
     /// Longest acceptable route, kilometres.
     #[serde(default)]
     pub max_km: Option<f64>,
@@ -204,16 +224,27 @@ pub async fn run_case(
     let long_enough = case.min_km.is_none_or(|m| km >= m);
     let short_enough = case.max_km.is_none_or(|m| km <= m);
     let second_pass = relaxed(&route);
+    let line = route_shape(&route);
+    let (points_used, points_missing) = points_met(case, &line);
     let passed = used.is_empty()
         && missing.is_empty()
+        && points_used.is_empty()
+        && points_missing.is_empty()
         && long_enough
         && short_enough
         && !ways.is_empty()
         && !(case.first_pass && second_pass);
+    let points = if case.avoid_points.is_empty() && case.use_points.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "; forbidden points passed: {points_used:?}; required points missed: {points_missing:?}"
+        )
+    };
     Ok(outcome(
         passed,
         format!(
-            "{km:.2} km, {} edges; forbidden ways used: {used:?}; required ways missing: {missing:?}{}",
+            "{km:.2} km, {} edges; forbidden ways used: {used:?}; required ways missing: {missing:?}{points}{}",
             ways.len(),
             if second_pass {
                 "; found by the relaxed second pass"
@@ -222,6 +253,47 @@ pub async fn run_case(
             }
         ),
     ))
+}
+
+/// The shape of a route answer, every leg end to end; empty when a leg's
+/// polyline does not decode.
+fn route_shape(route: &Value) -> Vec<Position> {
+    let mut line = Vec::new();
+    for leg in route
+        .pointer("/trip/legs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(shape) = leg.get("shape").and_then(Value::as_str) else {
+            return Vec::new();
+        };
+        match polyline::decode(shape) {
+            Ok(points) => line.extend(points),
+            Err(_) => return Vec::new(),
+        }
+    }
+    line
+}
+
+/// The points of `case` the route `line` goes through though it must not,
+/// and those it misses though it must. A shape that did not decode passes
+/// no point: its avoided points count as passed, so the case fails rather
+/// than prove nothing.
+fn points_met(case: &Case, line: &[Position]) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    let on = |p: &[f64; 2]| {
+        Position::new(p[0], p[1])
+            .ok()
+            .is_some_and(|at| distance_to(at, line) <= ON_POINT_M)
+    };
+    let used = case
+        .avoid_points
+        .iter()
+        .filter(|p| line.is_empty() || on(p))
+        .copied()
+        .collect();
+    let missing = case.use_points.iter().filter(|p| !on(p)).copied().collect();
+    (used, missing)
 }
 
 /// Runs every case of `cases_json` (a JSON array of [`Case`]).
@@ -269,5 +341,33 @@ mod tests {
         }))
         .unwrap();
         assert!(case.first_pass);
+    }
+
+    #[test]
+    fn a_point_the_route_goes_through_is_told_apart_from_one_beside_it() {
+        let case: Case = serde_json::from_value(json!({
+            "name": "x", "from": [0.0, 0.0], "to": [0.0, 0.0],
+            "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+            "avoid_points": [[45.0, 1.0001], [45.0001, 1.0001]],
+            "use_points": [[45.0, 1.0002], [45.001, 1.0]]
+        }))
+        .unwrap();
+        // A route east along latitude 45 through its shape points.
+        let encoded = polyline::encode(&[
+            Position::new(45.0, 1.0).unwrap(),
+            Position::new(45.0, 1.0003).unwrap(),
+        ]);
+        let route = json!({"trip": {"legs": [{"shape": encoded}]}});
+        let line = route_shape(&route);
+        assert_eq!(line.len(), 2);
+        let (used, missing) = points_met(&case, &line);
+        assert_eq!(
+            used,
+            vec![[45.0, 1.0001]],
+            "the bar on the road counts, the point 11 m north of it does not"
+        );
+        assert_eq!(missing, vec![[45.001, 1.0]]);
+        let (used, _) = points_met(&case, &[]);
+        assert_eq!(used.len(), 2, "a shape that did not decode proves nothing");
     }
 }

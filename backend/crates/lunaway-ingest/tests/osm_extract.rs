@@ -247,6 +247,56 @@ fn extract() -> Vec<u8> {
     file
 }
 
+/// A relation of `members`: (type, id, role), the type 0 for a node, 1 for
+/// a way, 2 for a relation, as the format numbers them.
+pub(crate) fn relation_of(
+    strings: &mut Strings,
+    id: i64,
+    members: &[(u64, i64, &str)],
+    t: &[(&str, &str)],
+) -> Vec<u8> {
+    let mut m = Vec::new();
+    varint_field(&mut m, 1, u64::try_from(id).unwrap());
+    tags(&mut m, strings, t);
+    let roles: Vec<u64> = members.iter().map(|(_, _, r)| strings.id(r)).collect();
+    let ids: Vec<i64> = members.iter().map(|(_, id, _)| *id).collect();
+    packed(&mut m, 8, roles);
+    packed(&mut m, 9, deltas(&ids));
+    packed(&mut m, 10, members.iter().map(|(kind, _, _)| *kind));
+    m
+}
+
+/// Bytes of an extract holding `nodes`, `ways` and `relations`, in one
+/// data block.
+pub(crate) fn file_with(
+    s: &Strings,
+    nodes: &[Vec<u8>],
+    ways: &[Vec<u8>],
+    relations: &[Vec<u8>],
+) -> Vec<u8> {
+    let group = |field: u64, items: &[Vec<u8>]| {
+        let mut g = Vec::new();
+        for item in items {
+            bytes_field(&mut g, field, item);
+        }
+        g
+    };
+    let mut table = Vec::new();
+    for string in &s.0 {
+        bytes_field(&mut table, 1, string.as_bytes());
+    }
+    let mut block = Vec::new();
+    bytes_field(&mut block, 1, &table);
+    bytes_field(&mut block, 2, &group(1, nodes));
+    bytes_field(&mut block, 2, &group(3, ways));
+    bytes_field(&mut block, 2, &group(4, relations));
+    let mut header_block = Vec::new();
+    bytes_field(&mut header_block, 4, b"OsmSchema-V0.6");
+    let mut file = blob("OSMHeader", &header_block);
+    file.extend(blob("OSMData", &block));
+    file
+}
+
 /// Bytes of an extract holding `nodes` and `ways` only.
 pub(crate) fn file_of(s: &Strings, nodes: &[Vec<u8>], ways: &[Vec<u8>]) -> Vec<u8> {
     let group = |field: u64, items: &[Vec<u8>]| {
