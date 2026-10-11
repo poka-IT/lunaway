@@ -179,6 +179,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           style: _props.style,
           dark: _props.dark,
           places: _props.places,
+          prices: _props.fuelPrices,
           ratio: ratio,
         ),
         'reducedMotion': reduced,
@@ -305,6 +306,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           style: _props.style,
           dark: _props.dark,
           places: _props.places,
+          prices: _props.fuelPrices,
           ratio: MediaQuery.devicePixelRatioOf(context),
         ),
       }),
@@ -590,13 +592,15 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 /// honours, `assets/map/lunaway_map.js`), the rest on top. Every badge is
 /// a target (lunawayHits.pick, by routeHitShapes): a mark reports itself,
 /// a group zooms in; the cards beside the map pick the route. The pins of
-/// [places] open their card.
+/// [places] open their card; a station's writes its price of [prices] from
+/// the first frame.
 @visibleForTesting
 Map<String, Object?> routePageSpec({
   required String style,
   required bool dark,
   required RouteMapPlaces? places,
   required double ratio,
+  List<FuelLabel> prices = const [],
 }) => {
   'hit': {
     'wider': FreeTap.wider,
@@ -630,7 +634,7 @@ Map<String, Object?> routePageSpec({
     {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
     {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
   ],
-  'layers': _layers(style: style, dark: dark, places: places, ratio: ratio),
+  'layers': _layers(style: style, dark: dark, places: places, prices: prices, ratio: ratio),
 };
 
 /// [routePageSpec]'s layers, in [RouteLayerOrder]; the pins only with [places].
@@ -638,6 +642,7 @@ List<Map<String, Object?>> _layers({
   required String style,
   required bool dark,
   required RouteMapPlaces? places,
+  required List<FuelLabel> prices,
   required double ratio,
 }) {
   final byId = {
@@ -676,7 +681,8 @@ List<Map<String, Object?>> _layers({
       ),
       // The pins are shipped at their own density and added at the
       // screen's (pixelRatio): sized back as the main map draws them.
-      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio), dark: dark),
+      if (places != null)
+        ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio), dark: dark, prices: prices),
       ...RouteMarkStyle.jsonLayers(),
       {
         'id': RichLayers.marks,
@@ -721,13 +727,15 @@ List<Map<String, Object?>> _layers({
   ];
 }
 
-/// The places' and the points' layers, their images drawn at [scale].
+/// The places' and the points' layers, their images drawn at [scale], the
+/// [prices] known under the stations' pins.
 List<Map<String, Object?>> _placeLayers(
   RouteMapPlaces places,
   double scale, {
   required bool dark,
+  required List<FuelLabel> prices,
 }) => [
-  for (final layer in RoutePlaceLayers.jsonLayers(places, dark: dark))
+  for (final layer in RoutePlaceLayers.jsonLayers(places, dark: dark, prices: prices))
     {
       ...layer,
       'layout': {

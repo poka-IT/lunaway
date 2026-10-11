@@ -761,8 +761,6 @@ void main() {
       if (drive.overKmh > 0 && a?.limitKmh != null) v = a!.limitKmh! + drive.overKmh;
       return v;
     };
-    // A station whose price the map writes, within this of the vehicle:
-    // driven at real speed, and captured once.
     // The stations whose price the map writes: those of the fuel list
     // (their pump), with the list; under the stations' pins otherwise.
     List<LatLng> priced() => _list == '1'
@@ -772,6 +770,8 @@ void main() {
           ]
         : [for (final p in _map()?.fuelPrices ?? const <FuelLabel>[]) p.position];
 
+    // A station whose price the map writes within 700 m of the vehicle:
+    // that stretch is driven at real speed (drive.pace).
     bool nearPrice() {
       final at = session()?.snapshot?.position;
       if (at == null) return false;
