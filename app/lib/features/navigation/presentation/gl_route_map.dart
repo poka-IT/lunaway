@@ -1135,7 +1135,11 @@ class _GlRouteMapState extends State<GlRouteMap> {
   void _capFrames() {
     final c = _controller;
     if (c == null || _page != null || kIsWeb) return;
-    final parked = (_props.vehicle?.speedMps ?? 0) < VehicleMotion.parkedMps;
+    // Parked as the drawn vehicle reads it ([VehicleMotion.retarget]): a
+    // speed known and under a walk. A receiver that gives no speed (iOS
+    // says -1 when it has none) keeps the cadence while it moves.
+    final speed = _props.vehicle?.speedMps;
+    final parked = speed != null && speed < VehicleMotion.parkedMps;
     final cap = _props.guiding && !parked && !_fullCadence ? renderCap(_pace.fps) : null;
     if (cap == _sentCap) return;
     _sentCap = cap;
