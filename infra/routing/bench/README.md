@@ -43,6 +43,16 @@ python3 compare.py before-base2.jsonl after-base2.jsonl
 - Compare passes trip by trip: same status, the first route's length within
   1 %, the recalculations. Times compare between second passes only (the
   first reads the tiles from disk).
+- A pass leaves out `departAt`: road events count at the hour the vehicle
+  would reach them from now. A route can then drop out between two passes
+  at different hours with nothing changed in the code or the data: trip
+  104 kept its three routes at 17:55 UTC on 2026-10-11 and lost the
+  fastest at 19:35, which reached a slip road of the N176 closed from 07:00
+  UTC the next morning 12.5 hours after the start, at 06:27 from the first
+  departure and 08:07 from the second. A route blocked beside a safe
+  alternative is dropped without a recalculation and without a word in the
+  answer; the same trip asked with `alternatives: 0` names the event in
+  `avoidedRoadEvents` (plan/research/131-memoire-serveur.md).
 
 Redraw the list only for a reason a report states: every earlier
 measurement is tied to this one.
