@@ -46,6 +46,7 @@
 pub mod opening;
 pub mod pois;
 pub mod takedown;
+pub mod time_zone;
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},

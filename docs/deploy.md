@@ -1495,6 +1495,15 @@ packs' cursors, which no migration of 38adf3d grants the import role:
 2026-10-06 (the first build failed with `permission denied for table
 sync_epoch`), and `test-grants.sh` expects it until a migration carries it.
 First full set: 34 regions, 86 111 places, 9.15 MB gzip (Germany 1.41 MB the largest), 105 MB decompressed, 198.9 MB memory peak.
+Morocco joined the catalogue on 2026-10-11 (`docs/region-packs.md`,
+"Regions"; release `20261011T202313Z-7481bd2965d8`): migration
+`20261011194823` ran in 0.74 s with the jobs paused and moved the 12
+places of Western Sahara to `MA`; its first pack, built by `sudo
+systemctl start lunaway-packs` right after, holds 4,510 places in
+1,804,058 bytes (10,620,928 decompressed), 2 s and 111.9 MB of memory.
+Its offline map was already served (208,742,138 bytes in the set of
+2026-10-10). The 35 packs of places then weighed 162,636,212 bytes, and
+`places/` 320.6 MB with the previous pack of each region.
 Caddy serves `/packs/places/` on `api.lunaway.net` (see "The domain"); the
 previous pack of a region stays until the next build. A takedown is
 `lunaway-admin packs build --region <code> --takedown`
@@ -1796,7 +1805,7 @@ ran on a server of its own in another datacenter (nbg1).
 | backend | Fuel prices | the probe: the fuel price feed was stored less than 2 hours ago (eight runs of `lunaway-ingest-fuel` in a row failed otherwise) |
 | backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 17 days ago (a build every two weeks, a daily refresh) |
 | backend | Places imports (France and Europe) | the probe: France's OpenStreetMap places read less than 30 hours ago, every other country's less than 8 days ago (`imports.json`), and no failed unit among the places and points imports, `lunaway-packs`, `lunaway-cameras*` and `lunaway-enforcement*` (a truncation guard that refuses a country fails its import) |
-| backend | Regional packs of places | the probe: no sync region (`SYNC_REGIONS`, the regions the builder makes packs for) has waited more than two days for a pack with its changes, and at least one pack exists. The places of a country outside the catalogue (the external community source's spots in Turkey or Morocco) wait for no pack and are not counted; `worker.json` gives how many such regions hold places (`packs.outside`, 42 on 2026-10-11) |
+| backend | Regional packs of places | the probe: no sync region (`SYNC_REGIONS`, the regions the builder makes packs for) has waited more than two days for a pack with its changes, and at least one pack exists. The places of a country outside the catalogue (the external community source's spots in Turkey or Romania) wait for no pack and are not counted; `worker.json` gives how many such regions hold places (`packs.outside`, 42 on 2026-10-11, 40 once Morocco joined the catalogue the same day) |
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the seven official lists each checked less than 30 hours ago (each downloaded at its own pace, its cached copy read in between) |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
@@ -2957,7 +2966,11 @@ stopping the build on failure:
    `fixes.osc.gz`, the tags Valhalla must read differently (limits in
    canonical form, `maxweightrating` copied into `maxweight`, `motorhome=*`
    copied into `motorcar`, IGN limits on the ways they match, the lowest
-   value winning; a "sauf desserte" plate written as the
+   value winning; a junction reference that is no exit number, on a
+   way's `junction:ref` or a motorway junction's `ref` (`A 411` at the
+   Thônex-Vallard customs), left out, so Valhalla never says "Prenez la
+   sortie A 411" (`exit_refs_dropped` in `prepare.json`); a "sauf
+   desserte" plate written as the
    `maxweight:conditional=none @ destination` Valhalla reads, a "sauf
    livraisons" one removed; IGN weights on motorways and on lanes closed
    to the public set aside; the roads without a limit that only a "sauf

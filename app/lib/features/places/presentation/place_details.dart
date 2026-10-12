@@ -874,7 +874,7 @@ class _OpeningHours extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final zone = PlaceZone.ofCountry(place.address?.countryCode);
+    final zone = PlaceZone.of(place.address?.countryCode, place.position);
     final state = openingStateAt(place.openingIntervals, now, validUntil: place.openingValidUntil);
     final open = state is OpenUntil || state is OpenThroughWindow;
     // A season answers for every day, read on the place's own date.

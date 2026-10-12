@@ -1,4 +1,4 @@
-Lunaway is een kaart van plekken waar je met een camper of busje kunt stoppen: camperplaatsen, camperservicepunten, parkeerplaatsen, campings, camperplaatsen bij de boer, plekken in de natuur, in Frankrijk en twintig andere Europese landen.
+Lunaway is een kaart van plekken waar je met een camper of busje kunt stoppen: camperplaatsen, camperservicepunten, parkeerplaatsen, campings, camperplaatsen bij de boer, plekken in de natuur, in Frankrijk, twintig andere Europese landen en Marokko.
 
 Gratis, zonder advertenties en zonder trackers: alle functies zijn gratis, ook offline. De code is vrije software (AGPL) en de database met plekken is open (ODbL).
 

@@ -46,6 +46,14 @@
 #   described there. BSD-3-Clause (its LICENSE). Wired by
 #   dependency_overrides in app/pubspec.yaml; moves with maplibre_gl, and
 #   goes once a release carries the fixes.
+# backend/crates/lunaway-conflate/data/zone.tab: zone.tab of the IANA time
+#   zone database release 2026e, tzdata2026e.tar.gz of
+#   data.iana.org/time-zones/releases/ (signature by Paul Eggert's key
+#   7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34 checked), sha256
+#   e2e8e31c4e10f44576c79345e76060591dbb3eef6ce14e006afc8a373caa9593.
+#   Public domain (the file's header, the release's LICENSE). Written with
+#   app/lib/core/time/zone_data.g.dart by app/tool/time_zones/generate.dart;
+#   moves with jiff-tzdb (docs/architecture.md, "Time zones").
 app/web/maplibre-gl/
 app/assets/map/maplibre-gl.js
 app/assets/map/maplibre-gl.css
@@ -56,3 +64,4 @@ app/web/sqlite3.wasm.LICENSE.txt
 app/web/fonts/
 app/third_party/sqlite/
 app/third_party/maplibre_gl_web/
+backend/crates/lunaway-conflate/data/zone.tab

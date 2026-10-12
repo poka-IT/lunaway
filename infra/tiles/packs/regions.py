@@ -109,7 +109,7 @@ COUNTRY_LIST = [
     ("POL", "pl", "Pologne", "Poland"),
     ("CZE", "cz", "Tchéquie", "Czechia"),
     ("AND", "ad", "Andorre", "Andorra"),
-    ("MAR", "ma", "Maroc", "Morocco"),
+    ("MAR", "ma", "Maroc et Sahara occidental", "Morocco and Western Sahara"),
 ]
 
 # A country's parts outside this box are left out: Svalbard and Bouvet

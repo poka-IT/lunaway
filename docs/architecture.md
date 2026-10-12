@@ -543,6 +543,65 @@ Shared test vectors (`schema/conflation-vectors.json`) pin the scoring and
 the decisions; any change to the rules updates them in the same commit. The
 exact algorithm, constants included, is specified in `docs/conflation.md`.
 
+## Time zones
+
+A place's hours are read on its own clock: the server computes its open
+intervals from local midnight in its zone (`docs/conflation.md`, "Opening
+hours"), and the app writes "closes at 19:00" on that same clock, whatever
+the device's zone. Both take the zone from the IANA time zone database,
+one release on both sides:
+
+- **The zone of a place.** The database's table of countries and zones,
+  `zone.tab`: the only zone of the place's country for most. For a country
+  with several, the zone whose principal location (the city the table
+  places it at) is nearest the place, in the countries where that is right:
+  Spain and Portugal, whose zones of another clock are islands (the Canary
+  Islands, the Azores, Madeira), and Germany, Cyprus and Palestine, whose
+  zones keep one clock (`NEAREST_ZONE_COUNTRIES`, the same list in the
+  app). Elsewhere zones of different clocks meet on land and the nearest
+  city misplaces a border area: on 2026-10-11, 80 Ukrainian places outside
+  Crimea lay nearer Simferopol (+03 all year) than Kyiv, and the cities of
+  Dagestan, Chechnya and North Ossetia nearer Astrakhan (+04) than Moscow
+  (+03). Russia and Ukraine therefore have no zone, nor Kosovo (`XK`,
+  without a row): no intervals on the server, France's clock in the app,
+  which only matters for the day a season is read on. A country with
+  several zones that joins the data has none until it joins the list.
+  Server: `lunaway_conflate::time_zone`; app: `PlaceZone`
+  (`app/lib/core/time/place_zone.dart`), the same rule and the same
+  distance.
+- **The rules.** The server reads the database jiff bundles (`jiff-tzdb`,
+  never the host's zoneinfo); the app embeds the rules of every zone of the
+  table from 2025 on, read by the `timezone` package
+  (`app/lib/core/time/zone_data.g.dart`). The French sources keep
+  `Europe/Paris` through chrono-tz (a fuel price's day, the road events'
+  named periods), whose data stopped at 2025b, right for Paris.
+- **Times that are not a place's.** The arrival time of a route and the
+  time a point is passed ("open when you get there") are on the device's
+  clock, the one the traveller's phone shows. The windows of a road event
+  are on Paris's clock or UTC, as the server says (`timeZone`).
+
+Morocco shows why the release matters: tzdata 2026c (July 2026) moved it
+back to +00 without daylight saving on 2026-09-20 (Decree 2.26.530); the
+database before it still put Morocco at +01 with a change at every ramadan,
+and chrono-tz 0.10.4, the last release, carries 2025b.
+
+Moving to a new release, after IANA publishes one (`tz-announce`):
+
+1. `cargo update -p jiff-tzdb` in `backend/` once jiff-tzdb carries it
+   (`jiff_tzdb::VERSION`);
+2. download `https://data.iana.org/time-zones/releases/tzdata<release>.tar.gz`
+   and its `.asc`, check the signature (Paul Eggert's key,
+   `7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34`), extract it under `data/tmp/`;
+3. from `app/`, `fvm dart run tool/time_zones/generate.dart <that directory>`:
+   it compiles the release with `zic`, writes `zone_data.g.dart` and the
+   server's copy of `zone.tab` (`backend/crates/lunaway-conflate/data/`),
+   then update the record of `zone.tab` in `tool/harness/vendored.txt`;
+4. `cargo nextest run -p lunaway-conflate` (a test holds the app's release
+   and table to the server's) and `fvm flutter test test/unit/opening_test.dart`.
+
+The places whose zone changed take new intervals at their next refresh,
+within a day; the app's new rules reach the devices with the next release.
+
 ## App
 
 `app/`, Flutter, Riverpod 3 with code generation, go_router, slang, drift.
@@ -667,8 +726,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   once), with the route chosen kept, in the room the panel kept for two
   cards (`RouteOptionPlaceholder`, sized by an unseen copy of the best
   route's card), so nothing under them moves; when they do not come,
-  nothing says so and the room closes. The guidance reads such an alternative in its own OSRM answer
-  (`RoutePlan.osrmOf`).
+  nothing says so and the room closes. An alternative that came after,
+  once chosen on the map or by its card, joins the frame while the plan
+  shows (`RoutePreview.framedLater`): the camera eases out to take it in,
+  and choosing a route already in view moves nothing. The guidance reads
+  such an alternative in its own OSRM answer (`RoutePlan.osrmOf`).
 - **The connections to our hosts**: on a device the app's HTTP client
   keeps an idle connection 100 s, under the 2 minutes of the API's Caddy
   (`core/http/app_http_client_io.dart`). A mobile network or a move from
@@ -731,8 +793,12 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   `widgets/guidance_panels.dart`), laid out as drivers know it from the big
   navigation apps (`plan/research/120-guidage-facon-gmaps.md`): the
   maneuver at the top (its arrow, the distance over the road, a motorway
-  exit's number), the lanes on a deeper band under it, "Puis" on a tab
-  when the next maneuver follows within 300 m; the notices under it; at
+  exit's number: on an `off ramp` only, and only when Valhalla's `exits`
+  reads as a number and does not repeat the number of the road left,
+  since the map gives the lanes of some junctions a road's number, "A
+  411" at the Thônex-Vallard customs, which the graph's preparation also
+  leaves out), the lanes on a deeper band under it, "Puis" on a tab when
+  the next maneuver follows within 300 m; the notices under it; at
   the foot of the map the speed and its limit on the left (or "Recentrer"
   once the map is moved or the whole route shown), a camera or a danger
   zone on its pill over them (in the panel over the bar on a screen on its

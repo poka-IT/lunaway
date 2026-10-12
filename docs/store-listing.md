@@ -47,7 +47,7 @@ Read on 2026-10-10 against `main` at 0c656d30 and the production API
 | Claim | Source |
 |---|---|
 | Place kinds named in the first line | `app/lib/i18n/fr.i18n.json` (`kinds`), `app/lib/features/places/domain/taxonomy.dart` |
-| France and twenty other European countries | `Query.regions` in production on 2026-10-10: 34 regions in 21 countries (13 French regions plus "France, hors commune", and AT, BE, CH, CZ, DE, DK, ES, FI, GB, GR, HR, IE, IT, LU, NL, NO, PL, PT, SE, SI) |
+| France, twenty other European countries and Morocco | `Query.regions` in production on 2026-10-11: 35 regions in 22 countries (13 French regions plus "France, hors commune", and AT, BE, CH, CZ, DE, DK, ES, FI, GB, GR, HR, IE, IT, LU, MA, NL, NO, PL, PT, SE, SI); Western Sahara's places sync with Morocco |
 | Free, every feature, offline included; no ads, no trackers | no purchase or paywall in `app/lib`; `tool/allowed_hosts.txt`, `app/pubspec.lock` (no analytics, ads or crash SDK) |
 | Overnight status on every page | `app/lib/features/places/presentation/place_details.dart` |
 | Filters: kind, night possible, free, services, minimum rating, open all year or on my dates, "My vehicle fits" | `app/lib/features/places/domain/place_filter.dart`, `filters_sheet.dart` (`minRating`, `openDays`) |

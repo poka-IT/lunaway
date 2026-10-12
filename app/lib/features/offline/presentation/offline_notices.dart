@@ -79,7 +79,19 @@ class _OfflineLine extends ConsumerWidget {
     // The places of the view on the device, its map not: the list and the
     // pins work, only the streets are missing.
     final placesHere = ref.watch(viewRegionProvider)?.held ?? false;
-    final text = pack != null
+    // A country the offline maps leave out: no download would help, and the
+    // last pack still drawn is not this area's.
+    final onlineOnly = supported && ref.watch(viewOnlineOnlyProvider);
+    // An island no offline map holds whose places sync with its country
+    // (Åland, Svalbard): its places are here, only its map is online.
+    final placesAround = ref.watch(placesAroundViewProvider).value ?? false;
+    final placesKept = onlineOnly && placesAround;
+    final mapDrawn = pack != null && !onlineOnly;
+    final text = placesKept
+        ? t.offlineMaps.noticePlacesMapOnline
+        : onlineOnly
+        ? t.offlineMaps.noticeOnlineOnly
+        : pack != null
         ? t.offlineMaps.noticePack(
             name: t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode)),
           )
@@ -90,8 +102,10 @@ class _OfflineLine extends ConsumerWidget {
         : supported
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
-    final icon = pack != null ? OfflineIcons.ready : OfflineIcons.offline;
-    // Opened from the map: a page over it, written in the map's order.
+    final icon = mapDrawn ? OfflineIcons.ready : OfflineIcons.offline;
+    // Opened from the map: a page over it, written in the map's order. Over
+    // an area online only too: the page lists what the device holds and what
+    // does download.
     final open = supported
         ? () => ref.read(mapFlowProvider.notifier).openPage(AppRoutes.offlineMaps)
         : null;
@@ -138,7 +152,7 @@ class _OfflineLine extends ConsumerWidget {
           text: text,
           icon: icon,
           // A downloaded map for the view is the milder state.
-          level: pack != null ? 1 : 2,
+          level: mapDrawn ? 1 : 2,
           look: line,
           tellsItself: true,
         ),

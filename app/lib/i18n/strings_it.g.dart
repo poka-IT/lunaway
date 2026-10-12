@@ -714,6 +714,7 @@ class _Translations$list$it extends Translations$list$en {
 	@override String rankedAmongNearestCentre({required Object n}) => 'Ordine calcolato sui ${n} luoghi più vicini al centro della mappa';
 	@override String get offlineTitle => 'Nessuna connessione';
 	@override String get offlineNotHere => 'Niente di quest\'area su questo dispositivo.';
+	@override String get offlineOnlineOnly => 'Quest\'area è disponibile solo online: né i suoi luoghi né la sua mappa si possono scaricare.';
 }
 
 // Path: home
@@ -1653,6 +1654,8 @@ class _Translations$offlineMaps$it extends Translations$offlineMaps$en {
 	@override String get noticePlacesOnly => 'Offline: luoghi sul dispositivo, mappa di quest\'area da scaricare';
 	@override String get noticeNone => 'Offline: scarica una regione per la prossima volta';
 	@override String get noticeOnline => 'Offline: la mappa ha bisogno della rete';
+	@override String get noticeOnlineOnly => 'Offline: quest\'area è disponibile solo online';
+	@override String get noticePlacesMapOnline => 'Offline: luoghi sul dispositivo, mappa di quest\'area solo online';
 	@override String get placesTitle => 'Luoghi';
 	@override String get placesHint => 'Pochi megabyte per regione: elenco, ricerca, schede e filtri funzionano senza rete.';
 	@override String get mapsTitle => 'Mappe';
@@ -1799,6 +1802,7 @@ class _Translations$areas$it extends Translations$areas$en {
 	@override String get gf => 'Guyana francese';
 	@override String get re => 'Riunione';
 	@override String get yt => 'Mayotte';
+	@override String get ma => 'Marocco e Sahara Occidentale';
 	@override String get franceRest => 'Resto della Francia';
 }
 
@@ -4382,6 +4386,7 @@ extension on TranslationsIt {
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ordine calcolato sui ${n} luoghi più vicini al centro della mappa',
 			'list.offlineTitle' => 'Nessuna connessione',
 			'list.offlineNotHere' => 'Niente di quest\'area su questo dispositivo.',
+			'list.offlineOnlineOnly' => 'Quest\'area è disponibile solo online: né i suoi luoghi né la sua mappa si possono scaricare.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Imposta la mia casa',
 			'home.error' => 'Non è stato possibile caricare la tua casa.',
@@ -4534,9 +4539,9 @@ extension on TranslationsIt {
 			'profile.attributionDatatourisme' => 'Luoghi, descrizioni e foto degli uffici turistici: DATAtourisme, con Licence Ouverte 2.0; ogni testo e ogni foto indica il suo ufficio, il suo autore e la data dell\'ultimo aggiornamento.',
 			'profile.attributionCommunity' => 'Recensioni, valutazioni e foto dei viaggiatori di Lunaway, con licenza CC BY 4.0 e lo pseudonimo del loro autore.',
 			'profile.attributionCommons' => 'Foto di Wikimedia Commons, ciascuna con la propria licenza (CC0, pubblico dominio, CC BY o CC BY-SA), con il suo autore e un link alla sua pagina.',
-			'profile.attributionPanoramax' => 'Viste dalla strada di Panoramax: istanza di OpenStreetMap France con licenza CC BY-SA 4.0, istanza dell\'IGN con Licence Ouverte 2.0.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionPanoramax' => 'Viste dalla strada di Panoramax: istanza di OpenStreetMap France con licenza CC BY-SA 4.0, istanza dell\'IGN con Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Estratti di articoli di Wikipedia, con licenza CC BY-SA 4.0 e un link all\'articolo.',
 			'profile.attributionMangrove' => 'Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.',
 			'profile.attributionTranslation' => 'Traduzioni automatiche: modelli OPUS-MT dell\'Università di Helsinki, con licenza CC BY 4.0, eseguiti sui server di Lunaway.',
@@ -5048,9 +5053,9 @@ extension on TranslationsIt {
 			'poi.kind.clinic' => 'Clinica',
 			'poi.kind.physiotherapist' => 'Fisioterapista',
 			'poi.kind.laboratory' => 'Laboratorio analisi',
-			'poi.kind.nurse' => 'Infermiere',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.nurse' => 'Infermiere',
 			'poi.kind.midwife' => 'Ostetrica',
 			'poi.kind.podiatrist' => 'Podologo',
 			'poi.kind.psychologist' => 'Psicologo',
@@ -5435,6 +5440,8 @@ extension on TranslationsIt {
 			'offlineMaps.noticePlacesOnly' => 'Offline: luoghi sul dispositivo, mappa di quest\'area da scaricare',
 			'offlineMaps.noticeNone' => 'Offline: scarica una regione per la prossima volta',
 			'offlineMaps.noticeOnline' => 'Offline: la mappa ha bisogno della rete',
+			'offlineMaps.noticeOnlineOnly' => 'Offline: quest\'area è disponibile solo online',
+			'offlineMaps.noticePlacesMapOnline' => 'Offline: luoghi sul dispositivo, mappa di quest\'area solo online',
 			'offlineMaps.placesTitle' => 'Luoghi',
 			'offlineMaps.placesHint' => 'Pochi megabyte per regione: elenco, ricerca, schede e filtri funzionano senza rete.',
 			'offlineMaps.mapsTitle' => 'Mappe',
@@ -5540,6 +5547,7 @@ extension on TranslationsIt {
 			'areas.gf' => 'Guyana francese',
 			'areas.re' => 'Riunione',
 			'areas.yt' => 'Mayotte',
+			'areas.ma' => 'Marocco e Sahara Occidentale',
 			'areas.franceRest' => 'Resto della Francia',
 			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} campo da correggere', other: '${n} campi da correggere', ), 
 			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',

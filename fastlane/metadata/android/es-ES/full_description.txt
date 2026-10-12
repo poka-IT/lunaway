@@ -1,4 +1,4 @@
-Lunaway es un mapa de lugares donde parar con una autocaravana o una van: áreas de autocaravanas, puntos de servicio para autocaravanas, aparcamientos, campings, granjas, lugares en plena naturaleza, en Francia y en otros veinte países de Europa.
+Lunaway es un mapa de lugares donde parar con una autocaravana o una van: áreas de autocaravanas, puntos de servicio para autocaravanas, aparcamientos, campings, granjas, lugares en plena naturaleza, en Francia, en otros veinte países de Europa y en Marruecos.
 
 Gratis, sin publicidad y sin rastreadores: todas las funciones son gratuitas, también sin conexión. El código es libre (AGPL) y la base de datos de lugares es abierta (ODbL).
 

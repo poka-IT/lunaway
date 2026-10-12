@@ -81,7 +81,7 @@ final class RoadEventSchedule {
       if (at.isAfter(e.from.add(margin)) && at.isBefore(e.to.subtract(margin))) return false;
     }
     if (windows.isEmpty) return true;
-    final local = utc ? at.toUtc() : PlaceZone.central.wallClock(at);
+    final local = utc ? at.toUtc() : PlaceZone.paris.wallClock(at);
     final widen = marginMinutes + widenMinutes;
     for (final w in windows) {
       // The window of the day before may run into this one.

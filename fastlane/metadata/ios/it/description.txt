@@ -1,4 +1,4 @@
-Lunaway è una mappa dei luoghi dove fermarsi in camper o in van: aree sosta camper, aree camper service, parcheggi, campeggi, soste in fattoria, soste in natura, in Francia e in altri venti Paesi europei.
+Lunaway è una mappa dei luoghi dove fermarsi in camper o in van: aree sosta camper, aree camper service, parcheggi, campeggi, soste in fattoria, soste in natura, in Francia, in altri venti Paesi europei e in Marocco.
 
 Gratuita, senza pubblicità e senza tracciamento: tutte le funzioni sono gratuite, uso offline compreso. Il codice è libero (AGPL) e il database dei luoghi è aperto (ODbL).
 

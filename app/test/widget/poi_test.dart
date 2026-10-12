@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -613,7 +614,9 @@ void main() {
         reason: 'the kind on the line',
       );
       expect(
-        find.textContaining(t.poiOpening(poiFromJson(hairdresser)!.hours, testNow)),
+        find.textContaining(
+          t.poiOpening(poiFromJson(hairdresser)!.hours, testNow, zone: PlaceZone.paris),
+        ),
         findsOneWidget,
         reason: 'open now, until when',
       );

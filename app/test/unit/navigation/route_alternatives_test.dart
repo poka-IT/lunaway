@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
 
 import '../../helpers/navigation.dart';
 
@@ -69,6 +71,24 @@ void main() {
       reason: 'every route of one answer came at once',
     );
   });
+
+  test(
+    'an alternative that came after, once chosen, stays in the frame until the plan changes',
+    () {
+      final joined = bestAlone().withAlternatives(alternative());
+      final preview = RoutePreview(vehicle: checkVehicle(motorhome), plan: joined);
+      expect(preview.framedLater, isEmpty, reason: 'come, never chosen: the camera stays');
+      final chosen = preview.select(1);
+      expect(chosen.framedLater, {1});
+      expect(chosen.select(0).framedLater, {1}, reason: 'the best route again: still in view');
+      expect(preview.select(0).framedLater, isEmpty, reason: 'a route that came at once');
+      final atOnce = RoutePreview(
+        vehicle: checkVehicle(motorhome),
+        plan: routeFixture('utrillo_motorhome'),
+      );
+      expect(atOnce.select(1).framedLater, isEmpty, reason: 'framed from the start');
+    },
+  );
 
   test('alternatives that did not come leave the routes and wait no more', () {
     final plan = bestAlone();

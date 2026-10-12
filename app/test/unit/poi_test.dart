@@ -3,12 +3,17 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_view_map.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
@@ -20,6 +25,7 @@ import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/features/poi/presentation/poi_search.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
@@ -227,15 +233,58 @@ void main() {
     expect(sortForReading(list, now, night: true).first.id, 'always');
   });
 
+  test("the map's night is on the clock of the region at the centre of the view", () {
+    // 20:30 UTC on 15 July 2027: 20:30 in Marrakech, 22:30 in Paris.
+    ProviderContainer night(ViewRegion? region, LatLng center) => ProviderContainer.test(
+      overrides: [
+        clockProvider.overrideWithValue(() => DateTime.utc(2027, 7, 15, 20, 30)),
+        minuteClockProvider.overrideWith((ref) => const Stream.empty()),
+        viewRegionProvider.overrideWithValue(region),
+        viewportProvider.overrideWith(
+          () => _FixedViewport(
+            MapViewport(
+              bounds: GeoBounds(
+                south: center.lat - 0.1,
+                west: center.lon - 0.1,
+                north: center.lat + 0.1,
+                east: center.lon + 0.1,
+              ),
+              center: center,
+              zoom: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+    final marrakech = night((code: 'MA', kept: true, held: true), const LatLng(31.63, -8));
+    expect(marrakech.read(poiNightProvider), isFalse, reason: '20:30 in Marrakech');
+    final paris = night((code: 'FR-IDF', kept: true, held: true), const LatLng(48.86, 2.35));
+    expect(paris.read(poiNightProvider), isTrue, reason: '22:30 in Paris');
+  });
+
   test('night runs from 21:00 to 06:00 on the place clock (summer time in October)', () {
-    expect(isNight(DateTime.utc(2026, 10, 6, 18, 59)), isFalse, reason: '20:59 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 19)), isTrue, reason: '21:00 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 3, 59)), isTrue, reason: '05:59 in Paris');
-    expect(isNight(DateTime.utc(2026, 10, 6, 4)), isFalse, reason: '06:00 in Paris');
+    final paris = PlaceZone.paris;
     expect(
-      isNight(DateTime.utc(2026, 10, 6, 19), zone: PlaceZone.western),
+      isNight(DateTime.utc(2026, 10, 6, 18, 59), zone: paris),
+      isFalse,
+      reason: '20:59 in Paris',
+    );
+    expect(isNight(DateTime.utc(2026, 10, 6, 19), zone: paris), isTrue, reason: '21:00 in Paris');
+    expect(
+      isNight(DateTime.utc(2026, 10, 6, 3, 59), zone: paris),
+      isTrue,
+      reason: '05:59 in Paris',
+    );
+    expect(isNight(DateTime.utc(2026, 10, 6, 4), zone: paris), isFalse, reason: '06:00 in Paris');
+    expect(
+      isNight(DateTime.utc(2026, 10, 6, 19), zone: PlaceZone.of('PT', const LatLng(38.72, -9.14))),
       isFalse,
       reason: '20:00 in Lisbon',
+    );
+    expect(
+      isNight(DateTime.utc(2027, 7, 15, 20, 30), zone: PlaceZone.of('MA', const LatLng(31.63, -8))),
+      isFalse,
+      reason: '20:30 in Marrakech, 22:30 in Paris',
     );
   });
 
@@ -328,6 +377,35 @@ void main() {
       );
       expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
     });
+
+    test(
+      "a row reads a point's hours on its country's clock, its locality's without an address",
+      () async {
+        await initializeDateFormatting('fr');
+        final t = AppLocale.fr.buildSync();
+        // A pharmacy of Marrakech open 09:00 to 18:00 on Thursday 15 July
+        // 2027: Morocco at +00, Paris at +02. The API sends no address for a
+        // point without street, postcode or town; its locality has a country.
+        final poi = Poi(
+          id: '00000000-0000-7000-8000-00000000c106',
+          kind: PoiKind.pharmacy,
+          lat: 31.63,
+          lon: -8,
+          locality: const Locality(countryCode: 'MA'),
+          hours: PoiHours(
+            intervals: [
+              OpeningInterval(DateTime.utc(2027, 7, 15, 9), DateTime.utc(2027, 7, 15, 18)),
+            ],
+            validUntil: DateTime.utc(2027, 7, 29),
+          ),
+        );
+        expect(poi.zone.name, 'Africa/Casablanca');
+        expect(
+          poiSearchLine(t, poi, DateTime.utc(2027, 7, 15, 12), home: 'FR'),
+          contains(t.hours.openUntil(time: '18:00')),
+        );
+      },
+    );
 
     test('a row says the cuisine the search names, else the first the app has a word for', () {
       final t = AppLocale.fr.buildSync();
@@ -958,4 +1036,14 @@ void main() {
       expect(keys, unorderedEquals(['nearby:b', 'nearby:c']));
     });
   });
+}
+
+/// A view that stays where the test put it.
+final class _FixedViewport extends Viewport {
+  new(this._view);
+
+  final MapViewport _view;
+
+  @override
+  MapViewport? build() => _view;
 }

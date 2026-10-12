@@ -609,7 +609,7 @@ class _StateCard extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final zone = PlaceZone.ofCountry(poi?.address?.countryCode);
+    final zone = poi?.zone ?? PlaceZone.paris;
     final closedOn = poi?.reportedClosed;
     return Container(
       padding: const EdgeInsets.all(Space.l),

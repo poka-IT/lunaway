@@ -52,9 +52,9 @@ set -eu
 # The sync regions, as lunaway_domain::region::SYNC_REGIONS lists them (a
 # test of lunaway-domain holds the two together). The pack builder skips
 # every other region: the places of a country the external community
-# source covers beyond them (Turkey, Morocco) wait for no pack, and counted
+# source covers beyond them (Turkey, Romania) wait for no pack, and counted
 # here they would read as stale two days after their import.
-sync_regions='FR-ARA FR-BFC FR-BRE FR-CVL FR-20R FR-GES FR-HDF FR-IDF FR-NOR FR-NAQ FR-OCC FR-PDL FR-PAC FR AT BE CH CZ DE DK ES FI GB GR HR IE IT LU NL NO PL PT SE SI'
+sync_regions='FR-ARA FR-BFC FR-BRE FR-CVL FR-20R FR-GES FR-HDF FR-IDF FR-NOR FR-NAQ FR-OCC FR-PDL FR-PAC FR AT BE CH CZ DE DK ES FI GB GR HR IE IT LU MA NL NO PL PT SE SI'
 out=/var/lib/lunaway-status/worker.json
 imports=/var/lib/lunaway-status/imports.json
 psql -X -At -v ON_ERROR_STOP=1 -d lunaway -c "

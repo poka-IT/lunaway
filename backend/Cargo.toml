@@ -31,6 +31,9 @@ axum = { version = "0.8.9", features = ["multipart"] }
 backon = "1.6.0"
 base64 = "0.22.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
+# Europe/Paris only, the clock of the French sources (the day of a fuel
+# price, the named periods of road events). Its data stopped at tzdata 2025b:
+# the zone of a place comes from jiff below.
 chrono-tz = "0.10.4"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 # Which country a point is in, from boundaries derived from OpenStreetMap
@@ -54,6 +57,14 @@ http-body-util = "0.1.5"
 # Decoders of the formats a photo may arrive in, nothing else: the app
 # converts HEIC on the device.
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
+# The time zone of a place (lunaway_conflate::time_zone): the IANA database
+# bundled in the binary by jiff-tzdb, the release the app embeds, never the
+# host's zoneinfo, so the server and the devices read the same clock. jiff
+# releases the database within days of IANA (2026c, Morocco back to +00, on
+# 2026-07-09); chrono-tz has not since 2025b. MIT or Unlicense.
+jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"] }
+# The release jiff bundles, read by a test that holds the app's copy to it.
+jiff-tzdb = "0.1.9"
 # The language of a review or a description its source did not label, for
 # machine translation (lunaway_domain::translation): pure Rust, Apache-2.0,
 # only the models of the languages Lunaway's texts are in, and of those

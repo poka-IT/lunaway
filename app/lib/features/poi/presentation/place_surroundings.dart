@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -39,7 +40,10 @@ class PlaceSurroundings extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
-    final night = isNight(now);
+    // The place's clock: its surroundings share it, and a point without an
+    // address would otherwise read France's.
+    final zone = PlaceZone.of(place.address?.countryCode, place.position);
+    final night = isNight(now, zone: zone);
     final body = switch (ref.watch(placeSurroundingsProvider(place.id))) {
       AsyncValue(
         value: Read(value: final groups, :final fetchedAt, :final offline),
@@ -54,7 +58,7 @@ class PlaceSurroundings extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final poi in rows) _Row(poi: poi, now: now, from: place.id),
+              for (final poi in rows) _Row(poi: poi, now: now, zone: zone, from: place.id),
               // A copy kept: when the network did not answer, or the server
               // refused to read it again.
               if (offline || hasError)
@@ -105,10 +109,11 @@ class PlaceSurroundings extends ConsumerWidget {
 }
 
 class _Row extends ConsumerWidget {
-  const new({required this.poi, required this.now, required this.from});
+  const new({required this.poi, required this.now, required this.zone, required this.from});
 
   final Poi poi;
   final DateTime now;
+  final PlaceZone zone;
   final String from;
 
   @override
@@ -152,7 +157,7 @@ class _Row extends ConsumerWidget {
                         // dump station rarely has any.
                         if (poi.hours.opennessAt(now) != PoiOpenness.unknown)
                           Text(
-                            t.poiOpening(poi.hours, now),
+                            t.poiOpening(poi.hours, now, zone: zone),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: poiOpeningColor(scheme, poi.hours, now),
                             ),

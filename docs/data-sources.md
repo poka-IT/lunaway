@@ -446,6 +446,22 @@ downloads a ready-made archive once a month and serves it from its own host
 | `build-metadata.protomaps.dev`, `build.protomaps.com` | the list of Protomaps' daily planet builds (size, BLAKE3 hash), then one build a month, about 139 GB | the basemap is "distributed as an Open Database License Produced Work (OpenStreetMap attribution required)"; "Please note that URLs may change and hotlinking to these downloads are discouraged. Instead, you should copy the tileset to your own Cloud Storage." (https://docs.protomaps.com/basemaps/downloads, read 2026-10-06). "Tilesets are ODbL, attribute OSM"; "Web maps and native apps that use this Produced Work must visibly attribute © OpenStreetMap"; "If you distribute a modified “fork” of these basemap styles or tilesets, or provide a tiles API based on them, you must name your product or service something different from Protomaps. Free and unmodified redistributions of tiles and styles are permitted to use the name." (README of github.com/protomaps/basemaps, read 2026-10-06). The tiles are served unmodified, under our own host name |
 | `codeload.github.com` (`protomaps/basemaps-assets`, one pinned commit) | the Noto Sans glyphs and the Protomaps sprites, at install only | glyphs: SIL Open Font License 1.1 (`fonts/OFL.txt`, "Copyright 2022 The Noto Project Authors"); sprites: derived from the MIT-licensed tangrams/icons (README of the repository) |
 
+### Outlines of the offline packs
+
+The outline of each offline pack (`infra/tiles/packs/regions.geojson`,
+written on a workstation by `infra/tiles/packs/regions.py`, each file
+pinned by its SHA-256) decides three things: the zone the server cuts from
+Protomaps' build, the area of each offline map, and, shipped in the app
+(`app/assets/map/offline/regions.json`), the region a position lies in
+and the areas offline that are online only. The sync regions of the places
+are the countries these outlines and the routing graph both cover
+(`docs/region-packs.md`, "Regions").
+
+| source | content | licence | attribution |
+|---|---|---|---|
+| Natural Earth 1:10m admin 0 countries, release v5.1.2 (`ne_10m_admin_0_countries.geojson` of github.com/nvkelso/natural-earth-vector at the tag `v5.1.2`) | the outline of each country pack, widened by 8 km and simplified to 500 m; its Morocco runs to 21.4 degrees north, Western Sahara included | "All versions of Natural Earth raster + vector map data found on this website are in the public domain. You may use the maps in any manner, including modifying the content and design, electronic dissemination, and offset printing." (https://www.naturalearthdata.com/about/terms-of-use/, read 2026-10-11) | none required ("Crediting the authors is unnecessary"); the source is named in each outline's `source` property |
+| Contours administratifs 2025, regions simplified to 100 m (data.gouv.fr dataset `683424e996857155175d4f68`, `regions-100m.geojson.gz`) | the outline of each French region pack, widened by 3 km | ODbL, the same dataset as the communes above | "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)", in each outline's `source` property |
+
 The map style must show "© OpenStreetMap" in a corner of the map. The
 Protomaps styles are CC0 for their design and BSD-3-Clause for their code;
 Protomaps asks for, without requiring, a credit when its styles are used.
@@ -499,6 +515,17 @@ page keeps it beside its photos.
 Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two
 community mirrors the first adapter tried in turn are no longer defaults.
+
+## The time zone database
+
+The clock a place's hours are read on (`docs/architecture.md`, "Time
+zones"). Embedded, never fetched at run time: the server reads the copy
+jiff bundles, the app a copy written from the same release by
+`app/tool/time_zones/generate.dart`.
+
+| source | content | licence | attribution |
+|---|---|---|---|
+| IANA time zone database, release 2026e (`tzdata2026e.tar.gz` of https://data.iana.org/time-zones/releases/, signature checked; bundled in the server by the `jiff-tzdb` crate 0.1.9) | `zone.tab`, the countries and their zones with each zone's principal location (`backend/crates/lunaway-conflate/data/zone.tab`, as published), and the rules of every zone it names (`app/lib/core/time/zone_data.g.dart`, from 2025 on) | "Unless specified below, all files in the tz code and data (including this LICENSE file) are in the public domain." (`LICENSE` of the release, read 2026-10-11; the exceptions are three files of code Lunaway does not use). jiff-tzdb: MIT or Unlicense; the `timezone` package that reads the app's copy: BSD-2-Clause | none required |
 
 ## The routing graph
 

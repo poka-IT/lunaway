@@ -200,6 +200,41 @@ void main() {
       expect(find.text('Lieux'), findsOneWidget, reason: 'the offline maps, places first');
     });
 
+    testWidgets(
+      'in a country the offline maps leave out, says it is online only, with no download',
+      (tester) async {
+        await pumpLunaway(
+          tester,
+          places: const [],
+          reachable: false,
+          regions: _catalog,
+          map: FakeMap()
+            ..viewport = const MapViewport(
+              bounds: GeoBounds(south: 40.85, west: 28.7, north: 41.17, east: 29.24),
+              center: LatLng(41.01, 28.97),
+              zoom: 11,
+            ),
+          overrides: _quietSync(_Quiet()),
+        );
+        await settleShort(tester);
+        expect(find.text('Pas de connexion'), findsOneWidget);
+        expect(
+          find.text(
+            "Cette zone n'est disponible qu'en ligne : ni ses lieux ni sa carte ne se téléchargent.",
+          ),
+          findsOneWidget,
+          reason: 'Istanbul: no region and no map to download',
+        );
+        expect(find.text('Rien de cette zone sur cet appareil.'), findsNothing);
+        expect(find.widgetWithText(OutlinedButton, 'Cartes hors ligne'), findsNothing);
+        expect(
+          find.text("Hors ligne : cette zone n'est disponible qu'en ligne"),
+          findsOneWidget,
+          reason: 'the line over the map says it too',
+        );
+      },
+    );
+
     testWidgets('in a region the device holds, an empty list is the filters, not the network', (
       tester,
     ) async {

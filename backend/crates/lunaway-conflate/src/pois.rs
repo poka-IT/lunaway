@@ -6,7 +6,6 @@
 //! of points, so the fuel poller or an import never waits long.
 
 use chrono::{DateTime, Days, NaiveDate, TimeZone, Utc};
-use chrono_tz::Tz;
 use lunaway_db::{
     PgPool,
     pois::{self, HoursWrite, StaleHours},
@@ -16,7 +15,7 @@ use lunaway_domain::{
     poi::{PostOfficeDays, encode_hours},
 };
 
-use crate::{ConflateError, blocking, opening};
+use crate::{ConflateError, blocking, opening, time_zone::PlaceTz};
 
 /// Points evaluated per transaction.
 const HOURS_BATCH: i64 = 2_000;
@@ -98,13 +97,13 @@ fn evaluate(s: &StaleHours, now: DateTime<Utc>) -> HoursWrite {
     // La Poste's calendar is French: a point without a known zone that has
     // one is in France.
     let tz = country
-        .and_then(|cc| opening::timezone_at(cc, s.position))
-        .unwrap_or(Tz::Europe__Paris);
+        .and_then(|cc| crate::time_zone::place_zone(cc, s.position))
+        .unwrap_or_else(PlaceTz::paris);
     if let Some((intervals, until)) = s
         .laposte
         .as_ref()
         .and_then(|v| <PostOfficeDays as serde::Deserialize>::deserialize(v).ok())
-        .and_then(|days| laposte_intervals(&days, tz, today))
+        .and_then(|days| laposte_intervals(&days, &tz, today))
     {
         return HoursWrite {
             id: s.id,
@@ -156,7 +155,7 @@ pub async fn publish_layer(
 #[must_use]
 pub fn laposte_intervals(
     days: &PostOfficeDays,
-    tz: Tz,
+    tz: &PlaceTz,
     today: NaiveDate,
 ) -> Option<(Vec<OpeningInterval>, DateTime<Utc>)> {
     let mut out: Vec<OpeningInterval> = Vec::new();
@@ -262,7 +261,7 @@ mod tests {
                 day(6, vec![[t(9, 0), t(12, 0)]]),
             ],
         };
-        let (iv, until) = laposte_intervals(&days, Tz::Europe__Paris, monday).unwrap();
+        let (iv, until) = laposte_intervals(&days, &PlaceTz::paris(), monday).unwrap();
         assert_eq!(iv.len(), 4, "the 3rd is closed, the 6th is past the gap");
         assert_eq!(
             iv[3].end,
@@ -280,7 +279,7 @@ mod tests {
             "the window ends at local midnight after the last day held"
         );
         assert!(
-            laposte_intervals(&days, Tz::Europe__Paris, monday.pred_opt().unwrap()).is_none(),
+            laposte_intervals(&days, &PlaceTz::paris(), monday.pred_opt().unwrap()).is_none(),
             "a calendar that does not hold today gives nothing"
         );
     }

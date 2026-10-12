@@ -170,8 +170,9 @@ final class RegionCatalog {
 /// the user.
 const regionalZoom = 6.5;
 
-/// The microstates that sync with the region around them
-/// (`lunaway_domain::region::ATTACHED`).
+/// The microstates and territories that sync with the region around them
+/// (`lunaway_domain::region::ATTACHED`). Western Sahara has no outline of
+/// its own: Morocco's covers it.
 const attachedRegions = {
   'MC': 'FR-PAC',
   'AD': 'ES',
@@ -181,6 +182,7 @@ const attachedRegions = {
   'LI': 'CH',
   'SJ': 'NO',
   'AX': 'FI',
+  'EH': 'MA',
 };
 
 /// One line of the picker: a country, with its regions when it has

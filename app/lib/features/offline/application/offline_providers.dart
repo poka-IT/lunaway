@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -15,6 +16,8 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/data/pack_files.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'offline_providers.g.dart';
@@ -737,6 +740,54 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
     // Leaving every pack keeps the last one rather than a blank map.
     return previous != null && installed.containsKey(previous.id) ? installed[previous.id] : null;
   }
+}
+
+/// Whether the map's view lies far from every offline map: a country the
+/// offline maps leave out (Turkey, Romania), or the open sea, with no
+/// outline within the view nor about 17 km of its centre
+/// ([PackOutlines.near]). Neither its map nor its places download, so
+/// offline the app says the area is online only rather than offer a
+/// download. A few islands whose places sync with their country lie outside
+/// the outlines too (Åland with Finland, Svalbard with Norway, Kastellorizo
+/// with Greece): their places kept show, and [placesAroundView]
+/// changes the words. False until the outlines are read, and under a pack
+/// on the device, one this build has no outline of included (read by its
+/// box).
+@riverpod
+bool viewOnlineOnly(Ref ref) {
+  final outlines = ref.watch(packOutlinesProvider).value;
+  if (outlines == null || outlines.ids.isEmpty) return false;
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  final installed =
+      ref.watch(offlinePacksProvider.select((maps) => maps.value?.installed)) ?? const {};
+  final drawn = packAt(
+    installed.values,
+    view.center,
+    outlines: outlines,
+    id: (p) => p.id,
+    bounds: (p) => p.bounds,
+  );
+  return drawn == null && !outlines.near(view.center, view.bounds);
+}
+
+/// Whether the device holds places in the area [viewOnlineOnly] reads
+/// around the view ([PackOutlines.nearArea]). Where no offline map covers
+/// the view, it tells an island whose places sync with its country but
+/// which no outline holds (Åland with Finland, Svalbard with Norway,
+/// Kastellorizo with Greece) from an area online only: offline its places
+/// show, only its map does not. Read offline, by the map's line and the
+/// list, at each move of the view; watched whatever the view, it keeps its
+/// last answer while it counts again, so their words do not flicker.
+@riverpod
+Future<bool> placesAroundView(Ref ref) async {
+  // Counted again when a sync writes.
+  ref.watch(placeCountProvider);
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  final area = PackOutlines.nearArea(view.center, view.bounds);
+  final held = await ref
+      .watch(placesRepositoryProvider)
+      .countMatching(PlaceFilter.none, bounds: area);
+  return held > 0;
 }
 
 /// The places and the saved points of the favourites, for the packs to

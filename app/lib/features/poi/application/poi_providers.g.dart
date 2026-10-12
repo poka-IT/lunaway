@@ -335,16 +335,25 @@ final class PoiLayerStateProvider
 
 String _$poiLayerStateHash() => r'adecd1df7daa7f4d875e3bb7690f80a384fd2e11';
 
-/// Whether it is night now, when what is open around the clock comes first.
+/// Whether it is night now, when what is open around the clock comes first,
+/// on the clock of the country of the sync region at the centre of the view
+/// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+/// overseas departments).
 
 @ProviderFor(poiNight)
 final poiNightProvider = PoiNightProvider._();
 
-/// Whether it is night now, when what is open around the clock comes first.
+/// Whether it is night now, when what is open around the clock comes first,
+/// on the clock of the country of the sync region at the centre of the view
+/// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+/// overseas departments).
 
 final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
-  /// Whether it is night now, when what is open around the clock comes first.
+  /// Whether it is night now, when what is open around the clock comes first,
+  /// on the clock of the country of the sync region at the centre of the view
+  /// (`MA`, `FR-BRE`); France's at sea and outside the regions (Turkey, the
+  /// overseas departments).
   PoiNightProvider._()
     : super(
         from: null,
@@ -378,7 +387,7 @@ final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
   }
 }
 
-String _$poiNightHash() => r'edce6f07b79d32db47a03f2d9b92bed85f0c73b8';
+String _$poiNightHash() => r'339eac0deb66e1fc5f3a2ec15d70582a77f9df38';
 
 /// "Around this place": the copy kept on the device first, then the API's.
 /// A failure shows at once (no automatic retry): offline without a copy,

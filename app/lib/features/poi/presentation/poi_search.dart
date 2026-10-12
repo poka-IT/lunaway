@@ -176,7 +176,7 @@ String poiSearchLine(
   ?localityLine(t, poi.locality, home: home),
   if (from != null) t.distance(poi.position.distanceTo(from)),
   if (!poi.kind.timeless && poi.hours.opennessAt(now) != PoiOpenness.unknown)
-    t.poiOpening(poi.hours, now),
+    t.poiOpening(poi.hours, now, zone: poi.zone),
 ].join(' · ');
 
 /// The cuisine a row of the search says: the one a word of [sought] spells
