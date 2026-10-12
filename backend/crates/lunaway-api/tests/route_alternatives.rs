@@ -42,7 +42,7 @@ query Route($input: RouteInput!) {
 const ONCE_QUERY: &str = r"
 query Route($input: RouteInput!) {
   route(input: $input) {
-    status osrmJson
+    status osrmJson recalculations
     routes { index distanceM }
   }
 }";
@@ -443,15 +443,15 @@ async fn a_failure_of_the_engine_for_the_alternatives_leaves_the_best_route_alon
 }
 
 /// What a fake engine that answers by the kind of call records, and its
-/// answers by kind: the best route alone, then around rings, today's request
-/// with its alternatives, and the alternatives asked after the best route
-/// (with rings). The calls around rings without alternatives, the
-/// recalculation of a best route blocked alone, wait `around_delay`.
+/// answers and delays by kind: the best route alone, then around rings,
+/// today's request with its alternatives, and the same with rings (the
+/// alternatives asked after the best route, or the recalculation of a trip
+/// asked with its alternatives).
 #[derive(Clone)]
 struct ByKind {
     asked: Arc<Mutex<Vec<Value>>>,
     answers: Arc<[Value; 4]>,
-    around_delay: Duration,
+    delays: [Duration; 4],
 }
 
 async fn by_kind(State(k): State<ByKind>, Json(body): Json<Value>) -> Json<Value> {
@@ -465,22 +465,34 @@ async fn by_kind(State(k): State<ByKind>, Json(body): Json<Value>) -> Json<Value
         (true, true) => 3,
     };
     k.asked.lock().unwrap().push(body);
-    if n == 1 {
-        tokio::time::sleep(k.around_delay).await;
-    }
+    tokio::time::sleep(k.delays[n]).await;
     Json(k.answers[n].clone())
 }
 
-/// A fake engine that answers by the kind of call ([`ByKind`]): its URL and
-/// the requests it receives.
+/// A fake engine that answers by the kind of call ([`ByKind`]), the calls
+/// around rings without alternatives (the recalculation of a best route
+/// blocked alone) after `around_delay`: its URL and the requests it
+/// receives.
 pub(super) async fn kind_engine(
     answers: [Value; 4],
     around_delay: Duration,
 ) -> (String, Arc<Mutex<Vec<Value>>>) {
+    kind_engine_waiting(
+        answers,
+        [Duration::ZERO, around_delay, Duration::ZERO, Duration::ZERO],
+    )
+    .await
+}
+
+/// [`kind_engine`] with a delay for each kind of call.
+async fn kind_engine_waiting(
+    answers: [Value; 4],
+    delays: [Duration; 4],
+) -> (String, Arc<Mutex<Vec<Value>>>) {
     let k = ByKind {
         asked: Arc::new(Mutex::new(Vec::new())),
         answers: Arc::new(answers),
-        around_delay,
+        delays,
     };
     let asked = Arc::clone(&k.asked);
     let app = Router::new()
@@ -659,6 +671,118 @@ async fn without_an_engine_a_best_route_asked_alone_is_unavailable_at_once(pool:
     assert!(
         started.elapsed() < Duration::from_secs(3),
         "nothing waits for a race that never starts: {:?}",
+        started.elapsed()
+    );
+}
+
+/// The kinds of the engine calls `asked` holds, as [`ByKind`] numbers them.
+fn kinds(asked: &[Value]) -> Vec<u8> {
+    asked
+        .iter()
+        .map(|b| {
+            match (
+                b.get("alternates").is_some(),
+                b.get("exclude_polygons").is_some(),
+            ) {
+                (false, false) => 0,
+                (false, true) => 1,
+                (true, false) => 2,
+                (true, true) => 3,
+            }
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_blocked_beside_a_safe_alternative_races_its_recalculation(pool: PgPool) {
+    seed(&pool).await;
+    // The app 0.1.0, a 3.3 m motorhome: the engine's best route runs under
+    // the 2.7 m bridge and the detour of the same answer is safe, which
+    // went as it stood. Asked again around the bridge, the trip takes
+    // ROUTE_AROUND, the detour beside it. The answer whose best route is
+    // the faster wins, then the shorter at the same time, whole.
+    let detour = detour();
+    for (around, today, kept, recalculations) in [
+        (
+            (150.0, 2_020.3),
+            (200.0, 1_500.0),
+            vec![ROUTE_AROUND, detour.as_str()],
+            1,
+        ),
+        ((250.0, 2_020.3), (200.0, 1_500.0), vec![detour.as_str()], 0),
+        ((200.0, 2_020.3), (200.0, 1_500.0), vec![detour.as_str()], 0),
+        (
+            (200.0, 1_000.0),
+            (200.0, 1_500.0),
+            vec![ROUTE_AROUND, detour.as_str()],
+            1,
+        ),
+    ] {
+        let (url, asked) = kind_engine(race(around, today), Duration::ZERO).await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+        let (_, body) = gql(&app, ONCE_QUERY, wanting_two(3.3)).await;
+        let r = &body["data"]["route"];
+        assert_eq!(r["status"], "OK", "{body}");
+        assert_eq!(
+            shapes(&r["osrmJson"]),
+            kept,
+            "the answer with the faster safe best route, then the shorter: \
+             {around:?} around the bridge, {today:?} the detour"
+        );
+        assert_eq!(r["recalculations"], recalculations, "{body}");
+        assert_eq!(
+            kinds(&asked.lock().unwrap()),
+            [2, 3],
+            "the trip with its alternatives, then again around the bridge with them"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_best_route_safe_beside_a_blocked_alternative_makes_one_call(pool: PgPool) {
+    seed(&pool).await;
+    // The best route goes round the bridge; the alternative under it is
+    // dropped as before, and nothing is asked again.
+    let answers = [
+        timed(&[(ROUTE_AROUND, 150.0, 2_020.3)]),
+        timed(&[(ROUTE_AROUND, 150.0, 2_020.3)]),
+        timed(&[(ROUTE_AROUND, 150.0, 2_020.3), (ROUTE_UNDER, 40.0, 268.7)]),
+        timed(&[(ROUTE_AROUND, 150.0, 2_020.3)]),
+    ];
+    let (url, asked) = kind_engine(answers, Duration::ZERO).await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ONCE_QUERY, wanting_two(3.3)).await;
+    assert_eq!(shapes(&body["data"]["route"]["osrmJson"]), [ROUTE_AROUND]);
+    assert_eq!(kinds(&asked.lock().unwrap()), [2], "one call, as before");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_recalculation_beside_the_first_answer_that_fails_leaves_it(pool: PgPool) {
+    seed(&pool).await;
+    // The recalculation around the bridge would be faster, but the engine
+    // takes longer than its timeout (500 ms) for it: the detour of the
+    // first answer goes, without waiting for the route's deadline.
+    let (url, asked) = kind_engine_waiting(
+        race((150.0, 2_020.3), (200.0, 1_500.0)),
+        [
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::from_secs(2),
+        ],
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let started = std::time::Instant::now();
+    let (_, body) = gql(&app, ONCE_QUERY, wanting_two(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(shapes(&r["osrmJson"]), [detour()]);
+    assert_eq!(r["recalculations"], 0);
+    assert_eq!(kinds(&asked.lock().unwrap()), [2, 3]);
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "the first answer waits for the recalculation's engine call only: {:?}",
         started.elapsed()
     );
 }

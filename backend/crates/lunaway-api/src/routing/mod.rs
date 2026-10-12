@@ -663,7 +663,9 @@ impl Routing {
     /// `plan/research/53-obstacles-publics.md`). The traces of an answer
     /// whose every route is blocked are dropped unfinished. The caller holds
     /// the engine slot of the call until this returns: the traces run under
-    /// it.
+    /// it. `heard` is told which routes are safe and which blocked, with
+    /// what the corridor queries found, as soon as the check ends, before
+    /// the wait for the traces.
     #[allow(
         clippy::too_many_arguments,
         reason = "the route's own inputs, passed on to its check"
@@ -678,6 +680,7 @@ impl Routing {
         fresh: &Freshness,
         deadline: tokio::time::Instant,
         work: &mut Work,
+        heard: impl FnOnce(&[CheckedRoute], &[Checked], &Known),
     ) -> Result<CheckedAnswer, RouteError> {
         let routes_in_answer = osrm
             .get("routes")
@@ -719,6 +722,7 @@ impl Routing {
             }
         }
         let safe: Vec<CheckedRoute> = safe.into_iter().map(|(r, _, _)| r).collect();
+        heard(&safe, &blocked, &work.known);
         if safe.is_empty() {
             return Ok(CheckedAnswer {
                 safe,
@@ -779,6 +783,15 @@ impl Routing {
         let result = tokio::time::timeout_at(deadline, async {
             let first = if request.later {
                 self.route_later(pool, graph_id, request, fresh, deadline, &mut work)
+                    .await
+            } else if request.stops.len() == 2
+                && valhalla::alternates_for(
+                    request.alternatives,
+                    request.straight_m(),
+                    request.avoid,
+                ) > 0
+            {
+                self.route_at_once(pool, graph_id, request, fresh, deadline, &mut work)
                     .await
             } else {
                 self.route_within(pool, graph_id, request, fresh, deadline, &mut work)
@@ -867,14 +880,14 @@ impl Routing {
     /// When the check blocks it at its first call, today's request with its
     /// alternatives (a route of which may be safe as it stands, or come out
     /// of its own recalculations) runs beside the recalculation around the
-    /// blockers, and the faster safe best route of the two is kept, the
-    /// shorter at the same time: on 4 trips of 120 the recalculation alone
-    /// came out 22 to 24 minutes faster three times and 8 minutes slower
-    /// once (`plan/research/130-alternatives-apres.md`). The recalculation
-    /// takes its first engine slot before today's request, which waits
-    /// [`AT_ONCE_SLOT_WAIT`] at most for each of its own and does without
-    /// past it; both end within the route's deadline. A trip whose first
-    /// call is safe, most of them, makes one call.
+    /// blockers ([`Self::race`]), and the faster safe best route of the two
+    /// is kept, the shorter at the same time: on 4 trips of 120 the
+    /// recalculation alone came out 22 to 24 minutes faster three times and
+    /// 8 minutes slower once (`plan/research/130-alternatives-apres.md`).
+    /// The recalculation takes its first engine slot before today's request,
+    /// which waits [`AT_ONCE_SLOT_WAIT`] at most for each of its own and does
+    /// without past it; both end within the route's deadline. A trip whose
+    /// first call is safe, most of them, makes one call.
     async fn route_later(
         &self,
         pool: &PgPool,
@@ -884,32 +897,11 @@ impl Routing {
         deadline: tokio::time::Instant,
         work: &mut Work,
     ) -> Result<Outcome, RouteError> {
-        let (told, blocked) = tokio::sync::oneshot::channel::<Known>();
-        work.blocked = Some(told);
-        let limits = work.limits;
-        let without_ahead = work.without_ahead;
         let mut at_once = request.clone();
         at_once.later = false;
-        let alone = self.route_within(pool, graph_id, request, fresh, deadline, work);
-        let beside = async {
-            // Not told: the first call was safe, or failed.
-            let known = blocked.await.ok()?;
-            let mut other = Work {
-                known,
-                limits,
-                without_ahead,
-                slot_wait: Some(AT_ONCE_SLOT_WAIT),
-                ..Work::default()
-            };
-            // Never past the route's deadline: the recalculation's route,
-            // found meanwhile, is not lost to today's request running late.
-            let asked = self.route_within(pool, graph_id, &at_once, fresh, deadline, &mut other);
-            let r = tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, asked)
-                .await
-                .unwrap_or(Err(RouteError::Deadline));
-            Some((r, other))
-        };
-        let (alone, beside) = tokio::join!(alone, beside);
+        let (alone, beside) = self
+            .race(pool, graph_id, request, &at_once, fresh, deadline, work)
+            .await;
         let Some((at_once, other)) = beside else {
             return alone;
         };
@@ -920,30 +912,11 @@ impl Routing {
         work.answered |= other.answered;
         // Work done side by side: the durations add up past the time taken.
         work.spent += other.spent;
-        let (alone_s, at_once_s) = (best_time(&alone), best_time(&at_once));
-        let keep_at_once = match (alone_s, at_once_s) {
-            (Some(a), Some(b)) => b < a,
-            (None, Some(_)) => true,
-            _ => false,
-        };
-        let beside_ended = match &at_once {
-            Ok(Outcome::Found { .. }) => "found",
-            Ok(Outcome::NoSafeRoute { .. }) => "no_safe_route",
-            Ok(Outcome::NoRoute(_)) => "no_route",
-            Err(RouteError::Busy) => "no_slot",
-            Err(RouteError::Deadline) => "out_of_time",
-            Err(error) => {
-                tracing::warn!(
-                    error = %crate::error::chain(error),
-                    "the trip asked with its alternatives beside a best route blocked alone failed"
-                );
-                "failed"
-            }
-        };
+        let keep_at_once = faster(&at_once, &alone);
         tracing::info!(
-            alone_s = ?alone_s.map(|(s, _)| s.round()),
-            at_once_s = ?at_once_s.map(|(s, _)| s.round()),
-            at_once = beside_ended,
+            alone_s = ?best_time(&alone).map(|(s, _)| s.round()),
+            at_once_s = ?best_time(&at_once).map(|(s, _)| s.round()),
+            at_once = ended(&at_once),
             kept = if keep_at_once { "at_once" } else { "alone" },
             "a best route blocked alone was raced against the trip asked with its alternatives"
         );
@@ -954,6 +927,100 @@ impl Routing {
         } else {
             alone
         }
+    }
+
+    /// A trip asked with its alternatives in one answer (the app 0.1.0, or
+    /// a request whose alternatives cannot wait for a token). When the
+    /// check blocks the engine's best route at the first call and keeps
+    /// another route of the answer, that route would go as it stands: the
+    /// trip is asked again around the best route's blockers beside the rest
+    /// of the first answer (its speed-limit traces), as the trip asked alone
+    /// is ([`Self::race`]), and the answer whose best route is the faster
+    /// safe one is kept whole, the shorter at the same time. On trip 104 of
+    /// `infra/routing/bench/`, the alternatives sent took 20.25 and 21.44 h
+    /// where the recalculation around the closure took 19.99 h
+    /// (`plan/research/131-memoire-serveur.md`). The recalculation waits
+    /// [`AT_ONCE_SLOT_WAIT`] at most for each of its engine slots and ends
+    /// within the route's deadline; failed, late or slower, it leaves the
+    /// first answer as it was.
+    async fn route_at_once(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        request: &RouteRequest,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        work: &mut Work,
+    ) -> Result<Outcome, RouteError> {
+        let (first, beside) = self
+            .race(pool, graph_id, request, request, fresh, deadline, work)
+            .await;
+        let Some((around, other)) = beside else {
+            return first;
+        };
+        work.answered |= other.answered;
+        work.spent += other.spent;
+        let keep_around = faster(&around, &first);
+        tracing::info!(
+            first_s = ?best_time(&first).map(|(s, _)| s.round()),
+            around_s = ?best_time(&around).map(|(s, _)| s.round()),
+            around = ended(&around),
+            kept = if keep_around { "around" } else { "first" },
+            "the engine's best route blocked beside a safe alternative was raced against its recalculation"
+        );
+        if keep_around { around } else { first }
+    }
+
+    /// `request` with `work`, and `beside` once the first tells it to start
+    /// through [`Work::blocked`], with what its corridor queries found: the
+    /// trip asked alone, once its first recalculation holds an engine slot;
+    /// the trip asked with its alternatives, once its first answer leaves
+    /// the engine's best route blocked beside a safe one, from that answer's
+    /// rings ([`Around`]). The second waits [`AT_ONCE_SLOT_WAIT`] at most for
+    /// each engine slot and ends before the route's deadline, less
+    /// [`DIAGNOSIS_MARGIN`]: a route the first found meanwhile is never lost
+    /// to the second running late. Gives the second's outcome and work, when
+    /// it ran.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the route's own inputs, and the request run beside it"
+    )]
+    async fn race(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        request: &RouteRequest,
+        beside: &RouteRequest,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        work: &mut Work,
+    ) -> (
+        Result<Outcome, RouteError>,
+        Option<(Result<Outcome, RouteError>, Work)>,
+    ) {
+        let (told, tells) = tokio::sync::oneshot::channel::<Told>();
+        work.blocked = Some(told);
+        let limits = work.limits;
+        let without_ahead = work.without_ahead;
+        let first = self.route_within(pool, graph_id, request, fresh, deadline, work);
+        let second = async {
+            // Not told: the first call was safe, or failed.
+            let Told { known, around } = tells.await.ok()?;
+            let mut other = Work {
+                known,
+                around,
+                limits,
+                without_ahead,
+                slot_wait: Some(AT_ONCE_SLOT_WAIT),
+                ..Work::default()
+            };
+            let asked = self.route_within(pool, graph_id, beside, fresh, deadline, &mut other);
+            let r = tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, asked)
+                .await
+                .unwrap_or(Err(RouteError::Deadline));
+            Some((r, other))
+        };
+        tokio::join!(first, second)
     }
 
     /// The alternatives of a route already sent: the engine call `call`
@@ -1081,6 +1148,7 @@ impl Routing {
                 fresh,
                 deadline,
                 work,
+                |_, _, _| {},
             )
             .await?;
         drop(slot);
@@ -1306,8 +1374,9 @@ impl Routing {
         work: &mut Work,
     ) -> Result<Outcome, RouteError> {
         // Taken first, so that it goes with this call whatever ends it:
-        // untold, today's request beside it never starts.
+        // untold, the request beside it never starts.
         let mut blocked = work.blocked.take();
+        let around = work.around.take();
         let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
         let dims = request.vehicle.routing();
         let costing = valhalla::costing_options(&dims, request.avoid);
@@ -1328,7 +1397,18 @@ impl Routing {
         };
         work.found = None;
         let slot_wait = work.slot_wait.unwrap_or(self.queue_wait);
-        if !work.without_ahead {
+        let mut attempt = 0;
+        if let Some(around) = around {
+            // The recalculation of a first answer's best route: its rings
+            // (those excluded ahead among them), its snapping and its
+            // alternatives; the first call was the trip's.
+            exclusions = around.exclusions;
+            centres = around.centres;
+            snapped = Some(around.snapped);
+            alternates = around.alternates;
+            avoided = around.avoided;
+            attempt = 1;
+        } else if !work.without_ahead {
             for centre in self.ahead(graph_id, &request.stops, &dims) {
                 if centres.iter().all(|c| c.distance_m(centre) >= RING_M / 2.0) {
                     centres.push(centre);
@@ -1336,9 +1416,8 @@ impl Routing {
                 }
             }
         }
-        let mut ahead = !centres.is_empty();
+        let mut ahead = attempt == 0 && !centres.is_empty();
         work.used_ahead = ahead;
-        let mut attempt = 0;
         while attempt < MAX_ATTEMPTS {
             calls = attempt + 1;
             let body = valhalla::route_body(
@@ -1361,11 +1440,15 @@ impl Routing {
             // The best route alone was blocked at the first call, and its
             // recalculation now holds a slot: today's request may start
             // beside it, with what the first check read.
-            if attempt > 0
+            if request.later
+                && attempt > 0
                 && let Some(told) = blocked.take()
             {
                 // Its receiver gone, nothing waits for the news.
-                let _ = told.send(work.known.clone());
+                let _ = told.send(Told {
+                    known: work.known.clone(),
+                    around: None,
+                });
             }
             let answer = engine.route(&body).await;
             work.spent.engine += called.elapsed();
@@ -1475,6 +1558,15 @@ impl Routing {
             // for each route: 1.3 ms for a 650 km route (measured, test
             // `copying_a_long_route_costs_little`).
             let osrm = Arc::new(osrm);
+            // A trip asked with its alternatives whose first answer leaves
+            // the engine's best route blocked beside a safe one: the
+            // recalculation around its blockers starts beside the rest of
+            // this answer (`Routing::route_at_once`).
+            let tell = if request.later || attempt > 0 {
+                None
+            } else {
+                blocked.take()
+            };
             let checked = self
                 .check_answer(
                     pool,
@@ -1485,6 +1577,26 @@ impl Routing {
                     fresh,
                     deadline,
                     work,
+                    |safe, blocked, known| {
+                        let Some(tell) = tell else {
+                            return;
+                        };
+                        let start = Around::of_best(
+                            safe,
+                            blocked,
+                            &exclusions,
+                            &centres,
+                            &distances,
+                            alternates,
+                        );
+                        if let Some(around) = start {
+                            // Its receiver gone, nothing waits for the news.
+                            let _ = tell.send(Told {
+                                known: known.clone(),
+                                around: Some(around),
+                            });
+                        }
+                    },
                 )
                 .await?;
             if !checked.safe.is_empty() {
@@ -1521,24 +1633,7 @@ impl Routing {
                 }
             }
             let before = exclusions.len();
-            let rings = blockers.iter().map(|b| (b.hit.middle, RING_M)).chain(
-                event_blockers
-                    .iter()
-                    .flat_map(|e| e.rings.iter().map(|r| (*r, events::RING_M))),
-            );
-            // A blocker within half a radius of a ring already sent is
-            // inside it (an OpenStreetMap way and the IGN section of the same
-            // bridge): no second ring. One farther away gets its own, even on
-            // the next road.
-            for (centre, radius) in rings {
-                if exclusions.len() >= MAX_EXCLUSIONS
-                    || centres.iter().any(|c| c.distance_m(centre) < radius / 2.0)
-                {
-                    continue;
-                }
-                centres.push(centre);
-                exclusions.push(exclusion_ring(centre, radius));
-            }
+            add_rings(&mut exclusions, &mut centres, &blockers, &event_blockers);
             if exclusions.len() == before {
                 // Nothing new to exclude: the engine keeps going through.
                 tracing::info!(
@@ -1586,6 +1681,132 @@ fn best_time(outcome: &Result<Outcome, RouteError>) -> Option<(f64, f64)> {
     match outcome {
         Ok(Outcome::Found { routes, .. }) => routes.first().map(|r| (r.duration_s, r.distance_m)),
         _ => None,
+    }
+}
+
+/// Whether the request run beside another one wins the race: its safe best
+/// route is faster, or as fast and shorter, or the other found none.
+fn faster(beside: &Result<Outcome, RouteError>, first: &Result<Outcome, RouteError>) -> bool {
+    match (best_time(first), best_time(beside)) {
+        (Some(a), Some(b)) => b < a,
+        (None, Some(_)) => true,
+        _ => false,
+    }
+}
+
+/// How the request run beside another one ended, for the journal.
+fn ended(beside: &Result<Outcome, RouteError>) -> &'static str {
+    match beside {
+        Ok(Outcome::Found { .. }) => "found",
+        Ok(Outcome::NoSafeRoute { .. }) => "no_safe_route",
+        Ok(Outcome::NoRoute(_)) => "no_route",
+        Err(RouteError::Busy) => "no_slot",
+        Err(RouteError::Deadline) => "out_of_time",
+        Err(error) => {
+            tracing::warn!(
+                error = %crate::error::chain(error),
+                "the trip asked beside a blocked best route failed"
+            );
+            "failed"
+        }
+    }
+}
+
+/// What a route request tells the request that waits to run beside it
+/// ([`Routing::race`]).
+struct Told {
+    /// What its corridor queries found so far.
+    known: Known,
+    /// Where the recalculation of its first answer's best route starts,
+    /// for a trip asked with its alternatives; none for the trip asked
+    /// alone, whose own recalculation runs on.
+    around: Option<Around>,
+}
+
+/// Where the recalculation of the engine's best route starts when the check
+/// blocked it at the first call of a trip asked with its alternatives and
+/// kept another route of that answer.
+struct Around {
+    /// The first call's rings, those excluded ahead among them, and one
+    /// around each blocker of the best route.
+    exclusions: Vec<Vec<Position>>,
+    /// Their centres.
+    centres: Vec<Position>,
+    /// How far the first call snapped each stop, metres: the recalculation
+    /// must not move one farther ([`STOP_MOVED_M`]).
+    snapped: Vec<f64>,
+    /// The alternatives the first call asked for.
+    alternates: u8,
+    /// The road events among the best route's blockers.
+    avoided: Vec<Arc<EventRow>>,
+}
+
+impl Around {
+    /// The start of the recalculation of an answer whose routes the check
+    /// found `safe` and `blocked`, asked with `exclusions` (centred on
+    /// `centres`), its stops snapped at `snapped` and `alternates`: when the
+    /// engine's best route (its index 0) is blocked and another is safe.
+    /// None otherwise, or when every blocker of the best route lies inside a
+    /// ring already sent: the same call would give the same answer.
+    fn of_best(
+        safe: &[CheckedRoute],
+        blocked: &[Checked],
+        exclusions: &[Vec<Position>],
+        centres: &[Position],
+        snapped: &[f64],
+        alternates: u8,
+    ) -> Option<Self> {
+        if safe.is_empty() {
+            return None;
+        }
+        let (_, limits, events) = blocked.iter().find(|(r, _, _)| r.index == 0)?;
+        let mut exclusions = exclusions.to_vec();
+        let mut centres = centres.to_vec();
+        let before = exclusions.len();
+        add_rings(&mut exclusions, &mut centres, limits, events);
+        if exclusions.len() == before {
+            return None;
+        }
+        let mut avoided: Vec<Arc<EventRow>> = Vec::new();
+        for e in events {
+            if !avoided.iter().any(|a| a.id == e.event.id) {
+                avoided.push(Arc::clone(&e.event));
+            }
+        }
+        Some(Self {
+            exclusions,
+            centres,
+            snapped: snapped.to_vec(),
+            alternates,
+            avoided,
+        })
+    }
+}
+
+/// Adds to `exclusions` (centred on `centres`) a ring around each of
+/// `blockers` and `event_blockers`, [`MAX_EXCLUSIONS`] at most. A blocker
+/// within half a radius of a ring already sent is inside it (an
+/// OpenStreetMap way and the IGN section of the same bridge): no second
+/// ring. One farther away gets its own, even on the next road.
+fn add_rings(
+    exclusions: &mut Vec<Vec<Position>>,
+    centres: &mut Vec<Position>,
+    blockers: &[Met],
+    event_blockers: &[EventHit],
+) {
+    let rings = blockers.iter().map(|b| (b.hit.middle, RING_M)).chain(
+        event_blockers
+            .iter()
+            .flat_map(|e| e.rings.iter().map(|r| (*r, events::RING_M))),
+    );
+    for (centre, radius) in rings {
+        if exclusions.len() >= MAX_EXCLUSIONS
+            || centres.iter().any(|c| c.distance_m(centre) < radius / 2.0)
+        {
+            continue;
+        }
+        centres.push(centre);
+        exclusions.push(exclusion_ring(centre, radius));
     }
 }
 
@@ -1899,8 +2120,14 @@ struct Work {
     found: Option<(Value, String)>,
     /// Told, with what the corridor queries found so far, once the best
     /// route asked alone was blocked at its first call and its
-    /// recalculation holds an engine slot ([`Routing::route_later`]).
-    blocked: Option<tokio::sync::oneshot::Sender<Known>>,
+    /// recalculation holds an engine slot ([`Routing::route_later`]), or
+    /// once the first answer of a trip asked with its alternatives left the
+    /// engine's best route blocked beside a safe one
+    /// ([`Routing::route_at_once`]).
+    blocked: Option<tokio::sync::oneshot::Sender<Told>>,
+    /// Where this request starts: the recalculation of another one's best
+    /// route ([`Around`]).
+    around: Option<Around>,
     /// How long an engine slot is waited for, when not
     /// [`Routing::queue_wait`].
     slot_wait: Option<Duration>,
@@ -2052,8 +2279,8 @@ async fn query_corridors(
         }
         known.queried.push(Arc::new(line));
         // The task above has ended and dropped its share: no copy, unless a
-        // race beside a best route blocked alone holds a copy of the whole
-        // (`route_later`), which then pays for one set of segments once.
+        // race beside a blocked best route holds a copy of the whole
+        // (`Routing::race`), which then pays for one set of segments once.
         Arc::make_mut(&mut known.segments).extend(stretch.windows(2).map(|w| segment(w[0], w[1])));
     }
     Ok(())

@@ -3364,7 +3364,15 @@ engine slot was spare, `Failed`) and the same durations. A recalculation
 writes `route recalculated around limits ...` with the blockers met and, since 2026-10-11, `on_points`, those
 standing on a point (a bar on a node, a community report) rather than
 along a road: before that, the journal could not say what a recalculation
-came from (plan/research/127-routage-serveur.md, 1.3). On 2026-10-07 the engine took most of the time of
+came from (plan/research/127-routage-serveur.md, 1.3). A best route
+blocked and computed again beside another request writes one more line,
+with the best route's seconds each way, how the second request ended
+(`found`, `no_safe_route`, `no_route`, `no_slot`, `out_of_time`,
+`failed`) and the one kept: `a best route blocked alone was raced ...`
+(`alone_s`, `at_once_s`, `kept`) for a best route asked alone, `the
+engine's best route blocked beside a safe alternative was raced ...`
+(`first_s`, `around_s`, `kept`) for a trip asked with its alternatives
+(`docs/architecture.md`, "Alternatives after the best route"). On 2026-10-07 the engine took most of the time of
 a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9
 times what a ccx23 (dedicated vCPU) took for the same calls on the same
 graph (`plan/research/48-latence-itineraires.md`).

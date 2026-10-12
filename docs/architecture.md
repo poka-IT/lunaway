@@ -412,8 +412,18 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   faster and one 8 minutes slower (`plan/research/130-alternatives-apres.md`).
   A best route alone left without any safe way is asked once more with its
   alternatives. A request without the field (the app 0.1.0) gets every
-  route in one answer, as before. On 119 trips drawn the same way, the
-  engine's own best route was the same with and without alternatives.
+  route in one answer, as before. When the check blocks that answer's
+  best route and keeps an alternative, the trip is asked again around the
+  best route's blockers, with its alternatives, beside the rest of the
+  first answer, within the same bounds (200 ms at most for each engine
+  slot, the route's deadline), and the answer whose best route is the
+  faster safe one goes whole, the shorter at the same time: before, the
+  alternative went as it stood, 16 minutes slower than the recalculation
+  on trip 104 of `infra/routing/bench/`
+  (`plan/research/131-memoire-serveur.md`,
+  `plan/research/135-routage-ancien-chemin.md`). On 119 trips drawn the
+  same way, the engine's own best route was the same with and without
+  alternatives.
 - **Ferries.** Avoiding ferries is a preference of the engine; a route
   that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
   (`routing::ferries`: the line's name and ports, where it is boarded and
