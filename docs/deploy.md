@@ -339,7 +339,7 @@ kernel takes back first):
 | unit | measured | budget | `MemoryHigh`, `MemoryMax` | swap |
 |---|---|---|---|---|
 | PostgreSQL | shared buffers 3.9 GiB (`shared_buffers` 3,918 MB), its processes 0.1 to 0.3 GiB, the database's page cache from 1.4 to 14.6 GiB | 4.5 GiB besides its page cache, 2 GiB more while an index is built (`maintenance_work_mem`) or three autovacuum workers run (512 MB each) | none | none (`postgresql@18-main.service.d/memory.conf`) |
-| `valhalla` | 3.4 to 3.6 GiB private with six threads, 2.3 GiB of tiles | its cap | container 10 GiB (`--memory=10g`) | within its cap |
+| `valhalla` | 3.4 GiB private with six threads; 2.3 to 2.5 GiB of tiles charged to it, 6.3 GiB of the graph in the page cache (below) | 10 GiB, its cap 0 times reached in 12 hours | container 10 GiB (`--memory=10g`) | at its cap, inside the container |
 | `photon@europe` | 1.8 to 1.9 GiB private (a heap of 2 GB), 3.5 GiB of the index's pages | 6 GiB | 6 GiB, 7 GiB | none |
 | `photon@morocco` | 0.8 GiB private (a heap of 512 MB) | 1 GiB | the same unit file | none |
 | `lunaway-translate` | 3.1 to 3.3 GB, the 28 models (2026-10-09) | 3.5 GiB | 4 GiB, 4.5 GiB | none |
@@ -371,9 +371,20 @@ of tiles, had reached the cap 7,765 times and read 2 GB of tiles again
 15:34 to 16:59 the same day, it reached the cap 7,925 times and read
 2.1 GB again while the restrictions kept ahead were computed and route
 batteries ran, its anonymous part up to 3.5 GB; the cap went to 10 GB
-(plan/research/129-paquets-routage-suites.md). Past the anonymous part,
-what the engine holds is page cache the kernel takes back under the
-machine's pressure.
+(plan/research/129-paquets-routage-suites.md). At 10 GB, in the 12 hours
+after its restart at 17:23 UTC on 2026-10-11, the engine reached its cap
+0 times and read 0 pages of tiles again, with nothing swapped, while 1,901
+routes, 573 requests of alternatives, seven computations of the
+restrictions kept ahead (876 engine calls each) and route batteries ran,
+most of them before 21:00; its cgroup peaked at 6.1 GiB, 3.4 GiB of it
+anonymous (`memory.events`, `memory.stat`, `memory.peak`;
+plan/research/131-memoire-serveur.md). That count leaves out the tiles
+read before the restart, which stay charged to the old cgroup: 6.3 GiB of
+the graph's 19 GiB file were in the page cache at the end
+(`fincore /srv/routing/current/valhalla_tiles.tar`), so the engine's
+private memory and its tiles in memory come to about 9.7 GiB, near the
+cap, which stays at 10 GB. Past the anonymous part, what the engine holds
+is page cache the kernel takes back under the machine's pressure.
 
 ### The data volume
 
@@ -3183,10 +3194,11 @@ serving meanwhile.
   the official image pinned by digest, run by Podman, `Network=host` with a
   listener on 127.0.0.1:8002 only, read-only, no capability, six threads
   (one per engine call the API lets in flight, `LUNAWAY_ROUTING_CONCURRENCY`;
-  four until 2026-10-11), an 8 GB memory cap (Europe without a cap settled
+  four until 2026-10-11), a 10 GB memory cap (Europe without a cap settled
   at 5.95 GB after 400 varied routes; with 3 GB the kernel read the tiles
   again and again, plan/research/31; 6 GB with four threads until
-  2026-10-11, where it read 2 GB of tiles again in a day, "Memory"), and an
+  2026-10-11, where it read 2 GB of tiles again in a day, then 8 GB for an
+  afternoon; at 10 GB, none again in the next 12 hours, "Memory"), and an
   IP filter to loopback: the engine receives every route's
   positions and reaches nothing. Its configuration is the repository's
   `infra/routing/valhalla.json` (route, trace_attributes, sources_to_targets
