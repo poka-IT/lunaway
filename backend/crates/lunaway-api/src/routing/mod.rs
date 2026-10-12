@@ -153,6 +153,18 @@ impl RouteRequest {
             .map(|w| w[0].at.distance_m(w[1].at))
             .sum()
     }
+
+    /// The alternatives the engine is asked for with the best route, in
+    /// one call or afterwards: none through waypoints (the engine computes
+    /// none there, `valhalla::route_body`), fewer on a long trip
+    /// ([`valhalla::alternates_for`]).
+    pub(crate) fn alternates(&self) -> u8 {
+        if self.stops.len() == 2 {
+            valhalla::alternates_for(self.alternatives, self.straight_m(), self.avoid)
+        } else {
+            0
+        }
+    }
 }
 
 /// A restriction met along a route, and what it means for the vehicle.
@@ -651,7 +663,10 @@ impl Routing {
     /// traces of an answer run one at a time under the slot its route call
     /// took, held until they end (`route_within`), while the engine would
     /// otherwise wait for the check. A request never holds more than one
-    /// slot, and never waits for a second one while holding the first.
+    /// slot; the request run beside a blocked best route ([`Self::race`])
+    /// waits [`AT_ONCE_SLOT_WAIT`] at most for its own while the first
+    /// traces under its slot, and does without past it, so no wait is
+    /// circular.
     async fn trace_piece(&self, engine: &Engine, body: &Value) -> Result<Value, RouteError> {
         Ok(engine.trace(body).await?)
     }
@@ -784,13 +799,7 @@ impl Routing {
             let first = if request.later {
                 self.route_later(pool, graph_id, request, fresh, deadline, &mut work)
                     .await
-            } else if request.stops.len() == 2
-                && valhalla::alternates_for(
-                    request.alternatives,
-                    request.straight_m(),
-                    request.avoid,
-                ) > 0
-            {
+            } else if request.alternates() > 0 {
                 self.route_at_once(pool, graph_id, request, fresh, deadline, &mut work)
                     .await
             } else {
@@ -852,12 +861,9 @@ impl Routing {
         .await
         .map_err(|_| RouteError::Deadline)
         .and_then(|r| r);
-        let alternates =
-            valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid);
+        let alternates = request.alternates();
         let later = match (&result, work.found.take()) {
-            (Ok(Outcome::Found { .. }), Some((body, best)))
-                if request.later && alternates > 0 && request.stops.len() == 2 =>
-            {
+            (Ok(Outcome::Found { .. }), Some((body, best))) if request.later && alternates > 0 => {
                 Some(LaterCall {
                     body,
                     best,
@@ -913,10 +919,11 @@ impl Routing {
         // Work done side by side: the durations add up past the time taken.
         work.spent += other.spent;
         let keep_at_once = faster(&at_once, &alone);
+        let how = ended(&at_once);
         tracing::info!(
             alone_s = ?best_time(&alone).map(|(s, _)| s.round()),
             at_once_s = ?best_time(&at_once).map(|(s, _)| s.round()),
-            at_once = ended(&at_once),
+            at_once = how,
             kept = if keep_at_once { "at_once" } else { "alone" },
             "a best route blocked alone was raced against the trip asked with its alternatives"
         );
@@ -961,10 +968,11 @@ impl Routing {
         work.answered |= other.answered;
         work.spent += other.spent;
         let keep_around = faster(&around, &first);
+        let how = ended(&around);
         tracing::info!(
             first_s = ?best_time(&first).map(|(s, _)| s.round()),
             around_s = ?best_time(&around).map(|(s, _)| s.round()),
-            around = ended(&around),
+            around = how,
             kept = if keep_around { "around" } else { "first" },
             "the engine's best route blocked beside a safe alternative was raced against its recalculation"
         );
@@ -1004,7 +1012,9 @@ impl Routing {
         let without_ahead = work.without_ahead;
         let first = self.route_within(pool, graph_id, request, fresh, deadline, work);
         let second = async {
-            // Not told: the first call was safe, or failed.
+            // Not told: the first call was safe, or failed; for a trip asked
+            // with its alternatives, also when its best route was safe,
+            // every route blocked, or no ring new.
             let Told { known, around } = tells.await.ok()?;
             let mut other = Work {
                 known,
@@ -1375,7 +1385,7 @@ impl Routing {
     ) -> Result<Outcome, RouteError> {
         // Taken first, so that it goes with this call whatever ends it:
         // untold, the request beside it never starts.
-        let mut blocked = work.blocked.take();
+        let mut tell_beside = work.blocked.take();
         let around = work.around.take();
         let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
         let dims = request.vehicle.routing();
@@ -1387,13 +1397,11 @@ impl Routing {
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
-        // Asked afterwards, the alternatives make no part of this call; the
-        // engine computes none through waypoints (`route_body`), so none is
-        // counted on for an answer too large.
-        let mut alternates = if request.later || request.stops.len() != 2 {
+        // Asked afterwards, the alternatives make no part of this call.
+        let mut alternates = if request.later {
             0
         } else {
-            valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid)
+            request.alternates()
         };
         work.found = None;
         let slot_wait = work.slot_wait.unwrap_or(self.queue_wait);
@@ -1442,7 +1450,7 @@ impl Routing {
             // beside it, with what the first check read.
             if request.later
                 && attempt > 0
-                && let Some(told) = blocked.take()
+                && let Some(told) = tell_beside.take()
             {
                 // Its receiver gone, nothing waits for the news.
                 let _ = told.send(Told {
@@ -1565,7 +1573,7 @@ impl Routing {
             let tell = if request.later || attempt > 0 {
                 None
             } else {
-                blocked.take()
+                tell_beside.take()
             };
             let checked = self
                 .check_answer(
@@ -1577,13 +1585,13 @@ impl Routing {
                     fresh,
                     deadline,
                     work,
-                    |safe, blocked, known| {
+                    |safe, blocked_routes, known| {
                         let Some(tell) = tell else {
                             return;
                         };
                         let start = Around::of_best(
                             safe,
-                            blocked,
+                            blocked_routes,
                             &exclusions,
                             &centres,
                             &distances,
@@ -1670,9 +1678,11 @@ impl Routing {
     }
 }
 
-/// Longest today's request with its alternatives waits for an engine slot
-/// beside the recalculation of a best route blocked alone: past it, the
-/// recalculation alone answers.
+/// Longest the request run beside a blocked best route ([`Routing::race`])
+/// waits for each of its engine slots: today's request with its
+/// alternatives beside the recalculation of a best route blocked alone, or
+/// the recalculation of a trip asked with its alternatives beside the rest
+/// of its first answer. Past it, the first request alone answers.
 const AT_ONCE_SLOT_WAIT: Duration = Duration::from_millis(200);
 
 /// The duration and the length of the best route of `outcome`, when it found
@@ -1694,7 +1704,10 @@ fn faster(beside: &Result<Outcome, RouteError>, first: &Result<Outcome, RouteErr
     }
 }
 
-/// How the request run beside another one ended, for the journal.
+/// How the request run beside another one ended, for the journal; a failure
+/// other than a busy engine or the deadline is logged as a warning here, with
+/// its cause. Called outside the `info!` line it feeds, which a log filter
+/// may leave unevaluated.
 fn ended(beside: &Result<Outcome, RouteError>) -> &'static str {
     match beside {
         Ok(Outcome::Found { .. }) => "found",

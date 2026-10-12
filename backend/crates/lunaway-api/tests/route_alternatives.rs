@@ -446,12 +446,19 @@ async fn a_failure_of_the_engine_for_the_alternatives_leaves_the_best_route_alon
 /// answers and delays by kind: the best route alone, then around rings,
 /// today's request with its alternatives, and the same with rings (the
 /// alternatives asked after the best route, or the recalculation of a trip
-/// asked with its alternatives).
+/// asked with its alternatives). A speed-limit trace waits `trace_delay`
+/// and finds no edge, so its route goes without limits.
 #[derive(Clone)]
 struct ByKind {
     asked: Arc<Mutex<Vec<Value>>>,
     answers: Arc<[Value; 4]>,
     delays: [Duration; 4],
+    trace_delay: Duration,
+}
+
+async fn by_kind_trace(State(k): State<ByKind>) -> Json<Value> {
+    tokio::time::sleep(k.trace_delay).await;
+    Json(json!({"edges": []}))
 }
 
 async fn by_kind(State(k): State<ByKind>, Json(body): Json<Value>) -> Json<Value> {
@@ -480,23 +487,28 @@ pub(super) async fn kind_engine(
     kind_engine_waiting(
         answers,
         [Duration::ZERO, around_delay, Duration::ZERO, Duration::ZERO],
+        Duration::ZERO,
     )
     .await
 }
 
-/// [`kind_engine`] with a delay for each kind of call.
+/// [`kind_engine`] with a delay for each kind of call, and one for each
+/// speed-limit trace.
 async fn kind_engine_waiting(
     answers: [Value; 4],
     delays: [Duration; 4],
+    trace_delay: Duration,
 ) -> (String, Arc<Mutex<Vec<Value>>>) {
     let k = ByKind {
         asked: Arc::new(Mutex::new(Vec::new())),
         answers: Arc::new(answers),
         delays,
+        trace_delay,
     };
     let asked = Arc::clone(&k.asked);
     let app = Router::new()
         .route("/route", post(by_kind))
+        .route("/trace_attributes", post(by_kind_trace))
         .route(
             "/status",
             get(|| async { Json(json!({"version": "3.9.1"})) }),
@@ -770,6 +782,7 @@ async fn a_recalculation_beside_the_first_answer_that_fails_leaves_it(pool: PgPo
             Duration::ZERO,
             Duration::from_secs(2),
         ],
+        Duration::ZERO,
     )
     .await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
@@ -785,4 +798,83 @@ async fn a_recalculation_beside_the_first_answer_that_fails_leaves_it(pool: PgPo
         "the first answer waits for the recalculation's engine call only: {:?}",
         started.elapsed()
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_recalculation_without_an_engine_slot_leaves_the_first_answer(pool: PgPool) {
+    seed(&pool).await;
+    // One engine slot, held by the first answer while its speed limits are
+    // traced (600 ms a trace, as the app 0.1.0 asks them): the
+    // recalculation waits 200 ms for a slot, then does without.
+    let (url, asked) = kind_engine_waiting(
+        race((150.0, 2_020.3), (200.0, 1_500.0)),
+        [Duration::ZERO; 4],
+        Duration::from_millis(600),
+    )
+    .await;
+    let mut c = config(&url);
+    c.routing.concurrency = 1;
+    c.routing.timeout = Duration::from_secs(5);
+    // A client's own call would wait this long: the recalculation's wait
+    // is its own bound.
+    c.routing.queue_wait = Duration::from_secs(3);
+    let app = lunaway_api::router(ApiState::new(pool, c));
+    let query = r"
+query Route($input: RouteInput!) {
+  route(input: $input) {
+    status osrmJson recalculations
+    routes { index speedLimits { fromM } }
+  }
+}";
+    let started = std::time::Instant::now();
+    let (_, body) = gql(&app, query, wanting_two(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(shapes(&r["osrmJson"]), [detour()]);
+    assert_eq!(r["recalculations"], 0);
+    assert_eq!(
+        kinds(&asked.lock().unwrap()),
+        [2],
+        "the recalculation never reached the engine"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(3),
+        "the first answer waits for its own traces only: {:?}",
+        started.elapsed()
+    );
+}
+
+/// `answer` with the stops snapped `origin_m` and `destination_m` from
+/// their points.
+fn snapped(mut answer: Value, origin_m: f64, destination_m: f64) -> Value {
+    answer["waypoints"] = json!([
+        {"location": [1.284_762, 45.847_197], "distance": origin_m},
+        {"location": [1.286_339, 45.845_089], "distance": destination_m}
+    ]);
+    answer
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_recalculation_that_moves_a_stop_leaves_the_first_answer(pool: PgPool) {
+    seed(&pool).await;
+    // Around the bridge, the engine snaps the origin 60 m farther than the
+    // first answer did: not the trip asked for, however fast.
+    let [alone, around, today, again] = race((150.0, 2_020.3), (200.0, 1_500.0));
+    let (url, asked) = kind_engine(
+        [
+            alone,
+            around,
+            snapped(today, 2.0, 3.0),
+            snapped(again, 62.0, 3.0),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ONCE_QUERY, wanting_two(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(shapes(&r["osrmJson"]), [detour()]);
+    assert_eq!(r["recalculations"], 0);
+    assert_eq!(kinds(&asked.lock().unwrap()), [2, 3]);
 }

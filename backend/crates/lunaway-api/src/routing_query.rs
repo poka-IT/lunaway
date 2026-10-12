@@ -18,7 +18,7 @@ use crate::{
         RouteRequest, Routed, Spent,
         events::Freshness,
         later::Refused,
-        valhalla::{self, Avoid, EngineError, Stop},
+        valhalla::{Avoid, EngineError, Stop},
     },
     routing_types::{
         CoveredArea, DISCLAIMER_KEY, MovedStop, NoRouteReason, NoRouteReasonKind,
@@ -189,8 +189,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
     // and its alternatives afterwards; one that does not (the app until
     // 0.4) gets them in this answer, as always.
     request.later = ctx.look_ahead().field("alternativesToken").exists()
-        && request.stops.len() == 2
-        && valhalla::alternates_for(request.alternatives, request.straight_m(), request.avoid) > 0
+        && request.alternates() > 0
         && st.routing.later.has_room();
     // A stop where the graph has no road: the engine is not asked, and the
     // quota not taken.
