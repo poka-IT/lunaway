@@ -44,9 +44,14 @@ log "units"
 # index weighs about 110 MB.
 printf 'PHOTON_PORT=2322\nPHOTON_HEAP=2048m\n' > "$STAGING/europe.env"
 printf 'PHOTON_PORT=2323\nPHOTON_HEAP=512m\n' > "$STAGING/morocco.env"
+[ "$(sed -n 's/^PHOTON_PORT=//p' "$STAGING/europe.env")" != "$(sed -n 's/^PHOTON_PORT=//p' "$STAGING/morocco.env")" ] \
+  || die "photon@europe and photon@morocco would listen on the same port"
 install_file "$STAGING/europe.env" /usr/local/share/lunaway/geocode/europe.env 0644 && changed=1
 install_file "$STAGING/morocco.env" /usr/local/share/lunaway/geocode/morocco.env 0644 && changed=1
 install_file geocode/photon@.service /etc/systemd/system/photon@.service 0644 && changed=1
+install_file "geocode/photon@morocco.service.d/after-europe.conf" \
+  "/etc/systemd/system/photon@morocco.service.d/after-europe.conf" 0644 && changed=1
+install_file geocode/lunaway-photon-ready /usr/local/sbin/lunaway-photon-ready 0755 && changed=1
 install_file geocode/lunaway-photon-refresh.service /etc/systemd/system/lunaway-photon-refresh.service 0644 && changed=1
 install_file geocode/lunaway-photon-refresh.timer /etc/systemd/system/lunaway-photon-refresh.timer 0644 && changed=1
 install_file geocode/lunaway-photon-refresh /usr/local/sbin/lunaway-photon-refresh 0755 || true
@@ -59,30 +64,39 @@ for instance in europe morocco; do
     served=1
     systemctl enable --quiet "photon@$instance"
     if [ "$changed" = 1 ] || ! systemctl is-active --quiet "photon@$instance"; then
-      systemctl restart "photon@$instance"
-      # Each instance's embedded OpenSearch takes the first free port from
-      # 9201: the next one, started before this one has bound it, takes the
-      # same and fails once (BindException, 2026-10-10 and 2026-10-11, 15 s
-      # without Morocco's addresses). The next waits until this one answers.
-      # At boot both still start together, and Restart=on-failure brings
-      # back the one that lost.
-      port="$(sed -n 's/^PHOTON_PORT=//p' "/usr/local/share/lunaway/geocode/$instance.env")"
-      [[ "$port" =~ ^[0-9]+$ ]] || die "no PHOTON_PORT in /usr/local/share/lunaway/geocode/$instance.env"
-      answered=0
-      for _ in $(seq 1 60); do
-        if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/status" 2>/dev/null; then
-          answered=1
-          break
-        fi
-        sleep 1
-      done
-      [ "$answered" = 1 ] || log "warning: photon@$instance does not answer on 127.0.0.1:$port a minute after its restart"
+      # One instance at a time, Europe first: a restart returns once Photon
+      # answers (ExecStartPost=, lunaway-photon-ready), its OpenSearch's
+      # HTTP port bound, so the next one takes another (BindException when
+      # two started together, 2026-10-10 and 2026-10-11).
+      systemctl restart "photon@$instance" \
+        || log "warning: photon@$instance does not answer after its restart (journalctl -u photon@$instance)"
     fi
     log "$instance: $(readlink "/srv/photon/$instance/current") of $(cat "/srv/photon/$instance/current/INSTALLED_AT" 2>/dev/null || echo '?'), $(systemctl is-active "photon@$instance")"
   else
     log "$instance: no database yet"
   fi
 done
+
+# Each running instance listens on its own Photon port and on ports no other
+# instance holds: its embedded OpenSearch's HTTP port (9201 or 9202) and
+# transport port (from 9300).
+held=""
+for instance in europe morocco; do
+  systemctl is-active --quiet "photon@$instance" || continue
+  port="$(sed -n 's/^PHOTON_PORT=//p' "/usr/local/share/lunaway/geocode/$instance.env")"
+  pid="$(systemctl show -p MainPID --value "photon@$instance")"
+  ports="$(ss -Hltnp | awk -v owner="pid=$pid," 'index($0, owner) { n = split($4, a, ":"); print a[n] }' | sort -un | tr '\n' ' ')"
+  log "$instance: Photon on port $port, its process listens on ${ports% }"
+  case " $ports " in
+    *" $port "*) ;;
+    *) log "warning: photon@$instance does not listen on its port $port" ;;
+  esac
+  for p in $ports; do
+    case " $held " in *" $p "*) die "port $p is held by two Photon instances" ;; esac
+  done
+  held="$held $ports"
+done
+
 if [ "$served" = 1 ]; then
   systemctl enable --quiet --now lunaway-photon-refresh.timer
   log "next refresh $(systemctl show lunaway-photon-refresh.timer -p NextElapseUSecRealtime --value)"

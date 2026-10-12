@@ -3427,6 +3427,24 @@ UTC). The first databases come from `sudo systemctl start
 lunaway-photon-refresh` (about an hour), then the step again, which enables
 the instances and the timer.
 
+**Start.** Each instance's embedded OpenSearch takes the first HTTP port
+from 9201 that nothing answers on, about a second after the start, and
+binds it three seconds later (`OpenSearchRunner.getAvailableHttpPort`,
+which Photon 1.3.0 lets no option set). Two instances starting together
+took 9201 both, and the second stopped on a `BindException` until systemd
+started it again, on 2026-10-10 at 13:02 and 14:25 and on 2026-10-11 at
+20:23 (the journal of `photon@morocco`; 16 s without Morocco's addresses
+the last time). Since 2026-10-12 a unit is active only
+once its Photon answers (`ExecStartPost=lunaway-photon-ready`, four
+minutes at most, then the start fails and `Restart=` tries again), and
+`photon@morocco` starts after `photon@europe`
+(`photon@morocco.service.d/after-europe.conf`), at boot as on a restart of
+both: Europe holds 9201 and Morocco 9202. A restart of one instance alone
+finds the other's port bound and takes the next. The step `geocode`
+restarts them one after the other and checks that each listens on its
+own Photon port and that no port is held by both
+(`infra/tests/photon-units.py` checks the files and the wait).
+
 **Memory.** Europe's heap is 2 GB (`PHOTON_HEAP`, written by the step;
 3,905 MB on the geocoding server, a quarter of its 16 GB), Morocco's 512 MB.
 The heap holds OpenSearch's own structures; the index is read through the

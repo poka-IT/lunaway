@@ -28,6 +28,11 @@ EnvironmentFile=/usr/local/share/lunaway/geocode/%i.env
 ExecStart=/usr/bin/java -Xms${PHOTON_HEAP} -Xmx${PHOTON_HEAP} -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError \
   -jar /opt/photon/photon.jar serve -data-dir /srv/photon/%i/current \
   -listen-ip 127.0.0.1 -listen-port ${PHOTON_PORT} -max-results 50 -query-timeout 1
+# Active once Photon answers, its OpenSearch's HTTP port bound: an instance
+# ordered after this one (photon@morocco.service.d/after-europe.conf) takes
+# the next free port instead of the same one. Failing after four minutes
+# (within TimeoutStartSec), the start fails and Restart= tries again.
+ExecStartPost=/usr/local/sbin/lunaway-photon-ready ${PHOTON_PORT} 240
 WorkingDirectory=/srv/photon/%i
 Restart=on-failure
 RestartSec=5s
