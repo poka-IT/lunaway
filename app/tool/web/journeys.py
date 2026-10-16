@@ -528,6 +528,12 @@ def journey_viewer(run):
     run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     place = run.hash()
+    # The card fills after it opens: its photos come with its details,
+    # under WebKit about 0.7 s after the hash and under a loaded Chromium
+    # several seconds after. Scrolled before, the card grows under the
+    # scroll, the photo lands under the bar of actions and the touch meant
+    # for it opens the route.
+    run.expect_soon(lambda: run.shows("Photo 1 sur"), "the card's photos")
     # The photos come out from under the card's bar of actions: the card,
     # which fills the foot of a phone's screen, scrolled by a wheel event
     # (mobile WebKit has no wheel to drive).
