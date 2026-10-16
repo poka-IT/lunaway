@@ -48,6 +48,17 @@ before the launch (`simctl privacy`), the dialog being out of a test's
 reach, and `--location` places the simulator. `--status` sets the status
 bar of the store images (the clock of each shot, full battery, full signal) through
 Android's demo mode or `simctl status_bar`, and puts it back at the end.
+A loaded machine hands a log line over seconds late, and a shot taken
+then shows the next scene: with `--release` the tour is built with
+LUNAWAY_TOUR_ACK and holds each scene until the host has written the shot's
+name in a file it watches ([acknowledge]), and fails the scene when the
+word does not come. A shot taken more than HOLD_S after its line is
+reported `LATE`.
+`--device-locale fr-FR` gives the device the language and the region of the
+run, which the app reads as the user's country (a place abroad is named
+with its country in the search, "Annecy (74) · Frankreich" on a device set
+in Germany): an emulator of one's own (its adb as root) or a simulator,
+restarted for it.
 
     python3 tool/screens/capture.py --device android:emulator-5580 --size 1080x1920 \
         --density 420 --release --status --test integration_test/store_tour_test.dart \
@@ -172,17 +183,26 @@ def android_demo(ident, *extra):
 
 _hours_before = None
 _demo_before = None
+_dialogs_before = None
 
 
 def demo_status(kind, ident, on, locale):
     """The status bar of the store images (docs/screenshots.md): a full
     battery, full Wi-Fi, no notification icon, the clock set at each shot
     ([status_clock]) in the hours of the language (12 in English, 24 in the
-    others); or the device's own, its hour format put back."""
-    global _hours_before, _demo_before
+    others), and no system error dialog on Android; or the device's own,
+    its settings put back."""
+    global _hours_before, _demo_before, _dialogs_before
     if kind == "android":
         setting = ["adb", "-s", ident, "shell", "settings"]
         if on:
+            # No "not responding" dialog over the app: a loaded emulator's
+            # launcher raised one over every scene of a run (2026-10-16).
+            _dialogs_before = subprocess.run(setting + ["get", "global", "hide_error_dialogs"],
+                                             capture_output=True, text=True).stdout.strip()
+            subprocess.run(setting + ["put", "global", "hide_error_dialogs", "1"], check=False)
+            subprocess.run(["adb", "-s", ident, "shell", "am", "broadcast", "-a",
+                            "android.intent.action.CLOSE_SYSTEM_DIALOGS"], check=False, capture_output=True)
             _hours_before = subprocess.run(setting + ["get", "system", "time_12_24"], capture_output=True,
                                            text=True).stdout.strip()
             _demo_before = subprocess.run(setting + ["get", "global", "sysui_demo_allowed"], capture_output=True,
@@ -206,6 +226,11 @@ def demo_status(kind, ident, on, locale):
                 subprocess.run(setting + ["put", "global", "sysui_demo_allowed", _demo_before], check=False)
             elif _demo_before == "null":
                 subprocess.run(setting + ["delete", "global", "sysui_demo_allowed"], check=False,
+                               capture_output=True)
+            if _dialogs_before and _dialogs_before != "null":
+                subprocess.run(setting + ["put", "global", "hide_error_dialogs", _dialogs_before], check=False)
+            elif _dialogs_before == "null":
+                subprocess.run(setting + ["delete", "global", "hide_error_dialogs"], check=False,
                                capture_output=True)
     elif kind == "ios":
         if on:
@@ -238,6 +263,69 @@ def status_clock(kind, ident, locale):
                        check=False)
 
 
+def android_locale(ident, locale):
+    """Sets an emulator's system locale (`fr-FR`) and waits for its
+    framework to come back; returns the locale it had. Needs an adb that
+    runs as root (a google_apis image), so never the shared emulator's."""
+    # Only a device of Lunaway's captures: restarting a shared emulator's
+    # framework would close the apps of whoever else uses it.
+    if ident == "emulator-5554":
+        raise SystemExit("--device-locale restarts the device: not on the shared emulator-5554")
+    adb = ["adb", "-s", ident]
+    avd = subprocess.run(adb + ["emu", "avd", "name"], capture_output=True, text=True).stdout.split()
+    if not avd or not avd[0].startswith("lunaway-shots"):
+        raise SystemExit(f"--device-locale restarts the device: only on a lunaway-shots-* emulator, not {ident}")
+
+    def prop(name):
+        return subprocess.run(adb + ["shell", "getprop", name], capture_output=True, text=True).stdout.strip()
+
+    subprocess.run(adb + ["root"], check=False, capture_output=True)
+    subprocess.run(adb + ["wait-for-device"], check=False)
+    before = prop("persist.sys.locale") or prop("ro.product.locale")
+    if before == locale:
+        return before
+    subprocess.run(adb + ["shell", "setprop", "persist.sys.locale", locale], check=True)
+    subprocess.run(adb + ["shell", "setprop", "ctl.restart", "zygote"], check=True)
+    time.sleep(5)
+    end = time.time() + 180
+    while True:
+        focus = subprocess.run(adb + ["shell", "dumpsys", "window"], capture_output=True, text=True).stdout
+        if prop("sys.boot_completed") == "1" and "mCurrentFocus=Window" in focus:
+            break
+        if time.time() > end:
+            raise SystemExit(f"{ident} did not come back after its restart in {locale}")
+        time.sleep(2)
+    time.sleep(5)
+    print(f"device locale {before} -> {prop('persist.sys.locale')}", flush=True)
+    return before
+
+
+def simulator_locale(ident, locale):
+    """Sets a simulator's language and region (`fr-FR`) and restarts it;
+    returns the locale it had (`fr_FR`), or None. Only a simulator of
+    Lunaway's captures (`lunaway-shots-*`): another project's would lose
+    its running apps."""
+    listed = subprocess.run(["xcrun", "simctl", "list", "devices"], capture_output=True, text=True).stdout
+    named = re.search(r"^\s*(\S[^\n]*?) \(" + re.escape(ident) + r"\)", listed, re.M)
+    if not named or not named.group(1).startswith("lunaway-shots"):
+        raise SystemExit(f"--device-locale restarts the simulator: only a lunaway-shots-* one, not {ident}")
+    spawn = ["xcrun", "simctl", "spawn", ident, "defaults"]
+    before = subprocess.run(spawn + ["read", "-g", "AppleLocale"], capture_output=True, text=True).stdout.strip()
+    languages = subprocess.run(spawn + ["read", "-g", "AppleLanguages"], capture_output=True, text=True).stdout
+    region = locale.replace("-", "_")
+    # The language with its region: an app reads its country from the
+    # first preferred language ("en" alone has none).
+    if before == region and f'"{locale}"' in languages:
+        return before
+    subprocess.run(spawn + ["write", "-g", "AppleLanguages", "-array", locale], check=True)
+    subprocess.run(spawn + ["write", "-g", "AppleLocale", "-string", region], check=True)
+    subprocess.run(["xcrun", "simctl", "shutdown", ident], check=False, capture_output=True)
+    subprocess.run(["xcrun", "simctl", "boot", ident], check=True)
+    subprocess.run(["xcrun", "simctl", "bootstatus", ident, "-b"], check=False, capture_output=True)
+    print(f"simulator locale {before or 'unset'} -> {region}", flush=True)
+    return before or None
+
+
 def build_release(args, ident_suffix):
     """The tour built as the app (release, store flavour, debug key), its
     path."""
@@ -263,6 +351,10 @@ def tour_defines(args):
         f"--dart-define=LUNAWAY_TOUR_LOCALE={args.locale}",
         f"--dart-define=LUNAWAY_TOUR_THEME={args.theme}",
         f"--dart-define=LUNAWAY_TOUR_TAG={tag}",
+        # The tour waits for the host's word that each shot is taken: the
+        # host writes it on an emulator or a simulator.
+        *(["--dart-define=LUNAWAY_TOUR_ACK=true"]
+          if args.release and args.device.partition(":")[0] in ("android", "ios") else []),
         *[f"--dart-define={d}" for d in args.define],
     ]
 
@@ -331,9 +423,12 @@ def follow(proc, timeout_s, alive):
 def logcat_lines(ident, app_id, timeout_s):
     """The release build launched, its lines read from logcat."""
     subprocess.run(["adb", "-s", ident, "logcat", "-c"], check=False)
+    # A word left by a run before is no answer to this one's shots.
+    subprocess.run(["adb", "-s", ident, "shell", "rm", "-f", ack_path(app_id)], check=False, capture_output=True)
     subprocess.run(["adb", "-s", ident, "shell", "am", "start", "-W", "-n",
                     f"{app_id}/legal.p2p.lunaway.MainActivity"], check=True, capture_output=True)
-    proc = subprocess.Popen(["adb", "-s", ident, "logcat", "-v", "raw", "-s", "flutter:I"],
+    # The epoch column says when the device printed the line ([emitted_at]).
+    proc = subprocess.Popen(["adb", "-s", ident, "logcat", "-v", "epoch", "-s", "flutter:I"],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     def alive():
@@ -357,6 +452,9 @@ def simulator_lines(ident, timeout_s):
                              'process == "Runner" AND eventMessage BEGINSWITH "flutter: "'],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     time.sleep(2)
+    container = simulator_container(ident)
+    if container and os.path.exists(os.path.join(container, "Documents", "shot-ack")):
+        os.remove(os.path.join(container, "Documents", "shot-ack"))
     subprocess.run(["xcrun", "simctl", "launch", "--terminate-running-process", ident, IOS_BUNDLE],
                    check=True, capture_output=True)
     def alive():
@@ -417,6 +515,10 @@ def main():
     p.add_argument("--status", action="store_true", help="the store's status bar (full battery and signal, the clock of each shot) for the run")
     p.add_argument("--timeout", type=int, default=2400, help="with --release: seconds before giving up")
     p.add_argument("--tag", help="the prefix of the shots' names; <locale>-<size>-<theme> otherwise")
+    p.add_argument("--device-locale",
+                   help="the device's language and region before the run (fr-FR), which it keeps after: "
+                        "the country the app takes for the user's. An emulator of one's own whose adb runs "
+                        "as root, or a simulator, restarted for it")
     args = p.parse_args()
     width, height = (int(v) for v in args.size.split("x"))
     args.out = os.path.abspath(args.out)
@@ -438,6 +540,10 @@ def main():
     if args.app:
         print("--app: the tour runs with the language, theme, tag and API it was built with; "
               "--locale sets only the hours of the status bar", flush=True)
+    if args.device_locale and kind == "android":
+        android_locale(ident, args.device_locale)
+    if args.device_locale and kind == "ios":
+        simulator_locale(ident, args.device_locale)
     if args.release and kind == "android":
         apk = args.app or build_release(args, suffix)
         subprocess.run(["adb", "-s", ident, "install", "-r", apk], check=True)
@@ -495,8 +601,54 @@ def lines_of(cmd, env):
     yield None, proc.wait()
 
 
+def acknowledge(kind, ident, app_id, name):
+    """Tells a tour built with LUNAWAY_TOUR_ACK that its shot is taken: the
+    shot's name in the file it watches (`shot-ack`, in the app's external
+    files on Android, its documents on the simulator)."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        return
+    if kind == "android":
+        subprocess.run(["adb", "-s", ident, "shell", f"echo {name} > {ack_path(app_id)}"], check=False,
+                       capture_output=True)
+    elif kind == "ios":
+        container = simulator_container(ident)
+        if container:
+            with open(os.path.join(container, "Documents", "shot-ack"), "w") as f:
+                f.write(name + "\n")
+
+
+def ack_path(app_id):
+    """Where an Android tour reads the host's word: its external files."""
+    return f"/sdcard/Android/data/{app_id}/files/shot-ack"
+
+
+def simulator_container(ident):
+    """The data folder of the app on the simulator, or None."""
+    return subprocess.run(["xcrun", "simctl", "get_app_container", ident, IOS_BUNDLE, "data"],
+                          capture_output=True, text=True).stdout.strip() or None
+
+
+def emitted_at(line):
+    """When the device printed [line], seconds since the epoch: logcat's
+    epoch column or the simulator log's local time; None for another
+    line."""
+    epoch = re.match(r"\s*(\d{9,}\.\d+)\s", line)
+    if epoch:
+        return float(epoch.group(1))
+    local = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)(\.\d+)", line)
+    if local:
+        return time.mktime(time.strptime(local.group(1), "%Y-%m-%d %H:%M:%S")) + float(local.group(2))
+    return None
+
+
+# How long the store tour holds a scene after its SHOT line: a capture
+# later than that may show the next scene.
+HOLD_S = 5.5
+
+
 def run(lines, args, kind, height):
     frozen = []
+    late = []
     written = set()
     code = 1
     for line, done in lines:
@@ -550,9 +702,18 @@ def run(lines, args, kind, height):
                 capture(path, height)
             else:
                 capture_device(args.device, path)
+            if args.release and kind in ("android", "ios"):
+                acknowledge(kind, args.device.partition(":")[2], args.app_id, name)
+            at = emitted_at(line)
+            if at is not None and time.time() - at > HOLD_S:
+                print(f"LATE {name}: captured {time.time() - at:.1f} s after the line", flush=True)
+                late.append(name)
     if frozen:
         print(f"the map did not change on screen between {frozen}", flush=True)
         return code or 1
+    if late:
+        print(f"captured more than {HOLD_S} s after their line (a tour without the host's word may "
+              f"show the next scene there): {late}", flush=True)
     return code
 
 
