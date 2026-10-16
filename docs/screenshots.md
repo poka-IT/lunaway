@@ -32,7 +32,9 @@ Store has no caption rule; the same images serve both.
 ## The story, in order
 
 The scenes are those of `app/integration_test/store_tour_test.dart`, as
-rebuilt on 2026-10-10 for the release images (report 105). The tour stands
+rebuilt on 2026-10-10 for the release images (report 105) and brought up
+to the app of 2026-10-16 (report 136: the home, the search's history, the
+fuel prices of the guidance). The tour stands
 on the lake shore at Annecy and prints `SHOT <tag>-<scene>` for each:
 
 | Scene | What the frame shows | Caption fr | Caption en |
@@ -41,17 +43,17 @@ on the lake shore at Annecy and prints `SHOT <tag>-<scene>` for each:
 | `02-france` | the same filter over France and its neighbours | La France et vingt autres pays d'Europe | France and twenty other European countries |
 | `03-place` | the page of Le Belvédère (Annecy): overnight card, rating of the external community source, the photo strip moved to its Wikimedia Commons photos | Une fiche par lieu : nuit, photos et avis | A page per place: overnight, photos and reviews |
 | `04-reviews` | the same page further down: a review of another language translated, "Voir l'original" | Les avis des voyageurs, traduits d'un geste | Travellers' reviews, translated with one tap |
-| `05-search` | "fromagerie Annecy" in the language of the run: the cheese shops of the town | Un lieu, une adresse ou un commerce | A place, an address or a shop |
+| `05-search` | the list the empty search field opens: the home, then "Recherches récentes", four entries, each with where it lies ("Fromagerie · Annecy (74)"): a cheese shop found by "fromagerie Annecy" in the language of the run, Le Belvédère, Talloires-Montmin, a text searched; four so that the list ends whole on a phone, where each line names France in the other languages | Votre domicile et vos recherches récentes | Your home and your recent searches |
 | `06-filters` | the filters with "Nuit autorisée" and "Eau" chosen | Filtrez par type, nuit, services et hauteur | Filter by kind, overnight, services and height |
 | `07-route` | the preview for the low-profile motorhome to Camping International du Lac d'Annecy (Saint-Jorioz), the places along it drawn as pictograms | Un itinéraire pour votre gabarit | A route that fits your vehicle |
 | `08-on-the-way` | "Sur le trajet" of the route to Aire de Camping Car Doussard, "Dormir" chosen: the campsites on the way, detour and Add | Sur le trajet : dormir, eau, courses, carburant | On the way: sleep, water, groceries, fuel |
-| `09-guidance` | guidance on the N201 at Chambéry: "Zone de danger" 360 m ahead with the list's source and date, the limit beside the speed | Un guidage qui prévient, zones de danger en France | Guidance that warns you, danger zones in France |
-| `10-camera` | guidance on Padua's ring road: "Radar fixe" ahead, its limit and source | Radars fixes là où la loi les autorise | Fixed speed cameras where the law allows them |
+| `09-guidance` | guidance on the D1006 at Chambéry, inside a danger zone: the zone's pill ("encore 2,0 km", its limit) above the speed and its limit, the road's name under the vehicle, a station's diesel price on the map ahead | Zones de danger et prix du carburant en France | Danger zones and fuel prices in France |
+| `10-camera` | guidance on Padua's ring road: the camera's pill ahead with its limit, the cameras on the map beside their limit | Radars fixes là où la loi les autorise | Fixed speed cameras where the law allows them |
 | `11-stops` | "Tout le trajet" of the route to Doussard through Sevrier and Duingt, after the first kilometre | Tout le trajet et ses étapes | The whole route and its stops |
 | `12-voice` | the profile's guidance settings: the voice's three modes, the limit, "Position exacte des radars en France" off | Voix complète, alertes seulement ou coupée | Full voice, alerts only or off |
 | `13-offline` | the offline maps from the top: the places of Auvergne-Rhône-Alpes kept on the device (count, size, updated today), updates over mobile data, then the maps (on the taller iPhone: none kept yet, the region where the user stands suggested) | Cartes hors ligne par région | Offline maps by region |
 | `14-regions` | "Quels lieux garder sur cet appareil ?", France unfolded | Choisissez les régions à garder | Choose the regions to keep |
-| `15-favorites` | the favourites: a viewpoint saved from the map with a note, the cheese shop of the search, three campsites, a trip list ("Alpes 2027") | Lieux, commerces et points en listes | Places, shops and points in lists |
+| `15-favorites` | the favourites: the home and its route, a viewpoint saved from the map with a note, the cheese shop of the search, three campsites, a trip list ("Alpes 2027") | Domicile, lieux, commerces et points en listes | Home, places, shops and points in lists |
 | `16-vehicle` | the vehicle editor | Le profil de votre véhicule | Your vehicle's profile |
 
 The captions of the six languages are in
@@ -69,10 +71,9 @@ Each store takes a set (`PROFILES` in `app/tool/screens/compose.py`):
 | App Store, iPad 13-inch (8) | 01, 03, 07, 09, 10, 08, 11, 06 |
 | Site (raw phone shots) | 01, 03, 07, 09, 06 |
 
-Scenes 02, 04, 14 and 16 stand in no store set. In 02, over France, the
-list sorted by distance opens on places of Vesdun (Cher), near the map's
-centre, 294 km from the user whom the map shows near Annecy (shots of
-2026-10-10; the cause is not traced). In 04 the review cards carry their
+Scenes 02, 04, 14 and 16 stand in no store set. 02 stayed out when, on
+2026-10-10, its list opened on places of Vesdun (Cher), 294 km from the
+user; on 2026-10-16 it opens on Le Belvédère, 1.1 km away. In 04 the review cards carry their
 authors' pseudonyms ("Content of the frames"). 14 and 16 show screens the
 other scenes already cover (the regions kept, the vehicle); they serve the
 site and the docs.
@@ -89,7 +90,15 @@ the index stay in the maintainer's `plan/screenshots/publication/`.
   (`app/lib/features/places/data/demo/demo_places.dart`).
 - **No account.** The tour sends no contribution and stops, before any
   change, on a device with an account: its favourites would go to the
-  account's lists. What it adds to the favourites is taken out at its end.
+  account's lists. What it adds to the favourites and to the search's
+  history is taken out at its end, and the home is put back.
+- **Home.** A public square of a large town of each language's country
+  (Place Bellecour in Lyon, Soho Square in London, Marienplatz in
+  Munich, Plaza Mayor in Madrid, Piazza Duomo in Milan, Domplein in
+  Utrecht), never someone's address, and without a postcode: the narrow
+  column of the favourites on a tablet cut "Place Bellecour, 69002 Lyon".
+  It heads the search's list (05), the favourites (15) and offers "Aller
+  au domicile" in the route's preview (07).
 - **Community content.** The store sets show a place's rating and its
   count of reviews (public content of the external community source),
   never a review card: a card carries its author's pseudonym, so scene
@@ -102,9 +111,10 @@ the index stay in the maintainer's `plan/screenshots/publication/`.
   place the first words of its description by the external source
   ("Externe · ..."), as the app does.
 - **No third-party brand.** The search is a kind of shop whose results
-  carry no brand (cheese shops of Annecy); fuel stations, whose names are
-  brands, are left out of every scene. The directions sheet, which names
-  other navigation apps, is never shown.
+  carry no brand (cheese shops of Annecy). A fuel station, whose name is
+  a brand, shows only on the guidance map of 09, as a pump with its
+  diesel price, never its name. The directions sheet, which names other
+  navigation apps, is never shown.
 - **Speed cameras.** In France, zones only: the tour turns "Position
   exacte des radars en France" off (the default) and puts the user's
   choice back at the end. Camera points show in Italy, where the law
@@ -116,6 +126,10 @@ the index stay in the maintainer's `plan/screenshots/publication/`.
   at Annecy), never a home; the emulator gets it through a test provider,
   the simulator through `simctl location`, and the permission is granted
   by the host (`pm grant`, `simctl privacy`).
+- **Device region.** The device's language and region follow the run's
+  (`capture.py --device-locale`: fr-FR, en-US, de-DE, es-ES, it-IT,
+  nl-NL): the search names the country of a place abroad, so a French
+  frame reads "Annecy (74)" and a German one "Annecy (74) · Frankreich".
 - **Status bar.** Full battery, full Wi-Fi, no notification icon, and the
   clock of the moment of each shot, so that an arrival time or a stop's
   time in the frame agrees with it (a fixed 09:41 would not), in 12 hours
@@ -136,22 +150,34 @@ the index stay in the maintainer's `plan/screenshots/publication/`.
    A scene that fails prints `SCENE FAILED <name>` and the tour goes on
    from the map; the last line says `TOUR DONE all scenes` or names the
    failures. It keeps Auvergne-Rhône-Alpes on the device for the run;
-   at the end it takes out the favourites it added and puts the vehicle,
-   filters, language, theme, guidance settings, driving aids and regions
-   kept back, each on its own, so that one failing leaves the others.
+   at the end it takes out the favourites and the entries of the search's
+   history it added and puts the vehicle, filters, language, theme,
+   guidance settings, driving aids, home and regions kept back, each on
+   its own, so that one failing leaves the others.
 2. **Build of the release.** `tool/screens/capture.py --release` builds
    the tour as the app's entry point and launches it like the app: on
    Android a release build (`flutter build apk --release --flavor store
    -t`, application id `legal.p2p.lunaway.shots`, debug key) read from
    logcat; on the iOS simulator, which runs no release build, a debug
-   build read from the simulator's log. `--app` reuses a build for
-   another device of the same platform and language.
+   build read from the simulator's log. Both are built with
+   `LUNAWAY_TOUR_ACK`: the tour holds each scene until the host has taken
+   the screen and written the shot's name into a file the app reads (its
+   external files on Android, its documents on the simulator), and the
+   scene fails when that word does not come within 45 s. On
+   2026-10-16, under a load average up to 201 (`uptime`), the iPad
+   frames named `06-filters` and `07-route` showed the scenes after them,
+   and `capture.py` then measured captures up to 18 s after their line
+   (`LATE`), when a scene held 2.5 s. `--app` reuses a build for another
+   device of the same platform and language. Each device is one of the
+   run's own (`lunaway-shots-*`, deleted at the end), never the shared
+   emulator nor another project's simulator: `--device-locale` restarts
+   it in the run's region.
 3. **Devices.**
 
    | Profile | Device | Screen for the run |
    |---|---|---|
    | `play-phone` | Android 15 emulator (API 35, google_apis arm64) | `--size 1080x1920 --density 420` (compact layout) |
-   | `play-7in` | same emulator | `--size 1080x1920 --density 270` (640 dp wide, medium layout) |
+   | `play-7in` | same emulator, or one made at 270 dpi | `--size 1080x1920 --density 270` (640 dp wide, medium layout) |
    | `play-10in` | same emulator | `--size 2560x1440 --density 320` (1280 dp wide, expanded layout) |
    | `ios-6.9` | simulator iPhone 17 Pro Max (iOS 26.5) | native 1320 x 2868 |
    | `ipad-13` | simulator iPad Pro 13-inch (M5) | native portrait 2064 x 2752, the expanded layout (1032 points wide); the simulator stayed upright when the tour asked for landscape (`SystemChrome.setPreferredOrientations`, 2026-10-10) and `simctl` has no rotation, so the iPad set is portrait |
