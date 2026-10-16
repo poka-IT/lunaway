@@ -99,10 +99,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   /// Stops the engine's drawing while the map is under a page, and starts
-  /// it again when the page goes. Before it stops, the map lets go of the
-  /// tiles it keeps beyond its view, which the engine frees on the frame it
-  /// draws next: under the guidance, the country's view read at the start
-  /// held a hundred megabytes and more (measured on an emulator,
+  /// it again when the page goes. On Android the map first lets go of the
+  /// tiles it keeps beyond its view, while it still draws: under the
+  /// guidance, the country's view read at the start held a hundred
+  /// megabytes and more, and asked once paused the engine kept them until
+  /// the map drew again (measured on an emulator,
   /// `plan/research/139-memoire-android.md`).
   Future<void> _renderWhileOnScreen() async {
     final c = _controller;
@@ -112,12 +113,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await c.resumeMap();
         return;
       }
-      // Not waited for: a host that never answers must not keep the map
-      // drawing under the page.
-      unawaited(releaseMapCaches());
-      await Future<void>.delayed(mapCacheReleaseFrame);
-      // Back on screen meanwhile: the call that saw it resumes the map.
-      if (_onScreen || !mounted) return;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Not waited for: a host that never answers must not keep the map
+        // drawing under the page.
+        unawaited(releaseMapCaches());
+        await Future<void>.delayed(mapCacheReleaseFrame);
+        // Back on screen meanwhile: the call that saw it resumes the map.
+        if (_onScreen || !mounted) return;
+      }
       await c.pauseMap();
     } on Object catch (e) {
       _log.fine('map pause: $e');
@@ -310,8 +313,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// first shows selected with it ([PinSprites.onDemand]).
   final _selectionImages = <String>{};
 
+  /// Counts the styles whose sources and images went ([_forgetSent]): an
+  /// image added across a new style is not written as held.
+  int _selectionStyle = 0;
+
   void _forgetSent() {
     _selectionImages.clear();
+    _selectionStyle++;
     _sentPlaces = null;
     _sentSelected = null;
     _sentSelectedId = null;
@@ -700,10 +708,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// of the selection that draws it: the pin shows with its image.
   Future<void> _selectionImage(gl.MapLibreMapController c, String id) async {
     if (kIsWeb || !mounted || _selectionImages.contains(id)) return;
+    final style = _selectionStyle;
     final bytes = (await PinSprites.load(_ratio))[id];
     if (bytes == null) return;
     await c.addImage(id, bytes);
-    _selectionImages.add(id);
+    // A style loaded meanwhile does not hold it: its own selection adds it.
+    if (style == _selectionStyle) _selectionImages.add(id);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye

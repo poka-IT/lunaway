@@ -148,12 +148,11 @@ class MainActivity : FlutterActivity() {
 
     /**
      * Each map lets go of the tiles it keeps beyond its view and of the
-     * engine's spare buffers; the tiles in view stay. MapLibre frees them as
-     * it draws its next frame, and a stopped activity draws none: called from
-     * the trim callbacks of a hidden app, the memory came back only when the
-     * user did (measured on an emulator,
-     * plan/research/139-memoire-android.md). Hence the pause, while the maps
-     * still draw.
+     * engine's spare buffers; the tiles in view stay. Asked from the trim
+     * callbacks of a hidden app, or from onStop, MapLibre gave the memory
+     * back only when the user came back and the map drew again; asked at
+     * the pause, before the maps stop, it was gone while the app was hidden
+     * (measured on an emulator, plan/research/139-memoire-android.md).
      */
     private fun releaseMapCaches() {
         try {

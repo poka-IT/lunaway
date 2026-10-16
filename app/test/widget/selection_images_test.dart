@@ -116,6 +116,21 @@ void main() {
     expect(_added(engine, image), lessThan(_filled(engine, PoiMapStyle.selectionSource)));
   });
 
+  testWidgets("a style loaded again gets the selected pin's image again", (tester) async {
+    final engine = await _drawn(tester);
+    await tester.pumpWidget(MaterialApp(home: GlLunaMap(_props(selected: _parking))));
+    await until(tester, () => _filled(engine, MapStyle.selectionSource) >= 0);
+    final image = pinImageId(PlaceKind.parking, OvernightStatus.allowed, selected: true);
+    int added() => _images(engine).where((id) => id == image).length;
+    expect(added(), 1);
+
+    // A new style (a language changed, a theme that cannot turn in place)
+    // holds none of the images the old one had.
+    await engine.loadStyle(tester, () => added() == 2);
+    expect(added(), 2);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('a pin selected twice brings its image once', (tester) async {
     final engine = await _drawn(tester);
     await tester.pumpWidget(MaterialApp(home: GlLunaMap(_props(selected: _parking))));

@@ -100,7 +100,8 @@ void main() {
   });
 
   testWidgets(
-    'on Android, the covered map lets go of its cache and draws a frame before it pauses',
+    'on Android, the covered map lets go of its cache and draws a while before it pauses',
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
     (tester) async {
       final engine = LayerStackEngine(_aube)..install(tester);
       _hostInto(tester, engine);
@@ -110,7 +111,7 @@ void main() {
       await tester.pumpAndSettle();
       final released = engine.calls.indexWhere((c) => c.method == 'releaseCaches');
       expect(released, isNot(-1));
-      // Still drawing: the engine frees the tiles on its next frame.
+      // Still drawing: paused, the engine kept the tiles until it drew again.
       expect(_count(engine, 'map#pause'), 0);
 
       await tester.pump(mapCacheReleaseFrame);
@@ -119,16 +120,35 @@ void main() {
     },
   );
 
-  testWidgets('a page gone before the map paused leaves it drawing', (tester) async {
-    final engine = LayerStackEngine(_aube)..install(tester);
-    _hostInto(tester, engine);
-    final navigator = await _mainMap(tester, (_) {});
+  testWidgets(
+    'on iOS, the covered map pauses at once and asks the host for nothing',
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    (tester) async {
+      final engine = LayerStackEngine(_aube)..install(tester);
+      _hostInto(tester, engine);
+      final navigator = await _mainMap(tester, (_) {});
 
-    navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
-    await tester.pumpAndSettle();
-    navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    await tester.pump(mapCacheReleaseFrame);
-    expect(_count(engine, 'map#pause'), 0);
-  });
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      await tester.pumpAndSettle();
+      expect(_count(engine, 'map#pause'), 1);
+      expect(_count(engine, 'releaseCaches'), 0);
+    },
+  );
+
+  testWidgets(
+    'a page gone before the map paused leaves it drawing',
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+    (tester) async {
+      final engine = LayerStackEngine(_aube)..install(tester);
+      _hostInto(tester, engine);
+      final navigator = await _mainMap(tester, (_) {});
+
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      await tester.pumpAndSettle();
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      await tester.pump(mapCacheReleaseFrame);
+      expect(_count(engine, 'map#pause'), 0);
+    },
+  );
 }

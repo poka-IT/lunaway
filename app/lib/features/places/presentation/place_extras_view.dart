@@ -248,6 +248,7 @@ class _PendingThumb extends ConsumerWidget {
                   ),
                   fit: BoxFit.cover,
                   excludeFromSemantics: true,
+                  gaplessPlayback: true,
                 )
               else
                 ColoredBox(color: scheme.surfaceContainerHigh),

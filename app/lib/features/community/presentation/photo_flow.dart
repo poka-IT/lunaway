@@ -160,6 +160,10 @@ class PhotoPreview extends StatelessWidget {
                 ),
                 fit: BoxFit.cover,
                 excludeFromSemantics: true,
+                // A box that changes size (the phone turned, the window
+                // resized) decodes the photo again: the old one stays
+                // meanwhile.
+                gaplessPlayback: true,
               ),
             ),
           ),

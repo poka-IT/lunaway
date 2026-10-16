@@ -6,11 +6,13 @@ import 'package:flutter/painting.dart';
 
 /// [image] decoded no larger than what covers a box of [width] by [height]
 /// device pixels, as `BoxFit.cover` paints it: the picture keeps its
-/// proportions, its shorter side against the box, never enlarged. Decoded
-/// whole, a photo of 2 560 pixels the user just took holds 19 MB for a
-/// thumbnail of 96 by 72 points. `ResizeImage` fits a box or fixes a side;
-/// covering one whose photo may stand either way needs the photo's own
-/// size, which the decoder gives here.
+/// proportions, scaled down until it just covers the box, never enlarged.
+/// Decoded whole, a photo of 2 560 pixels the user just took holds 19 MB
+/// for a thumbnail of 96 by 72 points. `ResizeImage` fits a box or fixes a
+/// side; covering one whose photo may stand either way needs the photo's
+/// own size, which the decoder gives here. [image] decodes the bytes as
+/// they are (a `MemoryImage`, a file): a provider that resizes them itself
+/// would lose its own size here.
 @immutable
 final class CoverSizedImage extends ImageProvider<CoverSizedKey> {
   const new(this.image, {required this.width, required this.height});

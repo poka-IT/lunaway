@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 /// `setMapLabelFades` also speaks on.
 const _channel = MethodChannel('lunaway/map');
 
-/// How long a map that let go of its cache keeps drawing before it pauses:
-/// MapLibre Native frees the tiles as it draws its next frame, and a paused
-/// map draws none. On the emulator, under the load of other builds, the
-/// tiles were gone within this wait (`plan/research/139-memoire-android.md`).
+/// How long a map that let go of its cache keeps drawing before it pauses.
+/// Asked once paused, MapLibre Native gave the tiles back only when the map
+/// drew again; asked this long before the pause, on the emulator under the
+/// load of other builds, they were gone (`plan/research/139-memoire-android.md`).
 const mapCacheReleaseFrame = Duration(milliseconds: 200);
 
 /// Asks the native maps on Android to let go of what they keep beyond their
@@ -23,7 +23,7 @@ Future<void> releaseMapCaches() async {
   try {
     await _channel.invokeMethod<void>('releaseCaches');
   } on PlatformException {
-    // A map that went with its style meanwhile.
+    // An error of the host: the maps keep their cache.
   } on MissingPluginException {
     // A host without the channel (tests, another embedding).
   }

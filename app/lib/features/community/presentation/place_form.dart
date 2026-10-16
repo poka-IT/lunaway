@@ -499,6 +499,7 @@ class _PhotoField extends StatelessWidget {
             height: 72,
             fit: BoxFit.cover,
             excludeFromSemantics: true,
+            gaplessPlayback: true,
           ),
         ),
         const SizedBox(width: Space.m),
