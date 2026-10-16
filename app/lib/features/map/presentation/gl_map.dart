@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/map_caches.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/core/web/tile_errors.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
@@ -98,12 +99,26 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   /// Stops the engine's drawing while the map is under a page, and starts
-  /// it again when the page goes.
+  /// it again when the page goes. Before it stops, the map lets go of the
+  /// tiles it keeps beyond its view, which the engine frees on the frame it
+  /// draws next: under the guidance, the country's view read at the start
+  /// held a hundred megabytes and more (measured on an emulator,
+  /// `plan/research/139-memoire-android.md`).
   Future<void> _renderWhileOnScreen() async {
     final c = _controller;
     if (c == null || kIsWeb) return;
     try {
-      await (_onScreen ? c.resumeMap() : c.pauseMap());
+      if (_onScreen) {
+        await c.resumeMap();
+        return;
+      }
+      // Not waited for: a host that never answers must not keep the map
+      // drawing under the page.
+      unawaited(releaseMapCaches());
+      await Future<void>.delayed(mapCacheReleaseFrame);
+      // Back on screen meanwhile: the call that saw it resumes the map.
+      if (_onScreen || !mounted) return;
+      await c.pauseMap();
     } on Object catch (e) {
       _log.fine('map pause: $e');
     }
