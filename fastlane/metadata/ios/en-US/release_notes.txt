@@ -1,1 +1,6 @@
-First release of Lunaway: a map of motorhome areas, car parks and campsites in France and twenty other European countries, the overnight status on every page, filters, search for places and addresses, favourites in lists. Directions and voice guidance for your vehicle's size, speed cameras and danger zones as each country's law allows, "On the way". Offline regions and maps. Reviews translated on our servers. Six languages. Reviews, photos and new places with an account that needs no e-mail.
+• Redesigned guidance: clearer route line, zoom that follows speed, exit numbers.
+• Less intrusive speed camera alerts, fuel prices on the guidance map.
+• Faster routes, guidance easier on the battery.
+• Voice with every speech engine.
+• Home, recent searches, the town on every result.
+• Morocco offline, "Car" vehicle, clearer forms, new font, account merging.

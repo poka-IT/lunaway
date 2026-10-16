@@ -1,0 +1,6 @@
+• Navegación renovada: trazado más visible, zoom según la velocidad, números de salida.
+• Avisos de radares más discretos, precios del combustible en el mapa de navegación.
+• Rutas mostradas más rápido, navegación que ahorra batería.
+• Voz con cualquier motor de síntesis.
+• Casa, búsquedas recientes, localidad en cada resultado.
+• Marruecos sin conexión, vehículo «Coche», formularios más claros, nueva tipografía, fusión de cuentas.

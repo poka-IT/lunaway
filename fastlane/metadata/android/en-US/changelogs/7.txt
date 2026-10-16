@@ -1,0 +1,6 @@
+• Redesigned guidance: clearer route line, zoom that follows speed, exit numbers.
+• Less intrusive speed camera alerts, fuel prices on the guidance map.
+• Faster routes, guidance easier on the battery.
+• Voice with every speech engine.
+• Home, recent searches, the town on every result.
+• Morocco offline, "Car" vehicle, clearer forms, new font, account merging.

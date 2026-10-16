@@ -1,0 +1,6 @@
+• Guidage repensé : tracé plus visible, zoom selon la vitesse, numéros de sortie.
+• Alertes radars plus discrètes, prix du carburant sur la carte du guidage.
+• Itinéraire affiché plus vite, guidage plus économe en batterie.
+• Voix avec tous les moteurs de synthèse.
+• Domicile, recherches récentes, ville sur chaque résultat.
+• Maroc hors ligne, véhicule « Voiture », formulaires plus clairs, nouvelle police, fusion de comptes.

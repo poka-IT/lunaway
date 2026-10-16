@@ -1,1 +1,6 @@
-Première version de Lunaway : carte des aires, parkings et campings de France et de vingt autres pays d'Europe, nuit indiquée sur chaque fiche, filtres, recherche de lieux et d'adresses, favoris en listes. Itinéraire et guidage vocal au gabarit du véhicule, radars et zones de danger selon la loi de chaque pays, liste « Sur le trajet ». Régions et cartes hors ligne. Avis traduits sur nos serveurs. Six langues. Avis, photos et ajout de lieux avec un compte sans e-mail.
+• Guidage repensé : tracé plus visible, zoom selon la vitesse, numéros de sortie.
+• Alertes radars plus discrètes, prix du carburant sur la carte du guidage.
+• Itinéraire affiché plus vite, guidage plus économe en batterie.
+• Voix avec tous les moteurs de synthèse.
+• Domicile, recherches récentes, ville sur chaque résultat.
+• Maroc hors ligne, véhicule « Voiture », formulaires plus clairs, nouvelle police, fusion de comptes.

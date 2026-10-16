@@ -1,1 +1,6 @@
-Primera versión de Lunaway: mapa de áreas, aparcamientos y campings de Francia y de otros veinte países de Europa, pernocta indicada en cada ficha, filtros, búsqueda de lugares y direcciones, favoritos en listas. Ruta y navegación por voz a la medida del vehículo, radares y zonas de peligro según la ley de cada país, lista «En el camino». Regiones y mapas sin conexión. Reseñas traducidas en nuestros servidores. Seis idiomas. Reseñas, fotos y lugares nuevos con una cuenta sin correo electrónico.
+• Navegación renovada: trazado más visible, zoom según la velocidad, números de salida.
+• Avisos de radares más discretos, precios del combustible en el mapa de navegación.
+• Rutas mostradas más rápido, navegación que ahorra batería.
+• Voz con cualquier motor de síntesis.
+• Casa, búsquedas recientes, localidad en cada resultado.
+• Marruecos sin conexión, vehículo «Coche», formularios más claros, nueva tipografía, fusión de cuentas.

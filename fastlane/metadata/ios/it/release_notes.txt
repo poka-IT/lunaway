@@ -1,1 +1,6 @@
-Prima versione di Lunaway: mappa di aree sosta, parcheggi e campeggi in Francia e in altri venti Paesi europei, pernottamento indicato su ogni scheda, filtri, ricerca di luoghi e indirizzi, preferiti in liste. Percorso e navigazione vocale per le dimensioni del veicolo, autovelox e zone di pericolo secondo la legge di ogni Paese, «Lungo il percorso». Regioni e mappe offline. Recensioni tradotte sui nostri server. Sei lingue. Recensioni, foto e aggiunta di luoghi con un account senza e-mail.
+• Navigazione rinnovata: tracciato più visibile, zoom secondo la velocità, numeri di uscita.
+• Avvisi autovelox più discreti, prezzi del carburante sulla mappa di navigazione.
+• Percorsi mostrati più in fretta, navigazione che risparmia batteria.
+• Voce con ogni motore di sintesi.
+• Casa, ricerche recenti, località su ogni risultato.
+• Marocco offline, veicolo «Auto», moduli più chiari, nuovo carattere, unione di account.

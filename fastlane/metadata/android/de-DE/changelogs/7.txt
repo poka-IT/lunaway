@@ -1,0 +1,6 @@
+• Neue Navigation: deutlichere Routenlinie, Zoom nach Geschwindigkeit, Ausfahrtsnummern.
+• Dezentere Blitzerwarnungen, Kraftstoffpreise auf der Navigationskarte.
+• Routen schneller angezeigt, Navigation schont den Akku.
+• Sprachansagen mit jeder Sprachausgabe.
+• Zuhause, letzte Suchen, Ort bei jedem Ergebnis.
+• Marokko offline, Fahrzeug „Auto“, klarere Formulare, neue Schrift, Konten zusammenführen.

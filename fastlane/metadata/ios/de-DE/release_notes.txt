@@ -1,1 +1,6 @@
-Erste Version von Lunaway: Karte der Stell-, Park- und Campingplätze in Frankreich und zwanzig weiteren Ländern Europas, Angaben zur Übernachtung auf jeder Platzseite, Filter, Suche nach Plätzen und Adressen, Favoriten in Listen. Route und Sprachnavigation nach Fahrzeugmaßen, Blitzer und Gefahrenzonen nach dem Recht jedes Landes, „Unterwegs“. Regionen und Karten offline. Rezensionen auf unseren Servern übersetzt. Sechs Sprachen. Rezensionen, Fotos und neue Plätze mit einem Konto ohne E-Mail.
+• Neue Navigation: deutlichere Routenlinie, Zoom nach Geschwindigkeit, Ausfahrtsnummern.
+• Dezentere Blitzerwarnungen, Kraftstoffpreise auf der Navigationskarte.
+• Routen schneller angezeigt, Navigation schont den Akku.
+• Sprachansagen mit jeder Sprachausgabe.
+• Zuhause, letzte Suchen, Ort bei jedem Ergebnis.
+• Marokko offline, Fahrzeug „Auto“, klarere Formulare, neue Schrift, Konten zusammenführen.
