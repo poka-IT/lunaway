@@ -15,6 +15,13 @@ abstract final class PinSprites {
   static int ratioFor(double devicePixelRatio) =>
       ratios.firstWhere((r) => r >= devicePixelRatio - 0.05, orElse: () => ratios.last);
 
+  /// Whether the image [id] goes into a native map only when a pin first
+  /// shows selected with it (a place's, a point's), rather than with the
+  /// others at the style's setup: one shows at a time, and the engine kept
+  /// the hundred of them decoded, 11 MB at the 3x ratio
+  /// (`plan/research/139-memoire-android.md`).
+  static bool onDemand(String id) => id.endsWith('-selected');
+
   static final Map<int, Future<Map<String, Uint8List>>> _loaded = {};
 
   /// Every pin image at [ratio], by image id: the places' and the points of

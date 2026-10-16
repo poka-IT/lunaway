@@ -88,6 +88,16 @@ Checked on Google's pages on 2026-10-06.
   native libraries, so check every release bundle:
   `bundletool dump config --bundle=<aab> | grep alignment` must print
   `PAGE_ALIGNMENT_16K`.
+- **Memory and DEX** from February 2027 (checked 2026-10-16,
+  support.google.com/googleplay/android-developer/answer/17492799): over
+  28 days, the 90th percentile of anonymous RSS plus swap stays under 2 GB
+  in the foreground and 1 GB in the background or a foreground service on
+  a 4 GB phone (more on larger ones), bitmaps under 200 MB once hidden, and
+  at least 25 % of the DEX optimized (0.6.0: 82 %, app bundle explorer).
+  Measured on an emulator, the app peaks near 0.5 GB
+  (`plan/research/139-memoire-android.md`). MapLibre holds most of it and
+  frees its tile cache only while a map still draws: `MainActivity` releases
+  it at the pause, `GlLunaMap` before a covered map pauses; keep both.
 - **Account deletion.** The app creates an account at the first
   contribution, or when the user chooses to sync favourites
   (`app/lib/features/account/data/account_service.dart`), so it must offer

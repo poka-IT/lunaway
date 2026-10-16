@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -761,6 +762,41 @@ void main() {
       expect(api.uploads.single, _FakePreparer.jpeg);
       expect(api.last('upload'), {'placeId': lakeArea.id});
     });
+
+    testWidgets('a photo waiting for the network shows decoded at the size of its thumbnail', (
+      tester,
+    ) async {
+      final api = FakeApi(level: 1)..offline = true;
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(),
+        overrides: [
+          picturePickerProvider.overrideWithValue(picker),
+          photoPreparerProvider.overrideWithValue(const _LargePreparer()),
+        ],
+      );
+      await tester.tap(inDetails(find.text(t.contribute.firstPhoto)));
+      await settleShort(tester);
+      await tapAndSend(tester, find.text(t.photoFlow.send));
+      final thumb = find.bySemanticsLabel(t.photoFlow.pending);
+      expect(thumb, findsOneWidget);
+
+      // Decoded for its 160 by 120 points (a pixel each here), not at the
+      // 2 560 pixels it is sent with.
+      ui.Image? image;
+      for (var i = 0; i < 50 && image == null; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+        image = tester
+            .widgetList<RawImage>(find.descendant(of: thumb, matching: find.byType(RawImage)))
+            .firstOrNull
+            ?.image;
+      }
+      expect((image?.width, image?.height), (160, 120));
+    });
   });
 
   group('adding a place', () {
@@ -1300,6 +1336,18 @@ final class _FakePreparer implements PhotoPreparer {
   @override
   Future<PreparedPhoto> prepare(Uint8List original) async =>
       PreparedPhoto(jpeg: jpeg, width: 8, height: 6);
+}
+
+/// A preparer that returns a photo of the size the app sends, 2 560 pixels
+/// on its long side.
+final class _LargePreparer implements PhotoPreparer {
+  const new();
+
+  static final Uint8List jpeg = img.encodeJpg(img.Image(width: 2560, height: 1920));
+
+  @override
+  Future<PreparedPhoto> prepare(Uint8List original) async =>
+      PreparedPhoto(jpeg: jpeg, width: 2560, height: 1920);
 }
 
 /// A sync store that writes what the feed brings into the places the

@@ -20,6 +20,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/images/cover_sized_image.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -488,12 +489,17 @@ class _PhotoField extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(LunaTokens.radiusM),
-          child: Image.memory(
-            picked.jpeg,
+          child: Image(
+            image: CoverSizedImage.forBox(
+              MemoryImage(picked.jpeg),
+              const Size(96, 72),
+              MediaQuery.devicePixelRatioOf(context),
+            ),
             width: 96,
             height: 72,
             fit: BoxFit.cover,
             excludeFromSemantics: true,
+            gaplessPlayback: true,
           ),
         ),
         const SizedBox(width: Space.m),

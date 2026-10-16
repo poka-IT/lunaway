@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/map_caches.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/core/web/tile_errors.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
@@ -98,12 +99,29 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   /// Stops the engine's drawing while the map is under a page, and starts
-  /// it again when the page goes.
+  /// it again when the page goes. On Android the map first lets go of the
+  /// tiles it keeps beyond its view, while it still draws: under the
+  /// guidance, the country's view read at the start held a hundred
+  /// megabytes and more, and asked once paused the engine kept them until
+  /// the map drew again (measured on an emulator,
+  /// `plan/research/139-memoire-android.md`).
   Future<void> _renderWhileOnScreen() async {
     final c = _controller;
     if (c == null || kIsWeb) return;
     try {
-      await (_onScreen ? c.resumeMap() : c.pauseMap());
+      if (_onScreen) {
+        await c.resumeMap();
+        return;
+      }
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Not waited for: a host that never answers must not keep the map
+        // drawing under the page.
+        unawaited(releaseMapCaches());
+        await Future<void>.delayed(mapCacheReleaseFrame);
+        // Back on screen meanwhile: the call that saw it resumes the map.
+        if (_onScreen || !mounted) return;
+      }
+      await c.pauseMap();
     } on Object catch (e) {
       _log.fine('map pause: $e');
     }
@@ -291,7 +309,17 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     _log.info('theme turned in place in ${clock.elapsedMilliseconds} ms');
   }
 
+  /// The images of selected pins the style holds: each goes in when a pin
+  /// first shows selected with it ([PinSprites.onDemand]).
+  final _selectionImages = <String>{};
+
+  /// Counts the styles whose sources and images went ([_forgetSent]): an
+  /// image added across a new style is not written as held.
+  int _selectionStyle = 0;
+
   void _forgetSent() {
+    _selectionImages.clear();
+    _selectionStyle++;
     _sentPlaces = null;
     _sentSelected = null;
     _sentSelectedId = null;
@@ -541,9 +569,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (!kIsWeb) {
         final images = await PinSprites.load(_ratio);
         // The images go in together: the engine queues each call, and one at
-        // a time waits a round trip for each of the hundred pins.
+        // a time waits a round trip for each of the hundred pins. A selected
+        // pin's goes in at its first selection ([_selectionImage]).
         if (!current()) return;
-        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
+        await Future.wait([
+          for (final e in images.entries)
+            if (!PinSprites.onDemand(e.key)) c.addImage(e.key, e.value),
+        ]);
       }
       if (!current()) return;
       _ready = true;
@@ -636,6 +668,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentSelected = selectedKey;
       _sentSelectedId = selected?.id;
       _sentPoint = props.markedPoint;
+      if (selected != null) {
+        await _selectionImage(c, pinImageId(selected.kind, selected.overnight, selected: true));
+      }
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
@@ -662,8 +697,23 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           pinsBelow: pinsBelow,
         );
       }
+      if (pois.selected case final point?) {
+        await _selectionImage(c, PoiMapStyle.selectedImageId(point.kind));
+      }
       await _poi.sync(c, pois, pinScale: _pinScale);
     }
+  }
+
+  /// Adds the image [id] of a selected pin unless the style holds it, ahead
+  /// of the selection that draws it: the pin shows with its image.
+  Future<void> _selectionImage(gl.MapLibreMapController c, String id) async {
+    if (kIsWeb || !mounted || _selectionImages.contains(id)) return;
+    final style = _selectionStyle;
+    final bytes = (await PinSprites.load(_ratio))[id];
+    if (bytes == null) return;
+    await c.addImage(id, bytes);
+    // A style loaded meanwhile does not hold it: its own selection adds it.
+    if (style == _selectionStyle) _selectionImages.add(id);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye

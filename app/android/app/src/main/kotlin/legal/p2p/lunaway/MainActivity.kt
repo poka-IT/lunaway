@@ -57,9 +57,16 @@ class MainActivity : FlutterActivity() {
         // does not hold (plan/research/124-cadence-carte-guidage.md). The
         // maplibre_gl plugin has no call for it; the map is the one whose
         // style holds the source the app names, and the fades of the other
-        // maps (the main map, the preview) stay as they are.
+        // maps (the main map, the preview) stay as they are. `releaseCaches`:
+        // the main map about to go under a page lets go of its cache while it
+        // still draws ([releaseMapCaches]).
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lunaway/map")
             .setMethodCallHandler { call, result ->
+                if (call.method == "releaseCaches") {
+                    releaseMapCaches()
+                    result.success(null)
+                    return@setMethodCallHandler
+                }
                 val source = call.argument<String>("source")
                 val on = call.argument<Boolean>("on")
                 when {
@@ -128,6 +135,31 @@ class MainActivity : FlutterActivity() {
                     }
                 },
             )
+    }
+
+    // Leaving the screen, the maps give back what they keep beyond their
+    // views: the tiles of the views left behind, a hundred megabytes and
+    // more after the country's view. Hidden, the app would hold them until
+    // the system kills it for the room.
+    override fun onPause() {
+        releaseMapCaches()
+        super.onPause()
+    }
+
+    /**
+     * Each map lets go of the tiles it keeps beyond its view and of the
+     * engine's spare buffers; the tiles in view stay. Asked from the trim
+     * callbacks of a hidden app, or from onStop, MapLibre gave the memory
+     * back only when the user came back and the map drew again; asked at
+     * the pause, before the maps stop, it was gone while the app was hidden
+     * (measured on an emulator, plan/research/139-memoire-android.md).
+     */
+    private fun releaseMapCaches() {
+        try {
+            for (view in mapViews(window.decorView)) view.onLowMemory()
+        } catch (e: Throwable) {
+            Log.w("lunaway", "map caches: $e")
+        }
     }
 
     override fun onDestroy() {
