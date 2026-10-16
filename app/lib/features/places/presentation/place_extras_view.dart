@@ -27,6 +27,7 @@ import 'package:lunaway/features/translation/domain/translation.dart';
 import 'package:lunaway/features/translation/presentation/translatable_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
+import 'package:lunaway/shared/images/cover_sized_image.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
 import 'package:lunaway/shared/images/retrying_image.dart';
 import 'package:lunaway/shared/images/thumbhash.dart';
@@ -239,7 +240,15 @@ class _PendingThumb extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               if (bytes != null)
-                Image.memory(bytes, fit: BoxFit.cover, excludeFromSemantics: true)
+                Image(
+                  image: CoverSizedImage.forBox(
+                    MemoryImage(bytes),
+                    const Size(width, PlacePhotos.height),
+                    MediaQuery.devicePixelRatioOf(context),
+                  ),
+                  fit: BoxFit.cover,
+                  excludeFromSemantics: true,
+                )
               else
                 ColoredBox(color: scheme.surfaceContainerHigh),
               ColoredBox(color: scheme.scrim.withValues(alpha: 0.35)),

@@ -10,6 +10,7 @@ import 'package:lunaway/features/community/data/picture_picker.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/images/cover_sized_image.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -150,7 +151,17 @@ class PhotoPreview extends StatelessWidget {
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           child: AspectRatio(
             aspectRatio: photo.width / photo.height,
-            child: Image.memory(photo.jpeg, fit: BoxFit.cover, excludeFromSemantics: true),
+            child: LayoutBuilder(
+              builder: (context, box) => Image(
+                image: CoverSizedImage.forBox(
+                  MemoryImage(photo.jpeg),
+                  box.biggest,
+                  MediaQuery.devicePixelRatioOf(context),
+                ),
+                fit: BoxFit.cover,
+                excludeFromSemantics: true,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: Space.m),
