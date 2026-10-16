@@ -93,10 +93,12 @@ Not collected, apart from the address search above, with the reason:
   the filters and the places along a route on a device without places
   (`app/lib/features/places/data/online_places.dart`); the first region
   synced is chosen from the position, at region scale
-  (`app/lib/features/regions/`), and the guidance asks the photos of the
+  (`app/lib/features/regions/`), the guidance asks the photos of the
   places drawn near the vehicle by their ids
-  (`app/lib/features/navigation/data/place_thumbs.dart`). Nothing is
-  stored, the access log keeps no query content and masks pack names
+  (`app/lib/features/navigation/data/place_thumbs.dart`) and the fuel
+  stations of the vehicle's 0.05 degree cell widened by 0.02 degree
+  (`app/lib/features/navigation/application/route_fuel_prices.dart`).
+  Nothing is stored, the access log keeps no query content and masks pack names
   (`infra/caddy/Caddyfile`, `access_log`).
 - Precise Location for routes: the start of each route, the reroutes of a
   guidance and the route line sent for "On the way" (from 2 km past the
@@ -105,8 +107,13 @@ Not collected, apart from the address search above, with the reason:
   stored, the API logs per route its timings and outcome, never a
   coordinate (`backend/crates/lunaway-api/src/routing_query.rs`), and the
   routing engine's journal holds none (14 days of `journalctl -u
-  valhalla` read on 2026-10-07: no coordinate, no request body). Under
-  Apple's definition this adds no type.
+  valhalla` read on 2026-10-07: no coordinate, no request body). The
+  alternatives of a preview without stops, whose lines hold its start,
+  come in a second answer to the same route: they wait in memory under a
+  random token bound to the client's IPv4 address or IPv6 /64 until the
+  app takes them, readable for 60 s (`routing/later.rs`), and are never
+  written nor logged. Under Apple's definition this adds no type:
+  Precise Location is declared above anyway.
 - Search History, apart from addresses: online, the search of places,
   towns and shops sends the text and the map centre rounded to 0.05
   degree in one request (offline, a device with regions searches its
