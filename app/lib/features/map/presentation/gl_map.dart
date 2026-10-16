@@ -306,7 +306,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     _log.info('theme turned in place in ${clock.elapsedMilliseconds} ms');
   }
 
+  /// The images of selected pins the style holds: each goes in when a pin
+  /// first shows selected with it ([PinSprites.onDemand]).
+  final _selectionImages = <String>{};
+
   void _forgetSent() {
+    _selectionImages.clear();
     _sentPlaces = null;
     _sentSelected = null;
     _sentSelectedId = null;
@@ -556,9 +561,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (!kIsWeb) {
         final images = await PinSprites.load(_ratio);
         // The images go in together: the engine queues each call, and one at
-        // a time waits a round trip for each of the hundred pins.
+        // a time waits a round trip for each of the hundred pins. A selected
+        // pin's goes in at its first selection ([_selectionImage]).
         if (!current()) return;
-        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
+        await Future.wait([
+          for (final e in images.entries)
+            if (!PinSprites.onDemand(e.key)) c.addImage(e.key, e.value),
+        ]);
       }
       if (!current()) return;
       _ready = true;
@@ -651,6 +660,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentSelected = selectedKey;
       _sentSelectedId = selected?.id;
       _sentPoint = props.markedPoint;
+      if (selected != null) {
+        await _selectionImage(c, pinImageId(selected.kind, selected.overnight, selected: true));
+      }
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
@@ -677,8 +689,21 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           pinsBelow: pinsBelow,
         );
       }
+      if (pois.selected case final point?) {
+        await _selectionImage(c, PoiMapStyle.selectedImageId(point.kind));
+      }
       await _poi.sync(c, pois, pinScale: _pinScale);
     }
+  }
+
+  /// Adds the image [id] of a selected pin unless the style holds it, ahead
+  /// of the selection that draws it: the pin shows with its image.
+  Future<void> _selectionImage(gl.MapLibreMapController c, String id) async {
+    if (kIsWeb || !mounted || _selectionImages.contains(id)) return;
+    final bytes = (await PinSprites.load(_ratio))[id];
+    if (bytes == null) return;
+    await c.addImage(id, bytes);
+    _selectionImages.add(id);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye
