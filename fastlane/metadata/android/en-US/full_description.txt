@@ -1,6 +1,6 @@
 Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in the wild, in France, twenty other European countries and Morocco.
 
-Free, with no ads and no trackers: every feature is free, offline use included. The code is free software (AGPL) and the places database is open (ODbL).
+Free, with no ads and no trackers: every feature is free, offline use included. The app is open source (AGPL licence) and the places database is open (ODbL).
 
 FIND WHERE TO SLEEP
 • The overnight status on every page: allowed, tolerated, daytime only or no overnight stay

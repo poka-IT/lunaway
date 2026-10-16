@@ -1,6 +1,6 @@
 Lunaway est une carte des lieux où s'arrêter en camping-car ou en van : aires de camping-car, aires de services, parkings, campings, accueils à la ferme, lieux en pleine nature, en France, dans vingt autres pays d'Europe et au Maroc.
 
-Gratuite, sans publicité et sans pisteur : toutes les fonctions sont gratuites, y compris hors ligne. Le code est libre (AGPL) et la base des lieux est ouverte (ODbL).
+Gratuite, sans publicité et sans pisteur : toutes les fonctions sont gratuites, y compris hors ligne. L'app est open source (licence AGPL) et la base des lieux est ouverte (ODbL).
 
 TROUVER OÙ DORMIR
 • La nuit sur chaque fiche : autorisée, tolérée, de jour seulement ou interdite

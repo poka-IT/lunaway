@@ -1,6 +1,6 @@
 Lunaway ist eine Karte der Plätze, an denen Sie mit dem Wohnmobil oder dem Van haltmachen können: Wohnmobilstellplätze, Ver- und Entsorgungsstationen, Parkplätze, Campingplätze, Stellplätze auf dem Bauernhof, Plätze in freier Natur, in Frankreich, zwanzig weiteren Ländern Europas und Marokko.
 
-Kostenlos, ohne Werbung und ohne Tracker: Alle Funktionen sind kostenlos, auch offline. Der Code ist freie Software (AGPL), und die Datenbank der Plätze ist offen (ODbL).
+Kostenlos, ohne Werbung und ohne Tracker: Alle Funktionen sind kostenlos, auch offline. Die App ist Open Source (AGPL), die Datenbank der Plätze ist offen (ODbL).
 
 WO SIE ÜBERNACHTEN KÖNNEN
 • Übernachtung auf jeder Platzseite angegeben: erlaubt, geduldet, nur tagsüber oder verboten
