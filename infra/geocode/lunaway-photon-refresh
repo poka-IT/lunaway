@@ -149,7 +149,9 @@ refresh() {
 
   ln -sfn "$dir/$next" "$dir/current.new"
   mv -T "$dir/current.new" "$dir/current"
-  systemctl restart "photon@$instance"
+  # Returns once Photon answers (its ExecStartPost=); a database that never
+  # does fails the start, and the searches below put the previous one back.
+  systemctl restart "photon@$instance" || log "$instance: photon@$instance did not start on $dir/$next"
   local checks
   case "$instance" in
     europe) checks=("unter den linden berlin:DE" "zaragoza:ES" "via del corso roma:IT") ;;
@@ -167,7 +169,7 @@ refresh() {
     log "$instance: the new database does not answer, back to $current"
     ln -sfn "$current" "$dir/current.new"
     mv -T "$dir/current.new" "$dir/current"
-    systemctl restart "photon@$instance"
+    systemctl restart "photon@$instance" || log "$instance: photon@$instance did not start on $current either"
   fi
   return 1
 }

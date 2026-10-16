@@ -3,16 +3,24 @@
 
     python3 battery.py trips.csv out.jsonl [--avoid motorways] [--alternatives 2]
         [--api http://127.0.0.1:8484/graphql] [--pause 1] [--only 5,12] [--offset 250]
+        [--depart-at 2026-10-12T12:00:00Z] [--later]
 
-Sends the app's route request (its latest form: speed limits, reasons,
-cruising speed, moved stops) for an alcove motorhome (3.3 m, 2.3 m, 7.4 m,
-3.5 t), in French, and writes one JSON line per trip: the status, the time
-the client waited, each route's length, duration and geometry digest, the
-recalculations the API made, the size of the OSRM answer, the errors. Run
-on the backend, the API on the loopback: each request carries its own
-address in X-Forwarded-For, so the route quota (30 every ten minutes per
-client) never applies, and the pause keeps one route in flight at a time.
-Standard library only.
+Sends the app's route request (speed limits, reasons, cruising speed, moved
+stops) for an alcove motorhome (3.3 m, 2.3 m, 7.4 m, 3.5 t), in French, and
+writes one JSON line per trip: the status, the time the client waited, each
+route's length, duration and geometry digest, the recalculations the API
+made, the road events it went round, the size of the OSRM answer, the
+errors. Without `--later` the request is the app 0.1.0's, every route in
+one answer; with it, the app's from 0.4: the best route alone with
+`alternativesToken`, then `routeAlternatives` at once, whose time
+(`later_ms`), status and routes (`alt_routes`) the line adds. Run on the
+backend, the API on the loopback: each request carries its own address in
+X-Forwarded-For, so the route quota (30 every ten minutes per client) never
+applies, and the pause keeps one route in flight at a time. Standard
+library only.
+
+Road events count at the hour the vehicle reaches them: two passes compare
+trip by trip only from the same `--depart-at` (README.md).
 """
 
 import argparse
@@ -28,7 +36,7 @@ DOCUMENT = """
 query Route($input: RouteInput!) {
   route(input: $input) {
     status
-    osrmJson
+    osrmJson__TOKEN__
     noRouteReasons { kind stopIndex limits { kind limit vehicleValue restriction { ...RouteWarningFields } } }
     movedStops { stopIndex lat lon distanceM }
     routes {
@@ -70,7 +78,13 @@ fragment FerryCrossingFields on FerryCrossing {
 }
 """
 
-VEHICLE = {"kind": "OVERCAB", "heightM": 3.3, "widthM": 2.3, "lengthM": 7.4, "weightT": 3.5}
+ALTERNATIVES = """
+query Alternatives($token: String!) {
+  routeAlternatives(token: $token) { status osrmJson routes { distanceM durationS } }
+}
+"""
+
+VEHICLE ={"kind": "OVERCAB", "heightM": 3.3, "widthM": 2.3, "lengthM": 7.4, "weightT": 3.5}
 
 
 def read_trips(path):
@@ -97,8 +111,43 @@ def digest(geometry):
     return hashlib.sha1(geometry.encode()).hexdigest()[:16] if geometry else None
 
 
+def post(args, client, document, variables):
+    """One GraphQL request from `client`: its HTTP status, the answer, the
+    milliseconds the client waited, its size and its errors."""
+    body = json.dumps({"query": document, "variables": variables}).encode()
+    req = urllib.request.Request(args.api, data=body, headers={
+        "Content-Type": "application/json",
+        "X-Forwarded-For": client,
+        "User-Agent": "lunaway-route-battery (+https://lunaway.net)",
+    })
+    errors = []
+    t0 = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            raw = resp.read()
+            http = resp.status
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        http = e.code
+    except OSError as e:
+        raw = b""
+        http = 0
+        errors.append({"message": str(e)})
+    ms = round((time.monotonic() - t0) * 1000)
+    try:
+        answer = json.loads(raw) if raw else {}
+    except ValueError:
+        answer = {}
+    errors += [
+        {"message": e.get("message"), "code": (e.get("extensions") or {}).get("code")}
+        for e in answer.get("errors") or []
+    ]
+    return http, answer, ms, len(raw), errors
+
+
 def ask(args, n, t, avoid):
-    """One route request; the line written for it."""
+    """One route request, and its alternatives with `--later`; the line
+    written for it."""
     variables = {"input": {
         "origin": {"lat": float(t["from_lat"]), "lon": float(t["from_lon"]), "vehiclePosition": False},
         "destination": {"lat": float(t["to_lat"]), "lon": float(t["to_lon"])},
@@ -107,38 +156,17 @@ def ask(args, n, t, avoid):
         "alternatives": args.alternatives,
         "language": "FR",
     }}
-    body = json.dumps({"query": DOCUMENT, "variables": variables}).encode()
-    req = urllib.request.Request(args.api, data=body, headers={
-        "Content-Type": "application/json",
-        "X-Forwarded-For": address(n + args.offset),
-        "User-Agent": "lunaway-route-battery (+https://lunaway.net)",
-    })
+    if args.depart_at:
+        variables["input"]["departAt"] = args.depart_at
+    document = DOCUMENT.replace("__TOKEN__", "\n    alternativesToken" if args.later else "")
+    client = address(n + args.offset)
     row = {"id": t["id"], "band": int(t["band"]), "straight_km": float(t["straight_km"]),
-           "avoid": args.avoid, "started": datetime.now(timezone.utc).isoformat()}
-    t0 = time.monotonic()
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            raw = resp.read()
-            row["http"] = resp.status
-    except urllib.error.HTTPError as e:
-        raw = e.read()
-        row["http"] = e.code
-    except OSError as e:
-        raw = b""
-        row["http"] = 0
-        row["errors"] = [{"message": str(e)}]
-    row["ms"] = round((time.monotonic() - t0) * 1000)
+           "avoid": args.avoid, "later": args.later, "depart_at": args.depart_at,
+           "started": datetime.now(timezone.utc).isoformat()}
+    row["http"], answer, row["ms"], row["bytes"], errors = post(args, client, document, variables)
     row["ended"] = datetime.now(timezone.utc).isoformat()
-    row["bytes"] = len(raw)
-    try:
-        answer = json.loads(raw) if raw else {}
-    except ValueError:
-        answer = {}
-    if answer.get("errors"):
-        row["errors"] = [
-            {"message": e.get("message"), "code": (e.get("extensions") or {}).get("code")}
-            for e in answer["errors"]
-        ]
+    if errors:
+        row["errors"] = errors
     r = (answer.get("data") or {}).get("route")
     if r:
         osrm = json.loads(r.get("osrmJson") or "{}")
@@ -152,8 +180,17 @@ def ask(args, n, t, avoid):
         ]
         row["geometry"] = [digest(x.get("geometry")) for x in osrm.get("routes", [])]
         row["blockers"] = [b.get("externalId") for b in r.get("blockers") or []]
+        row["avoided"] = [e.get("id") for e in r.get("avoidedRoadEvents") or []]
         row["reasons"] = [x["kind"] for x in r.get("noRouteReasons") or []]
         row["graph"] = (r.get("graph") or {}).get("id")
+        token = r.get("alternativesToken")
+        if token:
+            _, later, row["later_ms"], _, errors = post(args, client, ALTERNATIVES, {"token": token})
+            a = (later.get("data") or {}).get("routeAlternatives") or {}
+            row["alternatives_status"] = a.get("status") or errors
+            osrm = json.loads(a.get("osrmJson") or "{}")
+            row["alt_routes"] = [{"m": x["distanceM"], "s": x["durationS"]} for x in a.get("routes") or []]
+            row["alt_geometry"] = [digest(x.get("geometry")) for x in osrm.get("routes", [])]
     return row
 
 
@@ -184,6 +221,10 @@ def main():
     p.add_argument("--only", help="trip numbers (from 0, in file order), comma separated")
     p.add_argument("--offset", type=int, default=0,
                    help="first client address, to keep series apart within ten minutes")
+    p.add_argument("--depart-at", help="the trips' departure (RFC 3339, an hour ago to 30 days ahead); "
+                   "road events count at the hour the vehicle reaches them")
+    p.add_argument("--later", action="store_true",
+                   help="the best route alone with alternativesToken, then routeAlternatives")
     run(p.parse_args())
 
 

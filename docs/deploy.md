@@ -3364,7 +3364,15 @@ engine slot was spare, `Failed`) and the same durations. A recalculation
 writes `route recalculated around limits ...` with the blockers met and, since 2026-10-11, `on_points`, those
 standing on a point (a bar on a node, a community report) rather than
 along a road: before that, the journal could not say what a recalculation
-came from (plan/research/127-routage-serveur.md, 1.3). On 2026-10-07 the engine took most of the time of
+came from (plan/research/127-routage-serveur.md, 1.3). A best route
+blocked and computed again beside another request writes one more line,
+with the best route's seconds each way, how the second request ended
+(`found`, `no_safe_route`, `no_route`, `no_slot`, `out_of_time`,
+`failed`) and the one kept: `a best route blocked alone was raced ...`
+(`alone_s`, `at_once_s`, `kept`) for a best route asked alone, `the
+engine's best route blocked beside a safe alternative was raced ...`
+(`first_s`, `around_s`, `kept`) for a trip asked with its alternatives
+(`docs/architecture.md`, "Alternatives after the best route"). On 2026-10-07 the engine took most of the time of
 a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9
 times what a ccx23 (dedicated vCPU) took for the same calls on the same
 graph (`plan/research/48-latence-itineraires.md`).
@@ -3418,6 +3426,24 @@ sandboxed, listening on 127.0.0.1 only, connecting to nothing), and
 UTC). The first databases come from `sudo systemctl start
 lunaway-photon-refresh` (about an hour), then the step again, which enables
 the instances and the timer.
+
+**Start.** Each instance's embedded OpenSearch takes the first HTTP port
+from 9201 that nothing answers on, about a second after the start, and
+binds it three seconds later (`OpenSearchRunner.getAvailableHttpPort`,
+which Photon 1.3.0 lets no option set). Two instances starting together
+took 9201 both, and the second stopped on a `BindException` until systemd
+started it again, on 2026-10-10 at 13:02 and 14:25 and on 2026-10-11 at
+20:23 (the journal of `photon@morocco`; 16 s without Morocco's addresses
+the last time). Since 2026-10-12 a unit is active only
+once its Photon answers (`ExecStartPost=lunaway-photon-ready`, four
+minutes at most, then the start fails and `Restart=` tries again), and
+`photon@morocco` starts after `photon@europe`
+(`photon@morocco.service.d/after-europe.conf`), at boot as on a restart of
+both: Europe holds 9201 and Morocco 9202. A restart of one instance alone
+finds the other's port bound and takes the next. The step `geocode`
+restarts them one after the other and checks that each listens on its
+own Photon port and that no port is held by both
+(`infra/tests/photon-units.py` checks the files and the wait).
 
 **Memory.** Europe's heap is 2 GB (`PHOTON_HEAP`, written by the step;
 3,905 MB on the geocoding server, a quarter of its 16 GB), Morocco's 512 MB.

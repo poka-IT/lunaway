@@ -347,14 +347,13 @@ fn shapes(osrm_json: &Value) -> Vec<String> {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_best_route_sent_alone_is_computed_again_around_its_closure_and_the_alternatives_keep_the_ring(
-    pool: PgPool,
-) {
+async fn a_best_route_blocked_by_a_closure_is_computed_again_around_it_both_ways(pool: PgPool) {
     // Trip 83 of plan/research/130-alternatives-apres.md (Indre to Drenthe):
     // asked with its alternatives, the first answer's best route met
     // closures and an alternative of it was sent as it stood, 912 km;
     // asked alone, the best route was computed again around its closures
-    // only, 873 km and 22 minutes less. Both now run, the faster is kept.
+    // only, 873 km and 22 minutes less. Each way now computes the best
+    // route again around its closure and keeps the faster.
     seed_graph(&pool).await;
     read(&pool, "dir", chrono::Duration::minutes(5)).await;
     store(
@@ -376,16 +375,48 @@ query Route($input: RouteInput!) {
     let mut wanting_two = input(None);
     wanting_two["input"]["alternatives"] = 2.into();
 
-    // Today's path: the alternative of the first answer goes as it stands.
-    let (url, asked) = engine(vec![osrm_of(&[ROUTE_UNDER, &detour])]).await;
+    // Asked with its alternatives in one answer (the app 0.1.0), as trips
+    // 82, 83 and 104 of infra/routing/bench/ were: the first answer's best
+    // route meets the closure and its detour is safe. The trip is asked
+    // again around the closure beside it, and the recalculation, faster, is
+    // sent with its own alternatives; before, the detour went alone.
+    let slow_detour = |mut answer: Value| {
+        answer["routes"][1]["duration"] = 900.0.into();
+        answer
+    };
+    let (url, asked) = super::route_alternatives::kind_engine(
+        [
+            osrm(ROUTE_UNDER),
+            osrm(ROUTE_AROUND),
+            slow_detour(osrm_of(&[ROUTE_UNDER, &detour])),
+            slow_detour(osrm_of(&[ROUTE_AROUND, &detour])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
     let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
     let once_query = r"
-query Route($input: RouteInput!) { route(input: $input) { status recalculations osrmJson } }";
+query Route($input: RouteInput!) {
+  route(input: $input) { status recalculations osrmJson avoidedRoadEvents { externalId } }
+}";
     let body = gql(&app, None, once_query, wanting_two.clone()).await;
     let r = &body["data"]["route"];
-    assert_eq!(r["recalculations"], 0, "{body}");
-    assert_eq!(shapes(&r["osrmJson"]), [detour.as_str()]);
-    assert_eq!(asked.lock().unwrap().len(), 1);
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(r["recalculations"], 1, "{body}");
+    assert_eq!(shapes(&r["osrmJson"]), [ROUTE_AROUND, detour.as_str()]);
+    assert_eq!(
+        r["avoidedRoadEvents"][0]["externalId"], "closed",
+        "the answer names the closure its best route goes round"
+    );
+    let asked = asked.lock().unwrap().clone();
+    assert_eq!(asked.len(), 2, "the first answer, then around the closure");
+    assert!(
+        asked[1]["exclude_polygons"]
+            .as_array()
+            .is_some_and(|r| !r.is_empty()),
+        "the second call goes round the closure: {}",
+        asked[1]
+    );
 
     // The best route first: computed again around the closure alone, and
     // today's request beside it; the recalculation is the faster, as on

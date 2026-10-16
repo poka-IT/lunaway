@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Waits until the Photon instance on 127.0.0.1:PORT answers its status, at
+# most SECONDS (240 by default), then exits 0; exits 1 past them.
+#
+#   lunaway-photon-ready PORT [SECONDS]
+#
+# photon@.service runs it after starting Java (ExecStartPost=): the unit is
+# active only once Photon serves, so a unit ordered after it starts only
+# then (photon@morocco after photon@europe, at boot as on a restart of
+# both). Each instance's embedded OpenSearch takes the first HTTP port from
+# 9201 that nothing answers on, about a second after its start, and binds
+# it three seconds later: two instances starting together took 9201 both,
+# and the second failed with a BindException (2026-10-10 at 13:02 and
+# 14:25, 2026-10-11 at 20:23 UTC; Morocco without addresses for 16 s the
+# last time). Photon answers once its OpenSearch is up, its port bound.
+set -euo pipefail
+
+port="${1:-}"
+limit="${2:-240}"
+if ! [[ "$port" =~ ^[0-9]+$ && "$limit" =~ ^[0-9]+$ ]]; then
+  echo "usage: lunaway-photon-ready PORT [SECONDS]" >&2
+  exit 2
+fi
+
+start=$SECONDS
+while (( SECONDS - start < limit )); do
+  if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/status" 2>/dev/null; then
+    echo "lunaway-photon-ready: 127.0.0.1:$port answers, $(( SECONDS - start )) s after the start"
+    exit 0
+  fi
+  sleep 0.5
+done
+echo "lunaway-photon-ready: 127.0.0.1:$port does not answer after $limit s" >&2
+exit 1
