@@ -54,7 +54,7 @@ Future<TestApp> openPlace(
 }) async {
   final app = await pumpLunaway(
     tester,
-    size: const Size(1280, 3000),
+    size: const Size(1280, 3200),
     api: api,
     signedIn: signedIn,
     extras: extras,
@@ -1117,7 +1117,7 @@ void main() {
       final store = _FeedStore();
       final app = await pumpLunaway(
         tester,
-        size: const Size(1280, 3000),
+        size: const Size(1280, 3200),
         api: api,
         signedIn: true,
         places: [
@@ -1165,7 +1165,7 @@ void main() {
       final online = FakeOnlinePlaces([confirmed(testNow)]);
       final app = await pumpLunaway(
         tester,
-        size: const Size(1280, 3000),
+        size: const Size(1280, 3200),
         api: api,
         signedIn: true,
         places: const [],

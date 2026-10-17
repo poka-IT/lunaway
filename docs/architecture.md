@@ -623,7 +623,17 @@ within a day; the app's new rules reach the devices with the next release.
   `PlaceFilter.matches`), applied without a request. A tap opens the page
   at once with what the tile said (name, kind, night) while `place(id)`
   reads the rest (a persisted query; the copy is kept in `place_cache` for
-  a later opening offline). The list beside the map is `places(bbox,
+  a later opening offline). The page's other reads leave with it, none
+  waiting for another's answer (`PlaceDetails`, decision of the PO,
+  2026-10-17): the photos and reviews (`PlaceExtras`), the other sources'
+  content (`PlaceExternal`) and the points around (`NearbyPois`). Each
+  block shows when its own answer lands and keeps its room until then:
+  the photos' strip holds its height until it knows whether there is a
+  photo (the tile for the first one is as high), the line of a rating to
+  come is kept. A copy read from the network is written beside the
+  screen, which never waits for the write (`plan/research/140-petite-passe-7.md`:
+  under WebKit the first photo came 670 ms after the tap, 250 ms since).
+  The list beside the map is `places(bbox,
   filter, near)` a page at a time, nearest to the device's position when
   the map shows it, else to the map's centre, either one on the 0.05
   degree grid (the exact position is never sent); the search is

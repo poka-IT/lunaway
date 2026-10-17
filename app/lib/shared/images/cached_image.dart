@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -49,6 +50,8 @@ Future<Uint8List> cachedImageBytes(String url, ImageFetcher fetcher) async {
   final cached = await readCachedImage(key);
   if (cached != null) return cached;
   final bytes = await fetcher.fetch(url);
-  await writeCachedImage(key, bytes);
+  // The photo shows at once; its copy is written beside it (a flushed
+  // write held the first photo of a place's card on a phone).
+  unawaited(writeCachedImage(key, bytes));
   return bytes;
 }

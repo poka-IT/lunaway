@@ -225,6 +225,10 @@ Future<TestApp> pumpLunaway(
     afterMap: Duration.zero,
     atLatest: Duration.zero,
   ),
+  // A place, its photos and reviews, the other sources' content and the
+  // points around read by the app's own GraphQL sources over [httpClient],
+  // as on the web: for a test of the requests themselves. Fakes by default.
+  bool graphQLSources = false,
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -314,19 +318,22 @@ Future<TestApp> pumpLunaway(
         pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
         httpClientProvider.overrideWithValue(httpClient ?? api?.client(_demo) ?? _demo),
-        placeExtrasRepositoryProvider.overrideWithValue(
-          PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
-        ),
-        placeExternalSourceProvider.overrideWithValue(app.externalSource),
+        if (!graphQLSources) ...[
+          placeExtrasRepositoryProvider.overrideWithValue(
+            PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
+          ),
+          placeExternalSourceProvider.overrideWithValue(app.externalSource),
+        ],
         placeDigestSourceProvider.overrideWithValue(app.digests),
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
         // The points of interest in memory, the basemap's host answering
         // (or not, as the test says), the offline maps' folder in memory.
-        poiRepositoryProvider.overrideWithValue(
-          PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
-        ),
+        if (!graphQLSources)
+          poiRepositoryProvider.overrideWithValue(
+            PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
+          ),
         basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
         networkMonitorProvider.overrideWithValue(network ?? FakeNetworkMonitor()),
         packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
@@ -343,7 +350,7 @@ Future<TestApp> pumpLunaway(
             (ref) => ref.watch(basemapReachabilityProvider) != false,
           )
         else
-          placesFromTilesProvider.overrideWithValue(online != null),
+          placesFromTilesProvider.overrideWithValue(online != null || graphQLSources),
         if (online != null) onlinePlacesProvider.overrideWithValue(online),
         ...overrides,
       ],

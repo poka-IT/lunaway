@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
@@ -146,7 +147,8 @@ final class PoiRepository {
     try {
       final data = await fetch();
       final at = clock().toUtc();
-      await _write(key, data, at);
+      // The page shows the answer at once; the copy is written beside it.
+      unawaited(_keep(key, data, at));
       yield Read(parse(data), fetchedAt: at);
     } on Object catch (e) {
       if (cached == null) rethrow;
@@ -174,6 +176,14 @@ final class PoiRepository {
       // A copy written by another version that no longer reads: read again.
       _log.info('$key: copy unreadable ($e)');
       return null;
+    }
+  }
+
+  Future<void> _keep(String key, Map<String, dynamic> data, DateTime at) async {
+    try {
+      await _write(key, data, at);
+    } on Object catch (e) {
+      _log.info('$key: the copy was not kept ($e)');
     }
   }
 

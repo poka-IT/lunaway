@@ -1032,6 +1032,8 @@ void main() {
       await r.watchNearby('b').toList();
       now = now.add(const Duration(minutes: 1));
       await r.watchNearby('c').toList();
+      // The copy is written beside the answer, which does not wait for it.
+      await pumpEventQueue();
       final keys = (await db.select(db.poiCache).get()).map((row) => row.cacheKey);
       expect(keys, unorderedEquals(['nearby:b', 'nearby:c']));
     });

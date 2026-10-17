@@ -70,10 +70,17 @@ class PlacePhotos extends ConsumerWidget {
       _ => const <Photo>[],
     };
     // The external community source's photos follow Lunaway's, as soon as
-    // they come; the strip never waits for them.
-    final external = ref.watch(placeExternalProvider(place.id)).value?.content.photos ?? const [];
-    final photos = [...ours, ...external];
-    if (extras is AsyncLoading && !extras.hasValue) {
+    // they come: added at the end of a strip already shown, they move
+    // nothing.
+    final external = ref.watch(placeExternalProvider(place.id));
+    final photos = [...ours, ...?external.value?.content.photos];
+    // The strip keeps its room until it knows whether the place has a
+    // photo: Lunaway's read, and while none of them shows, the other
+    // sources' too. The tile to add the first photo takes the same room.
+    final unknown =
+        (extras is AsyncLoading && !extras.hasValue) ||
+        (photos.isEmpty && waiting.isEmpty && external.isLoading && !external.hasValue);
+    if (unknown) {
       return Padding(
         padding: const EdgeInsets.only(top: Space.xl),
         child: SizedBox(
@@ -161,11 +168,17 @@ class _AddPhotoTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     if (first) {
-      return OutlinedButton.icon(
-        onPressed: onTap,
-        icon: const Icon(AppIcons.addPhoto),
-        label: Text(t.contribute.firstPhoto),
-        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+      // As high as the strip it stands in for, whatever the size of the
+      // text: the page under it stays where the strip's room put it,
+      // photos or none.
+      return SizedBox(
+        height: PlacePhotos.height,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          icon: const Icon(AppIcons.addPhoto),
+          label: Text(t.contribute.firstPhoto),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(PlacePhotos.height)),
+        ),
       );
     }
     return Semantics(

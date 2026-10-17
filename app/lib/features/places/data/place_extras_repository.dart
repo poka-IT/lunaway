@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
@@ -77,11 +78,20 @@ final class PlaceExtrasRepository {
         myReview: fresh.myReview,
         fetchedAt: clock().toUtc(),
       );
-      await _write(placeId, extras);
+      // The page shows the answer at once; the copy is written beside it.
+      unawaited(_keep(placeId, extras));
       yield extras;
     } on Object catch (e) {
       if (cached == null) rethrow;
       _log.info('$placeId: kept the cached photos and reviews ($e)');
+    }
+  }
+
+  Future<void> _keep(String placeId, PlaceExtras extras) async {
+    try {
+      await _write(placeId, extras);
+    } on Object catch (e) {
+      _log.info('$placeId: the copy of the photos and reviews was not kept ($e)');
     }
   }
 

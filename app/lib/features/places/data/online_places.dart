@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
@@ -117,14 +118,18 @@ final class PlaceReader {
   });
 
   final CacheDatabase db;
-  final PlacesRepository local;
+
+  /// The places the device keeps; null where it keeps none (the web),
+  /// which then asks the API without reading an empty store first.
+  final PlacesRepository? local;
   final OnlinePlaces? online;
   final DateTime Function() clock;
   final Duration maxAge;
 
   Stream<Place?> watch(String id) async* {
-    final synced = await local.watchPlace(id).first;
-    if (synced != null) {
+    final local = this.local;
+    final synced = local == null ? null : await local.watchPlace(id).first;
+    if (local != null && synced != null) {
       yield* local.watchPlace(id);
       return;
     }
@@ -144,7 +149,9 @@ final class PlaceReader {
         yield null;
         return;
       }
-      await _write(id, fresh);
+      // The page shows the answer at once; the copy is written beside it
+      // (a write to the browser's database took tens of milliseconds).
+      unawaited(_keep(id, fresh));
       yield fresh;
     } on Object catch (e) {
       if (cached == null) rethrow;
@@ -155,9 +162,17 @@ final class PlaceReader {
   /// The place once, as settled: the synced copy, else the API's answer,
   /// else the copy kept (a link opened offline).
   Future<Place?> read(String id) async {
-    final synced = await local.watchPlace(id).first;
+    final synced = await local?.watchPlace(id).first;
     if (synced != null) return synced;
     return await watch(id).last;
+  }
+
+  Future<void> _keep(String id, Place place) async {
+    try {
+      await _write(id, place);
+    } on Object catch (e) {
+      _log.info('$id: the copy of the place was not kept ($e)');
+    }
   }
 
   /// Forgets the copy of [id]: after a contribution to it, the next

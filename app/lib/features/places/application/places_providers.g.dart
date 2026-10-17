@@ -723,7 +723,7 @@ final class PlaceReaderProvider
   }
 }
 
-String _$placeReaderHash() => r'777f5e63f0f0fef4f0558a6ce13babdc58355780';
+String _$placeReaderHash() => r'7d2fcf4b693cd758f77ed6c8e17208c572bb30df';
 
 /// The TileJSON of the places' vector tiles on the API.
 

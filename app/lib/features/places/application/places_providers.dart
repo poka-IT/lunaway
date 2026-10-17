@@ -439,7 +439,7 @@ OnlinePlaces onlinePlaces(Ref ref) => GraphQLOnlinePlaces(ref.watch(graphQLClien
 @Riverpod(keepAlive: true)
 PlaceReader placeReader(Ref ref) => PlaceReader(
   db: ref.watch(cacheDatabaseProvider),
-  local: ref.watch(placesRepositoryProvider),
+  local: ref.watch(keepsPlacesProvider) ? ref.watch(placesRepositoryProvider) : null,
   // Offline the API is not asked: a place the device does not hold is not
   // there for it.
   online: ref.watch(placesFromTilesProvider) ? ref.watch(onlinePlacesProvider) : null,

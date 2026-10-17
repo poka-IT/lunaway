@@ -25,6 +25,7 @@ import 'package:lunaway/features/places/presentation/description_languages.dart'
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/presentation/place_surroundings.dart';
 import 'package:lunaway/features/translation/domain/translation.dart';
 import 'package:lunaway/features/translation/presentation/translatable_text.dart';
@@ -81,7 +82,11 @@ class PlaceDetails extends ConsumerWidget {
       PlaceSelection(:final id, :final hint) when id == placeId => hint,
       _ => null,
     };
-    return switch (ref.watch(placeProvider(placeId))) {
+    final read = ref.watch(placeProvider(placeId));
+    // A place merged into another answers with that one, whose photos and
+    // reviews the page then shows.
+    _readTogether(ref, read.value?.id ?? placeId);
+    return switch (read) {
       AsyncValue(:final value, hasValue: true) when value != null =>
         actions
             ? Column(
@@ -145,8 +150,27 @@ class PlaceDetails extends ConsumerWidget {
     };
   }
 
+  /// Asks for everything the page shows from the moment it opens, beside
+  /// the place itself: its photos and reviews, the other sources' content
+  /// and what lies around it. None of them needs the place's answer, so
+  /// none waits for it, and each block shows as its own answer lands
+  /// (decision of the PO, 2026-10-17). Asked by the blocks once the place
+  /// had come, they left 130 ms after its answer under WebKit, and the
+  /// points around only once the page was scrolled to them
+  /// (`plan/research/138-petite-passe-6.md`). Listened, not watched: each
+  /// block rebuilds alone when its answer lands. A link to a place merged
+  /// into another asks these of the id it names, then again of the place
+  /// that answers, once it has said which it is.
+  void _readTogether(WidgetRef ref, String id) {
+    ref
+      ..listen(placeExtrasProvider(id), (_, _) {})
+      ..listen(placeExternalProvider(id), (_, _) {})
+      ..listen(placeSurroundingsProvider(id), (_, _) {});
+  }
+
   /// Reads again what failed for want of the network once it is back: the
-  /// place itself, its photos and reviews, the external source's content.
+  /// place itself, its photos and reviews, the external source's content,
+  /// what lies around it.
   /// Opened offline, the page stayed without them otherwise.
   void _readAgainOnline(WidgetRef ref) {
     ref.listen(basemapReachabilityProvider, (previous, next) {
@@ -164,6 +188,8 @@ class PlaceDetails extends ConsumerWidget {
       if (ref.exists(extras) && failed(ref.read(extras))) ref.invalidate(extras);
       final external = placeExternalProvider(shown);
       if (ref.exists(external) && failed(ref.read(external))) ref.invalidate(external);
+      final around = placeSurroundingsProvider(shown);
+      if (ref.exists(around) && failed(ref.read(around))) ref.invalidate(around);
     });
   }
 }

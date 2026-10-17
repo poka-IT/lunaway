@@ -24,6 +24,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 
 import '../helpers/fakes.dart';
+import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -929,27 +930,32 @@ void main() {
     );
   });
 
-  testWidgets('a place opened offline gets its photos and reviews once the network is back', (
-    tester,
-  ) async {
+  testWidgets('a place opened offline gets its photos, reviews and points around once the '
+      'network is back', (tester) async {
     const offline = "Pas de connexion : les photos et les avis s'afficheront au retour du réseau.";
     final extras = FakeExtrasSource(photos: samplePhotos)..online = false;
+    final pois = FakePoiSource()..online = false;
     final app = await pumpLunaway(
       tester,
       size: const Size(1280, 3200),
       extras: extras,
+      pois: pois,
       reachable: false,
     );
     app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
     await settleShort(tester);
     expect(find.text(offline), findsWidgets);
+    expect(find.text(t.poi.aroundOffline), findsOneWidget);
 
     final fetches = extras.fetches;
     extras.online = true;
+    pois.online = true;
     app.container(tester).read(basemapReachabilityProvider.notifier).assume(reachable: true);
     await settleShort(tester);
     expect(find.text(offline), findsNothing, reason: 'read again without a tap');
     expect(extras.fetches, greaterThan(fetches));
+    expect(find.text(t.poi.aroundOffline), findsNothing, reason: 'the points around too');
+    expect(find.textContaining('Boulangerie du Lac'), findsOneWidget);
   });
 
   testWidgets('a source whose attribution is its name says it once', (tester) async {
