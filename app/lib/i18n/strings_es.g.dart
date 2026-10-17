@@ -715,6 +715,8 @@ class _Translations$list$es extends Translations$list$en {
 	@override String get offlineTitle => 'Sin conexión';
 	@override String get offlineNotHere => 'Nada de esta zona en este dispositivo.';
 	@override String get offlineOnlineOnly => 'Esta zona solo está disponible en línea: ni sus lugares ni su mapa se pueden descargar.';
+	@override String offlineWithRegion({required Object name}) => 'Los lugares de aquí vienen con la región ${name}.';
+	@override String offlineRegionComing({required Object name}) => 'Los lugares de aquí llegarán con la región ${name} cuando vuelva la conexión.';
 }
 
 // Path: home
@@ -1655,6 +1657,7 @@ class _Translations$offlineMaps$es extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Sin conexión: descarga una región para la próxima vez';
 	@override String get noticeOnline => 'Sin conexión: el mapa necesita conexión';
 	@override String get noticeOnlineOnly => 'Sin conexión: esta zona solo está disponible en línea';
+	@override String noticePlacesWithRegion({required Object name}) => 'Sin conexión: lugares de esta zona con la región ${name}, mapa solo en línea';
 	@override String get noticePlacesMapOnline => 'Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea';
 	@override String get placesTitle => 'Lugares';
 	@override String get placesHint => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.';
@@ -4387,6 +4390,8 @@ extension on TranslationsEs {
 			'list.offlineTitle' => 'Sin conexión',
 			'list.offlineNotHere' => 'Nada de esta zona en este dispositivo.',
 			'list.offlineOnlineOnly' => 'Esta zona solo está disponible en línea: ni sus lugares ni su mapa se pueden descargar.',
+			'list.offlineWithRegion' => ({required Object name}) => 'Los lugares de aquí vienen con la región ${name}.',
+			'list.offlineRegionComing' => ({required Object name}) => 'Los lugares de aquí llegarán con la región ${name} cuando vuelva la conexión.',
 			'home.title' => 'Casa',
 			'home.setTitle' => 'Definir mi casa',
 			'home.error' => 'No se ha podido cargar tu casa.',
@@ -4537,10 +4542,10 @@ extension on TranslationsEs {
 			'profile.creditsMap' => 'Mapa base',
 			'profile.creditsApp' => 'Aplicación',
 			'profile.attributionDatatourisme' => 'Lugares, descripciones y fotos de las oficinas de turismo: DATAtourisme, bajo Licence Ouverte 2.0; cada texto y cada foto indica su oficina, su autor y la fecha de su última actualización.',
-			'profile.attributionCommunity' => 'Reseñas, valoraciones y fotos de los viajeros de Lunaway, bajo licencia CC BY 4.0, con el seudónimo de su autor.',
-			'profile.attributionCommons' => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, dominio público, CC BY o CC BY-SA), con su autor y un enlace a su página.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionCommunity' => 'Reseñas, valoraciones y fotos de los viajeros de Lunaway, bajo licencia CC BY 4.0, con el seudónimo de su autor.',
+			'profile.attributionCommons' => 'Fotos de Wikimedia Commons, cada una bajo su propia licencia (CC0, dominio público, CC BY o CC BY-SA), con su autor y un enlace a su página.',
 			'profile.attributionPanoramax' => 'Vistas de la calle de Panoramax: instancia de OpenStreetMap France bajo licencia CC BY-SA 4.0, instancia del IGN bajo Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extractos de artículos de Wikipedia, bajo licencia CC BY-SA 4.0, con un enlace al artículo.',
 			'profile.attributionMangrove' => 'Reseñas de Mangrove Reviews, bajo licencia CC BY 4.0 o la licencia que indique la reseña, con un enlace a la reseña.',
@@ -5051,10 +5056,10 @@ extension on TranslationsEs {
 			'poi.kind.beekeeper' => 'Apicultor',
 			'poi.kind.dentist' => 'Dentista',
 			'poi.kind.clinic' => 'Clínica',
-			'poi.kind.physiotherapist' => 'Fisioterapeuta',
-			'poi.kind.laboratory' => 'Laboratorio clínico',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.physiotherapist' => 'Fisioterapeuta',
+			'poi.kind.laboratory' => 'Laboratorio clínico',
 			'poi.kind.nurse' => 'Enfermería',
 			'poi.kind.midwife' => 'Matrona',
 			'poi.kind.podiatrist' => 'Podólogo',
@@ -5441,6 +5446,7 @@ extension on TranslationsEs {
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',
 			'offlineMaps.noticeOnline' => 'Sin conexión: el mapa necesita conexión',
 			'offlineMaps.noticeOnlineOnly' => 'Sin conexión: esta zona solo está disponible en línea',
+			'offlineMaps.noticePlacesWithRegion' => ({required Object name}) => 'Sin conexión: lugares de esta zona con la región ${name}, mapa solo en línea',
 			'offlineMaps.noticePlacesMapOnline' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea',
 			'offlineMaps.placesTitle' => 'Lugares',
 			'offlineMaps.placesHint' => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.',

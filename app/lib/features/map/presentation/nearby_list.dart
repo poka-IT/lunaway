@@ -171,7 +171,13 @@ class _EmptyList extends ConsumerWidget {
     // Offline, and the places of the view are not on the device: no
     // connection, said at once (the list's title says it), and where to
     // keep a region for next time.
-    if (offlineHere(ref)) return _OfflineHere(region: ref.watch(viewRegionProvider)?.code);
+    if (offlineHere(ref)) {
+      // Over an island no outline holds, the list remembers the region its
+      // places come with, and offers it once the network is back.
+      final region =
+          ref.watch(viewRegionProvider)?.code ?? ref.watch(outlyingRegionProvider).region?.code;
+      return _OfflineHere(region: region);
+    }
     final count = ref.watch(placeCountProvider);
     // A count that failed says nothing of a download: the list itself
     // answered, empty, so it is the area or the filters.
@@ -265,6 +271,18 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
     // download that does not exist.
     final onlineOnly = ref.watch(viewOnlineOnlyProvider);
     final maps = ref.watch(keepsPlacesProvider) && !onlineOnly;
+    // Unless its places come with a region of the catalogue, though no
+    // offline map holds it (Åland with Finland, Svalbard with Norway):
+    // said so, with that region to download. Nothing is said while that
+    // is not known yet, rather than that nothing downloads.
+    final outlying = onlineOnly ? ref.watch(outlyingRegionProvider) : null;
+    if (outlying != null && !outlying.known) return const SizedBox.shrink();
+    final region = switch (outlying?.region) {
+      final here? => ref.watch(regionCatalogControllerProvider).value?.byCode(here.code),
+      null => null,
+    };
+    final coming = outlying?.region?.kept ?? false;
+    final pack = region?.pack;
     // Words and action close under the list's title: on a phone the sheet
     // rests low over the map, and all of it shows above the dock.
     return Align(
@@ -278,11 +296,32 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                onlineOnly ? t.list.offlineOnlineOnly : t.list.offlineNotHere,
+                region == null
+                    ? (onlineOnly ? t.list.offlineOnlineOnly : t.list.offlineNotHere)
+                    : coming
+                    ? t.list.offlineRegionComing(name: t.regionName(region))
+                    : t.list.offlineWithRegion(name: t.regionName(region)),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (region != null && !coming) ...[
+                const SizedBox(height: Space.s),
+                OutlinedButton.icon(
+                  onPressed: () => unawaited(
+                    ref.read(keptRegionsControllerProvider.notifier).add({region.code}),
+                  ),
+                  icon: const Icon(AppIcons.download),
+                  label: Text(
+                    pack == null
+                        ? t.regions.downloadThis
+                        : t.offlineMaps.downloadNamed(
+                            name: t.regionName(region),
+                            size: t.fileSize(pack.bytes),
+                          ),
+                  ),
+                ),
+              ],
               if (maps) ...[
                 const SizedBox(height: Space.s),
                 OutlinedButton.icon(
@@ -316,7 +355,7 @@ class _MissedRegionPrompt extends ConsumerWidget {
     }
     final missed = ref.watch(missedRegionsProvider);
     if (missed.isEmpty) return const SizedBox.shrink();
-    final here = ref.watch(viewRegionProvider);
+    final here = ref.watch(viewRegionProvider) ?? ref.watch(outlyingRegionProvider).region;
     final region = here == null || here.kept || !missed.contains(here.code)
         ? null
         : ref.watch(regionCatalogControllerProvider).value?.byCode(here.code);

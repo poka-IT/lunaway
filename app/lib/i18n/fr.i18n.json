@@ -1081,7 +1081,9 @@
     "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte",
     "offlineTitle": "Pas de connexion",
     "offlineNotHere": "Rien de cette zone sur cet appareil.",
-    "offlineOnlineOnly": "Cette zone n'est disponible qu'en ligne : ni ses lieux ni sa carte ne se téléchargent."
+    "offlineOnlineOnly": "Cette zone n'est disponible qu'en ligne : ni ses lieux ni sa carte ne se téléchargent.",
+    "offlineWithRegion": "Les lieux d'ici viennent avec la région $name.",
+    "offlineRegionComing": "Les lieux d'ici viendront avec la région $name, au retour du réseau."
   },
   "home": {
     "title": "Domicile",
@@ -2304,6 +2306,7 @@
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
     "noticeOnline": "Hors ligne : la carte a besoin du réseau",
     "noticeOnlineOnly": "Hors ligne : cette zone n'est disponible qu'en ligne",
+    "noticePlacesWithRegion": "Hors ligne : lieux de cette zone avec la région $name, carte en ligne seulement",
     "noticePlacesMapOnline": "Hors ligne : lieux sur l'appareil, carte de cette zone en ligne seulement",
     "placesTitle": "Lieux",
     "placesHint": "Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.",

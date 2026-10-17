@@ -246,7 +246,13 @@ online only, over the map and in the list, with no way to a download
 no outline holds (Åland, Svalbard, Kastellorizo) is far from them too:
 when the device holds places in that area (`placesAroundView`), the line
 over the map says its places are on the device and only its map is
-online, and the list reads as anywhere the places are kept. The regions
+online, and the list reads as anywhere the places are kept. When it holds
+none, the country under the view, read on the device by the guidance
+library's boundaries and mapped as the server maps a territory
+(`outlyingRegion`: `AX` to `FI`, `SJ` to `NO`), names the region its
+places come with: the line and the list say they download with that
+region, the list offers it, and once the network is back it offers it
+again as a region missed. The regions
 downloaded update on an unmetered network (Android's
 `isActiveNetworkMetered`, iOS's `isExpensive` or `isConstrained`) unless
 the user allows mobile data (`region_updates_mobile`) or asks for the

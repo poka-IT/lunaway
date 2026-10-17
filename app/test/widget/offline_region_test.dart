@@ -9,6 +9,8 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
+import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -23,6 +25,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 
 import '../helpers/fakes.dart';
+import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -70,6 +73,60 @@ final _catalog = RegionCatalog([
     pack: _pack(3526038, 19214),
   ),
 ]);
+
+const _finlandBytes = 2416871;
+
+/// The catalogue with two countries that sync islands no outline of the
+/// offline maps holds: Åland with Finland, Svalbard with Norway.
+final _withIslands = RegionCatalog([
+  ..._catalog.regions,
+  RegionInfo(
+    code: 'FI',
+    country: 'FI',
+    name: 'Finland',
+    nameFr: 'Finlande',
+    pack: _pack(_finlandBytes, 5210),
+  ),
+  RegionInfo(
+    code: 'NO',
+    country: 'NO',
+    name: 'Norway',
+    nameFr: 'Norvège',
+    pack: _pack(4101233, 9876),
+  ),
+]);
+
+/// The countries as the guidance library's boundaries name them: Åland
+/// and Svalbard by their own codes, as the server's `country_at` does.
+final _islands = FakeCountries(
+  (p) => p.lat > 76
+      ? 'SJ'
+      : p.lat > 59.9 && p.lon < 21.2
+      ? 'AX'
+      : p.lat < 42
+      ? 'TR'
+      : null,
+);
+
+final Override _islandCountries = countryLocatorProvider.overrideWith((ref) async => _islands);
+
+const _mariehamn = MapViewport(
+  bounds: GeoBounds(south: 60.05, west: 19.85, north: 60.15, east: 20.05),
+  center: LatLng(60.1, 19.94),
+  zoom: 12,
+);
+
+const _longyearbyen = MapViewport(
+  bounds: GeoBounds(south: 78.18, west: 15.5, north: 78.26, east: 15.8),
+  center: LatLng(78.22, 15.65),
+  zoom: 12,
+);
+
+const _istanbul = MapViewport(
+  bounds: GeoBounds(south: 40.85, west: 28.7, north: 41.17, east: 29.24),
+  center: LatLng(41.01, 28.97),
+  zoom: 11,
+);
 
 const _rennes = LatLng(48.11, -1.68);
 
@@ -234,6 +291,139 @@ void main() {
         );
       },
     );
+
+    testWidgets('on Åland and on Svalbard, outside every offline map, says their places come '
+        'with Finland and Norway and downloads the region on a tap', (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        places: const [],
+        reachable: false,
+        regions: _withIslands,
+        map: FakeMap()..viewport = _mariehamn,
+        overrides: [..._quietSync(_Quiet()), _islandCountries],
+      );
+      await settleShort(tester);
+      expect(find.text('Pas de connexion'), findsOneWidget);
+      expect(
+        find.text("Les lieux d'ici viennent avec la région Finlande."),
+        findsOneWidget,
+        reason: "Åland's places sync with Finland",
+      );
+      expect(
+        find.text(
+          "Cette zone n'est disponible qu'en ligne : ni ses lieux ni sa carte ne se téléchargent.",
+        ),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Hors ligne : lieux de cette zone avec la région Finlande, carte en ligne seulement',
+        ),
+        findsOneWidget,
+        reason: 'the line over the map says it too',
+      );
+      // Remembered, so the list offers it again once the network is back.
+      expect(app.container(tester).read(missedRegionsProvider), {'FI'});
+
+      final download = find.widgetWithText(
+        OutlinedButton,
+        t.offlineMaps.downloadNamed(name: 'Finlande', size: t.fileSize(_finlandBytes)),
+      );
+      // The sheet raised over the map, as a thumb would.
+      await tester.drag(find.text('Pas de connexion'), const Offset(0, -300));
+      await settleShort(tester);
+      expect(download.hitTestable(), findsOneWidget);
+      await tester.tap(download);
+      await settleShort(tester);
+      expect(await KeptRegionsStore(app.user).load(), contains('FI'));
+      expect(download, findsNothing, reason: 'kept: its places come with the network');
+      expect(
+        find.text("Les lieux d'ici viendront avec la région Finlande, au retour du réseau."),
+        findsOneWidget,
+      );
+
+      app.container(tester).read(viewportProvider.notifier).update(_longyearbyen);
+      await settleShort(tester);
+      expect(
+        find.text("Les lieux d'ici viennent avec la région Norvège."),
+        findsOneWidget,
+        reason: "Svalbard's places sync with Norway",
+      );
+      expect(
+        find.text(
+          'Hors ligne : lieux de cette zone avec la région Norvège, carte en ligne seulement',
+        ),
+        findsOneWidget,
+      );
+
+      // Istanbul: Turkey is no region of the catalogue, the area is online
+      // only.
+      app.container(tester).read(viewportProvider.notifier).update(_istanbul);
+      await settleShort(tester);
+      expect(
+        find.text(
+          "Cette zone n'est disponible qu'en ligne : ni ses lieux ni sa carte ne se téléchargent.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('viennent avec la région'), findsNothing);
+    });
+
+    testWidgets('on Åland, says nothing of the area while the countries are read, never that '
+        'nothing downloads', (tester) async {
+      final loaded = Completer<CountryLocator>();
+      await pumpLunaway(
+        tester,
+        places: const [],
+        reachable: false,
+        regions: _withIslands,
+        map: FakeMap()..viewport = _mariehamn,
+        overrides: [
+          ..._quietSync(_Quiet()),
+          countryLocatorProvider.overrideWith((ref) => loaded.future),
+        ],
+      );
+      await settleShort(tester);
+      expect(find.text('Pas de connexion'), findsOneWidget);
+      expect(find.textContaining("n'est disponible qu'en ligne"), findsNothing);
+      expect(find.textContaining('avec la région'), findsNothing);
+
+      loaded.complete(_islands);
+      await settleShort(tester);
+      expect(find.text("Les lieux d'ici viennent avec la région Finlande."), findsOneWidget);
+      expect(
+        find.text(
+          'Hors ligne : lieux de cette zone avec la région Finlande, carte en ligne seulement',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('back online on Åland, offers Finland, whose places it missed', (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        // The list beside the map, whole.
+        size: desktop,
+        places: const [],
+        reachable: false,
+        online: FakeOnlinePlaces(samplePlaces),
+        tilesFollowReachability: true,
+        regions: _withIslands,
+        map: FakeMap()..viewport = _mariehamn,
+        overrides: [..._quietSync(_Quiet()), _islandCountries],
+      );
+      await settleShort(tester);
+      expect(find.textContaining('viennent avec la région Finlande'), findsOneWidget);
+
+      app.container(tester).read(basemapReachabilityProvider.notifier).assume(reachable: true);
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(find.text("Finlande n'est pas sur cet appareil"), findsOneWidget);
+      final download = find.text('Télécharger cette région');
+      await tester.ensureVisible(download);
+      await tester.tap(download);
+      await settleShort(tester);
+      expect(await KeptRegionsStore(app.user).load(), contains('FI'));
+    });
 
     testWidgets('in a region the device holds, an empty list is the filters, not the network', (
       tester,

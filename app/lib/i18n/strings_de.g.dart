@@ -715,6 +715,8 @@ class _Translations$list$de extends Translations$list$en {
 	@override String get offlineTitle => 'Keine Verbindung';
 	@override String get offlineNotHere => 'Nichts aus diesem Gebiet auf diesem Gerät.';
 	@override String get offlineOnlineOnly => 'Dieses Gebiet ist nur online verfügbar: Weder seine Plätze noch seine Karte lassen sich herunterladen.';
+	@override String offlineWithRegion({required Object name}) => 'Die Plätze hier kommen mit der Region ${name}.';
+	@override String offlineRegionComing({required Object name}) => 'Die Plätze hier kommen mit der Region ${name}, sobald wieder eine Verbindung besteht.';
 }
 
 // Path: home
@@ -1655,6 +1657,7 @@ class _Translations$offlineMaps$de extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Offline: Laden Sie für das nächste Mal eine Region herunter';
 	@override String get noticeOnline => 'Offline: Die Karte braucht das Netz';
 	@override String get noticeOnlineOnly => 'Offline: Dieses Gebiet ist nur online verfügbar';
+	@override String noticePlacesWithRegion({required Object name}) => 'Offline: Plätze dieses Gebiets mit der Region ${name}, Karte nur online';
 	@override String get noticePlacesMapOnline => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nur online';
 	@override String get placesTitle => 'Plätze';
 	@override String get placesHint => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.';
@@ -4387,6 +4390,8 @@ extension on TranslationsDe {
 			'list.offlineTitle' => 'Keine Verbindung',
 			'list.offlineNotHere' => 'Nichts aus diesem Gebiet auf diesem Gerät.',
 			'list.offlineOnlineOnly' => 'Dieses Gebiet ist nur online verfügbar: Weder seine Plätze noch seine Karte lassen sich herunterladen.',
+			'list.offlineWithRegion' => ({required Object name}) => 'Die Plätze hier kommen mit der Region ${name}.',
+			'list.offlineRegionComing' => ({required Object name}) => 'Die Plätze hier kommen mit der Region ${name}, sobald wieder eine Verbindung besteht.',
 			'home.title' => 'Zuhause',
 			'home.setTitle' => 'Mein Zuhause festlegen',
 			'home.error' => 'Ihr Zuhause konnte nicht geladen werden.',
@@ -4537,10 +4542,10 @@ extension on TranslationsDe {
 			'profile.creditsMap' => 'Grundkarte',
 			'profile.creditsApp' => 'App',
 			'profile.attributionDatatourisme' => 'Plätze, Beschreibungen und Fotos der Touristeninformationen: DATAtourisme, unter der Licence Ouverte 2.0; jeder Text und jedes Foto nennt seine Touristeninformation, seinen Urheber und das Datum der letzten Aktualisierung.',
-			'profile.attributionCommunity' => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.',
-			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionCommunity' => 'Rezensionen, Bewertungen und Fotos der Reisenden von Lunaway, unter CC BY 4.0, mit dem Pseudonym ihrer Urheber.',
+			'profile.attributionCommons' => 'Fotos von Wikimedia Commons, jeweils unter ihrer eigenen Lizenz (CC0, gemeinfrei, CC BY oder CC BY-SA), mit Urheber und Link zur jeweiligen Seite.',
 			'profile.attributionPanoramax' => 'Straßenansichten von Panoramax: die Instanz von OpenStreetMap France unter CC BY-SA 4.0, die des IGN unter der Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Auszüge aus Wikipedia-Artikeln, unter CC BY-SA 4.0, mit Link zum Artikel.',
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
@@ -5051,10 +5056,10 @@ extension on TranslationsDe {
 			'poi.kind.beekeeper' => 'Imkerei',
 			'poi.kind.dentist' => 'Zahnarzt',
 			'poi.kind.clinic' => 'Klinik',
-			'poi.kind.physiotherapist' => 'Physiotherapie',
-			'poi.kind.laboratory' => 'Labor',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.physiotherapist' => 'Physiotherapie',
+			'poi.kind.laboratory' => 'Labor',
 			'poi.kind.nurse' => 'Pflegedienst',
 			'poi.kind.midwife' => 'Hebamme',
 			'poi.kind.podiatrist' => 'Podologie',
@@ -5441,6 +5446,7 @@ extension on TranslationsDe {
 			'offlineMaps.noticeNone' => 'Offline: Laden Sie für das nächste Mal eine Region herunter',
 			'offlineMaps.noticeOnline' => 'Offline: Die Karte braucht das Netz',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: Dieses Gebiet ist nur online verfügbar',
+			'offlineMaps.noticePlacesWithRegion' => ({required Object name}) => 'Offline: Plätze dieses Gebiets mit der Region ${name}, Karte nur online',
 			'offlineMaps.noticePlacesMapOnline' => 'Offline: Plätze auf dem Gerät, Karte dieses Gebiets nur online',
 			'offlineMaps.placesTitle' => 'Plätze',
 			'offlineMaps.placesHint' => 'Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.',

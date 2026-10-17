@@ -1428,6 +1428,12 @@ class Translations$list$en {
 
 	/// en: 'This area is only available online: neither its places nor its map can be downloaded.'
 	String get offlineOnlineOnly => 'This area is only available online: neither its places nor its map can be downloaded.';
+
+	/// en: 'The places here come with the region $name.'
+	String offlineWithRegion({required Object name}) => 'The places here come with the region ${name}.';
+
+	/// en: 'The places here will come with the region $name once the network is back.'
+	String offlineRegionComing({required Object name}) => 'The places here will come with the region ${name} once the network is back.';
 }
 
 // Path: home
@@ -3577,6 +3583,9 @@ class Translations$offlineMaps$en {
 
 	/// en: 'Offline: this area is only available online'
 	String get noticeOnlineOnly => 'Offline: this area is only available online';
+
+	/// en: 'Offline: this area's places come with the region $name, its map online only'
+	String noticePlacesWithRegion({required Object name}) => 'Offline: this area\'s places come with the region ${name}, its map online only';
 
 	/// en: 'Offline: places on the device, the map of this area online only'
 	String get noticePlacesMapOnline => 'Offline: places on the device, the map of this area online only';
@@ -8502,6 +8511,8 @@ extension on Translations {
 			'list.offlineTitle' => 'No connection',
 			'list.offlineNotHere' => 'Nothing of this area on this device.',
 			'list.offlineOnlineOnly' => 'This area is only available online: neither its places nor its map can be downloaded.',
+			'list.offlineWithRegion' => ({required Object name}) => 'The places here come with the region ${name}.',
+			'list.offlineRegionComing' => ({required Object name}) => 'The places here will come with the region ${name} once the network is back.',
 			'home.title' => 'Home',
 			'home.setTitle' => 'Set my home',
 			'home.error' => 'Your home could not be loaded.',
@@ -8652,10 +8663,10 @@ extension on Translations {
 			'profile.creditsMap' => 'Basemap',
 			'profile.creditsApp' => 'App',
 			'profile.attributionDatatourisme' => 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.',
-			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
-			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
+			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.',
 			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.',
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
@@ -9166,10 +9177,10 @@ extension on Translations {
 			'poi.kind.beekeeper' => 'Beekeeper',
 			'poi.kind.dentist' => 'Dentist',
 			'poi.kind.clinic' => 'Clinic',
-			'poi.kind.physiotherapist' => 'Physiotherapist',
-			'poi.kind.laboratory' => 'Medical laboratory',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.physiotherapist' => 'Physiotherapist',
+			'poi.kind.laboratory' => 'Medical laboratory',
 			'poi.kind.nurse' => 'Nurse',
 			'poi.kind.midwife' => 'Midwife',
 			'poi.kind.podiatrist' => 'Podiatrist',
@@ -9556,6 +9567,7 @@ extension on Translations {
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
 			'offlineMaps.noticeOnlineOnly' => 'Offline: this area is only available online',
+			'offlineMaps.noticePlacesWithRegion' => ({required Object name}) => 'Offline: this area\'s places come with the region ${name}, its map online only',
 			'offlineMaps.noticePlacesMapOnline' => 'Offline: places on the device, the map of this area online only',
 			'offlineMaps.placesTitle' => 'Places',
 			'offlineMaps.placesHint' => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.',

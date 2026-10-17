@@ -86,9 +86,20 @@ class _OfflineLine extends ConsumerWidget {
     // (Åland, Svalbard): its places are here, only its map is online.
     final placesAround = ref.watch(placesAroundViewProvider).value ?? false;
     final placesKept = onlineOnly && placesAround;
+    // Not kept yet, their places come with a region of the catalogue,
+    // which the page this line opens downloads. The line waits until that
+    // is known: a screen reader hears its first words only.
+    final outlying = onlineOnly && !placesKept ? ref.watch(outlyingRegionProvider) : null;
+    if (outlying != null && !outlying.known) return const SizedBox.shrink();
+    final region = switch (outlying?.region) {
+      final here? => ref.watch(regionCatalogControllerProvider).value?.byCode(here.code),
+      null => null,
+    };
     final mapDrawn = pack != null && !onlineOnly;
     final text = placesKept
         ? t.offlineMaps.noticePlacesMapOnline
+        : region != null
+        ? t.offlineMaps.noticePlacesWithRegion(name: t.regionName(region))
         : onlineOnly
         ? t.offlineMaps.noticeOnlineOnly
         : pack != null

@@ -1081,7 +1081,9 @@
     "rankedAmongNearestCentre": "Ordenados entre los $n lugares más cercanos al centro del mapa",
     "offlineTitle": "Sin conexión",
     "offlineNotHere": "Nada de esta zona en este dispositivo.",
-    "offlineOnlineOnly": "Esta zona solo está disponible en línea: ni sus lugares ni su mapa se pueden descargar."
+    "offlineOnlineOnly": "Esta zona solo está disponible en línea: ni sus lugares ni su mapa se pueden descargar.",
+    "offlineWithRegion": "Los lugares de aquí vienen con la región $name.",
+    "offlineRegionComing": "Los lugares de aquí llegarán con la región $name cuando vuelva la conexión."
   },
   "home": {
     "title": "Casa",
@@ -2304,6 +2306,7 @@
     "noticeNone": "Sin conexión: descarga una región para la próxima vez",
     "noticeOnline": "Sin conexión: el mapa necesita conexión",
     "noticeOnlineOnly": "Sin conexión: esta zona solo está disponible en línea",
+    "noticePlacesWithRegion": "Sin conexión: lugares de esta zona con la región $name, mapa solo en línea",
     "noticePlacesMapOnline": "Sin conexión: lugares en el dispositivo, mapa de esta zona solo en línea",
     "placesTitle": "Lugares",
     "placesHint": "Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.",

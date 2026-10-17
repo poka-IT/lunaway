@@ -727,6 +727,82 @@ final class ViewRegionProvider
 
 String _$viewRegionHash() => r'b6a37ef8d5232738f6cdcb0fda54ddb0a8abe21e';
 
+/// The region of the catalogue whose places cover the view where no
+/// offline map holds it ([viewOnlineOnly]): Åland's places sync with
+/// Finland, Svalbard's with Norway, Kastellorizo's with Greece, and no
+/// outline of those regions reaches them. Read from the country at the
+/// centre of the view, else within a kilometre of it, on the device
+/// ([countryLocator]), and mapped as the server maps a territory
+/// ([attachedRegions]). None over a country the catalogue leaves out
+/// (Turkey), at sea, wherever an offline map holds the view, and on a
+/// device that keeps no places. Read at once from the library once it has
+/// loaded, so a screen never says a wrong word first: until then it says
+/// nothing of the area.
+
+@ProviderFor(outlyingRegion)
+final outlyingRegionProvider = OutlyingRegionProvider._();
+
+/// The region of the catalogue whose places cover the view where no
+/// offline map holds it ([viewOnlineOnly]): Åland's places sync with
+/// Finland, Svalbard's with Norway, Kastellorizo's with Greece, and no
+/// outline of those regions reaches them. Read from the country at the
+/// centre of the view, else within a kilometre of it, on the device
+/// ([countryLocator]), and mapped as the server maps a territory
+/// ([attachedRegions]). None over a country the catalogue leaves out
+/// (Turkey), at sea, wherever an offline map holds the view, and on a
+/// device that keeps no places. Read at once from the library once it has
+/// loaded, so a screen never says a wrong word first: until then it says
+/// nothing of the area.
+
+final class OutlyingRegionProvider
+    extends $FunctionalProvider<OutlyingRegion, OutlyingRegion, OutlyingRegion>
+    with $Provider<OutlyingRegion> {
+  /// The region of the catalogue whose places cover the view where no
+  /// offline map holds it ([viewOnlineOnly]): Åland's places sync with
+  /// Finland, Svalbard's with Norway, Kastellorizo's with Greece, and no
+  /// outline of those regions reaches them. Read from the country at the
+  /// centre of the view, else within a kilometre of it, on the device
+  /// ([countryLocator]), and mapped as the server maps a territory
+  /// ([attachedRegions]). None over a country the catalogue leaves out
+  /// (Turkey), at sea, wherever an offline map holds the view, and on a
+  /// device that keeps no places. Read at once from the library once it has
+  /// loaded, so a screen never says a wrong word first: until then it says
+  /// nothing of the area.
+  OutlyingRegionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'outlyingRegionProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$outlyingRegionHash();
+
+  @$internal
+  @override
+  $ProviderElement<OutlyingRegion> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  OutlyingRegion create(Ref ref) {
+    return outlyingRegion(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(OutlyingRegion value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<OutlyingRegion>(value),
+    );
+  }
+}
+
+String _$outlyingRegionHash() => r'82e6aee3820b988058f5b6e637408044b10a789b';
+
 /// The state of each region held, and the places of each.
 
 @ProviderFor(regionStates)

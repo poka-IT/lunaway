@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
@@ -322,6 +323,46 @@ ViewRegion? viewRegion(Ref ref) {
   final kept = ref.watch(keptRegionsControllerProvider).value ?? const <String>{};
   final count = ref.watch(regionPlaceCountsProvider).value?[code] ?? 0;
   return (code: code, kept: kept.contains(code), held: kept.contains(code) && count > 0);
+}
+
+/// What `outlyingRegion` knows: the region, or none (a null `region` once
+/// `known`); not `known` while the guidance library that reads the
+/// countries loads, once per run.
+typedef OutlyingRegion = ({ViewRegion? region, bool known});
+
+/// The region of the catalogue whose places cover the view where no
+/// offline map holds it ([viewOnlineOnly]): Åland's places sync with
+/// Finland, Svalbard's with Norway, Kastellorizo's with Greece, and no
+/// outline of those regions reaches them. Read from the country at the
+/// centre of the view, else within a kilometre of it, on the device
+/// ([countryLocator]), and mapped as the server maps a territory
+/// ([attachedRegions]). None over a country the catalogue leaves out
+/// (Turkey), at sea, wherever an offline map holds the view, and on a
+/// device that keeps no places. Read at once from the library once it has
+/// loaded, so a screen never says a wrong word first: until then it says
+/// nothing of the area.
+@riverpod
+OutlyingRegion outlyingRegion(Ref ref) {
+  const none = (region: null, known: true);
+  if (!ref.watch(keepsPlacesProvider) || !ref.watch(viewOnlineOnlyProvider)) return none;
+  final catalog = ref.watch(regionCatalogControllerProvider).value;
+  if (catalog == null) return none;
+  final loading = ref.watch(countryLocatorProvider);
+  final locator = loading.value;
+  if (locator == null) return (region: null, known: loading.hasError);
+  final centre = (ref.watch(viewportProvider) ?? initialViewport).center;
+  final around = locator.around(centre);
+  for (final country in {?around.at, ...around.near}) {
+    final code = attachedRegions[country] ?? country;
+    // France syncs by its regions, which the outlines hold all of: a
+    // French point outside them names none.
+    if (code == 'FR' || catalog.byCode(code) == null) continue;
+    final kept = ref.watch(keptRegionsControllerProvider).value ?? const <String>{};
+    final count = ref.watch(regionPlaceCountsProvider).value?[code] ?? 0;
+    final keeps = kept.contains(code);
+    return (region: (code: code, kept: keeps, held: keeps && count > 0), known: true);
+  }
+  return none;
 }
 
 /// The state of each region held, and the places of each.

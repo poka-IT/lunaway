@@ -715,6 +715,8 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get offlineTitle => 'Pas de connexion';
 	@override String get offlineNotHere => 'Rien de cette zone sur cet appareil.';
 	@override String get offlineOnlineOnly => 'Cette zone n\'est disponible qu\'en ligne : ni ses lieux ni sa carte ne se téléchargent.';
+	@override String offlineWithRegion({required Object name}) => 'Les lieux d\'ici viennent avec la région ${name}.';
+	@override String offlineRegionComing({required Object name}) => 'Les lieux d\'ici viendront avec la région ${name}, au retour du réseau.';
 }
 
 // Path: home
@@ -1655,6 +1657,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
 	@override String get noticeOnlineOnly => 'Hors ligne : cette zone n\'est disponible qu\'en ligne';
+	@override String noticePlacesWithRegion({required Object name}) => 'Hors ligne : lieux de cette zone avec la région ${name}, carte en ligne seulement';
 	@override String get noticePlacesMapOnline => 'Hors ligne : lieux sur l\'appareil, carte de cette zone en ligne seulement';
 	@override String get placesTitle => 'Lieux';
 	@override String get placesHint => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.';
@@ -4387,6 +4390,8 @@ extension on TranslationsFr {
 			'list.offlineTitle' => 'Pas de connexion',
 			'list.offlineNotHere' => 'Rien de cette zone sur cet appareil.',
 			'list.offlineOnlineOnly' => 'Cette zone n\'est disponible qu\'en ligne : ni ses lieux ni sa carte ne se téléchargent.',
+			'list.offlineWithRegion' => ({required Object name}) => 'Les lieux d\'ici viennent avec la région ${name}.',
+			'list.offlineRegionComing' => ({required Object name}) => 'Les lieux d\'ici viendront avec la région ${name}, au retour du réseau.',
 			'home.title' => 'Domicile',
 			'home.setTitle' => 'Définir mon domicile',
 			'home.error' => 'Votre domicile n\'a pas pu s\'afficher.',
@@ -4537,10 +4542,10 @@ extension on TranslationsFr {
 			'profile.creditsMap' => 'Fond de carte',
 			'profile.creditsApp' => 'Application',
 			'profile.attributionDatatourisme' => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.',
-			'profile.attributionCommunity' => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.',
-			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, domaine public, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
 			_ => null,
 		} ?? switch (path) {
+			'profile.attributionCommunity' => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.',
+			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, domaine public, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
 			'profile.attributionPanoramax' => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.',
 			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
@@ -5051,10 +5056,10 @@ extension on TranslationsFr {
 			'poi.kind.beekeeper' => 'Apiculteur',
 			'poi.kind.dentist' => 'Dentiste',
 			'poi.kind.clinic' => 'Clinique, centre de santé',
-			'poi.kind.physiotherapist' => 'Kinésithérapeute',
-			'poi.kind.laboratory' => 'Laboratoire d\'analyses',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.physiotherapist' => 'Kinésithérapeute',
+			'poi.kind.laboratory' => 'Laboratoire d\'analyses',
 			'poi.kind.nurse' => 'Infirmier',
 			'poi.kind.midwife' => 'Sage-femme',
 			'poi.kind.podiatrist' => 'Pédicure-podologue',
@@ -5441,6 +5446,7 @@ extension on TranslationsFr {
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
 			'offlineMaps.noticeOnlineOnly' => 'Hors ligne : cette zone n\'est disponible qu\'en ligne',
+			'offlineMaps.noticePlacesWithRegion' => ({required Object name}) => 'Hors ligne : lieux de cette zone avec la région ${name}, carte en ligne seulement',
 			'offlineMaps.noticePlacesMapOnline' => 'Hors ligne : lieux sur l\'appareil, carte de cette zone en ligne seulement',
 			'offlineMaps.placesTitle' => 'Lieux',
 			'offlineMaps.placesHint' => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.',
